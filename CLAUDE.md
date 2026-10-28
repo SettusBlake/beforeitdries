@@ -42,6 +42,7 @@ Falten (zwei Monster spiegelsymmetrisch verschmelzen, auch mit Faltpartnern aus 
 ## Aktueller Stand (28.10.2026)
 - MVP gebaut: Launch-Screen, Fangen, Bogen, Malblatt mit Lasieren und Trockenzeit, Artname aus Kommentaren, täglicher Post per Scheduler
 - Offen: Spielkonzept Fassung 2 docs/entwuerfe/spielkonzept-vorschlag.md (Atelier: Mischrätsel, Gießen, einzigartige Karten, Rorschach-Benennen, Salon, Stile und Papiere) mit Entwurfsbildern stile-entwurf.png und atelier-entwurf.png, wartet auf Freigabe. Fassung 1 (Kampf 3 gegen 3) abgelehnt am 28.10.2026
+- Kampf: gewünscht, aber anders (28.10.2026). Vorschlag Farbschlacht docs/entwuerfe/farbschlacht-vorschlag.md mit spielbarem Prototyp https://claude.ai/artifact/TESUwotnDooSiEZMuwoPQ2, wartet auf Rückmeldung
 - Festgelegt am 28.10.2026: weitere Stile außer Aquarell, seltene Papiere, jedes Monster und jede Karte einzigartig, Drumherum spaßiger als reines Sammeln oder Kämpfen
 - App `beforeitdries` angelegt (28.10.2026, Konto u/Vegavild). Playtest v0.0.1.1 in r/beforeitdries: https://www.reddit.com/r/beforeitdries/?playtest=beforeitdries
 
