@@ -42,7 +42,7 @@ Falten (zwei Monster spiegelsymmetrisch verschmelzen, auch mit Faltpartnern aus 
 ## Aktueller Stand (28.10.2026)
 - MVP gebaut: Launch-Screen, Fangen, Bogen, Malblatt mit Lasieren und Trockenzeit, Artname aus Kommentaren, täglicher Post per Scheduler
 - Offen: Vorschlag docs/entwuerfe/reddit-paket-vorschlag.md (Analyse auf Before It Dries übertragen), wartet auf Freigabe
-- Noch nichts auf Reddit hochgeladen
+- App `beforeitdries` angelegt (28.10.2026, Konto u/Vegavild). Playtest v0.0.1.1 in r/beforeitdries: https://www.reddit.com/r/beforeitdries/?playtest=beforeitdries
 
 ## Arbeitsweise
 - Vor jedem Meilenstein einen kurzen Plan zeigen und auf Freigabe warten
