@@ -10,6 +10,7 @@ import type { DuelResponse } from '../shared/api';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
+import { tutorialAction, tutorialActive } from '../shared/duel/tutorial';
 import * as R from '../shared/duel/rules';
 import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, S, WATER_MAX, type Action, type Ev, type Face, type Level, type Side, type Unit } from '../shared/duel/rules';
 import { renderMonster } from './renderer/watercolor';
@@ -73,6 +74,9 @@ const phase = () => (S.teams.length ? S.phase : 'opening');
 const myTurn = () => !busy && !S.over && S.turn === 1;
 const curPig = (u: Unit): PigmentId => (useSec && u.sec ? u.sec : u.m.main);
 const placing = () => (phase() === 'opening' || phase() === 'summon') && summonU !== null;
+/** Im Lern-Duell ist nur der markierte Schritt antippbar */
+const tut = () => tutorialActive() && myTurn();
+const allowedEl = (e: Element): boolean => !tut() || (!!guideNow.el && e.matches(guideNow.el));
 const rgb = (p: PigmentId) => `rgb(${PIG[p].rgb})`;
 
 /* ---------- Server ---------- */
@@ -238,11 +242,42 @@ const TIPS: Record<string, string> = {
   palette: 'You are touching their palette. One Splash, one heart. It is safe only while one of their blots stands next to it.',
 };
 function tip(key: string): void {
-  if (seenTips.has(key) || !TIPS[key]) return;
+  if (S.tutorial > 0 || seenTips.has(key) || !TIPS[key]) return;
   seenTips.add(key);
   store.set('bid-duel-tips', [...seenTips].join(','));
   $('tip-text').textContent = TIPS[key]!;
   $('tip').hidden = false;
+}
+/* Lern-Duell: Sepia erklärt jeden neuen Teil, sobald er dran ist */
+const LESSONS: [string, () => boolean, string][] = [
+  ['welcome', () => phase() === 'opening' && !summonU, 'This is the sheet, and I am Master Sepia. Today you duel my apprentice. I will tell you exactly what to tap: always the gold ring.'],
+  ['bag', () => phase() === 'opening' && !summonU, 'Down there is your bag: six dice. Every blot is a die, its sides come from the blot itself. Tap ⓘ on a die to see the net it unfolds into.'],
+  ['net', () => phase() === 'opening' && !!summonU, 'A net must touch your own paint. Turn it until it fits, then tap where the blot should stand. Tap there once more to unfold it.'],
+  ['rival', () => phase() === 'roll' && S.round === 1, 'The apprentice unfolded first, up there by its palette. Each palette has three hearts. Break theirs, or cover more paper than them when it dries after six rounds.'],
+  ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice. I picked three for you. Roll them.'],
+  ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Brush pays for a stamp, Splash for a hit, Guard blocks a hit by itself, two Glow buy an ability. I lent you two Glow.'],
+  ['summon', () => phase() === 'summon', 'Stars bring blots out. A die may unfold if the other dice show stars worth at least its level. This one qualifies.'],
+  ['move', () => phase() === 'act' && !sel && ['move', 'act'].includes(tutorialAction()?.k ?? ''), 'Each blot moves once and acts once per turn. Your own paint is the fast road. Bare paper and rival paint cost double.'],
+  ['palette', () => { const a = tutorialAction(); return a?.k === 'act' && a.a === 'splash' && a.at === S.teams[1].home; }, 'Their palette is unguarded. One splash, one heart. A palette is only safe while one of its own blots stands next to it.'],
+  ['stamp', () => { const a = tutorialAction(); return a?.k === 'act' && (a.a === 'dry' || a.a === 'wet'); }, 'A stamp paints the blot’s shape. Dry paint covers dried paint if your Opacity beats their Grain. Wet paint costs a drop of water and spreads next round, but slides off dry paint.'],
+  ['splash', () => { const a = tutorialAction(); return a?.k === 'act' && a.a === 'splash'; }, 'Splash hits a rival in reach: your Saturation plus a d20 against its Grain plus a d20. Complementary colours hit harder and stain.'],
+  ['ability', () => { const a = tutorialAction(); return a?.k === 'act' && a.a === 'ability'; }, 'Two Glow buy an ability. Every blueprint has its own. You can read them on the dice cards.'],
+  ['soak', () => { const a = tutorialAction(); return a?.k === 'act' && a.a === 'soak'; }, 'Soak is free. It heals, rinses stains and gives a drop of water.'],
+  ['end', () => tutorialAction()?.k === 'end', 'Nothing more worth doing. End your turn and watch the apprentice. Tap the sheet if it is too slow for you.'],
+  ['eraser', () => S.round >= 3 && phase() === 'roll', 'Did you see the Eraser? Someone keeps wiping rows of my sheet. Lightfastness protects paint and blots.'],
+  ['free', () => S.round > S.tutorial && !S.over, 'That is all I can teach without doing it for you. Finish the duel on your own. The gold ring stays, if you want it.'],
+];
+let lessonsSeen = new Set((store.get('bid-duel-lessons') ?? '').split(',').filter(Boolean));
+function lessonCheck(): void {
+  if (S.tutorial <= 0 || busy || screen !== 'game' || S.turn !== 1 || !$('tip').hidden) return;
+  for (const [key, cond, text] of LESSONS) {
+    if (lessonsSeen.has(key) || !cond()) continue;
+    lessonsSeen.add(key);
+    store.set('bid-duel-lessons', [...lessonsSeen].join(','));
+    $('tip-text').textContent = text;
+    $('tip').hidden = false;
+    return;
+  }
 }
 function tipForPhase(): void {
   const p = phase();
@@ -338,9 +373,11 @@ function dieChip(u: Unit): HTMLElement {
   const b = el('button', `chip st-${st}` + (chosen.has(u.id) && p === 'roll' ? ' chosen' : '') + (summonU === u ? ' sel' : '')) as HTMLButtonElement;
   b.type = 'button';
   const pickable = myTurn() && ((p === 'roll' && st !== 'gone') || (p === 'opening' && st === 'bag'));
+  b.dataset.id = String(u.id);
   b.append(portraitEl(u.id, 30, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('span', 'st', st === 'bag' ? 'bag' : st === 'sheet' ? 'sheet' : 'lost'), el('span', 'info', 'i'));
   b.addEventListener('click', (ev) => {
     if ((ev.target as HTMLElement).closest('.info') || !pickable) return openInspect(u);
+    if (!allowedEl(b)) return;
     sfx.tap();
     if (p === 'roll') {
       if (chosen.has(u.id)) chosen.delete(u.id);
@@ -370,8 +407,10 @@ function renderCtx(): void {
       const b = el('button', 'rchip' + (ok ? ' can' : '') + (summonU === r.u ? ' sel' : '')) as HTMLButtonElement;
       b.type = 'button';
       b.disabled = !ok;
+      b.dataset.id = String(r.u.id);
       b.append(html('span', 'rf', iconSvg(r.face, 26)), portraitEl(r.u.id, 22), el('small', '', R.faceText(r.face)));
       b.addEventListener('click', () => {
+        if (!allowedEl(b)) return;
         sfx.tap();
         summonU = r.u;
         orient = 0;
@@ -397,6 +436,7 @@ function renderCtx(): void {
       b.disabled = busy || !sel || !R.canAct(sel, a) || (a === 'splash' && R.splashCells(sel).length === 0) || (a === 'ability' && R.abilityTargets(sel).length === 0);
       b.append(el('b', '', label), el('small', '', sub));
       b.addEventListener('click', () => {
+        if (!allowedEl(b)) return;
         sfx.tap();
         action = a;
         target = null;
@@ -543,6 +583,7 @@ function renderAll(): void {
   renderGo();
   renderHint();
   applyGuide();
+  lessonCheck();
 }
 
 /* ---------- Hervorhebungen auf dem Blatt ---------- */
@@ -671,7 +712,46 @@ function bestAnchor(u: Unit): number | null {
   }
   return best;
 }
+/** Im Lern-Duell: der vorgegebene Schritt, zerlegt in einzelne Tipps */
+function tutorialGuide(): { cell?: number; el?: string } {
+  const exp = tutorialAction();
+  if (!exp) return {};
+  const pos = (id: number) => {
+    const u = R.unitById(id);
+    return u ? R.idx(u.x, u.y) : undefined;
+  };
+  switch (exp.k) {
+    case 'open':
+    case 'summon':
+      if (summonU?.id !== exp.id) return { el: exp.k === 'open' ? `#ctx .chip[data-id="${exp.id}"]` : `#ctx .rchip[data-id="${exp.id}"]` };
+      if (orient !== exp.o) return { el: '#aux' };
+      if (anchor !== exp.at) return { cell: exp.at };
+      return { el: '#go' };
+    case 'roll': {
+      const missing = exp.ids.find((id) => !chosen.has(id));
+      if (missing !== undefined) return { el: `#ctx .chip[data-id="${missing}"]` };
+      return { el: '#go' };
+    }
+    case 'skip':
+    case 'end':
+      return { el: '#end' };
+    case 'move':
+      if (sel?.id !== exp.id) return { cell: pos(exp.id) };
+      return { cell: exp.to };
+    case 'act': {
+      if (sel?.id !== exp.id) return { cell: pos(exp.id) };
+      if (!moved) return { cell: pos(exp.id) };
+      if (action !== exp.a) return { el: `#ctx .act[data-a="${exp.a}"]` };
+      if ((exp.a === 'dry' || exp.a === 'wet' || exp.a === 'splash') && curPig(sel) !== exp.pig) return { el: '#aux' };
+      const needsTarget = exp.a === 'dry' || exp.a === 'wet' || exp.a === 'splash' || (exp.a === 'ability' && ABILITY[sel.m.bp].target !== 'self');
+      if (needsTarget && exp.at !== null && target !== exp.at) return { cell: exp.at };
+      return { el: '#go' };
+    }
+  }
+  return {};
+}
 function computeGuide(): { cell?: number; el?: string } {
+  if (tut() && screen === 'game') return tutorialGuide();
   if (!hints || !myTurn() || screen !== 'game') return {};
   const p = phase();
   if (p === 'opening' || p === 'summon') {
@@ -726,6 +806,7 @@ board.addEventListener('click', (e) => {
   const i = R.idx(x, y);
   const u = R.unitAt(x, y);
   const p = phase();
+  if (tut() && guideNow.cell !== i) return;
   if (placing()) {
     const list = R.netAt(summonU!, orient, i);
     if (list && R.validNet(1, list)) {
@@ -847,6 +928,7 @@ async function skipSummon(): Promise<void> {
 $('go').addEventListener('click', () => {
   if (busy) return;
   if (S.over) return void startDuel();
+  if (!allowedEl($('go'))) return;
   if (!myTurn()) return;
   if (placing()) return void unfold();
   if (phase() === 'roll') return void doRoll();
@@ -859,7 +941,7 @@ $('go').addEventListener('click', () => {
   void commit();
 });
 $('aux').addEventListener('click', () => {
-  if (busy) return;
+  if (busy || !allowedEl($('aux'))) return;
   sfx.tap();
   if (placing()) {
     orient = (orient + 1) % 8;
@@ -868,7 +950,7 @@ $('aux').addEventListener('click', () => {
   renderAll();
 });
 $('end').addEventListener('click', () => {
-  if (busy) return;
+  if (busy || !allowedEl($('end'))) return;
   sfx.tap();
   if (phase() === 'summon') return void skipSummon();
   void endTurn();
@@ -940,6 +1022,7 @@ async function finishDuel(): Promise<void> {
   $('result').className = S.winner === 1 ? 'overlay win' : 'overlay';
   if (S.winner === 1) sfx.win();
   else sfx.lose();
+  if (S.tutorial > 0) store.set('bid-duel-learned', '1');
 }
 
 function showScreen(id: 'title' | 'game'): void {
@@ -967,15 +1050,19 @@ function resetUi(): void {
   chosen = new Set();
 }
 
-async function startDuel(): Promise<void> {
+async function startDuel(tutorial = false): Promise<void> {
   initAudio();
   resetUi();
   showScreen('game');
   View.reset();
   S.teams = [] as unknown as typeof S.teams;
   busy = true;
-  showBanner('Paint duel', 'big');
-  const ok = await request(api.duelStart(level), () => layout());
+  if (tutorial) {
+    lessonsSeen = new Set();
+    store.set('bid-duel-lessons', '');
+  }
+  showBanner(tutorial ? 'Lesson duel' : 'Paint duel', 'big');
+  const ok = await request(api.duelStart(level, tutorial), () => layout());
   if (!ok) {
     showScreen('title');
     return;
@@ -1042,6 +1129,7 @@ for (const id of ['sound-t', 'sound-m'])
     sfx.tap();
   });
 $('start').addEventListener('click', () => void startDuel());
+$('learn').addEventListener('click', () => void startDuel(true));
 $('continue').addEventListener('click', () => void resumeDuel());
 $('how-t').addEventListener('click', () => ($('rules').hidden = false));
 $('how-m').addEventListener('click', () => {
@@ -1074,6 +1162,7 @@ $('inspect').addEventListener('click', (e) => {
 $('tip-ok').addEventListener('click', () => {
   sfx.tap();
   $('tip').hidden = true;
+  lessonCheck();
 });
 $('again').addEventListener('click', () => void startDuel());
 $('to-title').addEventListener('click', () => {

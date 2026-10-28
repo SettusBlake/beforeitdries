@@ -33,7 +33,7 @@ export const api = {
   catchBlot: () => call<CatchResponse>('/api/catch', {}),
   glaze: (id: string, pigment: PigmentId) => call<GlazeResponse>('/api/glaze', { id, pigment }),
   duel: () => call<DuelResponse>('/api/duel'),
-  duelStart: (level: Level) => call<DuelResponse>('/api/duel/start', { level }),
+  duelStart: (level: Level, tutorial = false) => call<DuelResponse>('/api/duel/start', { level, tutorial }),
   duelAct: (action: DuelAction) => call<DuelResponse>('/api/duel/act', { action }),
 };
 

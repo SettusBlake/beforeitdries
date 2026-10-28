@@ -210,7 +210,7 @@ function traitsOf(m: Monster): Trait[] {
 export const has = (u: Unit, k: string) => u.traits.some((t) => t.key === k);
 
 export const mk = (sheet: string, idx: number) => makeMonster(sheet, idx, humidityFor(sheet));
-function find(bp: BlueprintId, main: PigmentId, salt: string, wantSec = false): Monster {
+export function find(bp: BlueprintId, main: PigmentId, salt: string, wantSec = false): Monster {
   for (let i = 0; i < 60000; i++) {
     const m = mk(salt + i, i % 12);
     if (m.bp === bp && m.main === main && (!wantSec || m.sec.length > 0)) return m;
@@ -317,6 +317,8 @@ export const S = {
   paintSeed: 0,
   phase: 'opening' as Phase,
   lastRoll: [] as { id: number; fi: number }[],
+  /** Lern-Duell: bis zu dieser Runde gibt Sepia jeden Schritt vor (0 = aus) */
+  tutorial: 0,
   log: [] as { t: string; c: string }[],
   tally: {} as Record<string, number>,
   events: [] as Ev[],
@@ -385,6 +387,7 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.paintSeed = paintSeed >>> 0;
   S.phase = 'opening';
   S.lastRoll = [];
+  S.tutorial = 0;
   uid = 0;
   S.cells = Array.from({ length: COLS * ROWS }, emptyCell);
   S.round = 1;
@@ -1386,6 +1389,33 @@ function aiSummon(side: Side, rolled: Rolled[], look: number, r: Rand): string |
   if (!cands.length) return null;
   const b = pickBest(cands, look, r, () => false);
   return doSummon(b.u, b.o, b.at);
+}
+/** Beste Lage für ein Netz, wie der Meister sie wählen würde */
+export function bestPlacement(u: Unit): { o: number; at: number } | null {
+  let best: { o: number; at: number } | null = null,
+    bv = -Infinity;
+  for (const p of placements(u)) {
+    const v = evalPlacement(u, p.list, p.at);
+    if (v > bv) {
+      bv = v;
+      best = { o: p.o, at: p.at };
+    }
+  }
+  return best;
+}
+/** Beste Eröffnung einer Seite: Würfel und Lage */
+export function bestOpening(side: Side): { u: Unit; o: number; at: number } | null {
+  let best: { u: Unit; o: number; at: number } | null = null,
+    bv = -Infinity;
+  for (const u of S.teams[side - 1]!.units)
+    for (const p of placements(u)) {
+      const v = evalPlacement(u, p.list, p.at) + power(u) / 20;
+      if (v > bv) {
+        bv = v;
+        best = { u, o: p.o, at: p.at };
+      }
+    }
+  return best;
 }
 export function aiOpening(side: Side, lvl: Level | number): void {
   const t = S.teams[side - 1]!;

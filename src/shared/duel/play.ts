@@ -3,6 +3,7 @@
  * und speichert. Jede Aktion wird vorher geprüft, der Client kann nichts erzwingen.
  */
 import type { PigmentId } from '../data';
+import { sameAction, tutorialAction, tutorialActive } from './tutorial';
 import {
   ABILITY,
   aiOpening,
@@ -69,6 +70,8 @@ export type DuelState = {
   paintSeed: number;
   stamp: number;
   log: { t: string; c: string }[];
+  /** Lern-Duell bis zu dieser Runde (0 = aus) */
+  tutorial: number;
 };
 /** Was der Server speichert */
 export type DuelSave = DuelState & { rng: number; gameSeed: number };
@@ -95,6 +98,7 @@ export function publicState(): DuelState {
     paintSeed: S.paintSeed,
     stamp: S.stamp,
     log: S.log.slice(0, 40),
+    tutorial: S.tutorial,
   };
 }
 export function saveState(): string {
@@ -116,6 +120,7 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSee
   S.paintSeed = s.paintSeed;
   S.stamp = s.stamp;
   S.log = s.log;
+  S.tutorial = s.tutorial ?? 0;
   S.rng = s.rng ?? 0;
   S.gameSeed = s.gameSeed ?? 0;
   S.events = [];
@@ -138,6 +143,11 @@ export function openDuel(): Ev[] {
 /** Eine Aktion des Spielers prüfen und ausführen */
 export function perform(a: DuelAction): Ev[] {
   if (S.over) bad('The duel is over.');
+  // Im Lern-Duell gilt nur der Schritt, den Sepia vorgibt
+  if (tutorialActive()) {
+    const exp = tutorialAction();
+    if (!exp || !sameAction(exp, a)) bad('Follow Master Sepia: tap the gold ring.');
+  }
   const me = S.teams[0];
   const own = (id: unknown) => {
     const u = typeof id === 'number' ? unitById(id) : null;

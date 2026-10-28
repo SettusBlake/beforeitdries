@@ -57,7 +57,7 @@ createServer(async (req, res) => {
       for await (const c of req) raw += c;
       const b = JSON.parse(raw || '{}');
       if (url.pathname === '/api/duel') return send(200, await duelGet(d, asUser));
-      if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level));
+      if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true));
       if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action));
     }
     if (url.pathname === '/api/glaze') {

@@ -105,7 +105,8 @@ app.get(
 app.post(
   '/api/duel/start',
   wrap(async (req, res) => {
-    res.json(await duelStart(await deps(), context.userId, (req.body as { level?: unknown } | undefined)?.level));
+    const body = (req.body ?? {}) as { level?: unknown; tutorial?: unknown };
+    res.json(await duelStart(await deps(), context.userId, body.level, body.tutorial === true));
   }),
 );
 

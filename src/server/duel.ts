@@ -5,6 +5,7 @@
 import type { DuelResponse } from '../shared/api';
 import { DuelError, loadState, openDuel, perform, publicState, saveState, type DuelAction, type DuelSave } from '../shared/duel/play';
 import { BAG, drain, mk, newGame, type Level } from '../shared/duel/rules';
+import { startTutorial, TUTORIAL_SEED, tutorialBags } from '../shared/duel/tutorial';
 import { GameError, withLock, type Deps } from './core';
 import { K } from './keys';
 
@@ -34,13 +35,20 @@ export async function duelGet(d: Deps, userId: string | undefined): Promise<Duel
   return freeze({ state: publicState(), events: [] });
 }
 
-export async function duelStart(d: Deps, userId: string | undefined, level: unknown): Promise<DuelResponse> {
+export async function duelStart(d: Deps, userId: string | undefined, level: unknown, tutorial = false): Promise<DuelResponse> {
   const uid = needUser(userId);
   const lv = LEVELS.find((l) => l === level) ?? 'apprentice';
   return withLock(d, `duel:${uid}`, async () => {
-    const bag = await bagOf(d, uid);
-    const rival = Array.from({ length: BAG }, () => mk(`rival-${d.rand().toString(36)}`, d.rand() % 12));
-    newGame(d.rand(), lv, bag.map((b) => mk(b.sheet, b.idx)), rival, d.rand());
+    if (tutorial) {
+      // Lern-Duell: fester Seed und feste Beutel, Sepia gibt die ersten Runden vor
+      const [mine, theirs] = tutorialBags();
+      newGame(TUTORIAL_SEED, 'apprentice', mine, theirs, TUTORIAL_SEED);
+      startTutorial();
+    } else {
+      const bag = await bagOf(d, uid);
+      const rival = Array.from({ length: BAG }, () => mk(`rival-${d.rand().toString(36)}`, d.rand() % 12));
+      newGame(d.rand(), lv, bag.map((b) => mk(b.sheet, b.idx)), rival, d.rand());
+    }
     const events = [...drain(), ...openDuel()];
     const out = freeze({ state: publicState(), events });
     const blob = saveState();

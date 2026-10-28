@@ -4,6 +4,7 @@ import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
+import { tutorialAction, tutorialActive } from '../src/shared/duel/tutorial';
 import { canMove, idx, living, placements, reach, ROLL_N, S, summonable, unitById, type Rolled } from '../src/shared/duel/rules';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
@@ -92,5 +93,33 @@ describe('Duell am Server', () => {
     expect(await code(duelAct(d, USER, { k: 'end' }))).toBe('bad_request');
     // Antworten bleiben klein genug für das Handy
     expect(biggest).toBeLessThan(400_000);
+  });
+
+  it('führt durch das Lern-Duell, immer gleich, und lässt nur Sepias Schritt zu', async () => {
+    const runs: string[] = [];
+    for (const seed of [3, 4]) {
+      const d = setup(seed);
+      let res = await duelStart(d, USER, 'master', true);
+      view(res);
+      expect(S.tutorial).toBeGreaterThan(0);
+      expect(S.level).toBe('apprentice');
+      // Ein anderer Schritt als der vorgegebene wird abgelehnt
+      const exp = tutorialAction()!;
+      expect(exp.k).toBe('open');
+      expect(await code(duelAct(d, USER, { ...exp, at: (exp as { at: number }).at === 0 ? 1 : 0 }))).toBe('bad_request');
+      const seen = new Set<string>();
+      let guard = 0;
+      while (tutorialActive() && guard++ < 100) {
+        const a = tutorialAction()!;
+        seen.add(a.k === 'act' ? a.a : a.k);
+        res = await duelAct(d, USER, a);
+        view(res);
+      }
+      for (const k of ['open', 'roll', 'summon', 'move', 'dry', 'wet', 'splash', 'ability', 'soak', 'end']) expect(seen.has(k)).toBe(true);
+      expect(S.teams[1].hearts).toBeLessThan(3);
+      runs.push(JSON.stringify(S.cells.map((c) => c.owner)));
+    }
+    // Feste Würfe: zwei Spieler erleben dasselbe Lern-Duell
+    expect(runs[0]).toBe(runs[1]);
   });
 });
