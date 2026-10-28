@@ -1,0 +1,28 @@
+/* Startbild des Spiel-Posts: Zeichentisch wie im Duell, bewusst nur hell */
+:root {
+  --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --sepia: #6e4b33;
+  --f-display: "Young Serif", Georgia, serif; --f-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; --f-hand: "Caveat", "Segoe Print", cursive;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--table); color: var(--ink); font-family: var(--f-body); }
+.p-wrap { height: 100%; max-width: 560px; margin: 0 auto; display: grid; grid-template-rows: minmax(90px, 1fr) auto auto; gap: 10px; justify-items: center; text-align: center;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 16px max(12px, env(safe-area-inset-bottom, 0px)); }
+.p-art { position: relative; width: 100%; max-width: 320px; height: 100%; min-height: 0; display: flex; justify-content: center; align-items: center; gap: 28px; }
+.pblot { border-radius: 10px; box-shadow: 0 0 0 4px #fffdf8, 0 14px 26px -12px rgba(30,25,20,.55); }
+.pblot.you { animation: floatA 4.2s ease-in-out infinite; }
+.pblot.rival { animation: floatB 4.6s ease-in-out infinite; }
+.vs { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 700 1.8rem var(--f-hand); color: var(--sepia); }
+@keyframes floatA { 0%, 100% { transform: translateY(0) rotate(-7deg); } 50% { transform: translateY(-6px) rotate(-4deg); } }
+@keyframes floatB { 0%, 100% { transform: translateY(-3px) rotate(6deg); } 50% { transform: translateY(5px) rotate(9deg); } }
+.p-text { display: grid; gap: 6px; justify-items: center; }
+.eyebrow { font: 600 11px/1 var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font: 400 clamp(1.7rem, 7vw, 2.3rem)/1 var(--f-display); margin: 0; }
+.quote { margin: 0; max-width: 30ch; font: 500 1.2rem/1.15 var(--f-hand); color: var(--sepia); }
+.quote small { display: block; font: 600 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+.p-act { display: grid; gap: 6px; justify-items: center; width: 100%; }
+.primary { border: 0; border-radius: 12px; background: var(--ink); color: var(--sheet); font: 800 18px var(--f-body); padding: 12px 18px; min-height: 50px; width: 100%; max-width: 300px; cursor: pointer; box-shadow: 0 6px 18px -8px rgba(29,33,48,.6); }
+.p-status { font: 12px/1.35 var(--f-mono); color: var(--muted); min-height: 1.35em; }
+@media (max-height: 380px) { .quote { display: none; } }
+@media (prefers-reduced-motion: reduce) { .pblot.you, .pblot.rival { animation: none; } }

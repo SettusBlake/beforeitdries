@@ -27,6 +27,8 @@ export const K = {
   duel: (userId: string) => `duel:${userId}`,
   /** Sorted Set aller Spieler mit Duell, Score = letzte Aktion */
   duelPlayers: 'duel:players',
+  /** String: ID des Spiel-Posts (Duell und Würfel) */
+  playPost: 'play:post',
   /** JSON der Würfelsammlung (DiceSave): Würfel, Beutel, Pigment, Schutz vor Pech, Lasur je Art */
   dice: (userId: string) => `dice:${userId}`,
   /** Sorted Set aller Spieler mit Würfelsammlung, Score = letzte Änderung */

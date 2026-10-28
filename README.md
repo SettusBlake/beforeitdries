@@ -10,7 +10,8 @@ Subreddit: [r/beforeitdries](https://www.reddit.com/r/beforeitdries/)
 - Spiel (`game`, ausgeklappt): Tagesklecks fangen, eigener Bogen als Kartenraster, Malblatt mit offener Werte-Tabelle, Lasieren über den Server, Trockenzeit
 - Namensvorschläge per Kommentar, um 00:01 UTC wird der bestbewertete gültige Vorschlag zum Artnamen
 - Täglicher Post per Scheduler, Mod-Menü zum Nachholen und zum sofortigen Benennen
-- Farbschlacht (`duel`, ausgeklappt, Knopf „Duel“ im Post): Würfelduell gegen einen Rivalen in drei Stufen, Lern-Duell mit Meisterin Sepia, der Server prüft und würfelt jede Aktion. Regeln: docs/entwuerfe/farbschlacht-vorschlag.md
+- Spiel-Post (`play`, inline): eigener, angepinnter Post fürs Duell. Wird bei Installation oder Update angelegt, falls es keinen gibt, Mod-Menü „post a new play post“ legt einen neuen an
+- Farbschlacht (`duel`, ausgeklappt, aus dem Spiel-Post oder Knopf „Duel“ im Tagespost): Würfelduell gegen einen Rivalen in drei Stufen, Lern-Duell mit Meisterin Sepia, der Server prüft und würfelt jede Aktion. Regeln: docs/entwuerfe/farbschlacht-vorschlag.md
 - Würfelsammlung: Ziehen mit offenem W100 und Schutz vor Pech, Seltenheit aus dem Papier, Beutel aus 6 Würfeln, Doppelte werden Lasur für Würfelseiten. Pigment nur durchs Spielen
 
 Noch nicht drin: Falten, Käufe (kein Pay-to-win), Verblassen von Opera-Rosa (nur Hinweistext).
@@ -35,12 +36,14 @@ src/client/
   lib/paint.ts           Mal-Warteschlange: erst bei Sichtbarkeit, Leistungsstufen
   splash.html/.ts        Launch-Screen
   game.html/.ts          Spiel
+  play.html/.ts          Startbild des Spiel-Posts
   duel.html/.ts          Farbschlacht und Würfelsammlung (duel/: Blatt, 3D-Würfel, Ton, Symbole, Sammlung)
 src/server/
   index.ts               Express-Routen: /api/* und /internal/*
   core.ts                Spiellogik am Server, alle Würfe hier
   duel.ts                Duelle: laden, Aktion prüfen und ausführen, speichern, Pigment beim Ende
   dice.ts                Würfelsammlung: Ziehen, Beutel, Lasur auf Würfelseiten
+  play.ts                Spiel-Post anlegen und anpinnen, Stand fürs Startbild
   keys.ts                Redis-Schlüssel
 prototype/               Abgenommener Browser-Prototyp als Referenz
 tests/                   Regeln gegen den Prototyp, Server-Logik
@@ -72,6 +75,7 @@ Der Client malt nur. Fangen, Würfe, Lasuren und Mutationen würfelt der Server 
 | `species:index` | Sorted Set | benannte Arten |
 | `species:names` | Hash | Name → Art, jeder Name nur einmal |
 | `locks` | Hash | kurze Sperren gegen doppelte Lasuren, Duell- und Würfelaktionen |
+| `play:post` | String | ID des Spiel-Posts |
 | `duel:{userId}` | String (JSON) | laufendes Duell mit Würfelzufall (bleibt am Server) |
 | `duel:players` | Sorted Set | Spieler mit Duell |
 | `dice:{userId}` | String (JSON) | Würfel (Bogen-Seed, Nummer, seltenes Papier, Lasuren), Beutel, Pigment, Schutz vor Pech, Lasur je Art, Startzüge, freier Tageszug, Belohnungen |
@@ -79,7 +83,7 @@ Der Client malt nur. Fangen, Würfe, Lasuren und Mutationen würfelt der Server 
 
 Das Bild wird nie gespeichert. Tagesklecks: Bogen-Seed ist das Datum (UTC), der Klecks ist Monster Nr. 1 dieses Bogens. Im Prototyp zeigt "Tagesbogen" also an Nr. 01 denselben Klecks (Prototyp nutzt die lokale Zeit).
 
-Endpunkte: `GET /api/init`, `GET /api/collection`, `POST /api/catch`, `POST /api/glaze`, `GET /api/duel`, `POST /api/duel/start`, `POST /api/duel/act`, `GET /api/dice`, `POST /api/dice/pull`, `POST /api/dice/bag`, `POST /api/dice/glaze`. Intern: Scheduler `daily-blot` (00:01 UTC), Trigger bei Installation, Mod-Menüs "post today's blot" und "adopt top name now".
+Endpunkte: `GET /api/init`, `GET /api/collection`, `POST /api/catch`, `POST /api/glaze`, `GET /api/play`, `GET /api/duel`, `POST /api/duel/start`, `POST /api/duel/act`, `GET /api/dice`, `POST /api/dice/pull`, `POST /api/dice/bag`, `POST /api/dice/glaze`. Intern: Scheduler `daily-blot` (00:01 UTC), Trigger bei Installation und Update, Mod-Menüs "post today's blot", "post a new play post" und "adopt top name now".
 
 Einstellung pro Subreddit: `dryHours` (Trockenzeit, Standard 8, für Playtests 0).
 

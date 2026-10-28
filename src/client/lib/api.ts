@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import type { CatchResponse, CollectionResponse, DiceResponse, DuelResponse, ErrorCode, ErrorResponse, GlazeResponse, InitResponse } from '../../shared/api';
+import type { CatchResponse, CollectionResponse, DiceResponse, DuelResponse, ErrorCode, ErrorResponse, GlazeResponse, InitResponse, PlayInfo } from '../../shared/api';
 import type { PullKind } from '../../shared/dice';
 import type { DuelAction } from '../../shared/duel/play';
 import type { Level } from '../../shared/duel/rules';
@@ -36,6 +36,7 @@ export const api = {
   duel: () => call<DuelResponse>('/api/duel'),
   duelStart: (level: Level, tutorial = false) => call<DuelResponse>('/api/duel/start', { level, tutorial }),
   duelAct: (action: DuelAction) => call<DuelResponse>('/api/duel/act', { action }),
+  play: () => call<PlayInfo>('/api/play'),
   dice: () => call<DiceResponse>('/api/dice'),
   dicePull: (kind: PullKind) => call<DiceResponse>('/api/dice/pull', { kind }),
   diceBag: (ids: string[]) => call<DiceResponse>('/api/dice/bag', { ids }),

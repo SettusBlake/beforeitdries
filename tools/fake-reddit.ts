@@ -2,15 +2,23 @@
 import type { CommentLike, RedditLike } from '../src/server/core';
 
 export class FakeReddit implements RedditLike {
-  posts: { id: string; title: string; postData: unknown }[] = [];
+  posts: { id: string; title: string; postData: unknown; entry?: string; sticky?: boolean }[] = [];
   comments = new Map<string, CommentLike[]>();
   appComments: { id: string; text: string }[] = [];
   private n = 0;
 
   async submitCustomPost(opts: Parameters<RedditLike['submitCustomPost']>[0]) {
     const id = `t3_fake${++this.n}`;
-    this.posts.push({ id, title: opts.title, postData: opts.postData });
+    this.posts.push({ id, title: opts.title, postData: opts.postData, ...(opts.entry ? { entry: opts.entry } : {}) });
     return { id, url: `https://www.reddit.com/r/${opts.subredditName}/comments/${id.slice(3)}/`, permalink: `/r/${opts.subredditName}/comments/${id.slice(3)}/` };
+  }
+  async getPostById(id: `t3_${string}`) {
+    const p = this.posts.find((x) => x.id === id);
+    return {
+      sticky: async () => {
+        if (p) p.sticky = true;
+      },
+    };
   }
   getComments(opts: { postId: `t3_${string}` }) {
     return { all: async () => [...(this.comments.get(opts.postId) ?? [])] };

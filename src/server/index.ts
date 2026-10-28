@@ -8,6 +8,7 @@ import { adoptTopName, catchBlot, dayInfo, dryMsFromHours, ensureDailyPost, Game
 import { diceBag, diceGet, diceGlaze, dicePull, payCatch } from './dice';
 import { duelAct, duelGet, duelStart } from './duel';
 import { K } from './keys';
+import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
 
 async function deps(): Promise<Deps> {
@@ -121,6 +122,15 @@ app.post(
   }),
 );
 
+/* ---------- Spiel-Post ---------- */
+
+app.get(
+  '/api/play',
+  wrap(async (_req, res) => {
+    res.json(await playInfo(await deps(), context.userId));
+  }),
+);
+
 /* ---------- Würfelsammlung ---------- */
 
 app.get(
@@ -167,6 +177,15 @@ app.post(
 );
 
 app.post(
+  '/internal/menu/post-play',
+  wrap(async (_req, res) => {
+    const r = await ensurePlayPost(await deps(), true);
+    const body: UiResponse = { showToast: { text: 'The play post is up and pinned.', appearance: 'success' }, ...(r.url ? { navigateTo: r.url } : {}) };
+    res.json(body);
+  }),
+);
+
+app.post(
   '/internal/menu/adopt-name',
   wrap(async (req, res) => {
     const d = await deps();
@@ -194,6 +213,21 @@ app.post(
   wrap(async (_req, res) => {
     const d = await deps();
     await ensureDailyPost(d);
+    await ensurePlayPost(d);
+    res.json({});
+  }),
+);
+
+/* Bei jedem Update (auch Playtest-Upload): Spiel-Post anlegen, falls es noch keinen gibt */
+app.post(
+  '/internal/triggers/on-app-upgrade',
+  wrap(async (_req, res) => {
+    const d = await deps();
+    try {
+      await ensurePlayPost(d);
+    } catch (e) {
+      console.error('ensurePlayPost', e);
+    }
     res.json({});
   }),
 );

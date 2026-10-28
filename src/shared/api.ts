@@ -34,6 +34,22 @@ export interface DayPostData {
   humidity: number;
 }
 
+/** postData des Spiel-Posts (Duell und Würfel) */
+export interface PlayPostData {
+  [key: string]: string | number;
+  kind: 'play';
+}
+
+/** Kurzer Stand für das Startbild des Spiel-Posts */
+export interface PlayInfo {
+  user: boolean;
+  /** Ein Duell läuft und lässt sich fortsetzen */
+  running: boolean;
+  starter: number;
+  freeReady: boolean;
+  pigment: number;
+}
+
 export interface DayInfo {
   day: string;
   humidity: number;

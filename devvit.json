@@ -13,6 +13,10 @@
       },
       "duel": {
         "entry": "duel.html"
+      },
+      "play": {
+        "entry": "play.html",
+        "height": "tall"
       }
     }
   },
@@ -36,6 +40,13 @@
         "endpoint": "/internal/menu/post-blot"
       },
       {
+        "label": "Before It Dries: post a new play post",
+        "description": "Creates and pins a new post for the paint duel and the dice",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-play"
+      },
+      {
         "label": "Before It Dries: adopt top name now",
         "description": "Names the species from the top comment right away",
         "location": "post",
@@ -46,7 +57,8 @@
     ]
   },
   "triggers": {
-    "onAppInstall": "/internal/triggers/on-app-install"
+    "onAppInstall": "/internal/triggers/on-app-install",
+    "onAppUpgrade": "/internal/triggers/on-app-upgrade"
   },
   "scheduler": {
     "tasks": {

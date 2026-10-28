@@ -10,6 +10,7 @@ import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMons
 import { diceBag, diceGet, diceGlaze, dicePull, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { K } from '../src/server/keys';
+import { ensurePlayPost, playInfo } from '../src/server/play';
 import { dayKey } from '../src/shared/day';
 import { dieSpecies, PITY } from '../src/shared/dice';
 import { secureUint32 } from '../src/server/rand';
@@ -35,6 +36,8 @@ for (const day of OLD) {
   reddit.addComment(old.postId, 'someone', day === OLD[0] ? 'Puddlemoth' : 'Gloamwick', 12);
   await adoptTopName(deps(), day);
 }
+
+await ensurePlayPost(deps());
 
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.woff': 'font/woff', '.map': 'application/json' };
 
@@ -62,6 +65,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true));
       if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action));
     }
+    if (url.pathname === '/api/play') return send(200, await playInfo(d, asUser));
     if (url.pathname.startsWith('/api/dice')) {
       let raw = '';
       for await (const c of req) raw += c;
