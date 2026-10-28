@@ -41,7 +41,7 @@ Falten (zwei Monster spiegelsymmetrisch verschmelzen, auch mit Faltpartnern aus 
 
 ## Aktueller Stand (28.10.2026)
 - MVP gebaut: Launch-Screen, Fangen, Bogen, Malblatt mit Lasieren und Trockenzeit, Artname aus Kommentaren, täglicher Post per Scheduler
-- Offen: Vorschlag docs/entwuerfe/reddit-paket-vorschlag.md (Analyse auf Before It Dries übertragen), wartet auf Freigabe
+- Offen: Spielkonzept docs/entwuerfe/spielkonzept-vorschlag.md (Kampf 3 gegen 3, Fangen als Kampf, Rand des Blatts, Pigmente) mit Entwurfsbild docs/entwuerfe/kampf-entwurf.png, wartet auf Freigabe. Es schließt den Vorschlag docs/entwuerfe/reddit-paket-vorschlag.md ein
 - App `beforeitdries` angelegt (28.10.2026, Konto u/Vegavild). Playtest v0.0.1.1 in r/beforeitdries: https://www.reddit.com/r/beforeitdries/?playtest=beforeitdries
 
 ## Arbeitsweise
