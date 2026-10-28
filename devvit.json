@@ -1,0 +1,73 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "beforeitdries",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "entry": "splash.html",
+        "height": "tall"
+      },
+      "game": {
+        "entry": "game.html"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "permissions": {
+    "redis": true,
+    "reddit": {
+      "enable": true
+    }
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Before It Dries: post today's blot",
+        "description": "Creates today's daily blot post if it is missing",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-blot"
+      },
+      {
+        "label": "Before It Dries: adopt top name now",
+        "description": "Names the species from the top comment right away",
+        "location": "post",
+        "forUserType": "moderator",
+        "postFilter": "currentApp",
+        "endpoint": "/internal/menu/adopt-name"
+      }
+    ]
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install"
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-blot": {
+        "endpoint": "/internal/scheduler/daily-blot",
+        "cron": "1 0 * * *"
+      }
+    }
+  },
+  "settings": {
+    "subreddit": {
+      "dryHours": {
+        "type": "number",
+        "label": "Drying time between glazes (hours)",
+        "helpText": "0 to 72. Default 8. Set to 0 for playtests.",
+        "defaultValue": 8
+      }
+    }
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
+  "dev": {
+    "subreddit": "beforeitdries"
+  }
+}

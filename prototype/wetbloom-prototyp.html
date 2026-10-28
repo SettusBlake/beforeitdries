@@ -1,0 +1,864 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><title>Wetbloom Entwurfsbogen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Young+Serif&display=swap">
+<style>
+/* Layout: Skizzenbuch auf dem Arbeitstisch. Kopf mit Bogen-Werkzeugen, darunter ein Raster aus Papierbögen; ein Bogen öffnet sich als Malblatt zum Lasieren. */
+:root{
+  --bg:#E3E6EA; --fg:#1D2130; --muted:#586073; --line:#C3C9D2;
+  --accent:#2B3FA3; --accent-ink:#FFFFFF;
+  --sheet:#FBFAF6; --sheet-ink:#1D2130; --sheet-muted:#626877; --sheet-line:#E4E2DB; --track:#ECEAE3;
+  --sepia-ink:#6E4B33; --ok:#2E7A57; --warn:#A86C12; --bad:#A33A3A;
+  --scrim:rgba(18,20,28,.55); --shadow:rgba(22,26,44,.14);
+  --f-display:"Young Serif", Georgia, "Times New Roman", serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --f-hand:"Caveat", "Segoe Print", "Bradley Hand", cursive;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161C; --fg:#E6E8EE; --muted:#9BA2B2; --line:#2D323E;
+    --accent:#8C9EF6; --accent-ink:#10132A;
+    --sheet:#EFEEE8; --sheet-line:#DAD8D0; --track:#E2E0D7;
+    --scrim:rgba(0,0,0,.68); --shadow:rgba(0,0,0,.5); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161C; --fg:#E6E8EE; --muted:#9BA2B2; --line:#2D323E;
+  --accent:#8C9EF6; --accent-ink:#10132A;
+  --sheet:#EFEEE8; --sheet-line:#DAD8D0; --track:#E2E0D7;
+  --scrim:rgba(0,0,0,.68); --shadow:rgba(0,0,0,.5); color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:28px 56px;
+}
+button{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.wrap{max-width:1240px; margin:0 auto}
+.top{display:flex; flex-wrap:wrap; gap:18px 36px; align-items:flex-end; justify-content:space-between}
+.brand h1{font-family:var(--f-display); font-weight:400; font-size:clamp(2.2rem, 6vw, 3.4rem); line-height:1; letter-spacing:-.01em; margin:0; text-wrap:balance}
+.brand p{margin:.55rem 0 0; color:var(--muted); max-width:56ch}
+.eyebrow{font:600 11px/1 var(--f-mono); letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 .7rem}
+.tools{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+.chip{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:999px; padding:7px 12px; font:12px/1 var(--f-mono); color:var(--fg); white-space:nowrap}
+.chip small{color:var(--muted); font-size:12px}
+.hygro{width:56px; height:6px; border-radius:3px; background:var(--line); overflow:hidden; display:inline-block}
+.hygro i{display:block; height:100%; background:var(--accent)}
+.btn{font-weight:600; font-size:14px; padding:10px 16px; border-radius:10px; border:1px solid var(--line); background:transparent; cursor:pointer}
+.btn:hover{border-color:var(--fg)}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.45; cursor:not-allowed; filter:none}
+.hint{margin:18px 0 0; color:var(--muted); font-size:13px}
+.hint b{color:var(--fg); font-weight:600}
+
+.board{margin-top:18px; display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:18px}
+.card{
+  display:grid; gap:10px; text-align:left; cursor:pointer; padding:12px 12px 14px;
+  background:var(--sheet); color:var(--sheet-ink); border:0; border-radius:3px;
+  box-shadow:0 1px 2px var(--shadow), 0 10px 26px -14px var(--shadow);
+  transition:transform .18s ease, box-shadow .18s ease; min-width:0;
+}
+.card:hover{transform:translateY(-3px) rotate(-.25deg); box-shadow:0 2px 4px var(--shadow), 0 16px 30px -14px var(--shadow)}
+.card canvas{width:100%; aspect-ratio:1; max-width:100%; display:block; background:transparent}
+.card-head{display:flex; justify-content:space-between; gap:8px; align-items:baseline; min-width:0}
+.card-name{font-family:var(--f-display); font-size:1.28rem; line-height:1.15; overflow-wrap:anywhere}
+.card-no{font:11px var(--f-mono); color:var(--sheet-muted); white-space:nowrap}
+.card-sub{font:12px var(--f-mono); color:var(--sheet-muted); display:flex; flex-wrap:wrap; gap:4px 10px}
+.pips{letter-spacing:1px; color:var(--sheet-ink)}
+.pigs{display:flex; flex-wrap:wrap; gap:4px 10px}
+.pig{display:inline-flex; align-items:center; gap:6px; font-size:12.5px}
+.pig.main{font-weight:600}
+.dot{width:11px; height:11px; border-radius:50%; background:var(--c); box-shadow:inset 0 0 0 1px rgba(0,0,0,.12); flex:none}
+.stats{display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:3px 8px; align-items:center; font-size:12px}
+.stats .lbl{color:var(--sheet-muted)}
+.bar{position:relative; height:6px; border-radius:3px; background:var(--track)}
+.bar i{position:absolute; inset:0 auto 0 0; border-radius:3px; background:var(--sheet-ink); opacity:.78}
+.bar s{position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--sheet-muted); opacity:.55}
+.val{font:12px var(--f-mono); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+.val em{font-style:normal; color:var(--sheet-muted); margin-left:6px}
+.traits{display:flex; flex-wrap:wrap; gap:4px}
+.trait{font-size:11.5px; padding:2px 8px; border-radius:999px; background:var(--track); color:var(--sheet-ink)}
+.trait.rare{background:transparent; box-shadow:inset 0 0 0 1px var(--sheet-ink); font-weight:600}
+.trait.mud{background:var(--sepia-ink); color:var(--sheet)}
+.card-foot{display:flex; justify-content:space-between; gap:8px; font:12px var(--f-mono); color:var(--sheet-muted); border-top:1px solid var(--sheet-line); padding-top:8px; font-variant-numeric:tabular-nums}
+.card-foot b{color:var(--sheet-ink); font-weight:600}
+
+/* Malblatt */
+.overlay{position:fixed; inset:0; z-index:50; background:var(--scrim); overflow-y:auto; display:flex; justify-content:center; align-items:flex-start;
+  padding:calc(env(safe-area-inset-top, 0px) + 24px) max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 24px) max(16px, env(safe-area-inset-left, 0px))}
+.panel{position:relative; width:100%; max-width:1060px; background:var(--sheet); color:var(--sheet-ink); border-radius:4px; box-shadow:0 30px 80px -20px rgba(0,0,0,.45);
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:28px; padding:28px}
+.close{position:absolute; top:10px; right:10px; width:38px; height:38px; border-radius:50%; border:1px solid var(--sheet-line); background:var(--sheet); cursor:pointer; font-size:20px; line-height:1; color:var(--sheet-ink)}
+.col{display:grid; gap:16px; align-content:start; min-width:0}
+.big canvas{width:100%; aspect-ratio:1; max-width:100%; display:block}
+.field{display:grid; gap:6px}
+.field label{font-size:13px; font-weight:600}
+.field input{font:1.3rem var(--f-display); padding:8px 10px; border:1px solid var(--sheet-line); border-radius:6px; background:var(--sheet); color:var(--sheet-ink); width:100%; min-width:0}
+.field small{color:var(--sheet-muted); font-size:12px}
+.p-head h2{font-family:var(--f-display); font-weight:400; font-size:1.9rem; line-height:1.1; margin:0; padding-right:40px; overflow-wrap:anywhere}
+.p-head .card-sub{margin-top:6px}
+.sec-title{font:600 11px/1 var(--f-mono); letter-spacing:.14em; text-transform:uppercase; color:var(--sheet-muted); margin:0 0 8px}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse; width:100%; font-size:13px; font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px; text-align:right; border-bottom:1px solid var(--sheet-line); white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font:600 11px var(--f-mono); color:var(--sheet-muted); text-transform:uppercase; letter-spacing:.06em}
+td.sum{font-weight:700; font-family:var(--f-mono)}
+td.neg{color:var(--bad)}
+td small{color:var(--sheet-muted); font-size:11px; display:block; font-weight:400}
+.capnote{color:var(--warn); font-size:11px}
+.swatches{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px}
+.sw{display:flex; align-items:center; gap:8px; padding:7px 8px; border:1px solid var(--sheet-line); border-radius:8px; background:var(--sheet); cursor:pointer; font-size:12.5px; text-align:left; min-width:0; color:var(--sheet-ink)}
+.sw span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.sw[aria-pressed="true"]{border-color:var(--sheet-ink); box-shadow:inset 0 0 0 1px var(--sheet-ink); font-weight:600}
+.odds{display:grid; gap:8px; padding:12px; border-radius:8px; background:var(--track)}
+.odds-top{display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; font-size:13px}
+.rel{font:600 12px var(--f-mono); padding:2px 8px; border-radius:999px; background:var(--sheet)}
+.rel.harmonisch{color:var(--ok)} .rel.neutral{color:var(--warn)} .rel.komplementaer{color:var(--bad)}
+.meter{display:grid; grid-template-columns:7.5em minmax(0,1fr) 3.2em; gap:8px; align-items:center; font-size:12.5px}
+.meter .bar{background:var(--sheet)}
+.meter .bar i{opacity:1}
+.meter.ok .bar i{background:var(--ok)} .meter.mut .bar i{background:var(--warn)} .meter.mud .bar i{background:var(--sepia-ink)}
+.rests{display:flex; align-items:center; gap:6px; font-size:12.5px; flex-wrap:wrap}
+.rests i{width:12px; height:12px; border-radius:50%; box-shadow:inset 0 0 0 1.5px var(--sepia-ink); display:inline-block}
+.rests i.on{background:var(--sepia-ink)}
+.act{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between}
+.act .btn{border-color:var(--sheet-line)}
+.act .btn.primary{background:var(--sheet-ink); color:var(--sheet); border-color:var(--sheet-ink)}
+.layers{font:12px var(--f-mono); color:var(--sheet-muted)}
+.sepia{border-left:3px solid var(--sepia-ink); padding:2px 0 2px 12px}
+.sepia small{font:600 11px var(--f-mono); letter-spacing:.1em; text-transform:uppercase; color:var(--sheet-muted)}
+.sepia p{margin:2px 0 0; font-family:var(--f-hand); font-size:1.45rem; line-height:1.15; color:var(--sepia-ink)}
+.log{list-style:none; margin:0; padding:0; display:grid; gap:6px; font:12px/1.45 var(--f-mono); max-height:220px; overflow-y:auto}
+.log li{padding:6px 8px; border-radius:6px; background:var(--track); overflow-wrap:anywhere}
+.log li b{font-weight:600}
+.log li.ok b{color:var(--ok)} .log li.bad b{color:var(--bad)} .log li.warn b{color:var(--warn)} .log li.mud b{color:var(--sepia-ink)}
+.log .empty{background:transparent; color:var(--sheet-muted); padding-left:0}
+.lore{font-family:var(--f-hand); font-size:1.25rem; color:var(--sepia-ink)}
+
+@media (max-width:820px){
+  .panel{grid-template-columns:minmax(0,1fr); padding:18px; gap:20px}
+  .swatches{grid-template-columns:repeat(2, minmax(0,1fr))}
+}
+@media (prefers-reduced-motion: reduce){
+  .card,.card:hover{transition:none; transform:none}
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <p class="eyebrow">Prototyp · Klecks-Generator</p>
+      <h1>Wetbloom</h1>
+      <p>Entwurfsbogen mit zwölf zufälligen Klecksen. Jedes Monster entsteht aus einem Seed, wird prozedural als Aquarell gemalt und bekommt Bauplan, Papier, Pigmente und offene Würfe.</p>
+    </div>
+    <div class="tools">
+      <span class="chip" id="seed-chip" title="Seed dieses Bogens"><small>Bogen</small><span id="seed-val">-</span></span>
+      <span class="chip" id="hum-chip" title="Luftfeuchte dieses Bogens"><small>Luftfeuchte</small><span id="hum-val">-</span><span class="hygro"><i id="hum-bar"></i></span></span>
+      <button class="btn" id="btn-daily" type="button">Tagesbogen</button>
+      <button class="btn primary" id="btn-new" type="button">Neuer Bogen</button>
+    </div>
+  </header>
+  <p class="hint" id="hum-hint"></p>
+  <main class="board" id="board" aria-label="Zwölf Kleckse"></main>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <section class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="p-name">
+    <button class="close" id="btn-close" type="button" aria-label="Malblatt schließen">×</button>
+    <div class="col">
+      <div class="big"><canvas id="big-canvas" width="600" height="600" aria-label="Aquarell des Monsters"></canvas></div>
+      <div class="field">
+        <label for="name-input">Was siehst du darin?</label>
+        <input id="name-input" type="text" maxlength="28" autocomplete="off" spellcheck="false">
+        <small>Im Spiel benennt die Community jede Art per Upvote. Hier ist es dein Arbeitsname.</small>
+      </div>
+      <div class="traits" id="p-traits"></div>
+      <p class="lore" id="p-lore" hidden></p>
+    </div>
+    <div class="col">
+      <div class="p-head">
+        <h2 id="p-name">-</h2>
+        <div class="card-sub" id="p-sub"></div>
+        <div class="pigs" id="p-pigs" style="margin-top:8px"></div>
+      </div>
+      <div>
+        <p class="sec-title">Werte, offen gelegt</p>
+        <div class="tbl-wrap"><table id="p-table"></table></div>
+      </div>
+      <div>
+        <p class="sec-title">Lasur auftragen</p>
+        <div class="swatches" id="swatches" role="group" aria-label="Pigment wählen"></div>
+      </div>
+      <div class="odds" id="odds"></div>
+      <div class="act">
+        <span class="layers" id="p-layers"></span>
+        <button class="btn primary" id="btn-glaze" type="button">Lasur auftragen</button>
+      </div>
+      <div class="sepia"><small>Meisterin Sepia</small><p id="sepia-text"></p></div>
+      <div>
+        <p class="sec-title">Malprotokoll</p>
+        <ul class="log" id="log"></ul>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+"use strict";
+/* ---------- Zufall ---------- */
+function RNG(seed){ let a = seed >>> 0; return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hashStr(s){ let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const rr = (r, a, b) => a + (b - a) * r();
+const ri = (r, a, b) => Math.floor(a + (b - a + 1) * r());
+const pick = (r, arr) => arr[Math.floor(r() * arr.length)];
+function gauss(r){ let u = 0, v = 0; while (u === 0) u = r(); while (v === 0) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function weighted(r, items){ const t = items.reduce((s, i) => s + i.w, 0); let x = r() * t; for (const i of items){ x -= i.w; if (x <= 0) return i; } return items[items.length - 1]; }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/* ---------- Werte ---------- */
+const STATS = [
+  { k: "deckkraft", n: "Deckkraft", s: "Lebenspunkte" },
+  { k: "saettigung", n: "Sättigung", s: "Angriff" },
+  { k: "koernung", n: "Körnung", s: "Verteidigung" },
+  { k: "fluss", n: "Fluss", s: "Tempo" },
+  { k: "leuchten", n: "Leuchten", s: "Spezialkraft" },
+  { k: "lichtecht", n: "Lichtechtheit", s: "Beständigkeit" }
+];
+const BAR_MAX = 70;
+
+/* ---------- Pigmente: echte Eigenschaften als Regeln ---------- */
+const PIGMENTS = [
+  { id: "ultra", n: "Ultramarin", rgb: [43, 63, 163], hue: 240, gran: .9, stat: { koernung: 7 }, note: "granuliert" },
+  { id: "phthalo", n: "Phthalogrün", rgb: [12, 108, 92], hue: 180, gran: .05, stat: { saettigung: 3, leuchten: 3 }, staining: true, note: "färbt dauerhaft" },
+  { id: "karmin", n: "Karmin", rgb: [176, 30, 62], hue: 0, gran: .1, stat: { saettigung: 7 }, note: "kräftig, transparent" },
+  { id: "kadmium", n: "Kadmiumgelb", rgb: [240, 172, 12], hue: 120, gran: .05, stat: { deckkraft: 7 }, note: "relativ deckend" },
+  { id: "siena", n: "Siena gebrannt", rgb: [166, 84, 40], hue: 55, gran: .6, stat: { deckkraft: 3, saettigung: 2, koernung: 2 }, note: "Mischfarbe" },
+  { id: "indigo", n: "Indigo", rgb: [44, 52, 92], hue: 250, gran: .25, stat: { leuchten: 7 }, note: "tief, kühl" },
+  { id: "sepia", n: "Sepia", rgb: [92, 66, 48], hue: 40, gran: .35, stat: { lichtecht: 5, deckkraft: 2 }, note: "Tintenfisch-Tinte" },
+  { id: "opera", n: "Opera-Rosa", rgb: [232, 62, 128], hue: 320, gran: 0, stat: { saettigung: 5, leuchten: 6, lichtecht: -5 }, fugitive: true, note: "verblasst" }
+];
+const PIG = Object.fromEntries(PIGMENTS.map(p => [p.id, p]));
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+/* ---------- Papier = Seltenheit ---------- */
+const PAPERS = [
+  { id: "schul", n: "Schulpapier", w: 50, pips: 1, cap: 45, bonus: 0, tone: [247, 246, 241], grain: .45, deckle: false, fibers: false },
+  { id: "zeichen", n: "Zeichenpapier", w: 30, pips: 2, cap: 52, bonus: 1, tone: [245, 243, 236], grain: .65, deckle: false, fibers: false },
+  { id: "buetten", n: "Büttenpapier", w: 15, pips: 3, cap: 60, bonus: 2, tone: [242, 238, 227], grain: .85, deckle: true, fibers: false },
+  { id: "hadern", n: "Hadernpapier", w: 5, pips: 4, cap: 70, bonus: 4, tone: [239, 233, 217], grain: 1, deckle: true, fibers: true }
+];
+const PAPER = Object.fromEntries(PAPERS.map(p => [p.id, p]));
+
+/* ---------- Baupläne: feste Silhouette, zufälliges Innenleben ---------- */
+function wavy(r, x0, y0, len, amp, n, dir){
+  const pts = [], ph = rr(r, 0, 6.28), fr = rr(r, 2, 4);
+  for (let i = 0; i <= n; i++){ const t = i / n; pts.push([x0 + Math.sin(ph + t * fr) * amp * t + (dir || 0) * t * len * .3, y0 + t * len]); }
+  return pts;
+}
+const BAUPLAENE = [
+  { id: "kriecher", n: "Kriecher", base: { deckkraft: 14, saettigung: 8, koernung: 12, fluss: 6, leuchten: 8, lichtecht: 10 }, build(r){
+    const B = { x: .56, y: .62, rx: rr(r, .24, .31), ry: rr(r, .09, .13), rot: rr(r, -.07, .07) };
+    const hr = rr(r, .09, .13), H = { x: B.x - B.rx * .82, y: B.y - B.ry * .55, rx: hr, ry: hr * rr(r, .85, 1.05), rot: 0 };
+    const limbs = [], n = ri(r, 5, 8);
+    for (let i = 0; i < n; i++){ const x = B.x - B.rx * .55 + B.rx * 1.35 * i / (n - 1), y = B.y + B.ry * .75; limbs.push({ pts: [[x, y], [x + rr(r, -.02, .015), y + rr(r, .05, .08)]], w: .013 }); }
+    limbs.push({ pts: [[B.x + B.rx * .95, B.y], [B.x + B.rx * 1.15, B.y - .04], [B.x + B.rx * 1.25, B.y - .02]], w: .016 });
+    return { blobs: [B, H], limbs, faces: [{ x: H.x, y: H.y, r: hr }], top: [B, H] };
+  } },
+  { id: "flatterer", n: "Flatterer", base: { deckkraft: 8, saettigung: 10, koernung: 6, fluss: 16, leuchten: 10, lichtecht: 8 }, build(r){
+    const B = { x: .5, y: .56, rx: rr(r, .1, .14), ry: rr(r, .14, .19), rot: 0 };
+    const wy = rr(r, .4, .47), wrx = rr(r, .15, .2), wry = rr(r, .08, .12), wr = rr(r, .3, .7);
+    const W1 = { x: .5 - B.rx - wrx * .7, y: wy, rx: wrx, ry: wry, rot: wr, wing: true }, W2 = { x: .5 + B.rx + wrx * .7, y: wy, rx: wrx, ry: wry, rot: -wr, wing: true };
+    const limbs = [-1, 1].map(s => ({ pts: [[.5 + s * B.rx * .4, B.y + B.ry * .9], [.5 + s * B.rx * .5, B.y + B.ry + .06]], w: .012 }));
+    return { blobs: [W1, W2, B], limbs, faces: [{ x: .5, y: B.y - B.ry * .35, r: B.rx * .95 }], top: [B] };
+  } },
+  { id: "schwebeblase", n: "Schwebeblase", base: { deckkraft: 10, saettigung: 6, koernung: 8, fluss: 10, leuchten: 16, lichtecht: 8 }, build(r){
+    const R = rr(r, .18, .24), B = { x: .5, y: .42, rx: R, ry: R * rr(r, .88, 1.04), rot: 0 };
+    const limbs = [], n = ri(r, 3, 6);
+    for (let i = 0; i < n; i++){ const x = .5 - R * .65 + R * 1.3 * i / Math.max(1, n - 1); limbs.push({ pts: wavy(r, x, B.y + B.ry * .85, rr(r, .18, .3), .04, 8), w: .013 }); }
+    return { blobs: [B], limbs, faces: [{ x: .5, y: B.y - .01, r: R * .8 }], top: [B] };
+  } },
+  { id: "vierbeiner", n: "Vierbeiner", base: { deckkraft: 12, saettigung: 12, koernung: 10, fluss: 12, leuchten: 6, lichtecht: 8 }, build(r){
+    const B = { x: .56, y: .55, rx: rr(r, .19, .24), ry: rr(r, .1, .13), rot: rr(r, -.06, .06) };
+    const hr = rr(r, .09, .12), H = { x: B.x - B.rx - hr * .3, y: B.y - B.ry - hr * .35, rx: hr, ry: hr * .95, rot: 0 };
+    const N = { x: (B.x - B.rx * .8 + H.x) / 2, y: (B.y + H.y) / 2, rx: hr * .55, ry: hr * .7, rot: .6 };
+    const legs = [-.7, -.3, .35, .72].map(f => ({ x: B.x + f * B.rx, y: B.y + B.ry + .055, rx: rr(r, .026, .034), ry: rr(r, .07, .09), rot: rr(r, -.12, .12) }));
+    const limbs = [{ pts: [[B.x + B.rx * .95, B.y - .01], [B.x + B.rx * 1.2, B.y - .09], [B.x + B.rx * 1.32, B.y - .12]], w: .014 }];
+    return { blobs: [B, N, H, ...legs], limbs, faces: [{ x: H.x, y: H.y, r: hr }], top: [H] };
+  } },
+  { id: "schlange", n: "Schlange", base: { deckkraft: 8, saettigung: 14, koernung: 8, fluss: 14, leuchten: 8, lichtecht: 8 }, build(r){
+    const n = ri(r, 6, 8), ph = rr(r, 0, 6.28), amp = rr(r, .05, .1), blobs = [];
+    for (let i = 0; i < n; i++){ const t = i / (n - 1), rad = lerp(.105, .04, t); blobs.push({ x: .2 + .62 * t, y: .55 + Math.sin(ph + t * 5) * amp, rx: rad, ry: rad * .92, rot: 0 }); }
+    const h = blobs[0];
+    return { blobs: blobs.slice().reverse(), limbs: [], faces: [{ x: h.x, y: h.y, r: h.rx }], top: [h] };
+  } },
+  { id: "turm", n: "Turm", base: { deckkraft: 16, saettigung: 8, koernung: 14, fluss: 4, leuchten: 8, lichtecht: 10 }, build(r){
+    const n = ri(r, 3, 4), blobs = []; let yb = .87;
+    for (let i = 0; i < n; i++){ const rad = lerp(.16, .085, i / (n - 1)) * rr(r, .92, 1.08), cy = yb - rad; blobs.push({ x: .5 + rr(r, -.03, .03), y: cy, rx: rad, ry: rad * .88, rot: rr(r, -.1, .1) }); yb = cy - rad * .5; }
+    const m = blobs[1], t = blobs[n - 1];
+    const limbs = [-1, 1].map(s => ({ pts: [[m.x + s * m.rx * .9, m.y], [m.x + s * (m.rx + .07), m.y - .04], [m.x + s * (m.rx + .11), m.y + .02]], w: .013 }));
+    return { blobs, limbs, faces: [{ x: t.x, y: t.y, r: t.rx }], top: [t] };
+  } },
+  { id: "krabbe", n: "Krabbe", base: { deckkraft: 10, saettigung: 12, koernung: 16, fluss: 6, leuchten: 6, lichtecht: 10 }, build(r){
+    const B = { x: .5, y: .6, rx: rr(r, .2, .25), ry: rr(r, .09, .12), rot: 0 };
+    const cx = rr(r, .3, .35), cr = rr(r, .06, .08);
+    const C = [-1, 1].map(s => ({ x: .5 + s * cx, y: .37, rx: cr, ry: cr * .8, rot: s * .5 }));
+    const limbs = [];
+    C.forEach((c, i) => { const s = i ? 1 : -1; limbs.push({ pts: [[.5 + s * B.rx * .8, B.y - B.ry * .3], [.5 + s * (cx - .04), .47], [c.x, c.y + cr * .6]], w: .015 }); });
+    for (const s of [-1, 1]) for (let k = 0; k < 3; k++){ const x = .5 + s * (B.rx * .45 + k * .05); limbs.push({ pts: [[x, B.y + B.ry * .6], [x + s * .06, B.y + B.ry + .03], [x + s * .08, B.y + B.ry + .09]], w: .01 }); }
+    return { blobs: [B, ...C], limbs, faces: [{ x: .5, y: B.y - .015, r: .085, stalks: true }], top: [B] };
+  } },
+  { id: "qualle", n: "Qualle", base: { deckkraft: 8, saettigung: 8, koernung: 6, fluss: 10, leuchten: 14, lichtecht: 12 }, build(r){
+    const D = { x: .5, y: .37, rx: rr(r, .2, .25), ry: rr(r, .12, .16), rot: 0 }, S = { x: .5, y: D.y + D.ry * .7, rx: D.rx * .92, ry: .045, rot: 0 };
+    const limbs = [], n = ri(r, 5, 9);
+    for (let i = 0; i < n; i++){ const x = .5 - D.rx * .75 + D.rx * 1.5 * i / (n - 1); limbs.push({ pts: wavy(r, x, S.y, rr(r, .26, .42), .035, 10), w: rr(r, .007, .012) }); }
+    return { blobs: [D, S], limbs, faces: [{ x: .5, y: D.y + .01, r: D.ry * .9 }], top: [D] };
+  } },
+  { id: "huepfer", n: "Hüpfer", base: { deckkraft: 10, saettigung: 10, koernung: 8, fluss: 16, leuchten: 8, lichtecht: 6 }, build(r){
+    const B = { x: .5, y: .52, rx: rr(r, .13, .17), ry: rr(r, .17, .21), rot: 0 };
+    const F = [-1, 1].map(s => ({ x: .5 + s * B.rx * .65, y: B.y + B.ry * .92, rx: rr(r, .08, .1), ry: .05, rot: s * .15 }));
+    const E = [-1, 1].map(s => ({ x: .5 + s * B.rx * .4, y: B.y - B.ry - rr(r, .06, .1), rx: rr(r, .028, .036), ry: rr(r, .08, .12), rot: s * rr(r, .1, .35), wing: true }));
+    return { blobs: [...E, B, ...F], limbs: [], faces: [{ x: .5, y: B.y - B.ry * .3, r: B.rx * .85 }], top: [] };
+  } },
+  { id: "knolle", n: "Knolle", base: { deckkraft: 16, saettigung: 6, koernung: 12, fluss: 6, leuchten: 8, lichtecht: 12 }, build(r){
+    const B = { x: .5, y: .63, rx: rr(r, .18, .22), ry: rr(r, .15, .18), rot: rr(r, -.1, .1) };
+    const L = [-1, 1].map(s => ({ x: .5 + s * B.rx * .75, y: B.y + B.ry * .35, rx: B.rx * .45, ry: B.ry * .5, rot: 0 }));
+    const limbs = [], leaves = [], n = ri(r, 2, 4);
+    for (let i = 0; i < n; i++){ const x = .5 + (i - (n - 1) / 2) * .07, y0 = B.y - B.ry * .9, y1 = y0 - rr(r, .08, .15), x1 = x + rr(r, -.05, .05); limbs.push({ pts: [[x, y0], [x1, y1]], w: .008 }); leaves.push({ x: x1, y: y1 - .02, rx: rr(r, .025, .04), ry: rr(r, .05, .07), rot: rr(r, -.6, .6), leaf: true }); }
+    return { blobs: [...L, B, ...leaves], limbs, faces: [{ x: .5, y: B.y - B.ry * .1, r: B.rx * .85 }], top: [] };
+  } },
+  { id: "strahler", n: "Strahler", base: { deckkraft: 8, saettigung: 10, koernung: 8, fluss: 8, leuchten: 16, lichtecht: 8 }, build(r){
+    const R = rr(r, .1, .13), C = { x: .5, y: .5, rx: R, ry: R, rot: 0 }, n = ri(r, 5, 7), off = rr(r, 0, 6.28), arms = [];
+    for (let i = 0; i < n; i++){ const a = off + i * Math.PI * 2 / n, d = R + rr(r, .07, .1); arms.push({ x: .5 + Math.cos(a) * d, y: .5 + Math.sin(a) * d, rx: rr(r, .09, .12), ry: rr(r, .032, .048), rot: a }); }
+    return { blobs: [...arms, C], limbs: [], faces: [{ x: .5, y: .5, r: R, cyclops: true }], top: [] };
+  } },
+  { id: "doppelkopf", n: "Doppelkopf", base: { deckkraft: 12, saettigung: 14, koernung: 10, fluss: 8, leuchten: 10, lichtecht: 6 }, build(r){
+    const B = { x: .5, y: .64, rx: rr(r, .17, .21), ry: rr(r, .13, .16), rot: 0 };
+    const hx = rr(r, .12, .16), hy = rr(r, .33, .39);
+    const H = [-1, 1].map(s => { const hr = rr(r, .08, .105); return { x: .5 + s * hx, y: hy + rr(r, -.02, .02), rx: hr, ry: hr * .95, rot: 0 }; });
+    const N = H.map(h => ({ x: (h.x + .5) / 2, y: (h.y + B.y - B.ry * .5) / 2, rx: .04, ry: .07, rot: (h.x < .5 ? .5 : -.5) }));
+    const limbs = [-1, 1].map(s => ({ pts: [[.5 + s * B.rx * .5, B.y + B.ry * .85], [.5 + s * B.rx * .6, B.y + B.ry + .07]], w: .016 }));
+    return { blobs: [B, ...N, ...H], limbs, faces: H.map(h => ({ x: h.x, y: h.y, r: h.rx })), top: H };
+  } }
+];
+const BP = Object.fromEntries(BAUPLAENE.map(b => [b.id, b]));
+
+const EYES = ["punkt", "rund", "rund", "viele", "schlitz", "muede", "zyklop"];
+const MOUTHS = ["laecheln", "zaehne", "schnabel", "rohr", "keiner", "grinsen", "zaehne"];
+const EXTRAS = ["keins", "hoerner", "fuehler", "stacheln", "sommersprossen", "keins"];
+const BLOOM_TRAITS = ["Nachblüher: heilt 3 % pro Runde", "Randläufer: Nass-in-Nass +10 %", "Trockenkante: Trockenpinsel-Krit +10 %", "Saugfähig: 15 % weniger Farbübertrag", "Wasserrand: Ausweichen +5 %"];
+const LORE = ["Der Abdruck passt zu keinem Lasierer, den Sepia kennt.", "Unter der Farbe steht eine Jahreszahl. Sie ist ausradiert.", "Der Abdruck ist kleiner als der einer erwachsenen Hand.", "Am Rand des Blatts: dieselbe Linie, nur spiegelverkehrt.", "Der Daumen hat das Pigment berührt, als es noch nass war. Vor sehr langer Zeit."];
+
+const SYL_A = ["Blot", "Smud", "Drip", "Wisp", "Gloam", "Pud", "Murk", "Tint", "Bleed", "Wash", "Splot", "Dab", "Sop", "Fleck", "Wick", "Glaze"];
+const SYL_B = ["ling", "wick", "moth", "kin", "grub", "fen", "let", "row", "nib", "mire", "tuft", "bell"];
+function makeName(r){ let a = pick(r, SYL_A), b = pick(r, SYL_B); if (a.endsWith(b[0])) b = b.slice(1); return a + b; }
+
+/* ---------- Ein Monster würfeln ---------- */
+function makeMonster(sheetSeed, idx, humidity){
+  const seed = hashStr(sheetSeed + ":" + idx), r = RNG(seed);
+  const bp = pick(r, BAUPLAENE), paper = weighted(r, PAPERS), main = pick(r, PIGMENTS);
+  const secN = weighted(r, [{ v: 0, w: 3 }, { v: 1, w: 5 }, { v: 2, w: 2 }]).v, sec = [];
+  while (sec.length < secN){ const p = pick(r, PIGMENTS); if (p.id !== main.id && !sec.includes(p.id)) sec.push(p.id); }
+  const rolls = {}; STATS.forEach(s => rolls[s.k] = ri(r, 1, 20));
+  const events = {
+    salt: r() < .1, alcohol: r() < .085,
+    bloom: r() < clamp((humidity - 35) / 150, .03, .4),
+    print: r() < 1 / 90
+  };
+  return {
+    seed, idx, humidity, bp: bp.id, paper: paper.id, main: main.id, sec, rolls, events,
+    bloomTrait: pick(r, BLOOM_TRAITS), lore: pick(r, LORE),
+    face: { eye: pick(r, EYES), mouth: pick(r, MOUTHS), extra: pick(r, EXTRAS) },
+    glazes: [], gains: {}, rests: 0, mud: false, mutations: 0, name: makeName(r), log: []
+  };
+}
+
+function statRows(m){
+  const bp = BP[m.bp], pa = PAPER[m.paper];
+  return STATS.map(s => {
+    const base = bp.base[s.k];
+    const pig = (PIG[m.main].stat[s.k] || 0) + m.sec.reduce((a, id) => a + Math.round((PIG[id].stat[s.k] || 0) / 2), 0);
+    const roll = m.rolls[s.k], gl = m.gains[s.k] || 0;
+    let raw = base + pig + roll + pa.bonus + gl;
+    if (m.mud) raw = Math.floor(raw * .85);
+    const total = clamp(raw, 1, pa.cap);
+    return { ...s, base, pig, roll, paper: pa.bonus, gl, total, cap: pa.cap, capped: raw > pa.cap };
+  });
+}
+
+function traitsOf(m){
+  const t = [], main = PIG[m.main];
+  if (m.mud) t.push({ t: "Schlammlinie", c: "mud" });
+  if (m.events.print) t.push({ t: "Fingerabdruck: Signatur-Fähigkeit", c: "rare" });
+  if (main.gran >= .5) t.push({ t: "Granuliert: Körnung-Bonus" });
+  if (main.staining || m.sec.includes("phthalo")) t.push({ t: "Färbt dauerhaft: Schaden über 3 Runden" });
+  if (main.fugitive || m.sec.includes("opera") || m.glazes.some(g => g.p === "opera")) t.push({ t: "Verblasst: verliert ohne Pflege Werte" });
+  if (m.events.salt) t.push({ t: "Salzkristalle: Krit +8 %" });
+  if (m.events.alcohol) t.push({ t: "Alkoholtropfen: Ausweichen +6 %" });
+  if (m.events.bloom) t.push({ t: "Blüte: " + m.bloomTrait });
+  return t;
+}
+
+/* ---------- Aquarell-Renderer ---------- */
+const INK = "28,25,36";
+let GRAIN = null;
+function grainTex(){
+  if (GRAIN) return GRAIN;
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const x = c.getContext("2d"), r = RNG(424242);
+  for (let i = 0; i < 520; i++){ x.fillStyle = `rgba(70,58,44,${rr(r, .012, .03)})`; x.beginPath(); x.arc(r() * 256, r() * 256, rr(r, 2, 7), 0, 7); x.fill(); }
+  for (let i = 0; i < 9000; i++){ x.fillStyle = r() < .7 ? `rgba(48,40,32,${rr(r, .03, .09)})` : `rgba(255,255,255,${rr(r, .1, .3)})`; const s = rr(r, .6, 1.8); x.fillRect(r() * 256, r() * 256, s, s); }
+  return (GRAIN = c);
+}
+function ellipsePts(b, S, r, n){
+  const pts = [], c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0);
+  for (let i = 0; i < n; i++){ const a = i / n * Math.PI * 2, x = Math.cos(a) * b.rx, y = Math.sin(a) * b.ry; pts.push([(b.x + x * c - y * s) * S, (b.y + x * s + y * c) * S, rr(r, .55, 1.45)]); }
+  return pts;
+}
+function deform(pts, r, amt){
+  const out = [];
+  for (let i = 0; i < pts.length; i++){
+    const a = pts[i], b = pts[(i + 1) % pts.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]), v = (a[2] + b[2]) / 2;
+    out.push(a);
+    out.push([(a[0] + b[0]) / 2 + gauss(r) * len * amt * v, (a[1] + b[1]) / 2 + gauss(r) * len * amt * v, v * rr(r, .75, 1.15)]);
+  }
+  return out;
+}
+function deformN(pts, r, amt, n){ for (let i = 0; i < n; i++) pts = deform(pts, r, amt); return pts; }
+function poly(ctx, pts){ ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); }
+function circlePts(x, y, rx, ry, n){ const p = []; for (let i = 0; i < n; i++){ const a = i / n * Math.PI * 2; p.push([x + Math.cos(a) * rx, y + Math.sin(a) * ry]); } return p; }
+function smooth(ctx, pts){
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  if (pts.length < 3){ for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); return; }
+  for (let i = 1; i < pts.length - 1; i++) ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+  const l = pts[pts.length - 1]; ctx.lineTo(l[0], l[1]);
+}
+function inkPath(ctx, pts, lw, r, alpha = .85, closed = false, straight = false){
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (let pass = 0; pass < 2; pass++){
+    const j = pass ? lw * .7 : lw * .18;
+    let q = pts.map(p => [p[0] + gauss(r) * j, p[1] + gauss(r) * j]);
+    if (closed) q = [...q, q[0], q[1]];
+    ctx.strokeStyle = `rgba(${INK},${pass ? alpha * .3 : alpha})`; ctx.lineWidth = pass ? lw * .6 : lw;
+    if (straight){ ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); } else smooth(ctx, q);
+    ctx.stroke();
+  }
+}
+const dark = (c, f = .55) => c.map(v => Math.round(v * f));
+
+function wash(ctx, base, rgb, r, layers, alpha, amt){
+  ctx.fillStyle = `rgba(${rgb},${alpha})`;
+  for (let i = 0; i < layers; i++){ poly(ctx, deformN(base, r, amt, 2)); ctx.fill(); }
+}
+function edges(ctx, base, rgb, r, S){
+  ctx.lineWidth = Math.max(1, S / 420); ctx.strokeStyle = `rgba(${dark(rgb)},.11)`;
+  for (let k = 0; k < 3; k++){ poly(ctx, deformN(base, r, .25, 1)); ctx.stroke(); }
+}
+function limbWash(ctx, l, rgb, r, S, alpha = .085){
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (let k = 0; k < 7; k++){
+    ctx.strokeStyle = `rgba(${rgb},${alpha})`; ctx.lineWidth = l.w * S * rr(r, .8, 1.35);
+    smooth(ctx, l.pts.map(p => [p[0] * S + gauss(r) * S * .003, p[1] * S + gauss(r) * S * .003])); ctx.stroke();
+  }
+}
+function granulate(ctx, polys, rgb, r, amt, S){
+  let x0 = S, y0 = S, x1 = 0, y1 = 0;
+  ctx.save(); ctx.beginPath();
+  polys.forEach(p => { ctx.moveTo(p[0][0], p[0][1]); p.forEach(q => { ctx.lineTo(q[0], q[1]); x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }); ctx.closePath(); });
+  ctx.clip();
+  const n = Math.round(amt * (x1 - x0) * (y1 - y0) / (S * S) * 5200), u = S / 600;
+  for (let i = 0; i < n; i++){ ctx.fillStyle = `rgba(${dark(rgb, .5)},${rr(r, .12, .32)})`; ctx.beginPath(); ctx.arc(rr(r, x0, x1), rr(r, y0, y1), rr(r, .5, 1.5) * u, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+function drawPaper(ctx, S, pa, r){
+  const m = S * .025;
+  let pts = [[m, m, 1], [S - m, m, 1], [S - m, S - m, 1], [m, S - m, 1]];
+  pts = pa.deckle ? deformN(pts, r, .0065, 7) : pts.map(p => [p[0], p[1]]);
+  ctx.save();
+  ctx.shadowColor = "rgba(30,25,20,.2)"; ctx.shadowBlur = S * .02; ctx.shadowOffsetY = S * .006;
+  ctx.fillStyle = `rgb(${pa.tone})`; poly(ctx, pts); ctx.fill();
+  ctx.restore();
+  poly(ctx, pts); ctx.clip();
+  const pat = ctx.createPattern(grainTex(), "repeat");
+  try { pat.setTransform(new DOMMatrix().scale(S / 520)); } catch (e) {}
+  ctx.globalAlpha = pa.grain * .9; ctx.fillStyle = pat; ctx.fillRect(0, 0, S, S); ctx.globalAlpha = 1;
+  if (pa.fibers){
+    ctx.lineWidth = S / 700;
+    for (let i = 0; i < 40; i++){ const x = r() * S, y = r() * S, a = r() * 6.28, l = rr(r, .015, .04) * S; ctx.strokeStyle = `rgba(90,70,50,${rr(r, .05, .12)})`; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + Math.cos(a + 1) * l * .6, y + Math.sin(a + 1) * l * .6, x + Math.cos(a) * l, y + Math.sin(a) * l); ctx.stroke(); }
+  }
+}
+function insidePt(b, S, r, spread = .35){ return [(b.x + gauss(r) * b.rx * spread) * S, (b.y + gauss(r) * b.ry * spread) * S]; }
+function bloomFx(ctx, b, S, rgb, paper, r){
+  const [x, y] = insidePt(b, S, r, .25), rad = Math.min(b.rx, b.ry) * S * rr(r, .45, .7);
+  const ring = deformN(circlePts(x, y, rad, rad * rr(r, .8, 1.1), 10).map(p => [...p, rr(r, .7, 1.4)]), r, .55, 4);
+  ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = `rgba(${paper},.5)`; poly(ctx, ring); ctx.fill();
+  ctx.globalCompositeOperation = "multiply"; ctx.lineWidth = S / 280; ctx.strokeStyle = `rgba(${dark(rgb, .6)},.3)`;
+  for (let k = 0; k < 2; k++){ poly(ctx, deform(ring, r, .2)); ctx.stroke(); }
+}
+function saltFx(ctx, b, S, paper, r){
+  const [cx, cy] = insidePt(b, S, r, .3), n = ri(r, 35, 65), u = S / 600;
+  ctx.globalCompositeOperation = "source-over";
+  for (let i = 0; i < n; i++){
+    const x = cx + gauss(r) * b.rx * S * .28, y = cy + gauss(r) * b.ry * S * .28, s = rr(r, 1.4, 3.6) * u, k = ri(r, 4, 6);
+    ctx.fillStyle = `rgba(${paper},${rr(r, .45, .8)})`; ctx.beginPath();
+    for (let j = 0; j < k * 2; j++){ const a = j * Math.PI / k + r() * .3, d = j % 2 ? s * .35 : s * rr(r, .8, 1.3); j ? ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d) : ctx.moveTo(x + Math.cos(a) * d, y + Math.sin(a) * d); }
+    ctx.closePath(); ctx.fill();
+  }
+}
+function alcoholFx(ctx, b, S, rgb, paper, r){
+  const n = ri(r, 3, 6);
+  for (let i = 0; i < n; i++){
+    const [x, y] = insidePt(b, S, r, .45), rad = rr(r, .012, .028) * S;
+    ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = `rgba(${paper},.62)`; ctx.beginPath(); ctx.arc(x, y, rad, 0, 7); ctx.fill();
+    ctx.globalCompositeOperation = "multiply"; ctx.strokeStyle = `rgba(${dark(rgb, .6)},.25)`; ctx.lineWidth = S / 420; ctx.beginPath(); ctx.arc(x, y, rad, 0, 7); ctx.stroke();
+  }
+}
+function printFx(ctx, b, S, r){
+  const cx = (b.x + b.rx * .45) * S, cy = (b.y + b.ry * .35) * S, rot = rr(r, 0, 3);
+  ctx.globalCompositeOperation = "multiply"; ctx.lineWidth = S / 520; ctx.strokeStyle = `rgba(${INK},.17)`;
+  for (let i = 1; i <= 11; i++){
+    let a0 = rr(r, 0, 6.28), tot = 0; const rx = S * .0062 * i * 1.15, ry = S * .0062 * i * 1.5;
+    while (tot < 5.5){ const seg = rr(r, .6, 2.2); ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, rot, a0, a0 + seg); ctx.stroke(); a0 += seg + rr(r, .1, .35); tot += seg; }
+  }
+}
+function contour(ctx, base, lw, r){
+  const n = base.length; let i = ri(r, 0, n - 1), done = 0;
+  while (done < n){ const len = ri(r, 8, 24), gap = ri(r, 4, 14), seg = []; for (let k = 0; k <= len; k++) seg.push(base[(i + k) % n]); inkPath(ctx, seg, lw, r, .62); i += len + gap; done += len + gap; }
+}
+function spikes(ctx, b, S, lw, r){
+  const n = ri(r, 4, 7), c = Math.cos(b.rot || 0), s = Math.sin(b.rot || 0), R = Math.min(b.rx, b.ry) * S;
+  for (let k = 0; k < n; k++){
+    const a = -Math.PI * (.2 + .6 * k / (n - 1)), ex = Math.cos(a) * b.rx, ey = Math.sin(a) * b.ry;
+    const px = (b.x + ex * c - ey * s) * S, py = (b.y + ex * s + ey * c) * S;
+    let nx = Math.cos(a) / b.rx, ny = Math.sin(a) / b.ry; const nl = Math.hypot(nx, ny); nx /= nl; ny /= nl;
+    const L = R * rr(r, .22, .36), W = R * .12;
+    const tri = [[px - ny * W, py + nx * W], [px + nx * L, py + ny * L], [px + ny * W, py - nx * W]];
+    ctx.fillStyle = `rgba(${INK},.12)`; poly(ctx, tri); ctx.fill(); inkPath(ctx, tri, lw * .9, r, .85, false, true);
+  }
+}
+function drawFace(ctx, m, geo, S, r, paper, core){
+  const lw = S / 300, look = [rr(r, -1, 1), rr(r, -.7, .7)], mrgb = PIG[m.main].rgb;
+  const eye = (x, y, rad, kind) => {
+    const sq = kind === "schlitz" ? .62 : 1;
+    ctx.fillStyle = `rgb(${paper})`; ctx.beginPath(); ctx.ellipse(x, y, rad, rad * sq, 0, 0, 7); ctx.fill();
+    if (kind === "zyklop"){ ctx.fillStyle = `rgba(${mrgb},.55)`; ctx.beginPath(); ctx.arc(x + look[0] * rad * .2, y + look[1] * rad * .2, rad * .62, 0, 7); ctx.fill(); }
+    inkPath(ctx, circlePts(x, y, rad, rad * sq, 22), lw, r, .9, true);
+    const px = x + look[0] * rad * .32, py = y + look[1] * rad * .3 * sq;
+    ctx.fillStyle = `rgba(${INK},.92)`; ctx.beginPath();
+    if (kind === "schlitz") ctx.ellipse(px, py, rad * .12, rad * .5, 0, 0, 7); else ctx.arc(px, py, rad * (kind === "zyklop" ? .3 : .44), 0, 7);
+    ctx.fill();
+    ctx.fillStyle = `rgb(${paper})`; ctx.beginPath(); ctx.arc(px - rad * .12, py - rad * .14, rad * .1, 0, 7); ctx.fill();
+    if (kind === "muede"){ ctx.fillStyle = `rgba(${mrgb},.8)`; ctx.beginPath(); ctx.ellipse(x, y, rad * 1.04, rad * 1.04, 0, Math.PI, 2 * Math.PI); ctx.fill(); inkPath(ctx, [[x - rad * 1.05, y], [x, y + rad * .1], [x + rad * 1.05, y]], lw, r, .9); }
+  };
+  ctx.globalCompositeOperation = "source-over";
+  geo.faces.forEach((f, fi) => {
+    const X = f.x * S, Y = f.y * S, R = f.r * S, type = f.cyclops ? "zyklop" : m.face.eye, ey = Y - R * .12;
+    if (f.stalks){
+      const sy = Y - R * 1.7, k = ["punkt", "viele", "zyklop"].includes(type) ? "rund" : type;
+      [-1, 1].forEach(s => { inkPath(ctx, [[X + s * R * .3, Y - R * .3], [X + s * R * .42, sy + R * .5], [X + s * R * .5, sy + R * .25]], lw, r); eye(X + s * R * .5, sy, R * .3, k); });
+    } else if (type === "punkt"){
+      [-1, 1].forEach(s => { ctx.fillStyle = `rgba(${INK},.92)`; ctx.beginPath(); ctx.arc(X + s * R * .32, ey, R * .085, 0, 7); ctx.fill(); });
+    } else if (type === "viele"){
+      const n = ri(r, 3, 6);
+      for (let i = 0; i < n; i++){ const a = -Math.PI * (.12 + .76 * i / (n - 1)), d = R * rr(r, .32, .52); eye(X + Math.cos(a) * d * 1.1, ey + Math.sin(a) * d * .55 + R * .12, R * rr(r, .1, .15), "rund"); }
+    } else if (type === "zyklop") eye(X, ey, R * .42, "zyklop");
+    else [-1, 1].forEach(s => eye(X + s * R * .36, ey, R * (type === "schlitz" ? .26 : .21), type));
+
+    const my = Y + R * .42, mt = m.face.mouth;
+    if (mt === "laecheln") inkPath(ctx, [[X - R * .28, my - R * .04], [X, my + R * .12], [X + R * .28, my - R * .04]], lw, r);
+    else if (mt === "zaehne"){ const p = []; for (let i = 0; i <= 7; i++) p.push([X - R * .32 + R * .64 * i / 7, my + (i % 2 ? R * .09 : 0)]); inkPath(ctx, p, lw, r, .85, false, true); }
+    else if (mt === "schnabel"){ const p = [[X - R * .2, my - R * .08], [X + R * .2, my - R * .08], [X, my + R * .22]]; ctx.fillStyle = "rgba(214,150,40,.75)"; poly(ctx, p); ctx.fill(); inkPath(ctx, [...p, p[0]], lw, r, .9, false, true); }
+    else if (mt === "rohr") inkPath(ctx, circlePts(X, my + R * .02, R * .09, R * .07, 14), lw, r, .9, true);
+    else if (mt === "grinsen"){
+      const a = []; for (let i = 0; i <= 8; i++){ const t = i / 8; a.push([X - R * .42 + R * .84 * t, my - R * .06 + Math.sin(t * Math.PI) * R * .2]); }
+      inkPath(ctx, a, lw, r); inkPath(ctx, [[X - R * .4, my - R * .06], [X + R * .4, my - R * .06]], lw * .8, r, .8, false, true);
+      for (let i = 1; i < 4; i++){ const x = X - R * .42 + R * .84 * i / 4; inkPath(ctx, [[x, my - R * .06], [x, my - R * .06 + Math.sin(i / 4 * Math.PI) * R * .2]], lw * .7, r, .8, false, true); }
+    }
+    if (fi === 0){
+      const ex = m.face.extra;
+      if (ex === "hoerner") [-1, 1].forEach(s => { const p = [[X + s * R * .32, Y - R * .78], [X + s * R * .62, Y - R * .62], [X + s * R * .74, Y - R * 1.42]]; ctx.fillStyle = `rgba(${INK},.14)`; poly(ctx, p); ctx.fill(); inkPath(ctx, [p[0], [X + s * R * .55, Y - R * 1.1], p[2], p[1]], lw, r); });
+      if (ex === "fuehler") [-1, 1].forEach(s => { const t = [X + s * R * .65, Y - R * 1.6]; inkPath(ctx, [[X + s * R * .2, Y - R * .85], [X + s * R * .45, Y - R * 1.3], t], lw, r); ctx.fillStyle = `rgba(${INK},.9)`; ctx.beginPath(); ctx.arc(t[0], t[1], R * .07, 0, 7); ctx.fill(); });
+      if (ex === "sommersprossen") [-1, 1].forEach(s => { for (let i = 0; i < 4; i++){ ctx.fillStyle = `rgba(${INK},.55)`; ctx.beginPath(); ctx.arc(X + s * R * (.5 + rr(r, -.1, .1)), Y + R * (.15 + rr(r, -.08, .08)), R * .025, 0, 7); ctx.fill(); } });
+    }
+  });
+  if (m.face.extra === "stacheln") spikes(ctx, core, S, lw, r);
+}
+
+function renderMonster(canvas, m, cssSize){
+  const dpr = clamp(window.devicePixelRatio || 1, 1, 2), S = Math.max(200, Math.round(cssSize * dpr));
+  if (canvas.width !== S){ canvas.width = S; canvas.height = S; }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = "source-over"; ctx.clearRect(0, 0, S, S);
+  const pa = PAPER[m.paper], paper = pa.tone.join(","), main = PIG[m.main];
+  const r = RNG(m.seed ^ 0x9E3779B9);
+  ctx.save();
+  drawPaper(ctx, S, pa, r);
+  const geo = BP[m.bp].build(RNG(m.seed + 7919 * m.mutations + 13));
+  const vf = .65 + clamp((m.humidity - 30) / 65, 0, 1) * .75;
+  const gr = RNG(m.seed + 31 * m.mutations + 5);
+  const bases = geo.blobs.map(b => ({ b, base: deformN(ellipsePts(b, S, gr, 12), gr, .3 * vf, 3) }));
+  let core = bases[0]; bases.forEach(o => { if (o.b.rx * o.b.ry > core.b.rx * core.b.ry) core = o; });
+
+  ctx.globalCompositeOperation = "multiply";
+  geo.limbs.forEach(l => limbWash(ctx, l, main.rgb, gr, S));
+  bases.forEach(o => wash(ctx, o.base, main.rgb, gr, o.b.leaf ? 14 : 22, o.b.wing ? .04 : .05, .3 * vf));
+  m.sec.forEach((id, i) => {
+    const p = PIG[id];
+    let list = bases.filter(o => i === 0 ? o !== core : o === core);
+    if (!list.length) list = [core];
+    list.forEach(o => {
+      const b = o.b, sub = { x: b.x + gauss(gr) * b.rx * .2, y: b.y + gauss(gr) * b.ry * .2 + (i ? b.ry * .3 : 0), rx: b.rx * rr(gr, .45, .8), ry: b.ry * rr(gr, .45, .8), rot: b.rot };
+      wash(ctx, deformN(ellipsePts(sub, S, gr, 10), gr, .45 * vf, 3), p.rgb, gr, 16, .045, .45 * vf);
+    });
+  });
+  m.glazes.forEach(g => { const p = PIG[g.p], r2 = RNG(g.seed); bases.forEach(o => wash(ctx, o.base, p.rgb, r2, 10, .032, .18)); geo.limbs.forEach(l => limbWash(ctx, l, p.rgb, r2, S, .045)); });
+  if (m.mud){ const r3 = RNG(m.seed + 99); bases.forEach(o => wash(ctx, o.base, [116, 100, 82], r3, 16, .055, .25)); }
+  bases.forEach(o => edges(ctx, o.base, main.rgb, gr, S));
+  const granAmt = Math.max(main.gran, ...m.sec.map(id => PIG[id].gran * .6), ...m.glazes.map(g => PIG[g.p].gran * .5), m.mud ? .8 : 0);
+  if (granAmt > .15) granulate(ctx, bases.map(o => o.base), m.mud ? [116, 100, 82] : main.rgb, gr, granAmt, S);
+
+  const er = RNG(m.seed + 4242);
+  if (m.events.bloom) bloomFx(ctx, core.b, S, main.rgb, paper, er);
+  if (m.events.salt) saltFx(ctx, core.b, S, paper, er);
+  if (m.events.alcohol) alcoholFx(ctx, core.b, S, main.rgb, paper, er);
+
+  ctx.globalCompositeOperation = "source-over";
+  const lw = S / 300, ir = RNG(m.seed + 777);
+  const big = core.b.rx * core.b.ry;
+  bases.forEach(o => { if (o.b.rx * o.b.ry >= big * .3 && !o.b.leaf) contour(ctx, o.base, lw * .9, ir); });
+  geo.limbs.forEach(l => inkPath(ctx, l.pts.map(p => [p[0] * S, p[1] * S]), lw * .85, ir, .7));
+  drawFace(ctx, m, geo, S, RNG(m.seed + 31337), paper, core.b);
+  if (m.events.print) printFx(ctx, core.b, S, RNG(m.seed + 5));
+  ctx.restore();
+}
+
+/* ---------- Lasieren ---------- */
+const REL = {
+  harmonisch: { label: "harmonisch", ok: .85, mut: .03, mud: .02, min: 1, max: 4 },
+  neutral: { label: "neutral", ok: .65, mut: .08, mud: .07, min: 3, max: 7 },
+  komplementaer: { label: "komplementär", ok: .45, mut: .15, mud: .22, min: 6, max: 12 }
+};
+function relation(a, b){ let d = Math.abs(PIG[a].hue - PIG[b].hue) % 360; if (d > 180) d = 360 - d; return d <= 60 ? "harmonisch" : d < 130 ? "neutral" : "komplementaer"; }
+function odds(m, pid){
+  const rel = relation(m.main, pid), o = { ...REL[rel], rel };
+  o.mut = clamp(o.mut + (m.humidity - 60) / 400, .01, .5);
+  const set = new Set([m.main, ...m.sec, ...m.glazes.map(g => g.p), pid]);
+  o.pigCount = set.size;
+  if (set.size > 3) o.mud += .1 * (set.size - 3);
+  if (m.mud) o.mud = 0;
+  o.mud = clamp(o.mud, 0, .9);
+  o.pity = m.rests >= 3;
+  if (o.pity){ o.ok = 1; o.mud = 0; }
+  return o;
+}
+const FLAVOR = { ultra: "körnig in die Papierstruktur", phthalo: "dauerhaft in die Fasern", karmin: "satt über die Unterschicht", kadmium: "deckend über die Ränder", siena: "warm in alle Ecken", indigo: "tief in die Schatten", sepia: "ruhig über die alten Schichten", opera: "leuchtend, aber unruhig, darüber" };
+const SEPIA = {
+  start: ["Fang nicht gleich mit der Gegenfarbe an. Oder doch. Ich schaue zu.", "Ein Klecks ist ein Versprechen. Meistens ein leeres.", "Wasser zuerst, Mut danach.", "Im Spiel muss jede Schicht trocknen. Hier tun wir so, als hätten wir Zeit gehabt."],
+  ok: ["Na bitte. Geduld ist auch ein Pigment.", "Sauber. Ich hätte trotzdem weniger Wasser genommen.", "So sieht eine Lasur aus, die weiß, was sie will."],
+  fail: ["Das Papier hat Nein gesagt. Das Papier sagt oft Nein.", "Farbreste. Sammle sie. Pech hat eine Obergrenze.", "Zu nass. Oder zu trocken. Meistens beides."],
+  mud: ["Gratuliere, du hast Schlamm erfunden. Wirf ihn nicht weg.", "Schlamm hat ein langes Gedächtnis. Und eine eigene Linie."],
+  mut: ["Hm. Das war vorher ein anderes Tier. Notier dir, was du getan hast.", "Manchmal malt das Wasser mit. Ohne zu fragen."],
+  pity: ["Siehst du. Pech hat eine Obergrenze."],
+  full: ["Fünf Schichten. Mehr verträgt kein Papier und keine Lehrerin."],
+  print: ["Dieser Abdruck ist nicht von dir. Und nicht von mir."]
+};
+const statName = k => STATS.find(s => s.k === k).n;
+const rnd = () => (Math.random() * 4294967296) >>> 0;
+
+function applyGlaze(m, pid){
+  if (m.glazes.length >= 5) return null;
+  const p = PIG[pid], o = odds(m, pid), r = RNG(rnd()), msgs = [];
+  let mood;
+  m.glazes.push({ p: pid, seed: rnd() });
+  const L = "L" + m.glazes.length + " ";
+  if (r() < o.mud){
+    m.mud = true; m.rests = Math.min(3, m.rests + 1);
+    msgs.push({ c: "mud", h: L + "[Verschlammt]", t: `Zu viele Pigmente auf einem Blatt (${o.pigCount}). Alle Werte -15 %. Schlammlinie freigeschaltet.` });
+    mood = "mud";
+  } else if (r() < o.ok){
+    const roll = o.pity ? Math.max(15, ri(r, 1, 20)) : ri(r, 1, 20);
+    const gain = Math.round(o.min + (o.max - o.min) * (roll - 1) / 19), g2 = Math.max(1, Math.round(gain * .5));
+    const pos = Object.keys(p.stat).filter(k => p.stat[k] > 0), all = STATS.map(s => s.k);
+    const k1 = pick(r, pos.length ? pos : all), k2 = pick(r, all.filter(k => k !== k1));
+    m.gains[k1] = (m.gains[k1] || 0) + gain; m.gains[k2] = (m.gains[k2] || 0) + g2;
+    if (o.pity){ m.rests = 0; msgs.push({ c: "warn", h: L + "[Farbreste eingelöst]", t: "Garantierte Lasur, Wurf mindestens 15." }); }
+    msgs.push({ c: "ok", h: L + "[Lasur gelungen]", t: `${p.n} legt sich ${FLAVOR[pid]}. ${statName(k1)} +${gain}, ${statName(k2)} +${g2} (Wurf ${roll}/20)` });
+    mood = o.pity ? "pity" : "ok";
+  } else {
+    m.rests = Math.min(3, m.rests + 1);
+    msgs.push({ c: "bad", h: L + "[Lasur verlaufen]", t: `${p.n} ist ins Papier gesackt. Keine Wirkung. Farbreste ${m.rests}/3.` });
+    mood = "fail";
+  }
+  if (r() < o.mut){
+    const old = BP[m.bp].n; let nb = pick(r, BAUPLAENE); while (nb.id === m.bp) nb = pick(r, BAUPLAENE);
+    m.bp = nb.id; m.mutations++;
+    msgs.push({ c: "warn", h: L + "[Mutation]", t: `Die Lasur hat die Form umgeschrieben: ${old} → ${nb.n}.` });
+    mood = "mut";
+  }
+  if (p.fugitive) msgs.push({ c: "warn", h: L + "[Nicht lichtecht]", t: "Opera-Rosa verblasst. Im Spiel sinken die Werte ohne Pflege täglich." });
+  if (m.glazes.length === 5){ msgs.push({ c: "", h: L + "[Bogen voll]", t: "Fünf Lasuren. Mehr verträgt das Papier nicht." }); if (mood === "ok") mood = "full"; }
+  m.log.unshift(...msgs);
+  m.sepia = pick(r, SEPIA[mood]);
+  return msgs;
+}
+
+/* ---------- Oberfläche ---------- */
+const $ = id => document.getElementById(id);
+const board = $("board"), overlay = $("overlay");
+let sheetSeed = "", humidity = 60, monsters = [], current = null, selPig = null, lastCard = null;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pips = n => "●".repeat(n) + "○".repeat(4 - n);
+const pct = v => Math.round(v * 100) + " %";
+
+function humText(h){
+  if (h < 45) return "Trockener Tag: präzise Kanten, mehr kritische Treffer.";
+  if (h <= 70) return "Mittlere Luftfeuchte: die Farbe benimmt sich.";
+  return "Feuchter Tag: Ränder laufen, mehr Blüten und Mutationen.";
+}
+function todaySeed(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function randomSeed(){ const a = rnd().toString(36).toUpperCase().padStart(6, "0").slice(-6); return a.slice(0, 3) + "-" + a.slice(3); }
+
+function loadSheet(seed){
+  sheetSeed = seed;
+  humidity = ri(RNG(hashStr("hum:" + seed)), 30, 95);
+  monsters = Array.from({ length: 12 }, (_, i) => makeMonster(seed, i, humidity));
+  $("seed-val").textContent = seed;
+  $("hum-val").textContent = humidity + " %";
+  $("hum-bar").style.width = humidity + "%";
+  $("hum-hint").innerHTML = "<b>Tippe einen Klecks an</b>, um ihn zu benennen und zu lasieren. " + esc(humText(humidity));
+  board.innerHTML = "";
+  monsters.forEach(m => board.append(buildCard(m)));
+}
+
+function pigChips(m){
+  return `<span class="pig main"><span class="dot" style="--c:${css(PIG[m.main].rgb)}"></span>${esc(PIG[m.main].n)}</span>` +
+    m.sec.map(id => `<span class="pig"><span class="dot" style="--c:${css(PIG[id].rgb)}"></span>${esc(PIG[id].n)}</span>`).join("");
+}
+function cardInner(m){
+  const rows = statRows(m), sum = rows.reduce((a, s) => a + s.total, 0), tr = traitsOf(m);
+  const stats = rows.map(s => `<span class="lbl">${s.n}</span><span class="bar"><i style="width:${(s.total / BAR_MAX * 100).toFixed(1)}%"></i><s style="left:${(s.cap / BAR_MAX * 100).toFixed(1)}%"></s></span><span class="val">${s.total}<em>W${s.roll}</em></span>`).join("");
+  const shown = tr.slice(0, 2).map(t => `<span class="trait ${t.c || ""}">${esc(t.t.split(":")[0])}</span>`).join("") + (tr.length > 2 ? `<span class="trait">+${tr.length - 2}</span>` : "");
+  return `<canvas aria-hidden="true"></canvas>
+    <div class="card-head"><span class="card-name">${esc(m.name)}</span><span class="card-no">Nr. ${String(m.idx + 1).padStart(2, "0")}</span></div>
+    <div class="card-sub"><span>${BP[m.bp].n}</span><span>${PAPER[m.paper].n} <span class="pips" aria-label="Seltenheit ${PAPER[m.paper].pips} von 4">${pips(PAPER[m.paper].pips)}</span></span></div>
+    <div class="pigs">${pigChips(m)}</div>
+    <div class="stats">${stats}</div>
+    ${tr.length ? `<div class="traits">${shown}</div>` : ""}
+    <div class="card-foot"><span>Summe <b>${sum}</b></span><span>Lasuren <b>${m.glazes.length}</b>/5</span></div>`;
+}
+function buildCard(m){
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "card"; b.dataset.i = m.idx;
+  b.setAttribute("aria-label", `${m.name}, ${BP[m.bp].n}, ${PAPER[m.paper].n}. Malblatt öffnen`);
+  b.innerHTML = cardInner(m);
+  b.addEventListener("click", () => openDetail(m.idx, b));
+  enqueue(b.querySelector("canvas"), m);
+  return b;
+}
+function refreshCard(m){
+  const old = board.querySelector(`.card[data-i="${m.idx}"]`); if (!old) return;
+  const nb = buildCard(m); old.replaceWith(nb); if (lastCard === old) lastCard = nb;
+}
+
+/* Render-Warteschlange: malt Bögen nacheinander, ohne die Seite zu blockieren */
+const queue = []; let busy = false;
+function enqueue(c, m){ queue.push([c, m]); if (!busy){ busy = true; requestAnimationFrame(step); } }
+function step(){
+  const t0 = performance.now();
+  while (queue.length && performance.now() - t0 < 40){ const [c, m] = queue.shift(); if (c.isConnected) renderMonster(c, m, c.getBoundingClientRect().width || 260); }
+  if (queue.length) requestAnimationFrame(step); else busy = false;
+}
+
+/* ---------- Malblatt ---------- */
+function openDetail(i, card){
+  current = monsters[i]; selPig = current.main; lastCard = card;
+  if (!current.sepia) current.sepia = current.events.print ? SEPIA.print[0] : SEPIA.start[current.seed % SEPIA.start.length];
+  overlay.hidden = false; document.body.style.overflow = "hidden";
+  $("name-input").value = current.name;
+  fillDetail(true);
+  $("btn-close").focus({ preventScroll: true });
+}
+function closeDetail(){
+  overlay.hidden = true; document.body.style.overflow = "";
+  if (lastCard && lastCard.isConnected) lastCard.focus({ preventScroll: true });
+  current = null;
+}
+function fillDetail(redraw){
+  const m = current, pa = PAPER[m.paper], rows = statRows(m);
+  $("p-name").textContent = m.name;
+  $("p-sub").innerHTML = `<span>${BP[m.bp].n}${m.mutations ? " (mutiert)" : ""}</span><span>${pa.n} <span class="pips">${pips(pa.pips)}</span></span><span>Werte-Deckel ${pa.cap}</span><span>Luftfeuchte ${m.humidity} %</span>`;
+  $("p-pigs").innerHTML = pigChips(m);
+  const head = `<thead><tr><th>Wert</th><th>Bauplan</th><th>Pigment</th><th>Papier</th><th>Wurf</th><th>Lasuren</th><th>Summe</th></tr></thead>`;
+  const body = rows.map(s => `<tr><td>${s.n}<small>${s.s}</small></td><td>${s.base}</td><td class="${s.pig < 0 ? "neg" : ""}">${s.pig > 0 ? "+" : ""}${s.pig}</td><td>+${s.paper}</td><td>${s.roll}/20</td><td>${s.gl ? "+" + s.gl : "0"}</td><td class="sum">${s.total}${s.capped ? `<small class="capnote">Deckel ${s.cap}</small>` : ""}${m.mud ? `<small>Schlamm -15 %</small>` : ""}</td></tr>`).join("");
+  const sum = rows.reduce((a, s) => a + s.total, 0);
+  $("p-table").innerHTML = head + `<tbody>${body}<tr><td><b>Gesamt</b></td><td colspan="5"></td><td class="sum">${sum}</td></tr></tbody>`;
+  const tr = traitsOf(m);
+  $("p-traits").innerHTML = tr.length ? tr.map(t => `<span class="trait ${t.c || ""}">${esc(t.t)}</span>`).join("") : `<span class="trait">Keine Besonderheiten. Noch nicht.</span>`;
+  const lore = $("p-lore"); lore.hidden = !m.events.print; lore.textContent = m.events.print ? "Fragment: " + m.lore : "";
+  $("swatches").innerHTML = PIGMENTS.map(p => `<button class="sw" type="button" data-p="${p.id}" aria-pressed="${p.id === selPig}" title="${esc(p.n)}: ${esc(p.note)}"><span class="dot" style="--c:${css(p.rgb)}"></span><span>${esc(p.n)}</span></button>`).join("");
+  fillOdds();
+  const full = m.glazes.length >= 5;
+  $("btn-glaze").disabled = full;
+  $("btn-glaze").textContent = full ? "Bogen voll" : "Lasur auftragen";
+  $("p-layers").textContent = `Lasuren ${m.glazes.length}/5` + (m.glazes.length ? ": " + m.glazes.map(g => PIG[g.p].n).join(", ") : "");
+  $("sepia-text").textContent = m.sepia;
+  $("log").innerHTML = m.log.length ? m.log.map(e => `<li class="${e.c}"><b>${esc(e.h)}</b> ${esc(e.t)}</li>`).join("") : `<li class="empty">Noch keine Lasur. Wähle ein Pigment und trag die erste Schicht auf.</li>`;
+  if (redraw) requestAnimationFrame(() => { const c = $("big-canvas"); renderMonster(c, m, c.getBoundingClientRect().width || 480); });
+}
+function fillOdds(){
+  const m = current, o = odds(m, selPig), p = PIG[selPig];
+  const meter = (cls, label, v) => `<div class="meter ${cls}"><span>${label}</span><span class="bar"><i style="width:${(v * 100).toFixed(0)}%"></i></span><span class="val">${pct(v)}</span></div>`;
+  const humNote = m.humidity > 60 ? `Luftfeuchte ${m.humidity} % erhöht die Mutationschance.` : `Luftfeuchte ${m.humidity} % senkt die Mutationschance.`;
+  const mudNote = m.mud ? "Schon verschlammt: tiefer geht es nicht." : o.pigCount > 3 ? `${o.pigCount} Pigmente auf dem Blatt: jedes über drei erhöht das Schlammrisiko.` : "";
+  $("odds").innerHTML = `<div class="odds-top"><span>${esc(p.n)} auf ${esc(PIG[m.main].n)}: <span class="rel ${o.rel}">${o.label}</span></span><span>Gewinn +${o.min} bis +${o.max}</span></div>` +
+    meter("ok", "Gelingen", o.ok) + meter("mut", "Mutation", o.mut) + meter("mud", "Schlamm", o.mud) +
+    `<div class="rests">Farbreste ${[0, 1, 2].map(i => `<i class="${i < m.rests ? "on" : ""}"></i>`).join("")} <span>${o.pity ? "Nächste Lasur ist garantiert." : "Bei drei ist die nächste Lasur garantiert."}</span></div>` +
+    `<div class="rests" style="color:var(--sheet-muted)">${esc(humNote)} ${esc(mudNote)}</div>`;
+}
+
+$("swatches").addEventListener("click", e => {
+  const b = e.target.closest(".sw"); if (!b) return;
+  selPig = b.dataset.p;
+  $("swatches").querySelectorAll(".sw").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.p === selPig)));
+  fillOdds();
+});
+$("btn-glaze").addEventListener("click", () => {
+  if (!current) return;
+  applyGlaze(current, selPig);
+  fillDetail(true);
+  refreshCard(current);
+});
+$("name-input").addEventListener("input", e => {
+  if (!current) return;
+  const v = e.target.value.trim(); if (!v) return;
+  current.name = v; $("p-name").textContent = v;
+  const card = board.querySelector(`.card[data-i="${current.idx}"] .card-name`); if (card) card.textContent = v;
+});
+$("btn-close").addEventListener("click", closeDetail);
+overlay.addEventListener("click", e => { if (e.target === overlay) closeDetail(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeDetail(); });
+$("btn-new").addEventListener("click", () => loadSheet(randomSeed()));
+$("btn-daily").addEventListener("click", () => loadSheet(todaySeed()));
+
+let lastW = window.innerWidth, rt = null;
+window.addEventListener("resize", () => {
+  clearTimeout(rt);
+  rt = setTimeout(() => {
+    if (Math.abs(window.innerWidth - lastW) < 60) return;
+    lastW = window.innerWidth;
+    board.querySelectorAll(".card").forEach(c => enqueue(c.querySelector("canvas"), monsters[+c.dataset.i]));
+    if (current) fillDetail(true);
+  }, 250);
+});
+
+loadSheet(todaySeed());
+</script>
+</body></html>

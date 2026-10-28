@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Before It Dries</title>
+  </head>
+  <body class="splash">
+    <main class="s-wrap" id="app">
+      <header class="s-top">
+        <div>
+          <p class="eyebrow" id="s-eyebrow">Daily blot</p>
+          <h1 class="s-title">Before It Dries</h1>
+        </div>
+        <div id="s-hum"></div>
+      </header>
+      <div class="s-stage" id="s-stage"><canvas class="blot" id="s-canvas" aria-label="Today's watercolor blot"></canvas></div>
+      <div class="s-info">
+        <div class="s-name" id="s-name">&nbsp;</div>
+        <div id="s-sub"></div>
+      </div>
+      <div class="s-act">
+        <button class="btn primary" id="s-play" type="button">Play</button>
+        <span class="s-status" id="s-status"></span>
+      </div>
+    </main>
+    <script type="module" src="./splash.ts"></script>
+  </body>
+</html>

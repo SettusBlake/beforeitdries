@@ -1,0 +1,40 @@
+/* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
+import type { CatchResponse, CollectionResponse, ErrorCode, ErrorResponse, GlazeResponse, InitResponse } from '../../shared/api';
+import type { PigmentId } from '../../shared/data';
+
+export class ApiError extends Error {
+  constructor(
+    public code: ErrorCode,
+    message: string,
+    public status: number,
+    public dryUntil?: number,
+  ) {
+    super(message);
+  }
+}
+
+async function call<T>(path: string, body?: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(path, body === undefined ? undefined : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  } catch {
+    throw new ApiError('server', 'No connection. The paint will wait.', 0);
+  }
+  const json = (await res.json().catch(() => null)) as (T & Partial<ErrorResponse>) | null;
+  if (!res.ok || !json) throw new ApiError(json?.code ?? 'server', json?.error ?? `Error ${res.status}`, res.status, json?.dryUntil);
+  return json;
+}
+
+export const api = {
+  init: () => call<InitResponse>('/api/init'),
+  collection: () => call<CollectionResponse>('/api/collection'),
+  catchBlot: () => call<CatchResponse>('/api/catch', {}),
+  glaze: (id: string, pigment: PigmentId) => call<GlazeResponse>('/api/glaze', { id, pigment }),
+};
+
+/** Abstand zwischen Server- und Geräteuhr, für Trockenzeit und Tagesende */
+let skew = 0;
+export const syncClock = (serverNow: number): void => {
+  skew = serverNow - Date.now();
+};
+export const serverNow = (): number => Date.now() + skew;

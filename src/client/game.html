@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Before It Dries</title>
+  </head>
+  <body class="game">
+    <div class="wrap">
+      <header class="top">
+        <div class="brand">
+          <p class="eyebrow" id="g-eyebrow">Daily blot</p>
+          <h1>Before It Dries</h1>
+        </div>
+        <div class="tools" id="g-tools"></div>
+      </header>
+      <nav class="tabs" role="tablist" aria-label="Views">
+        <button class="tab" id="tab-today" type="button" role="tab" aria-selected="true" aria-controls="view-today">Today</button>
+        <button class="tab" id="tab-sheet" type="button" role="tab" aria-selected="false" aria-controls="view-sheet">My sheet <b id="sheet-count"></b></button>
+      </nav>
+      <main>
+        <section id="view-today" role="tabpanel" aria-labelledby="tab-today">
+          <p class="hint" id="today-loading">Wetting the paper…</p>
+        </section>
+        <section id="view-sheet" role="tabpanel" aria-labelledby="tab-sheet" hidden></section>
+      </main>
+    </div>
+
+    <div class="overlay" id="overlay" hidden>
+      <section class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="p-name">
+        <button class="close" id="btn-close" type="button" aria-label="Close painting sheet">×</button>
+        <div class="col">
+          <div class="big"><canvas class="blot" id="big-canvas" aria-label="Watercolor of the monster"></canvas></div>
+          <div id="p-traits"></div>
+          <p class="lore" id="p-lore" hidden></p>
+        </div>
+        <div class="col">
+          <div class="p-head">
+            <h2 id="p-name">-</h2>
+            <div id="p-sub"></div>
+            <div id="p-pigs" class="p-pigs"></div>
+            <p class="p-naming" id="p-naming"></p>
+          </div>
+          <div>
+            <p class="sec-title">Stats, out in the open</p>
+            <div class="tbl-wrap"><table id="p-table"></table></div>
+          </div>
+          <div>
+            <p class="sec-title">Apply a glaze</p>
+            <div class="swatches" id="swatches" role="group" aria-label="Pick a pigment"></div>
+          </div>
+          <div class="odds" id="odds"></div>
+          <div class="act">
+            <span class="layers" id="p-layers"></span>
+            <button class="btn primary" id="btn-glaze" type="button">Apply glaze</button>
+          </div>
+          <div id="p-sepia"></div>
+          <div>
+            <p class="sec-title">Painting log</p>
+            <ul class="log" id="log"></ul>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="./game.ts"></script>
+  </body>
+</html>
