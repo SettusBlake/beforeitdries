@@ -10,13 +10,14 @@
   "scripts": {
     "build": "vite build",
     "dev": "devvit playtest",
-    "login": "devvit login --copy-paste",
-    "deploy": "vite build && devvit upload",
+    "login": "NODE_USE_ENV_PROXY=1 devvit login --copy-paste",
+    "deploy": "vite build && NODE_USE_ENV_PROXY=1 devvit upload",
     "launch": "npm run deploy && devvit publish",
     "test": "vitest run",
     "type-check": "tsc -p src/client && tsc -p src/server && tsc -p .",
     "compare": "node tools/compare-render.mjs",
-    "preview": "vite build && esbuild tools/preview-server.ts --bundle --platform=node --format=esm --outfile=dist/preview-server.mjs --log-level=warning && node dist/preview-server.mjs"
+    "preview": "vite build && esbuild tools/preview-server.ts --bundle --platform=node --format=esm --outfile=dist/preview-server.mjs --log-level=warning && node dist/preview-server.mjs",
+    "playtest:upload": "bash tools/playtest-upload.sh"
   },
   "dependencies": {
     "@devvit/web": "0.15.1",
