@@ -52,7 +52,7 @@ export const PIG = Object.fromEntries(PIGMENTS.map((p) => [p.id, p])) as Record<
 export const css = (c: RGB): string => `rgb(${c[0]},${c[1]},${c[2]})`;
 
 /* ---------- Papier = Seltenheit ---------- */
-export type PaperId = 'schul' | 'zeichen' | 'buetten' | 'hadern';
+export type PaperId = 'schul' | 'zeichen' | 'buetten' | 'hadern' | 'washi' | 'vellum';
 
 export interface Paper {
   id: PaperId;
@@ -73,7 +73,15 @@ export const PAPERS: readonly Paper[] = [
   { id: 'buetten', n: 'Handmade Paper', w: 15, pips: 3, cap: 60, bonus: 2, tone: [242, 238, 227], grain: 0.85, deckle: true, fibers: false },
   { id: 'hadern', n: 'Cotton Rag', w: 5, pips: 4, cap: 70, bonus: 4, tone: [239, 233, 217], grain: 1, deckle: true, fibers: true },
 ];
-export const PAPER = Object.fromEntries(PAPERS.map((p) => [p.id, p])) as Record<PaperId, Paper>;
+/**
+ * Seltene Papiere (Legendary). Nicht in PAPERS, damit der gewichtete Papierwurf und damit das
+ * Aussehen aller bisherigen Monster gleich bleiben. Sie werden nur getrennt vergeben (Gacha).
+ */
+export const RARE_PAPERS: readonly Paper[] = [
+  { id: 'washi', n: 'Washi', w: 0, pips: 5, cap: 75, bonus: 5, tone: [246, 241, 228], grain: 0.55, deckle: true, fibers: true },
+  { id: 'vellum', n: 'Vellum', w: 0, pips: 5, cap: 75, bonus: 5, tone: [250, 246, 236], grain: 0.25, deckle: false, fibers: false },
+];
+export const PAPER = Object.fromEntries([...PAPERS, ...RARE_PAPERS].map((p) => [p.id, p])) as Record<PaperId, Paper>;
 
 /* ---------- Baupläne: feste Silhouette, zufälliges Innenleben ---------- */
 export interface BlobShape {

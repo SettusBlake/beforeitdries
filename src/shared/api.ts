@@ -4,6 +4,7 @@ import type { LogEntry } from './glaze';
 import type { Monster } from './monster';
 import type { DuelState } from './duel/play';
 import type { Ev } from './duel/rules';
+import type { DiceSave, PullResult } from './dice';
 
 /** Gespeichert unter monster:{id}. Nur Seed, Würfe und Zustand, nie das Bild. */
 export interface MonsterRecord extends Monster {
@@ -95,4 +96,18 @@ export interface ErrorResponse {
 export interface DuelResponse {
   state: DuelState | null;
   events: Ev[];
+  reward?: DuelReward;
+}
+
+/** Antwort der Würfel-Anfragen: die ganze Sammlung, dazu Züge und ob der freie Tageszug bereit ist */
+export interface DiceResponse {
+  dice: DiceSave;
+  freeReady: boolean;
+  pulls: PullResult[];
+}
+/** Pigment nach einem Duell */
+export interface DuelReward {
+  pigment: number;
+  why: 'win' | 'draw' | 'loss' | 'tutorial' | 'capped';
+  total: number;
 }

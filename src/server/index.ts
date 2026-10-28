@@ -5,6 +5,7 @@ import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
 import type { CollectionResponse, ErrorResponse, GlazeRequest, InitResponse } from '../shared/api';
 import { dayKey, isDayKey, shiftDay } from '../shared/day';
 import { adoptTopName, catchBlot, dayInfo, dryMsFromHours, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps, type RedditLike } from './core';
+import { diceBag, diceGet, diceGlaze, dicePull, payCatch } from './dice';
 import { duelAct, duelGet, duelStart } from './duel';
 import { K } from './keys';
 import { secureUint32 } from './rand';
@@ -80,7 +81,10 @@ app.post(
   wrap(async (_req, res) => {
     const d = await deps();
     const ref = await resolveDay(d, context.postId, context.postData);
-    res.json(await catchBlot(d, context.userId, context.username, ref));
+    const out = await catchBlot(d, context.userId, context.username, ref);
+    // Pigment für den Fang. Scheitert das (Sperre), bleibt der Fang trotzdem gültig.
+    if (out.fresh && context.userId) await payCatch(d, context.userId).catch((e: unknown) => console.error('payCatch', e));
+    res.json(out);
   }),
 );
 
@@ -114,6 +118,37 @@ app.post(
   '/api/duel/act',
   wrap(async (req, res) => {
     res.json(await duelAct(await deps(), context.userId, (req.body as { action?: unknown } | undefined)?.action));
+  }),
+);
+
+/* ---------- Würfelsammlung ---------- */
+
+app.get(
+  '/api/dice',
+  wrap(async (_req, res) => {
+    res.json(await diceGet(await deps(), context.userId));
+  }),
+);
+
+app.post(
+  '/api/dice/pull',
+  wrap(async (req, res) => {
+    res.json(await dicePull(await deps(), context.userId, (req.body as { kind?: unknown } | undefined)?.kind));
+  }),
+);
+
+app.post(
+  '/api/dice/bag',
+  wrap(async (req, res) => {
+    res.json(await diceBag(await deps(), context.userId, (req.body as { ids?: unknown } | undefined)?.ids));
+  }),
+);
+
+app.post(
+  '/api/dice/glaze',
+  wrap(async (req, res) => {
+    const body = (req.body ?? {}) as { id?: unknown; face?: unknown };
+    res.json(await diceGlaze(await deps(), context.userId, body.id, body.face));
   }),
 );
 

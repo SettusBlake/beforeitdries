@@ -8,6 +8,7 @@ import { BLOOM_TRAITS, BP, PIG, type BlueprintId, type PigmentId, type RGB } fro
 import { relation } from '../glaze';
 import { humidityFor, makeMonster, statRows, type Monster } from '../monster';
 import { RNG, type Rand } from '../rng';
+import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
 
 /* ---------- Regeln (alle Zahlen hier) ---------- */
 export const COLS = 7,
@@ -34,7 +35,12 @@ export type Action = 'dry' | 'wet' | 'splash' | 'soak' | 'ability' | 'none';
 export type Crest = 'step' | 'brush' | 'splash' | 'guard' | 'glow';
 type StatK = 'flo' | 'opa' | 'sat' | 'grn' | 'glw';
 /** Eine Würfelseite: Stern mit Stufe oder Symbol mit Anzahl */
-export type Face = { k: 'star' | Crest; n: number };
+/** Joker: Stern, der für andere als Stufe 3 zählt. Gold: je ein Symbol jeder Sorte. */
+export type Face = { k: 'star' | 'joker' | 'gold' | Crest; n: number };
+export const isStar = (f: Face): boolean => f.k === 'star' || f.k === 'joker';
+export const starValue = (f: Face): number => (f.k === 'joker' ? 3 : f.k === 'star' ? f.n : 0);
+const isCrest = (f: Face): f is { k: Crest; n: number } => f.k !== 'star' && f.k !== 'joker' && f.k !== 'gold';
+export const isCrestFace = isCrest;
 export type P = [number, number];
 export type Cell = { owner: 0 | 1 | 2 | 3; rgb: RGB; hue: PigmentId | null; wet: number; atk: number; def: number; lf: number; stamp: number; home: 0 | Side };
 export type Trait = { key: string; label: string; text: string };
@@ -64,6 +70,7 @@ export type Unit = {
   net: P[];
   lv: number;
   faces: Face[];
+  rarity: Rarity;
   sec: PigmentId | null;
   traits: Trait[];
 };
@@ -250,6 +257,7 @@ function unitOf(m: Monster, side: Side): Unit {
     faces: [],
     sec: m.sec[0] ?? null,
     traits: traitsOf(m),
+    rarity: rarityOf(m.paper),
   };
 }
 export const power = (u: Unit) => u.sat + u.opa + u.grn + u.flo + u.glw;
@@ -275,6 +283,57 @@ function makeFaces(u: Unit): Face[] {
     f.push({ k: c.k, n: dbl ? 2 : 1 });
   }
   return f;
+}
+
+/** Stufe aus der Stärke: schwache Würfel beschwören leicht, starke schwer */
+export const LEVEL_POWER = [110, 123];
+export const levelOf = (u: Unit): number => (power(u) < LEVEL_POWER[0]! ? 1 : power(u) < LEVEL_POWER[1]! ? 2 : 3);
+/** Seltenheit verändert Seiten: Uncommon eine Seite doppelt, Rare dazu ein Joker, Epic noch eine doppelte, Legendary dazu Gold */
+function rarityFaces(f: Face[], r: Rarity): Face[] {
+  const out = f.map((x) => ({ ...x }));
+  const ri = rarityIndex(r);
+  const crestAt = (from: 'start' | 'end', single = true) => {
+    const order = out.map((_, i) => i);
+    if (from === 'end') order.reverse();
+    return order.find((i) => isCrest(out[i]!) && (!single || out[i]!.n === 1));
+  };
+  if (ri >= 1) {
+    const i = crestAt('start');
+    if (i !== undefined) out[i]!.n = 2;
+  }
+  if (ri >= 2) {
+    const i = crestAt('end', false);
+    if (i !== undefined) out[i] = { k: 'joker', n: 3 };
+  }
+  if (ri >= 3) {
+    const i = crestAt('start');
+    if (i !== undefined) out[i]!.n = 2;
+  }
+  if (ri >= 4) {
+    const i = crestAt('end', false);
+    if (i !== undefined) out[i] = { k: 'gold', n: 1 };
+  }
+  return out;
+}
+/** Lasuren: ein einfaches Symbol wird doppelt */
+function glazeFaces(f: Face[], mods: FaceMod[]): Face[] {
+  const out = f.map((x) => ({ ...x }));
+  for (const m of mods) {
+    const x = out[m.i];
+    if (x && isCrest(x) && x.n === 1 && m.to === 'x2') x.n = 2;
+  }
+  return out;
+}
+/** Alle Seiten eines Würfels: Grundseiten aus den Werten, dann Seltenheit, dann Lasuren */
+export function facesFor(u: Unit, mods: FaceMod[] = []): Face[] {
+  return glazeFaces(rarityFaces(makeFaces(u), u.rarity), mods);
+}
+/** Ein Würfel außerhalb eines Duells (Sammlung, Karte) */
+export function dieUnit(m: Monster, mods: FaceMod[] = []): Unit {
+  const u = unitOf(m, 1);
+  u.lv = levelOf(u);
+  u.faces = facesFor(u, mods);
+  return u;
 }
 
 /* Wahrscheinlichkeit, dass a + W20 > b + W20 */
@@ -317,6 +376,8 @@ export const S = {
   paintSeed: 0,
   phase: 'opening' as Phase,
   lastRoll: [] as { id: number; fi: number }[],
+  /** Joker aus dem letzten Wurf, die noch nicht als Stern oder Symbol verbraucht sind */
+  joker: 0,
   /** Lern-Duell: bis zu dieser Runde gibt Sepia jeden Schritt vor (0 = aus) */
   tutorial: 0,
   log: [] as { t: string; c: string }[],
@@ -377,16 +438,22 @@ export function logAdd(t: string, c: string): void {
   S.log.unshift({ t, c });
   emit({ k: 'log', t, c });
 }
-export const faceText = (f: Face) => (f.k === 'star' ? `★${f.n}` : `${crestDef(f.k).label}${f.n > 1 ? ' ×2' : ''}`);
+export const faceText = (f: Face) => (f.k === 'star' ? `★${f.n}` : f.k === 'joker' ? 'Joker' : f.k === 'gold' ? 'Gold' : `${crestDef(f.k).label}${f.n > 1 ? ' ×2' : ''}`);
+/** Was eine besondere Seite kann */
+export const FACE_HELP: Record<'joker' | 'gold', string> = {
+  joker: 'Joker: counts as a star of any level, or turns into any one crest.',
+  gold: 'Gold: one of every crest.',
+};
 
 /** Neues Duell. Beutel sind je 6 Monster, der Seed bleibt am Server. */
-export function newGame(seed: number, level: Level, mine: Monster[], theirs: Monster[], paintSeed: number): void {
+export function newGame(seed: number, level: Level, mine: Monster[], theirs: Monster[], paintSeed: number, mineMods: FaceMod[][] = []): void {
   S.gameSeed = seed >>> 0;
   S.level = level;
   S.rng = (seed ^ 0xabcdef) >>> 0;
   S.paintSeed = paintSeed >>> 0;
   S.phase = 'opening';
   S.lastRoll = [];
+  S.joker = 0;
   S.tutorial = 0;
   uid = 0;
   S.cells = Array.from({ length: COLS * ROWS }, emptyCell);
@@ -404,10 +471,11 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
     { side: 2, units: theirs.map((m) => unitOf(m, 2)), water: TUNE.water[level], crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(2) },
   ];
   for (const t of S.teams) {
-    // Stufe nach Stärke im eigenen Beutel: je zwei Würfel Stufe 1, 2 und 3
-    const sorted = [...t.units].sort((a, b) => power(a) - power(b));
-    sorted.forEach((u, i) => (u.lv = 1 + Math.floor(i / 2)));
-    for (const u of t.units) u.faces = makeFaces(u);
+    // Stufe aus der Stärke, Seiten aus Werten, Seltenheit und Lasuren
+    t.units.forEach((u, k) => {
+      u.lv = levelOf(u);
+      u.faces = facesFor(u, t.side === 1 ? (mineMods[k] ?? []) : []);
+    });
     const h = S.cells[t.home]!;
     h.home = t.side;
     h.owner = t.side;
@@ -452,19 +520,30 @@ export function rollDice(t: Team, us: Unit[]): Rolled[] {
     const fi = Math.floor(rand01() * 6);
     return { u, fi, face: u.faces[fi]! };
   });
-  for (const r of out) if (r.face.k !== 'star') t.crests[r.face.k] = Math.min(CREST_MAX, t.crests[r.face.k] + r.face.n);
+  for (const r of out) {
+    const f = r.face;
+    if (f.k === 'gold') for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + 1);
+    else if (isCrest(f)) t.crests[f.k] = Math.min(CREST_MAX, t.crests[f.k] + f.n);
+  }
   S.lastRoll = out.map((r) => ({ id: r.u.id, fi: r.fi }));
+  S.joker = out.filter((r) => r.face.k === 'joker').length;
   count(`${t.side}roll`);
   emit({ k: 'roll', side: t.side, dice: out.map((r) => ({ id: r.u.id, fi: r.fi })), crests: { ...t.crests } });
   logAdd(`${t.side === 2 ? 'Rival' : 'You'} rolled ${out.map((x) => faceText(x.face)).join(', ')}.`, t.side === 2 ? 'rival' : 'you');
   return out;
 }
+/** Ein Joker, der nicht zum Beschwören dient, wird zu einem Symbol nach Wahl */
+export function takeJoker(t: Team, c: Crest): void {
+  S.joker = Math.max(0, S.joker - 1);
+  t.crests[c] = Math.min(CREST_MAX, t.crests[c] + 1);
+  logAdd(`${t.side === 2 ? 'Rival' : 'You'} turned a Joker into ${crestDef(c).label}.`, t.side === 2 ? 'rival' : 'you');
+}
 /** Sterne der anderen Würfel müssen zusammen mindestens die Stufe des Kleckses ergeben */
 export function summonable(t: Team, rolled: Rolled[]): Unit[] {
   if (onSheet(t).length >= ON_SHEET) return [];
   return rolled
-    .filter((r) => r.face.k === 'star' && r.u.state === 'bag')
-    .filter((r) => rolled.filter((o) => o !== r && o.face.k === 'star').reduce((a, o) => a + o.face.n, 0) >= r.u.lv)
+    .filter((r) => isStar(r.face) && r.u.state === 'bag')
+    .filter((r) => rolled.filter((o) => o !== r && isStar(o.face)).reduce((a, o) => a + starValue(o.face), 0) >= r.u.lv)
     .filter((r) => placements(r.u).length > 0)
     .map((r) => r.u);
 }
@@ -1350,7 +1429,11 @@ export function aiChooseDice(t: Team, look: number, r: Rand): Unit[] {
       for (let c = b + 1; c < pool.length; c++) {
         const us = [pool[a]!, pool[b]!, pool[c]!];
         let v = 0;
-        for (const u of us) for (const f of u.faces) if (f.k !== 'star') v += (FACE_VALUE[f.k] * f.n) / 6;
+        for (const u of us)
+          for (const f of u.faces) {
+            if (f.k === 'gold') v += CRESTS.reduce((a, c) => a + FACE_VALUE[c.k], 0) / 6;
+            else if (isCrest(f)) v += (FACE_VALUE[f.k] * f.n) / 6;
+          }
         if (room && us.some((u) => u.state === 'bag')) {
           let p = 0,
             lvSum = 0;
@@ -1359,8 +1442,8 @@ export function aiChooseDice(t: Team, look: number, r: Rand): Unit[] {
             let best = 0;
             us.forEach((u, k) => {
               const f = fs[k]!;
-              if (f.k !== 'star' || u.state !== 'bag') return;
-              const others = fs.reduce((s, g, j) => s + (j !== k && g.k === 'star' ? g.n : 0), 0);
+              if (!isStar(f) || u.state !== 'bag') return;
+              const others = fs.reduce((s, g, j) => s + (j !== k ? starValue(g) : 0), 0);
               if (others >= u.lv) best = Math.max(best, u.lv);
             });
             if (best) {
@@ -1381,6 +1464,19 @@ function evalPlacement(u: Unit, list: number[], at: number): number {
     y = Math.floor(at / COLS);
   v += 0.5 * (ROWS - homeDist(u, x, y)) - danger(u, x, y);
   return v;
+}
+/** Welches Symbol der Computer aus einem Joker macht: das wertvollste, von dem er wenig hat */
+export function aiJokerCrest(t: Team): Crest {
+  let best: Crest = 'brush',
+    bv = -1;
+  for (const c of CRESTS) {
+    const v = FACE_VALUE[c.k] / (1 + t.crests[c.k]);
+    if (v > bv) {
+      bv = v;
+      best = c.k;
+    }
+  }
+  return best;
 }
 function aiSummon(side: Side, rolled: Rolled[], look: number, r: Rand): string | null {
   const t = S.teams[side - 1]!;
@@ -1523,6 +1619,8 @@ export function aiTurnSteps(side: Side, look: number): () => boolean {
       stage = 1;
       const s = aiSummon(side, rolled, look, r);
       if (s) logAdd(`${side === 2 ? 'Rival' : 'You'} ${s}.`, side === 2 ? 'rival' : 'you');
+      if (s) S.joker = 0;
+      while (S.joker > 0) takeJoker(team, aiJokerCrest(team));
       sync();
       return true;
     }

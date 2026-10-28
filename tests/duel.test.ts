@@ -1,5 +1,6 @@
 /* Farbschlacht am Server: Start, Prüfung der Aktionen, ein ganzes Duell bis zum Ende */
 import { describe, expect, it } from 'vitest';
+import { diceGet } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
@@ -67,7 +68,8 @@ describe('Duell am Server', () => {
     res = await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at });
     view(res);
     expect(S.phase).toBe('roll');
-    let biggest = 0;
+    let biggest = 0,
+      reward: DuelResponse['reward'];
     for (let guard = 0; guard < 200 && !S.over; guard++) {
       let a: DuelAction;
       if (S.phase === 'roll') {
@@ -84,15 +86,39 @@ describe('Duell am Server', () => {
           a = to !== undefined ? { k: 'move', id: u.id, to } : { k: 'act', id: u.id, a: 'soak', pig: u.m.main, at: null };
         } else a = u ? { k: 'act', id: u.id, a: 'soak', pig: u.m.main, at: null } : { k: 'end' };
       }
+      // Joker gleich als Symbol nehmen
+      if (S.joker > 0 && (S.phase === 'act' || S.phase === 'summon') && a.k !== 'summon') a = { k: 'joker', crest: 'brush' };
       res = await duelAct(d, USER, a);
+      reward ??= res.reward;
       biggest = Math.max(biggest, JSON.stringify(res).length);
       view(res);
     }
     expect(S.over).toBe(true);
     expect(S.phase).toBe('over');
     expect(await code(duelAct(d, USER, { k: 'end' }))).toBe('bad_request');
+    // Pigment genau einmal, je nach Ausgang
+    expect(reward?.pigment).toBe(S.winner === 1 ? 60 : S.winner === 2 ? 25 : 40);
+    expect((await diceGet(d, USER)).dice.pigment).toBe(reward?.pigment);
     // Antworten bleiben klein genug für das Handy
     expect(biggest).toBeLessThan(400_000);
+  });
+
+  it('Joker wird zum Symbol nach Wahl, danach kein Beschwören mehr', async () => {
+    const d = setup(12);
+    view(await duelStart(d, USER, 'apprentice'));
+    // Stand mit einem offenen Joker in der Beschwörungsphase
+    const raw = JSON.parse((await d.redis.get(`duel:${USER}`))!);
+    raw.phase = 'summon';
+    raw.joker = 1;
+    const before = raw.teams[0].crests.splash;
+    await d.redis.set(`duel:${USER}`, JSON.stringify(raw));
+    expect(await code(duelAct(d, USER, { k: 'joker', crest: 'nope' }))).toBe('bad_request');
+    const res = await duelAct(d, USER, { k: 'joker', crest: 'splash' });
+    view(res);
+    expect(S.teams[0].crests.splash).toBe(before + 1);
+    expect(S.joker).toBe(0);
+    expect(S.phase).toBe('act');
+    expect(await code(duelAct(d, USER, { k: 'joker', crest: 'splash' }))).toBe('bad_request');
   });
 
   it('führt durch das Lern-Duell, immer gleich, und lässt nur Sepias Schritt zu', async () => {

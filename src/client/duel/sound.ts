@@ -119,6 +119,19 @@ export const sfx = {
   win(): void {
     [523, 659, 784, 1047, 1319].forEach((f, k) => tone(k * 0.09, f, f, 0.45, 'sine', 0.07));
   },
+  /** Ein Tropfen fällt aufs Blatt */
+  drop(): void {
+    tone(0, 1400, 520, 0.12, 'sine', 0.12);
+    hiss(0.02, 0.18, 'lowpass', 900, 300, 0.08);
+  },
+  /** Der W100 rattert */
+  tick: (i = 0) => tone(0, 1500 + (i % 3) * 120, 1400, 0.025, 'square', 0.015),
+  /** Seltenheit wird sichtbar: je seltener, desto länger der Akkord */
+  reveal(rank = 0): void {
+    const notes = [392, 494, 587, 784, 988, 1175, 1568];
+    notes.slice(0, 2 + rank).forEach((f, k) => tone(k * 0.08, f, f, 0.5 + rank * 0.1, rank >= 3 ? 'triangle' : 'sine', 0.06));
+    if (rank >= 3) for (let k = 0; k < 6; k++) tone(0.35 + k * 0.07, 2200 + k * 180, 2600 + k * 180, 0.08, 'sine', 0.03);
+  },
   lose(): void {
     [440, 392, 349, 294, 262].forEach((f, k) => tone(k * 0.12, f, f * 0.98, 0.5, 'triangle', 0.06));
   },

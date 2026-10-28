@@ -19,6 +19,7 @@
   <button type="button" class="primary" id="continue" hidden>Continue duel</button>
   <button type="button" class="primary" id="learn">Learn with Sepia</button>
   <button type="button" class="primary" id="start">Start duel</button>
+  <button type="button" class="ghost wide" id="dice-t">Your dice <span class="badge" id="dice-badge" hidden></span></button>
   <div class="trow">
     <button type="button" class="ghost" id="how-t">How to play</button>
     <button type="button" class="ghost" id="sound-t">Sound: on</button>
@@ -50,6 +51,7 @@
   <section class="panel">
     <div class="pool"><span class="hearts" id="hearts" aria-label="Your palette"></span><span class="crests" id="crests" aria-label="Your crests"></span><span class="drops" id="water" aria-label="Your water"></span></div>
     <div id="hint" aria-live="polite"></div>
+    <div id="joker" hidden></div>
     <div id="ctx"></div>
     <div class="gorow">
       <button type="button" id="aux" hidden>Turn net</button>
@@ -58,6 +60,34 @@
     </div>
   </section>
 </section>
+
+<section id="dice" class="screen" hidden>
+  <header class="dtop">
+    <button type="button" id="dice-back" aria-label="Back">←</button>
+    <h2>Your dice</h2>
+    <span class="pig" title="Pigment, earned by playing"><i></i><b id="pigment">0</b></span>
+  </header>
+  <div class="dscroll">
+    <section class="dbox dip">
+      <p class="eyebrow">Dip the brush</p>
+      <div id="dip-btns"></div>
+      <div class="odds" id="odds"></div>
+      <p class="pity" id="pity"></p>
+    </section>
+    <section class="dbox">
+      <div class="bagrow"><span class="eyebrow">Bag</span><small id="bag-hint"></small></div>
+      <div id="bag"></div>
+    </section>
+    <section class="dbox">
+      <div class="bagrow"><span class="eyebrow">Collection</span><small id="coll-count"></small></div>
+      <div id="coll"></div>
+    </section>
+  </div>
+</section>
+
+<div class="overlay" id="dip" hidden>
+  <div class="dipwrap" id="dip-body"></div>
+</div>
 
 <div class="overlay" id="menu" hidden>
   <div class="sheet">
@@ -75,6 +105,7 @@
       <button type="button" class="ghost" id="how-m">How to play</button>
       <button type="button" class="ghost" id="log-m">What happened</button>
       <button type="button" class="ghost" id="new-m">New duel</button>
+      <button type="button" class="ghost" id="dice-m">Your dice</button>
       <button type="button" class="ghost" id="title-m">Back to title</button>
     </div>
   </div>
@@ -95,6 +126,8 @@
       <li><b>Palettes:</b> each side has three hearts. Stand next to the rival palette and splash it: one heart, every time. A palette is safe while one of its own blots stands next to it. Break all three hearts and you win.</li>
       <li><b>Washed out</b> blots lose their die for good, so you roll with fewer.</li>
       <li><b>The Eraser</b> wipes a row after rounds 2 and 4. After 6 rounds the paper dries: cells plus 3 per heart left.</li>
+      <li><b>Rarity</b> comes from the paper of a die. Uncommon dice have a doubled crest, Rare ones a Joker (any star or any crest), Epic ones another doubled crest, Legendary ones a Gold side (one of every crest).</li>
+      <li><b>Your dice:</b> dip the brush for new dice with pigment you earn in duels. The d100 is open, its ranges are shown. A species you already have turns into glaze, and glaze doubles a single crest on a die.</li>
       <li><b>The gold ring</b> shows what Master Sepia would do next. Turn hints off in the menu.</li>
     </ul>
   </div>
@@ -133,6 +166,7 @@
     <h2 id="result-title"></h2>
     <p id="result-sub"></p>
     <div id="result-stats"></div>
+    <p id="result-reward" hidden></p>
     <p id="result-sepia"></p>
     <div class="trow" style="margin: 0 auto;">
       <button type="button" class="primary" id="again">Again</button>

@@ -30,13 +30,16 @@ import {
   startTurn,
   summonable,
   sync,
+  takeJoker,
   TUNE,
+  CRESTS,
   unitById,
   validNet,
   COLS,
   ROWS,
   type Action,
   type Cell,
+  type Crest,
   type Ev,
   type Level,
   type Phase,
@@ -50,6 +53,7 @@ export type DuelAction =
   | { k: 'roll'; ids: number[] }
   | { k: 'summon'; id: number; o: number; at: number }
   | { k: 'skip' }
+  | { k: 'joker'; crest: Crest }
   | { k: 'move'; id: number; to: number }
   | { k: 'act'; id: number; a: Action; pig: PigmentId; at: number | null }
   | { k: 'end' };
@@ -67,6 +71,8 @@ export type DuelState = {
   level: Level;
   phase: Phase;
   lastRoll: { id: number; fi: number }[];
+  /** Joker aus dem letzten Wurf, noch nicht verbraucht */
+  joker: number;
   paintSeed: number;
   stamp: number;
   log: { t: string; c: string }[];
@@ -95,6 +101,7 @@ export function publicState(): DuelState {
     level: S.level,
     phase: S.phase,
     lastRoll: S.lastRoll,
+    joker: S.joker,
     paintSeed: S.paintSeed,
     stamp: S.stamp,
     log: S.log.slice(0, 40),
@@ -117,6 +124,7 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSee
   S.level = s.level;
   S.phase = s.phase;
   S.lastRoll = s.lastRoll;
+  S.joker = s.joker ?? 0;
   S.paintSeed = s.paintSeed;
   S.stamp = s.stamp;
   S.log = s.log;
@@ -192,6 +200,18 @@ export function perform(a: DuelAction): Ev[] {
       if (!summonable(me, lastRolled()).includes(u)) bad('The stars do not add up for that die.');
       const s = doSummon(u, a.o, a.at);
       logAdd(`You ${s}.`, 'you');
+      // Die Joker haben als Sterne gezählt
+      S.joker = 0;
+      sync();
+      S.phase = 'act';
+      break;
+    }
+    case 'joker': {
+      if (S.phase !== 'summon' && S.phase !== 'act') bad('Not your turn.');
+      if (S.joker < 1) bad('No Joker to use.');
+      if (!CRESTS.some((c) => c.k === a.crest)) bad('Unknown crest.');
+      // Wer den Joker als Symbol nimmt, beschwört in diesem Zug nicht mehr
+      takeJoker(me, a.crest);
       sync();
       S.phase = 'act';
       break;
@@ -248,6 +268,7 @@ export function perform(a: DuelAction): Ev[] {
         startTurn(1);
         S.phase = 'roll';
         S.lastRoll = [];
+        S.joker = 0;
       }
       break;
     }

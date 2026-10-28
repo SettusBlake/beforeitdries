@@ -12,7 +12,7 @@ export function speciesTitle(m: Pick<Monster, 'bp' | 'main'>, species: SpeciesIn
 
 export function paperLine(m: Monster): HTMLElement {
   const pa = PAPER[m.paper];
-  return h('span', null, `${pa.n} `, h('span', { class: 'pips', attrs: { 'aria-label': `Rarity ${pa.pips} of 4` }, text: pips(pa.pips) }));
+  return h('span', null, `${pa.n} `, h('span', { class: 'pips', attrs: { 'aria-label': `Rarity ${pa.pips} of 5` }, text: pips(pa.pips) }));
 }
 
 export function subLine(m: Monster, ...extra: (string | HTMLElement)[]): HTMLElement {

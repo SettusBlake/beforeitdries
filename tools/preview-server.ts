@@ -7,9 +7,11 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
+import { diceBag, diceGet, diceGlaze, dicePull, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { K } from '../src/server/keys';
 import { dayKey } from '../src/shared/day';
+import { dieSpecies, PITY } from '../src/shared/dice';
 import { secureUint32 } from '../src/server/rand';
 import { FakeRedis } from './fake-redis';
 import { FakeReddit } from './fake-reddit';
@@ -59,6 +61,24 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/duel') return send(200, await duelGet(d, asUser));
       if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true));
       if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action));
+    }
+    if (url.pathname.startsWith('/api/dice')) {
+      let raw = '';
+      for await (const c of req) raw += c;
+      const b = JSON.parse(raw || '{}');
+      if (url.pathname === '/api/dice') return send(200, await diceGet(d, asUser));
+      if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
+      if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
+      if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));
+    }
+    // Nur in der Vorschau: Pigment und Lasur zum Ausprobieren
+    if (url.pathname === '/dev/pigment') {
+      const s = await loadDice(d, USER.id);
+      s.pigment += Number(url.searchParams.get('n') ?? 1000);
+      for (const x of s.dice) s.glaze[dieSpecies(x)] = (s.glaze[dieSpecies(x)] ?? 0) + 6;
+      if (url.searchParams.has('legendary')) s.pity.legendary = PITY.legendary - 1;
+      await saveDice(d, USER.id, s);
+      return send(200, { pigment: s.pigment });
     }
     if (url.pathname === '/api/glaze') {
       let raw = '';

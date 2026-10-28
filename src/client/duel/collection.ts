@@ -1,0 +1,424 @@
+/*
+ * Würfelsammlung im Client: Ziehen mit offenem W100, Beutel packen, Lasur auf Würfelseiten.
+ * Alle Würfe kommen vom Server, hier wird nur gezeigt und angetippt.
+ */
+import type { DiceResponse } from '../../shared/api';
+import { PAPER } from '../../shared/data';
+import { dieMonster, dieSpecies, GLAZE_COST, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, TEN_COST, type DiceSave, type DieRec, type PullKind, type PullResult } from '../../shared/dice';
+import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
+import { speciesLabel } from '../../shared/monster';
+import { renderMonster } from '../renderer/watercolor';
+import { api } from '../lib/api';
+import { iconSvg, netSvg } from './icons';
+import { initAudio, sfx } from './sound';
+
+const $ = (id: string) => document.getElementById(id)!;
+function el(tag: string, cls = '', text = ''): HTMLElement {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text) e.textContent = text;
+  return e;
+}
+function html(tag: string, cls: string, inner: string): HTMLElement {
+  const e = el(tag, cls);
+  e.innerHTML = inner;
+  return e;
+}
+const dpr = () => Math.min(2, window.devicePixelRatio || 1);
+const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+
+type Hooks = { back: () => void; error: (e: unknown) => void };
+let hooks: Hooks = { back: () => undefined, error: () => undefined };
+let save: DiceSave | null = null;
+let freeReady = false;
+let busy = false;
+/** Würfel, der in den Beutel soll: nächster Tipp auf einen Beutelplatz tauscht */
+let swapIn: string | null = null;
+
+/* ---------- Bilder der Würfel ---------- */
+const arts = new Map<string, HTMLCanvasElement>();
+function art(d: DieRec, px: number): HTMLCanvasElement {
+  const key = `${d.id}:${d.paper ?? ''}:${px}`;
+  let c = arts.get(key);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = c.height = 1;
+    renderMonster(c, dieMonster(d), px, px < 80 ? { dpr: dpr(), quality: 'lite' } : { dpr: dpr() });
+    arts.set(key, c);
+  }
+  const out = document.createElement('canvas');
+  out.width = c.width;
+  out.height = c.height;
+  out.getContext('2d')!.drawImage(c, 0, 0);
+  return out;
+}
+const unitOfDie = (d: DieRec): Unit => dieUnit(dieMonster(d), d.mods);
+const shortName = (u: Unit) => u.name;
+
+/* ---------- Bildschirm ---------- */
+function render(): void {
+  if (!save) return;
+  const s = save;
+  $('pigment').textContent = String(s.pigment);
+  // Ziehen
+  const btns = $('dip-btns');
+  btns.replaceChildren();
+  const btn = (label: string, sub: string, kind: PullKind, ok: boolean, main = false) => {
+    const b = el('button', main ? 'dipbtn main' : 'dipbtn') as HTMLButtonElement;
+    b.type = 'button';
+    b.dataset.kind = kind;
+    b.disabled = !ok || busy;
+    b.append(el('b', '', label), el('small', '', sub));
+    b.addEventListener('click', () => void pull(kind));
+    btns.append(b);
+  };
+  if (s.starter > 0) btn(`Dip ${s.starter} free dice`, 'fills your bag', 'starter', true, true);
+  else {
+    btn('Free dip', freeReady ? 'once a day' : 'back tomorrow', 'free', freeReady, freeReady);
+    btn('Dip', `${PULL_COST} pigment`, 'one', s.pigment >= PULL_COST);
+    btn('Dip ×10', `${TEN_COST} · Rare or better`, 'ten', s.pigment >= TEN_COST);
+  }
+  $('odds').innerHTML = RARITIES.map((r) => `<span style="--c:${r.col}"><i></i>${r.from === r.to ? r.from : `${r.from}–${r.to}`} ${r.label}</span>`).join('');
+  $('pity').textContent = `Bad luck shield: Rare in ${PITY.rare - s.pity.rare} · Epic in ${PITY.epic - s.pity.epic} · Legendary in ${PITY.legendary - s.pity.legendary} dips at most.`;
+  // Beutel
+  const bag = $('bag');
+  bag.replaceChildren();
+  for (let k = 0; k < BAG; k++) {
+    const d = s.dice.find((x) => x.id === s.bag[k]);
+    const b = el('button', 'bslot' + (swapIn ? ' swap' : '')) as HTMLButtonElement;
+    b.type = 'button';
+    if (d) {
+      const u = unitOfDie(d);
+      b.style.setProperty('--c', rarityDef(u.rarity).col);
+      b.append(art(d, 46), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 13)));
+      b.title = u.name;
+      b.addEventListener('click', () => {
+        if (swapIn) return void swap(k);
+        openDie(d);
+      });
+    } else b.disabled = true;
+    bag.append(b);
+  }
+  $('bag-hint').textContent = swapIn ? 'Tap the die it should replace.' : 'The six dice you duel with.';
+  // Sammlung
+  const coll = $('coll');
+  coll.replaceChildren();
+  const sorted = [...s.dice].sort((a, b) => rarityIndex(unitOfDie(b).rarity) - rarityIndex(unitOfDie(a).rarity) || b.at - a.at);
+  $('coll-count').textContent = `${s.dice.length} dice · ${new Set(s.dice.map(dieSpecies)).size} species`;
+  for (const d of sorted) {
+    const u = unitOfDie(d);
+    const r = rarityDef(u.rarity);
+    const c = el('button', `dcard r-${u.rarity}` + (s.bag.includes(d.id) ? ' inbag' : '')) as HTMLButtonElement;
+    c.type = 'button';
+    c.dataset.id = d.id;
+    c.style.setProperty('--c', r.col);
+    const g = s.glaze[dieSpecies(d)] ?? 0;
+    c.append(art(d, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', shortName(u)), el('small', '', r.label + (g ? ` · ${g} glaze` : '')));
+    if (s.bag.includes(d.id)) c.append(el('span', 'bagmark', 'bag'));
+    c.addEventListener('click', () => openDie(d));
+    coll.append(c);
+  }
+  if (!s.dice.length) coll.append(el('p', 'empty', 'No dice yet. Dip the brush.'));
+}
+
+async function load(): Promise<void> {
+  try {
+    apply(await api.dice());
+  } catch (e) {
+    hooks.error(e);
+  }
+}
+function apply(r: DiceResponse): void {
+  save = r.dice;
+  freeReady = r.freeReady;
+  render();
+}
+
+/* ---------- Beutel ---------- */
+async function swap(slot: number): Promise<void> {
+  if (!save || !swapIn || busy) return;
+  const ids = [...save.bag];
+  if (ids.includes(swapIn)) {
+    swapIn = null;
+    return render();
+  }
+  ids[slot] = swapIn;
+  swapIn = null;
+  busy = true;
+  sfx.tap();
+  try {
+    apply(await api.diceBag(ids));
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
+
+/* ---------- Karte eines Würfels, mit Lasur ---------- */
+function openDie(d: DieRec): void {
+  if (!save) return;
+  sfx.tap();
+  const s = save;
+  const u = unitOfDie(d);
+  const r = rarityDef(u.rarity);
+  const key = dieSpecies(d);
+  const glaze = s.glaze[key] ?? 0;
+  const box = $('inspect-body');
+  box.replaceChildren();
+  const top = el('div', 'card-top');
+  const info = el('div', 'card-id');
+  const big = art(d, 88);
+  big.className = 'dieart';
+  big.style.setProperty('--c', r.col);
+  info.append(
+    el('b', '', u.name),
+    html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b class="rlabel" style="color:${r.col}">${r.label}</b>`),
+    el('small', '', `${PAPER[u.m.paper].n} · ${speciesLabel(u.m)}`),
+  );
+  top.append(big, info);
+  const net = html('div', 'card-net', netSvg(u.net, u.faces, 26));
+  // Seiten mit Lasur: ein einfaches Symbol wird doppelt
+  const faces = el('div', 'faces');
+  const canGlaze = glaze >= GLAZE_COST;
+  u.faces.forEach((f, i) => {
+    const ok = canGlaze && isCrestFace(f) && f.n === 1;
+    const b = el('button', 'face' + (ok ? ' can' : '')) as HTMLButtonElement;
+    b.type = 'button';
+    b.disabled = !ok || busy;
+    b.dataset.face = String(i);
+    b.title = faceText(f);
+    b.innerHTML = iconSvg(f, 30);
+    b.addEventListener('click', () => void glazeFace(d, i));
+    faces.append(b);
+  });
+  const gl = el('p', 'glazeline', canGlaze ? `Glaze ${glaze}: tap a single crest to double it (${GLAZE_COST} glaze).` : `Glaze ${glaze}/${GLAZE_COST}. Dip this species again to gain glaze.`);
+  const stats = el('div', 'card-stats');
+  for (const [k, n] of [
+    ['SAT', u.sat],
+    ['OPA', u.opa],
+    ['GRN', u.grn],
+    ['FLO', u.flo],
+    ['GLW', u.glw],
+    ['LFT', u.lf],
+  ] as [string, number][])
+    stats.append(html('span', '', `<small>${k}</small><b>${n}</b>`));
+  const ab = ABILITY[u.m.bp];
+  const lines = el('div', 'card-lines');
+  lines.append(html('p', '', `<b>Die</b> ${u.faces.map(faceText).join(', ')}`));
+  for (const k of ['joker', 'gold'] as const) if (u.faces.some((f) => f.k === k)) lines.append(html('p', 'special', FACE_HELP[k]));
+  lines.append(html('p', '', `<b>Moves</b> ${GAIT[u.m.bp].text}`), html('p', 'ab', `<b>${ab.name}</b> ${ab.text}`));
+  for (const t of u.traits) lines.append(html('p', 'trait', `<b>${t.label}</b> ${t.text}`));
+  const row = el('div', 'trow');
+  if (s.bag.includes(d.id)) row.append(el('span', 'inbag-lbl', 'In your bag'));
+  else {
+    const b = el('button', 'primary', 'Put in bag') as HTMLButtonElement;
+    b.type = 'button';
+    b.id = 'put-bag';
+    b.addEventListener('click', () => {
+      swapIn = d.id;
+      $('inspect').hidden = true;
+      render();
+      $('bag').scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    row.append(b);
+  }
+  box.append(top, net, faces, gl, row, stats, lines);
+  $('inspect').hidden = false;
+}
+async function glazeFace(d: DieRec, i: number): Promise<void> {
+  if (busy) return;
+  busy = true;
+  try {
+    apply(await api.diceGlaze(d.id, i));
+    sfx.ability();
+    const nd = save?.dice.find((x) => x.id === d.id);
+    busy = false;
+    if (nd) openDie(nd);
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+}
+
+/* ---------- Ziehen: Tropfen, offener W100, Klecks blüht auf ---------- */
+let fast = false;
+const wait = (ms: number) => sleep(fast ? ms / 6 : ms);
+async function pull(kind: PullKind): Promise<void> {
+  if (busy) return;
+  initAudio();
+  busy = true;
+  render();
+  let res: DiceResponse;
+  try {
+    res = await api.dicePull(kind);
+  } catch (e) {
+    busy = false;
+    render();
+    hooks.error(e);
+    return;
+  }
+  const before = save;
+  save = res.dice;
+  freeReady = res.freeReady;
+  await reveal(res.pulls, before);
+  busy = false;
+  render();
+}
+async function reveal(pulls: PullResult[], before: DiceSave | null): Promise<void> {
+  const ov = $('dip');
+  ov.hidden = false;
+  fast = false;
+  let skipAll = false;
+  for (let k = 0; k < pulls.length && !skipAll; k++) {
+    const p = pulls[k]!;
+    const next = await showOne(p, k, pulls.length, before);
+    if (next === 'skip') skipAll = true;
+  }
+  if (pulls.length > 1) await summary(pulls);
+  ov.hidden = true;
+  $('dip-body').replaceChildren();
+}
+function bandHtml(): string {
+  return RARITIES.map((r) => `<i style="flex:${r.to - r.from + 1};background:${r.col}"></i>`).join('');
+}
+function showOne(p: PullResult, k: number, n: number, before: DiceSave | null): Promise<'next' | 'skip'> {
+  return new Promise((done) => {
+    void (async () => {
+      fast = false;
+      const body = $('dip-body');
+      body.replaceChildren();
+      const u = unitOfDie(p.die);
+      const r = rarityDef(p.rarity);
+      const ri = rarityIndex(p.rarity);
+      const stage = el('div', 'dstage');
+      stage.style.setProperty('--c', r.col);
+      const drop = el('div', 'drop');
+      const sheet = el('div', 'dsheet');
+      const cv = art(p.die, 150);
+      cv.className = 'bloom';
+      sheet.append(cv);
+      stage.append(sheet, drop);
+      const roll = el('div', 'droll');
+      const num = el('b', 'dnum', '–');
+      const band = html('div', 'band', bandHtml());
+      const mark = el('span', 'mark');
+      band.append(mark);
+      roll.append(el('small', '', 'd100'), num, band);
+      const label = el('p', 'rlbl', '');
+      const name = el('p', 'dname', '');
+      const note = el('p', 'dnote', '');
+      const faces = html('div', 'dfaces', u.faces.map((f) => iconSvg(f, 24)).join(''));
+      faces.style.opacity = '0';
+      const go = el('div', 'trow');
+      const nextB = el('button', 'primary', k < n - 1 ? `Next (${k + 1}/${n})` : 'Done') as HTMLButtonElement;
+      nextB.type = 'button';
+      nextB.id = 'dip-next';
+      nextB.hidden = true;
+      go.append(nextB);
+      if (n > 1 && k < n - 1) {
+        const sk = el('button', 'ghost', 'Show all') as HTMLButtonElement;
+        sk.type = 'button';
+        sk.id = 'dip-skip';
+        sk.addEventListener('click', () => {
+          fast = true;
+          done('skip');
+        });
+        go.append(sk);
+      }
+      body.append(el('p', 'eyebrow', n > 1 ? `Dip ${k + 1} of ${n}` : 'Dip the brush'), stage, roll, label, name, faces, note, go);
+      body.onclick = (e) => {
+        if (!(e.target as HTMLElement).closest('button')) fast = true;
+      };
+      // Tropfen fällt
+      await sleep(30);
+      drop.classList.add('fall');
+      await wait(420);
+      sfx.drop();
+      sheet.classList.add('hit');
+      // W100 rattert und bleibt stehen
+      for (let i = 0; i < 14; i++) {
+        num.textContent = String(1 + Math.floor(Math.random() * 100));
+        sfx.tick(i);
+        await wait(45 + i * 6);
+      }
+      num.textContent = String(p.d100);
+      mark.style.left = `${p.d100 - 0.5}%`;
+      mark.classList.add('on');
+      await wait(380);
+      // Seltenheit
+      label.textContent = r.label;
+      label.style.color = r.col;
+      label.classList.add('on');
+      if (p.pity) note.textContent = p.pity === 'ten' ? 'Ten dips: Rare or better guaranteed.' : `Bad luck shield: ${rarityDef(p.pity).label} guaranteed.`;
+      sfx.reveal(ri);
+      stage.classList.add(`r-${p.rarity}`, 'open');
+      await wait(650);
+      name.textContent = `${u.name} · ★${u.lv}`;
+      faces.style.opacity = '1';
+      const had = before?.dice.some((x) => dieSpecies(x) === dieSpecies(p.die));
+      const line = p.dup ? `Already in your dice: +${p.glaze} glaze for ${speciesLabel(u.m)}.` : had ? 'A rarer copy of a species you have. New die.' : 'New die.';
+      note.textContent = (note.textContent ? note.textContent + ' ' : '') + line;
+      nextB.hidden = false;
+      nextB.onclick = () => {
+        sfx.tap();
+        done('next');
+      };
+      if (fast && n > 1) done('next');
+    })();
+  });
+}
+function summary(pulls: PullResult[]): Promise<void> {
+  return new Promise((done) => {
+    const body = $('dip-body');
+    body.replaceChildren();
+    body.onclick = null;
+    const grid = el('div', 'dsum');
+    for (const p of pulls) {
+      const u = unitOfDie(p.die);
+      const r = rarityDef(p.rarity);
+      const c = el('div', `dcard r-${p.rarity}`);
+      c.style.setProperty('--c', r.col);
+      c.append(art(p.die, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', p.dup ? `+${p.glaze} glaze` : `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}`));
+      grid.append(c);
+    }
+    const best = pulls.reduce((a, p) => Math.max(a, rarityIndex(p.rarity)), 0);
+    sfx.reveal(best);
+    const ok = el('button', 'primary', 'Done') as HTMLButtonElement;
+    ok.type = 'button';
+    ok.id = 'dip-next';
+    ok.addEventListener('click', () => {
+      sfx.tap();
+      done();
+    });
+    body.append(el('p', 'eyebrow', `${pulls.length} dips`), grid, ok);
+  });
+}
+
+/* ---------- Einstieg ---------- */
+export function initDice(h: Hooks): void {
+  hooks = h;
+  $('dice-back').addEventListener('click', () => {
+    sfx.tap();
+    swapIn = null;
+    hooks.back();
+  });
+}
+export function openDice(): void {
+  swapIn = null;
+  render();
+  void load();
+}
+/** Für den Titel: gibt es etwas Freies zu ziehen? */
+export async function diceBadge(): Promise<string> {
+  try {
+    const r = await api.dice();
+    save = r.dice;
+    freeReady = r.freeReady;
+    if (r.dice.starter > 0) return `${r.dice.starter} free`;
+    if (r.freeReady) return 'free dip';
+    return '';
+  } catch {
+    return '';
+  }
+}

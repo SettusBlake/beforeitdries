@@ -5,12 +5,12 @@
  */
 import type { Monster } from '../monster';
 import type { DuelAction } from './play';
-import { bestOpening, bestPlacement, find, living, onSheet, ROLL_N, S, suggest, summonable, unitById, idx, type Rolled } from './rules';
+import { aiJokerCrest, bestOpening, bestPlacement, find, living, onSheet, ROLL_N, S, suggest, summonable, unitById, idx, type Rolled } from './rules';
 
 /** Bis zu dieser Runde gibt Sepia jeden Schritt vor */
 export const TUTORIAL_ROUNDS = 3;
 /** Per Suche gewählt: der erste Wurf beschwört, dann wird trocken und nass gestempelt, gespritzt, die Palette getroffen und eine Fähigkeit genutzt */
-export const TUTORIAL_SEED = 262;
+export const TUTORIAL_SEED = 38;
 
 export function tutorialBags(): [Monster[], Monster[]] {
   return [
@@ -53,6 +53,7 @@ export function tutorialAction(): DuelAction | null {
       return u && p ? { k: 'summon', id: u.id, o: p.o, at: p.at } : { k: 'skip' };
     }
     case 'act': {
+      if (S.joker > 0) return { k: 'joker', crest: aiJokerCrest(me) };
       // Erst den Klecks fertig machen, der schon gezogen hat (oder gerade aufgeklappt wurde)
       for (const u of onSheet(me)) {
         if (!u.moved || u.acted) continue;
@@ -88,6 +89,10 @@ export function sameAction(a: DuelAction, b: DuelAction): boolean {
     case 'move': {
       const o = b as typeof a;
       return a.id === o.id && a.to === o.to;
+    }
+    case 'joker': {
+      const o = b as typeof a;
+      return a.crest === o.crest;
     }
     case 'act': {
       const o = b as typeof a;

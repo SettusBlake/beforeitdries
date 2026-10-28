@@ -241,6 +241,48 @@ function drawPaper(ctx: Ctx, S: number, pa: Paper, r: Rand): void {
       ctx.stroke();
     }
   }
+  // Seltene Papiere (Legendary): eigener Zufall, damit die Reihenfolge der übrigen Würfe gleich bleibt
+  if (pa.id === 'washi' || pa.id === 'vellum') rarePaper(ctx, S, pa.id, RNG(Math.floor(r() * 1e9)));
+}
+/** Washi: lange, helle Maulbeerfasern. Vellum: glatte Haut mit Blattgold-Flocken. */
+function rarePaper(ctx: Ctx, S: number, id: 'washi' | 'vellum', r: Rand): void {
+  ctx.save();
+  if (id === 'washi') {
+    for (let i = 0; i < 70; i++) {
+      const x = r() * S,
+        y = r() * S,
+        a = r() * 6.28,
+        l = rr(r, 0.06, 0.18) * S;
+      ctx.lineWidth = rr(r, 0.6, 1.6) * (S / 700);
+      ctx.strokeStyle = `rgba(${r() < 0.5 ? '255,255,255' : '150,120,90'},${rr(r, 0.12, 0.3)})`;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.bezierCurveTo(x + Math.cos(a + 0.6) * l * 0.4, y + Math.sin(a + 0.6) * l * 0.4, x + Math.cos(a - 0.5) * l * 0.7, y + Math.sin(a - 0.5) * l * 0.7, x + Math.cos(a) * l, y + Math.sin(a) * l);
+      ctx.stroke();
+    }
+  } else {
+    for (let i = 0; i < 16; i++) {
+      const x = r() * S,
+        y = r() * S,
+        s = rr(r, 0.008, 0.026) * S;
+      const g = ctx.createLinearGradient(x - s, y - s, x + s, y + s);
+      g.addColorStop(0, 'rgba(240,205,110,.85)');
+      g.addColorStop(0.5, 'rgba(201,150,30,.8)');
+      g.addColorStop(1, 'rgba(250,228,160,.85)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      const n = 5 + Math.floor(r() * 3);
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * 6.28,
+          d = s * rr(r, 0.45, 1);
+        if (k) ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+        else ctx.moveTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  ctx.restore();
 }
 
 function insidePt(b: BlobShape, S: number, r: Rand, spread = 0.35): [number, number] {

@@ -6,7 +6,8 @@
 import './lib/fonts';
 import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
-import type { DuelResponse } from '../shared/api';
+import type { DuelResponse, DuelReward } from '../shared/api';
+import { rarityDef } from '../shared/dice';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -18,6 +19,7 @@ import { api, ApiError } from './lib/api';
 import { makeCube, tumble } from './duel/dice3d';
 import { iconSvg, netSvg } from './duel/icons';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
+import { diceBadge, initDice, openDice } from './duel/collection';
 import * as View from './duel/view';
 import { V } from './duel/view';
 
@@ -51,7 +53,8 @@ const store = {
 };
 
 /* ---------- Zustand der Bedienung ---------- */
-let screen: 'title' | 'game' = 'title';
+let screen: 'title' | 'game' | 'dice' = 'title';
+let reward: DuelReward | null = null;
 let busy = false;
 let level: Level = (['apprentice', 'journeyman', 'master'] as Level[]).find((l) => l === store.get('bid-duel-level')) ?? 'apprentice';
 let chosen = new Set<number>();
@@ -96,6 +99,7 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
     return false;
   }
   if (res.state) loadState(res.state);
+  if (res.reward) reward = res.reward;
   sel = sel ? R.unitById(sel.id) : null;
   summonU = summonU ? R.unitById(summonU.id) : null;
   onState?.();
@@ -171,10 +175,15 @@ async function playRoll(e: Extract<Ev, { k: 'roll' }>): Promise<void> {
   for (const x of dice) {
     x.box.classList.add('landed');
     x.box.querySelector('small')!.textContent = R.faceText(x.f);
-    if (x.f.k === 'star') x.box.classList.add('star');
+    if (x.f.k === 'star' || x.f.k === 'joker') x.box.classList.add('star');
   }
   await View.wait(380);
-  await Promise.all(dice.filter((x) => x.f.k !== 'star').map((x, k) => flyCrest(x.cube, x.f, e.side, k)));
+  const flights: [HTMLElement, Face][] = [];
+  for (const x of dice) {
+    if (x.f.k === 'gold') for (const c of CRESTS) flights.push([x.cube, { k: c.k, n: 1 }]);
+    else if (R.isCrestFace(x.f)) flights.push([x.cube, x.f]);
+  }
+  await Promise.all(flights.map(([from, f], k) => flyCrest(from, f, e.side, k)));
   const t = V.teams[e.side - 1];
   if (t) t.crests = { ...e.crests };
   renderTop();
@@ -340,8 +349,9 @@ function renderTop(): void {
   for (const u of S.teams[1].units) {
     const v = V.units.get(u.id);
     const st = v?.state ?? 'bag';
-    const b2 = el('button', `rd st-${st}`) as HTMLButtonElement;
+    const b2 = el('button', `rd st-${st} r-${u.rarity}`) as HTMLButtonElement;
     b2.type = 'button';
+    b2.style.setProperty('--c', rarityDef(u.rarity).col);
     b2.title = u.name;
     b2.append(portraitEl(u.id, 26, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 12)));
     if (st === 'sheet' && v) {
@@ -374,6 +384,8 @@ function dieChip(u: Unit): HTMLElement {
   b.type = 'button';
   const pickable = myTurn() && ((p === 'roll' && st !== 'gone') || (p === 'opening' && st === 'bag'));
   b.dataset.id = String(u.id);
+  b.classList.add(`r-${u.rarity}`);
+  b.style.setProperty('--c', rarityDef(u.rarity).col);
   b.append(portraitEl(u.id, 30, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('span', 'st', st === 'bag' ? 'bag' : st === 'sheet' ? 'sheet' : 'lost'), el('span', 'info', 'i'));
   b.addEventListener('click', (ev) => {
     if ((ev.target as HTMLElement).closest('.info') || !pickable) return openInspect(u);
@@ -449,6 +461,30 @@ function renderCtx(): void {
   } else {
     box.className = 'waiting';
     box.append(el('p', '', S.turn === 2 && !S.over ? 'The rival is rolling and painting…' : ''));
+  }
+}
+/** Joker aus dem Wurf: als Symbol nach Wahl nehmen (statt als Stern zu beschwören) */
+function renderJoker(): void {
+  const box = $('joker');
+  const p = phase();
+  const show = S.turn === 1 && !S.over && S.joker > 0 && (p === 'summon' || p === 'act');
+  box.hidden = !show;
+  if (!show) return;
+  box.replaceChildren(html('span', 'jlbl', `${iconSvg({ k: 'joker', n: 3 }, 18)} Joker${S.joker > 1 ? ` ×${S.joker}` : ''}${p === 'summon' ? ': summon with it, or take' : ': take'}`));
+  for (const c of CRESTS) {
+    const b = html('button', 'jc', iconSvg({ k: c.k, n: 1 }, 20)) as HTMLButtonElement;
+    b.type = 'button';
+    b.dataset.crest = c.k;
+    b.title = `${c.label}: ${c.use}`;
+    b.disabled = busy;
+    b.addEventListener('click', () => {
+      if (!allowedEl(b) || busy) return;
+      sfx.crest(0);
+      summonU = null;
+      anchor = null;
+      void request(api.duelAct({ k: 'joker', crest: c.k }));
+    });
+    box.append(b);
   }
 }
 function setHint(t: string): void {
@@ -580,6 +616,7 @@ function renderAll(): void {
   renderTop();
   renderPool();
   renderCtx();
+  renderJoker();
   renderGo();
   renderHint();
   applyGuide();
@@ -735,6 +772,8 @@ function tutorialGuide(): { cell?: number; el?: string } {
     case 'skip':
     case 'end':
       return { el: '#end' };
+    case 'joker':
+      return { el: `#joker [data-crest="${exp.crest}"]` };
     case 'move':
       if (sel?.id !== exp.id) return { cell: pos(exp.id) };
       return { cell: exp.to };
@@ -764,6 +803,7 @@ function computeGuide(): { cell?: number; el?: string } {
   }
   if (p === 'roll') return chosen.size === need() ? { el: '#go' } : { el: '#ctx .chip:not(.chosen):not(.st-gone)' };
   if (p !== 'act') return {};
+  if (S.joker > 0 && !sel) return { el: `#joker [data-crest="${R.aiJokerCrest(me())}"]` };
   const sug = R.suggest(1, sel ?? undefined, moved);
   if (!sug) return { el: '#end' };
   if (!sel) return { cell: R.idx(sug.u.x, sug.u.y) };
@@ -965,7 +1005,8 @@ function openInspect(u: Unit): void {
   box.replaceChildren();
   const top = el('div', 'card-top');
   const info = el('div', 'card-id');
-  info.append(el('b', '', u.name), html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · ${u.side === 1 ? 'yours' : 'rival'} · ${st === 'bag' ? 'in the bag' : st === 'sheet' ? 'on the sheet' : 'washed out'}`));
+  const rd = rarityDef(u.rarity);
+  info.append(el('b', '', u.name), html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b style="color:${rd.col}">${rd.label}</b> · ${u.side === 1 ? 'yours' : 'rival'} · ${st === 'bag' ? 'in the bag' : st === 'sheet' ? 'on the sheet' : 'washed out'}`));
   if (st === 'sheet' && v) {
     const hp = el('div', 'card-hp');
     const i = el('i');
@@ -989,6 +1030,7 @@ function openInspect(u: Unit): void {
   const lines = el('div', 'card-lines');
   lines.append(
     html('p', '', `<b>Die</b> ${u.faces.map(R.faceText).join(', ')}`),
+    ...(['joker', 'gold'] as const).filter((k) => u.faces.some((f) => f.k === k)).map((k) => html('p', 'special', R.FACE_HELP[k])),
     html('p', '', `<b>Moves</b> ${GAIT[u.m.bp].text}`),
     html('p', 'ab', `<b>${ab.name}</b> <span>${R.abilityCost(u)} Glow</span> ${ab.text}`),
   );
@@ -1018,6 +1060,10 @@ async function finishDuel(): Promise<void> {
   ] as [string, number, number][])
     st.append(html('div', '', `<span>${k}</span><b class="y">${x}</b><b class="r">${y}</b>`));
   $('result-sepia').textContent = sepiaEnd();
+  const rw = $('result-reward');
+  rw.hidden = !reward;
+  if (reward) rw.innerHTML = reward.pigment ? `<span class="pigi"></span> +${reward.pigment} pigment <small>(${reward.total} in total)</small>` : reward.why === 'capped' ? 'No pigment: five rewarded duels a day.' : '';
+  reward = null;
   $('result').hidden = false;
   $('result').className = S.winner === 1 ? 'overlay win' : 'overlay';
   if (S.winner === 1) sfx.win();
@@ -1025,12 +1071,22 @@ async function finishDuel(): Promise<void> {
   if (S.tutorial > 0) store.set('bid-duel-learned', '1');
 }
 
-function showScreen(id: 'title' | 'game'): void {
+function showScreen(id: 'title' | 'game' | 'dice'): void {
   screen = id;
   $('title').hidden = id !== 'title';
   $('game').hidden = id !== 'game';
+  $('dice').hidden = id !== 'dice';
   if (id === 'game') layout();
-  else $('continue').hidden = !resumable;
+  if (id === 'title') {
+    $('continue').hidden = !resumable;
+    void updateBadge();
+  }
+  if (id === 'dice') openDice();
+}
+async function updateBadge(): Promise<void> {
+  const t = await diceBadge();
+  $('dice-badge').hidden = !t;
+  $('dice-badge').textContent = t;
 }
 function layout(): void {
   const w = $('boardwrap');
@@ -1041,6 +1097,7 @@ window.addEventListener('resize', () => {
 });
 function resetUi(): void {
   for (const id of ['result', 'menu', 'rules', 'inspect', 'tip', 'logview']) $(id).hidden = true;
+  reward = null;
   sel = null;
   moved = false;
   target = null;
@@ -1129,6 +1186,25 @@ for (const id of ['sound-t', 'sound-m'])
     sfx.tap();
   });
 $('start').addEventListener('click', () => void startDuel());
+$('dice-t').addEventListener('click', () => {
+  initAudio();
+  sfx.tap();
+  showScreen('dice');
+});
+let diceFrom: 'title' | 'game' = 'title';
+$('dice-m').addEventListener('click', () => {
+  $('menu').hidden = true;
+  diceFrom = 'game';
+  showScreen('dice');
+});
+initDice({
+  back: () => {
+    showScreen(diceFrom);
+    diceFrom = 'title';
+    renderAll();
+  },
+  error: onError,
+});
 $('learn').addEventListener('click', () => void startDuel(true));
 $('continue').addEventListener('click', () => void resumeDuel());
 $('how-t').addEventListener('click', () => ($('rules').hidden = false));
