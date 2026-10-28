@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/young-serif/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-600.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-600.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/caveat/latin-500.css" />
+    <style>
+      :root { --bg:#e3e6ea; --fg:#1d2130; --muted:#586073; --line:#c3c9d2; --sheet:#fbfaf6; --ink:#1d2130; --smuted:#626877; --sline:#e4e2db; --track:#eceae3; --sepia:#6e4b33; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px; background: #cfd3d9; display: flex; gap: 24px; font-family: Figtree, sans-serif; color: var(--fg); width: 1290px; }
+      .phone { width: 390px; height: 844px; background: var(--bg); border-radius: 28px; padding: 22px 16px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; box-shadow: 0 20px 50px -20px rgba(0,0,0,.4); }
+      .eyebrow { font: 600 11px/1 'JetBrains Mono', monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+      .title { font-family: 'Young Serif', serif; font-size: 1.7rem; line-height: 1.1; margin-top: -4px; }
+      .title.small { font-size: 1.3rem; }
+      .sws { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .sw { background: var(--sheet); border-radius: 6px; padding: 8px; display: grid; justify-items: center; gap: 2px; }
+      .sw canvas { width: 150px; height: 150px; }
+      .sw small { font: 11px 'JetBrains Mono', monospace; color: var(--smuted); }
+      .palette small, .drops small, .lbl { font: 600 11px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+      .wells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 6px; }
+      .well { background: var(--sheet); border: 1px solid var(--line); border-radius: 12px; padding: 8px 4px; display: grid; justify-items: center; gap: 4px; font-family: Figtree, sans-serif; }
+      .well .blob { width: 38px; height: 38px; border-radius: 50% 46% 52% 48%; box-shadow: inset -4px -5px 0 rgba(0,0,0,.15); }
+      .well b { font-size: 11.5px; text-align: center; line-height: 1.1; }
+      .well .n { font: 600 11px 'JetBrains Mono', monospace; color: var(--smuted); }
+      .drops { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      .drops i { width: 16px; height: 20px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; display: inline-block; }
+      .drops i.empty { box-shadow: inset 0 0 0 1.5px var(--line); }
+      .acts { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
+      .btn { font: 600 15px Figtree, sans-serif; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--sheet); color: var(--fg); }
+      .btn.primary { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+      .btn.wide { width: 100%; margin-top: auto; }
+      .sepia { border-left: 3px solid var(--sepia); padding-left: 10px; }
+      .sepia small { font: 600 10px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--smuted); }
+      .sepia p { margin: 0; font: 500 1.35rem/1.1 Caveat, cursive; color: var(--sepia); }
+      .board { margin-top: auto; font: 11.5px 'JetBrains Mono', monospace; color: var(--muted); }
+      .card { background: var(--sheet); border-radius: 6px; padding: 12px; display: grid; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,.12), 0 18px 34px -16px rgba(0,0,0,.35); }
+      .card.rare { box-shadow: 0 0 0 2px #c9a24a, 0 0 0 5px var(--sheet), 0 0 0 6px #c9a24a, 0 18px 34px -16px rgba(0,0,0,.35); }
+      .chead { display: flex; justify-content: space-between; align-items: baseline; }
+      .chead b { font: 400 1.25rem 'Young Serif', serif; color: var(--smuted); font-style: italic; }
+      .serial { font: 600 11px 'JetBrains Mono', monospace; color: var(--smuted); }
+      .cmeta { font: 11px 'JetBrains Mono', monospace; color: var(--smuted); }
+      .cart { width: 334px !important; height: 334px !important; display: block; border-radius: 2px; }
+      .cart.solo { width: 358px !important; height: 300px !important; object-fit: cover; }
+      .quals { display: grid; gap: 2px; }
+      .q { display: grid; grid-template-columns: 7.2em 1fr 2em 2.4em; gap: 6px; align-items: center; font-size: 11.5px; }
+      .ql { color: var(--smuted); }
+      .bar { height: 5px; background: var(--track); border-radius: 3px; position: relative; }
+      .bar i { position: absolute; inset: 0 auto 0 0; background: var(--ink); opacity: .75; border-radius: 3px; }
+      .qv { font: 600 11px 'JetBrains Mono', monospace; text-align: right; }
+      .q em { font: 11px 'JetBrains Mono', monospace; color: var(--smuted); font-style: normal; }
+      .stamps { display: flex; gap: 5px; flex-wrap: wrap; }
+      .stamp { font: 600 10px 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: .06em; padding: 3px 7px; border: 1.5px solid #a33a3a; color: #a33a3a; border-radius: 3px; transform: rotate(-2deg); }
+      .stamp.gold { border-color: #a8801f; color: #8a6510; transform: rotate(1.5deg); }
+      .crit { font: 500 1.2rem/1.1 Caveat, cursive; color: var(--sepia); }
+      .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .tile { font: 600 14px Figtree, sans-serif; padding: 10px 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--sheet); color: var(--fg); }
+      .tile.on { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+      .result { background: var(--sheet); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; font-size: 13px; }
+      .result b { font-size: 15px; }
+      .result span { color: var(--smuted); }
+    </style>
+  </head>
+  <body>
+    <script src="./atelier-entwurf.js"></script>
+  </body>
+</html>

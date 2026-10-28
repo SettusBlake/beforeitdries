@@ -18,15 +18,15 @@ export interface RenderOptions {
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations'>;
 
-type P3 = [number, number, number];
-type P2 = [number, number] | P3;
+export type P3 = [number, number, number];
+export type P2 = [number, number] | P3;
 type Ctx = CanvasRenderingContext2D;
 
 const INK = '28,25,36';
 let LITE = false;
 
 let GRAIN: HTMLCanvasElement | null = null;
-function grainTex(): HTMLCanvasElement {
+export function grainTex(): HTMLCanvasElement {
   if (GRAIN) return GRAIN;
   const c = document.createElement('canvas');
   c.width = c.height = 256;
@@ -46,7 +46,7 @@ function grainTex(): HTMLCanvasElement {
   return (GRAIN = c);
 }
 
-function ellipsePts(b: BlobShape, S: number, r: Rand, n: number): P3[] {
+export function ellipsePts(b: BlobShape, S: number, r: Rand, n: number): P3[] {
   const pts: P3[] = [],
     c = Math.cos(b.rot || 0),
     s = Math.sin(b.rot || 0);
@@ -59,7 +59,7 @@ function ellipsePts(b: BlobShape, S: number, r: Rand, n: number): P3[] {
   return pts;
 }
 
-function deform(pts: P3[], r: Rand, amt: number): P3[] {
+export function deform(pts: P3[], r: Rand, amt: number): P3[] {
   const out: P3[] = [];
   for (let i = 0; i < pts.length; i++) {
     const a = pts[i]!,
@@ -72,19 +72,19 @@ function deform(pts: P3[], r: Rand, amt: number): P3[] {
   return out;
 }
 
-function deformN(pts: P3[], r: Rand, amt: number, n: number): P3[] {
+export function deformN(pts: P3[], r: Rand, amt: number, n: number): P3[] {
   for (let i = 0; i < n; i++) pts = deform(pts, r, amt);
   return pts;
 }
 
-function poly(ctx: Ctx, pts: P2[]): void {
+export function poly(ctx: Ctx, pts: P2[]): void {
   ctx.beginPath();
   ctx.moveTo(pts[0]![0], pts[0]![1]);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]![0], pts[i]![1]);
   ctx.closePath();
 }
 
-function circlePts(x: number, y: number, rx: number, ry: number, n: number): [number, number][] {
+export function circlePts(x: number, y: number, rx: number, ry: number, n: number): [number, number][] {
   const p: [number, number][] = [];
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
@@ -93,7 +93,7 @@ function circlePts(x: number, y: number, rx: number, ry: number, n: number): [nu
   return p;
 }
 
-function smooth(ctx: Ctx, pts: P2[]): void {
+export function smooth(ctx: Ctx, pts: P2[]): void {
   ctx.beginPath();
   ctx.moveTo(pts[0]![0], pts[0]![1]);
   if (pts.length < 3) {
@@ -105,7 +105,7 @@ function smooth(ctx: Ctx, pts: P2[]): void {
   ctx.lineTo(l[0], l[1]);
 }
 
-function inkPath(ctx: Ctx, pts: P2[], lw: number, r: Rand, alpha = 0.85, closed = false, straight = false): void {
+export function inkPath(ctx: Ctx, pts: P2[], lw: number, r: Rand, alpha = 0.85, closed = false, straight = false): void {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for (let pass = 0; pass < 2; pass++) {
@@ -379,7 +379,7 @@ function spikes(ctx: Ctx, b: BlobShape, S: number, lw: number, r: Rand): void {
   }
 }
 
-function drawFace(ctx: Ctx, m: Paintable, geo: Geometry, S: number, r: Rand, paper: string, core: BlobShape): void {
+export function drawFace(ctx: Ctx, m: Paintable, geo: Geometry, S: number, r: Rand, paper: string, core: BlobShape): void {
   const lw = S / 300,
     look = [rr(r, -1, 1), rr(r, -0.7, 0.7)] as const,
     mrgb = PIG[m.main].rgb;
