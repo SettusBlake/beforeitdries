@@ -1,0 +1,325 @@
+<title>Before It Dries Duel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Figtree:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Young+Serif&display=swap">
+<style>
+/* Ein Zeichentisch aus Papier. Bewusst nur ein helles Thema: das Blatt ist immer weiß. */
+:root {
+  --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --line: #cfcabd; --track: #ece8dd;
+  --you: #2b3fa3; --rival: #a33a3a; --mud: #74644f; --ok: #2e7a57; --water: #2b6fa3; --sepia: #6e4b33;
+  --gold: #c9961e; --gold-ink: #8a6410;
+  --f-display: "Young Serif", Georgia, serif; --f-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; --f-hand: "Caveat", "Segoe Print", cursive;
+  color-scheme: light;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--table); color: var(--ink); }
+body { font-family: var(--f-body); font-size: 15px; line-height: 1.4; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+.screen { position: fixed; inset: 0; margin: 0 auto; max-width: 520px; display: flex; flex-direction: column;
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+
+/* ---------- Titel ---------- */
+#title { justify-content: center; align-items: center; gap: 14px; text-align: center; overflow-y: auto; }
+#title-art { position: relative; height: 170px; width: 300px; max-width: 100%; }
+.tblot { position: absolute; top: 10px; width: 140px; height: 140px; border-radius: 10px; box-shadow: 0 0 0 4px #fffdf8, 0 14px 26px -12px rgba(30,25,20,.55); }
+.tblot.you { left: 4px; animation: floatA 4.2s ease-in-out infinite; }
+.tblot.rival { right: 4px; animation: floatB 4.6s ease-in-out infinite; }
+.vs { position: absolute; left: 50%; top: 58px; transform: translateX(-50%); font: 700 2rem var(--f-hand); color: var(--sepia); z-index: 1; }
+@keyframes floatA { 0%, 100% { transform: translateY(0) rotate(-7deg); } 50% { transform: translateY(-8px) rotate(-4deg); } }
+@keyframes floatB { 0%, 100% { transform: translateY(-4px) rotate(6deg); } 50% { transform: translateY(6px) rotate(9deg); } }
+.eyebrow { font: 600 11px/1 var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0; }
+#title h1 { font: 400 2.5rem/1 var(--f-display); margin: 0; }
+.quote { margin: 0; max-width: 30ch; font: 500 1.35rem/1.15 var(--f-hand); color: var(--sepia); }
+.quote small { display: block; font: 600 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--sheet); width: 100%; max-width: 330px; }
+.seg button { flex: 1; min-width: 0; border: 0; background: transparent; padding: 8px 4px; min-height: 40px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--rival); color: var(--sheet); }
+.primary { border: 0; border-radius: 12px; background: var(--ink); color: var(--sheet); font-weight: 800; font-size: 18px; padding: 14px 18px; min-height: 52px; width: 100%; max-width: 330px; cursor: pointer; box-shadow: 0 6px 18px -8px rgba(29,33,48,.6); }
+.ghost { border: 1px solid var(--ink); background: transparent; border-radius: 12px; padding: 10px 14px; min-height: 44px; font-weight: 700; cursor: pointer; }
+.trow { display: flex; gap: 8px; width: 100%; max-width: 330px; }
+.trow .ghost { flex: 1; }
+
+/* ---------- Spielbildschirm ---------- */
+#game { gap: 6px; }
+.top { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+#menu-btn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--sheet); font-size: 20px; line-height: 1; cursor: pointer; }
+.roundbox { display: grid; line-height: 1.1; }
+.roundbox b { font: 700 13px var(--f-mono); }
+.roundbox span { font: 11px var(--f-mono); color: var(--muted); }
+.score { display: grid; gap: 3px; min-width: 150px; }
+.score .nums { display: flex; justify-content: space-between; font: 700 13px var(--f-mono); font-variant-numeric: tabular-nums; }
+.score .y { color: var(--you); } .score .r { color: var(--rival); }
+.sbar { height: 6px; border-radius: 3px; background: var(--track); display: flex; overflow: hidden; }
+.sbar i { display: block; height: 100%; transition: width .4s ease; }
+#bar-you { background: var(--you); } #bar-mud { background: var(--mud); margin-left: auto; } #bar-rival { background: var(--rival); }
+.rivalrow { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+#rival-dice { display: flex; gap: 3px; }
+.rd { position: relative; width: 30px; height: 38px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; justify-items: center; }
+.rd canvas { width: 26px; height: 26px; border-radius: 50%; box-shadow: 0 0 0 2px var(--rival); background: var(--sheet); }
+.rd.st-bag canvas { box-shadow: 0 0 0 1.5px var(--line); }
+.rd .lvb { position: absolute; right: 0; top: -2px; }
+.mini-hp { width: 24px; height: 3px; background: var(--track); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+.mini-hp i { display: block; height: 100%; background: var(--rival); }
+.rside { display: grid; justify-items: end; gap: 3px; }
+.rside .r1 { display: flex; gap: 6px; align-items: center; }
+.hearts { display: inline-flex; gap: 1px; }
+.hearts i { font-style: normal; font-size: 15px; line-height: 1; color: #cfc9bc; }
+#hearts i.on { color: var(--you); } #rival-hearts i.on { color: var(--rival); }
+.drops { display: inline-flex; gap: 2px; align-items: center; }
+.drops i { width: 9px; height: 12px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; box-shadow: inset 0 0 0 1.3px var(--water); display: inline-block; }
+.drops i.on { background: var(--water); }
+.crests { display: flex; gap: 8px; }
+#rival-crests { gap: 5px; }
+.crest { display: inline-flex; align-items: center; gap: 1px; font: 700 13px var(--f-mono); font-variant-numeric: tabular-nums; }
+#rival-crests .crest { font-size: 11px; }
+.crest.zero { opacity: .35; }
+.crest.bump { animation: bump .35s ease; }
+@keyframes bump { 40% { transform: scale(1.45); } }
+
+#boardwrap { flex: 1 1 auto; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; }
+#board { display: block; touch-action: manipulation; border-radius: 4px; box-shadow: 0 1px 2px rgba(30,25,20,.15), 0 14px 30px -18px rgba(30,25,20,.5); }
+#stage { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 10px; perspective: 700px;
+  background: radial-gradient(ellipse at center, rgba(251,250,246,.92), rgba(228,225,216,.55) 70%, rgba(228,225,216,0)); opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+#stage.on { opacity: 1; }
+.stage-lbl { margin: 0; font: 600 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.stage-row { display: flex; gap: 22px; align-items: flex-end; transform-style: preserve-3d; }
+.stage-die { display: grid; justify-items: center; gap: 10px; transform-style: preserve-3d; }
+.stage-die small { font: 700 12px var(--f-mono); color: var(--muted); min-height: 1.2em; }
+.stage-die.landed small { color: var(--ink); }
+.stage-die.star small { color: var(--you); }
+.die3 { position: relative; transform-style: preserve-3d; }
+.d3bounce, .d3cube { position: absolute; inset: 0; transform-style: preserve-3d; }
+.d3shadow { position: absolute; left: 10%; right: 10%; bottom: -12px; height: 10px; border-radius: 50%; background: rgba(30,25,20,.35); filter: blur(3px); }
+.d3face { position: absolute; inset: 0; display: grid; place-items: center; background: #fffdf8; border: 2.5px solid; border-radius: 9px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), inset 0 -6px 10px rgba(30,25,20,.08); backface-visibility: hidden; }
+.stage-die.star .die3 { filter: drop-shadow(0 0 8px rgba(43,63,163,.55)); }
+#banner { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); pointer-events: none; opacity: 0; white-space: nowrap;
+  font: 400 1.9rem var(--f-display); color: var(--ink); padding: 6px 22px; border-radius: 40px;
+  background: radial-gradient(ellipse at center, rgba(251,250,246,.96) 55%, rgba(251,250,246,0) 72%); }
+#banner.show { animation: banner 1.2s ease forwards; }
+#banner.ability { color: var(--gold-ink); font-size: 1.6rem; }
+#banner.big { font-size: 2.3rem; }
+@keyframes banner { 0% { opacity: 0; transform: translate(-50%, -40%) scale(.8); } 18% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); } 30% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -60%); } }
+#ticker { position: absolute; left: 8px; right: 8px; bottom: 6px; margin: 0 auto; max-width: max-content; font: 11.5px/1.35 var(--f-mono); padding: 5px 10px; border-radius: 8px;
+  background: rgba(251,250,246,.94); box-shadow: 0 2px 8px rgba(30,25,20,.15); opacity: 0; transition: opacity .3s; pointer-events: none; overflow-wrap: anywhere; }
+#ticker.show { opacity: 1; }
+#ticker.rival { box-shadow: inset 3px 0 0 var(--rival), 0 2px 8px rgba(30,25,20,.15); }
+#ticker.you { box-shadow: inset 3px 0 0 var(--you), 0 2px 8px rgba(30,25,20,.15); }
+
+.panel { background: var(--sheet); border-radius: 12px; padding: 8px 10px; display: grid; gap: 7px; box-shadow: 0 1px 2px rgba(30,25,20,.12); flex: none; }
+.pool { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#hint { font: 12px/1.35 var(--f-mono); color: var(--muted); min-height: 2.7em; max-height: 4.1em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+#ctx { min-height: 58px; }
+#ctx.chips { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+.chip { position: relative; display: grid; justify-items: center; gap: 1px; padding: 5px 2px 4px; border: 1px solid var(--line); background: var(--sheet); border-radius: 10px; cursor: pointer; min-width: 0; }
+.chip canvas { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--line); }
+.chip.st-sheet canvas { box-shadow: 0 0 0 2px var(--you); }
+.chip.st-gone { opacity: .4; }
+.chip.chosen { border-color: var(--you); box-shadow: inset 0 0 0 2px var(--you); background: #eef1fb; transform: translateY(-2px); }
+.chip.sel { border-color: var(--you); box-shadow: inset 0 0 0 2px var(--you); }
+.chip .lvb { position: absolute; left: 3px; top: 3px; }
+.chip .st { font: 9.5px var(--f-mono); color: var(--muted); }
+.chip .info { position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line); font: 700 10px/14px var(--f-mono); color: var(--muted); background: #fff; }
+#ctx.rolled { display: flex; gap: 8px; justify-content: center; }
+.rchip { display: grid; justify-items: center; gap: 1px; padding: 5px 10px; border: 1px solid var(--line); background: var(--sheet); border-radius: 10px; min-width: 72px; }
+.rchip canvas { width: 22px; height: 22px; border-radius: 50%; }
+.rchip small { font: 700 10.5px var(--f-mono); }
+.rchip.can { border-color: var(--you); box-shadow: 0 0 0 3px rgba(43,63,163,.22); cursor: pointer; animation: glow 1.4s ease-in-out infinite; }
+.rchip.sel { background: #e7eaf6; }
+@keyframes glow { 50% { box-shadow: 0 0 0 6px rgba(43,63,163,.12); } }
+#ctx.acts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.act { border: 1px solid var(--line); background: var(--sheet); border-radius: 10px; min-height: 54px; padding: 5px 2px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: grid; justify-items: center; align-content: center; gap: 1px; min-width: 0; }
+.act b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.act small { font: 10px var(--f-mono); color: var(--muted); font-weight: 400; }
+.act[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.act[aria-pressed="true"] small { color: #c9ccd6; }
+.act:disabled { opacity: .38; cursor: not-allowed; }
+.act.ab:not(:disabled) { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.act.ab[aria-pressed="true"] { background: var(--gold); color: var(--ink); }
+.act.ab[aria-pressed="true"] small { color: var(--ink); }
+#ctx.waiting { display: grid; place-items: center; font: 12px var(--f-mono); color: var(--muted); }
+#ctx.waiting p { margin: 0; }
+.gorow { display: flex; gap: 8px; }
+#go { flex: 1; border: 0; border-radius: 12px; padding: 10px; min-height: 48px; font-weight: 800; font-size: 16px; background: var(--ink); color: var(--sheet); cursor: pointer; }
+#go:disabled { opacity: .35; cursor: not-allowed; }
+#aux, #end { border: 1px solid var(--ink); background: transparent; border-radius: 12px; padding: 8px 12px; min-height: 48px; font-weight: 700; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+/* ---------- Einblendungen ---------- */
+.overlay { position: fixed; inset: 0; z-index: 20; display: grid; align-items: end; justify-items: center; background: rgba(29,33,48,.35); padding: 12px; }
+.sheet { width: 100%; max-width: 496px; max-height: 86vh; overflow-y: auto; background: var(--sheet); border-radius: 16px; padding: 14px 16px; box-shadow: 0 20px 50px -20px rgba(0,0,0,.5); animation: up .25s ease; }
+@keyframes up { from { transform: translateY(30px); opacity: 0; } }
+.sheet h2 { margin: 0 0 8px; font: 400 1.4rem var(--f-display); }
+.sheet .close { float: right; border: 1px solid var(--line); background: #fff; border-radius: 10px; min-width: 40px; min-height: 36px; cursor: pointer; font-weight: 700; }
+.sheet ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+.mlist { display: grid; gap: 8px; margin-top: 8px; }
+.mlist .lbl { font: 600 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.mlist .ghost { width: 100%; }
+#log-list { list-style: none; padding: 0; font: 12px/1.4 var(--f-mono); }
+#log-list li { padding: 6px 8px; border-radius: 6px; background: #f3f1ea; }
+#log-list li.you { box-shadow: inset 3px 0 0 var(--you); } #log-list li.rival { box-shadow: inset 3px 0 0 var(--rival); }
+.card-top { display: flex; gap: 12px; align-items: center; }
+.card-top canvas { width: 64px; height: 64px; border-radius: 50%; box-shadow: 0 0 0 2px var(--line); flex: none; }
+.card-id { display: grid; gap: 3px; min-width: 0; }
+.card-id b { font-size: 17px; }
+.card-id .lv { display: inline-flex; align-items: center; gap: 3px; font: 11px var(--f-mono); color: var(--muted); }
+.card-id small { font: 11px var(--f-mono); color: var(--muted); }
+.card-hp { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; width: 160px; }
+.card-hp i { display: block; height: 100%; background: var(--ink); }
+.card-net { display: flex; justify-content: center; margin: 12px 0 8px; }
+.card-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; text-align: center; }
+.card-stats span { background: #f3f1ea; border-radius: 6px; padding: 3px 0; display: grid; }
+.card-stats small { font: 9.5px var(--f-mono); color: var(--muted); }
+.card-stats b { font: 700 13px var(--f-mono); }
+.card-lines p { margin: 7px 0 0; font-size: 13.5px; }
+.card-lines b { margin-right: 4px; }
+.card-lines .ab b { color: var(--gold-ink); }
+.card-lines .ab span { font: 11px var(--f-mono); color: var(--muted); margin-right: 4px; }
+.card-lines .trait b { font: 600 11px var(--f-mono); background: #f3f1ea; padding: 1px 6px; border-radius: 999px; }
+#tip { align-items: end; background: transparent; pointer-events: none; }
+#tip .bubble { pointer-events: auto; width: 100%; max-width: 496px; background: #fffdf8; border-radius: 16px; padding: 12px 14px; border-left: 4px solid var(--sepia); box-shadow: 0 12px 34px -10px rgba(0,0,0,.45); animation: up .25s ease; margin-bottom: 4px; }
+#tip small { font: 600 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+#tip p { margin: 2px 0 8px; font: 500 1.35rem/1.12 var(--f-hand); color: var(--sepia); }
+#tip button { border: 0; border-radius: 10px; background: var(--sepia); color: #fff; font-weight: 700; padding: 8px 14px; min-height: 40px; cursor: pointer; }
+#result { align-items: center; }
+#result .sheet { text-align: center; }
+#result h2 { font-size: 1.9rem; margin-top: 4px; }
+#result.win h2 { color: var(--you); }
+#result-sub { margin: 0; color: var(--muted); }
+#result-stats { display: grid; gap: 4px; margin: 12px auto; max-width: 300px; font: 12px var(--f-mono); }
+#result-stats div { display: grid; grid-template-columns: 1fr 44px 44px; text-align: left; padding: 4px 8px; background: #f3f1ea; border-radius: 6px; }
+#result-stats .y { color: var(--you); text-align: right; } #result-stats .r { color: var(--rival); text-align: right; }
+#result-sepia { margin: 6px 0 12px; font: 500 1.4rem/1.1 var(--f-hand); color: var(--sepia); }
+.fly { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; display: flex; align-items: center; gap: 2px; font: 700 12px var(--f-mono); }
+@media (prefers-reduced-motion: reduce) { .tblot.you, .tblot.rival { animation: none; } }
+</style>
+
+<section id="title" class="screen">
+  <div id="title-art" aria-hidden="true"></div>
+  <p class="eyebrow">Paint duel</p>
+  <h1>Before It Dries</h1>
+  <p class="quote">“Every blot is a die. Roll, unfold, and mind your palette.”<small>Master Sepia</small></p>
+  <div class="seg" role="group" aria-label="Rival strength">
+    <button type="button" id="t-lv-apprentice" aria-pressed="true">Apprentice</button>
+    <button type="button" id="t-lv-journeyman" aria-pressed="false">Journeyman</button>
+    <button type="button" id="t-lv-master" aria-pressed="false">Master</button>
+  </div>
+  <button type="button" class="primary" id="start">Start duel</button>
+  <div class="trow">
+    <button type="button" class="ghost" id="how-t">How to play</button>
+    <button type="button" class="ghost" id="sound-t">Sound: on</button>
+  </div>
+</section>
+
+<section id="game" class="screen" hidden>
+  <header class="top">
+    <button type="button" id="menu-btn" aria-label="Menu">☰</button>
+    <div class="roundbox"><b id="round"></b><span id="dries"></span></div>
+    <div class="score" aria-live="polite">
+      <div class="nums"><span class="y">You <span id="score-you">0</span></span><span class="r">Rival <span id="score-rival">0</span></span></div>
+      <div class="sbar"><i id="bar-you"></i><i id="bar-mud"></i><i id="bar-rival"></i></div>
+    </div>
+  </header>
+  <div class="rivalrow">
+    <div id="rival-dice" aria-label="Rival dice"></div>
+    <div class="rside">
+      <div class="r1"><span class="hearts" id="rival-hearts" aria-label="Rival palette"></span><span class="drops" id="rival-water" aria-label="Rival water"></span></div>
+      <span class="crests" id="rival-crests" aria-label="Rival crests"></span>
+    </div>
+  </div>
+  <div id="boardwrap">
+    <canvas id="board" aria-label="The sheet with both palettes and blots"></canvas>
+    <div id="stage" hidden></div>
+    <div id="banner"></div>
+    <div id="ticker"></div>
+  </div>
+  <section class="panel">
+    <div class="pool"><span class="hearts" id="hearts" aria-label="Your palette"></span><span class="crests" id="crests" aria-label="Your crests"></span><span class="drops" id="water" aria-label="Your water"></span></div>
+    <div id="hint" aria-live="polite"></div>
+    <div id="ctx"></div>
+    <div class="gorow">
+      <button type="button" id="aux" hidden>Turn net</button>
+      <button type="button" id="go" disabled>Wait</button>
+      <button type="button" id="end" hidden>End turn</button>
+    </div>
+  </section>
+</section>
+
+<div class="overlay" id="menu" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="close-m">✕</button>
+    <h2>Menu</h2>
+    <div class="mlist">
+      <span class="lbl">Rival strength (starts a new duel)</span>
+      <div class="seg" role="group" aria-label="Rival strength">
+        <button type="button" id="m-lv-apprentice" aria-pressed="true">Apprentice</button>
+        <button type="button" id="m-lv-journeyman" aria-pressed="false">Journeyman</button>
+        <button type="button" id="m-lv-master" aria-pressed="false">Master</button>
+      </div>
+      <button type="button" class="ghost" id="sound-m">Sound: on</button>
+      <button type="button" class="ghost" id="how-m">How to play</button>
+      <button type="button" class="ghost" id="log-m">What happened</button>
+      <button type="button" class="ghost" id="new-m">New duel</button>
+      <button type="button" class="ghost" id="title-m">Back to title</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="rules" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="rules-close">✕</button>
+    <h2>How to play</h2>
+    <ul>
+      <li><b>Every blot is a die.</b> Its sides come from the blot itself: stars (★ with its level) and symbols from its stats. Flow gives Step, Opacity gives Brush, Saturation gives Splash, Grain gives Guard, Glow gives Glow. Tap ⓘ on a die to see its net.</li>
+      <li><b>Opening:</b> both sides unfold one blot for free next to their palette.</li>
+      <li><b>Each turn</b> pick three of your six dice and roll them. Symbols go to your pool and keep.</li>
+      <li><b>Stars summon:</b> a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint, touching your own paint. At most three blots stand on the sheet.</li>
+      <li><b>Then each blot</b> may move once (1 Step) and act once: Dry stamp (1 Brush), Wet stamp (1 Brush and 1 water), Splash (1 Splash), its ability (2 Glow) or Soak (free: heals, +1 water).</li>
+      <li><b>Blots only travel through paint.</b> Bare paper is a wall, except for flyers and hoppers. Own paint costs 1, rival paint 2, mud stops you.</li>
+      <li><b>Splash:</b> Saturation plus a d20 against Grain plus a d20. Complementary colours hit for 1.5 times and stain, harmonious ones for 0.75. A Guard in your pool halves a hit by itself.</li>
+      <li><b>Palettes:</b> each side has three hearts. Stand next to the rival palette and splash it: one heart, every time. Break all three and you win.</li>
+      <li><b>Washed out</b> blots lose their die for good, so you roll with fewer.</li>
+      <li><b>The Eraser</b> wipes a row after rounds 3 and 6. After 8 rounds the paper dries: cells plus 3 per heart left.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="overlay" id="logview" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="log-close">✕</button>
+    <h2>What happened</h2>
+    <ul id="log-list"></ul>
+  </div>
+</div>
+
+<div class="overlay" id="inspect" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="inspect-close">✕</button>
+    <div id="inspect-body"></div>
+  </div>
+</div>
+
+<div class="overlay" id="tip" hidden>
+  <div class="bubble"><small>Master Sepia</small><p id="tip-text"></p><button type="button" id="tip-ok">Got it</button></div>
+</div>
+
+<div class="overlay" id="result" hidden>
+  <div class="sheet">
+    <p class="eyebrow">Duel over</p>
+    <h2 id="result-title"></h2>
+    <p id="result-sub"></p>
+    <div id="result-stats"></div>
+    <p id="result-sepia"></p>
+    <div class="trow" style="margin: 0 auto;">
+      <button type="button" class="primary" id="again">Again</button>
+      <button type="button" class="ghost" id="to-title">Title</button>
+    </div>
+  </div>
+</div>
+<script>
+/*SCRIPT*/
+</script>
