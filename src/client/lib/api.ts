@@ -1,5 +1,7 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import type { CatchResponse, CollectionResponse, ErrorCode, ErrorResponse, GlazeResponse, InitResponse } from '../../shared/api';
+import type { CatchResponse, CollectionResponse, DuelResponse, ErrorCode, ErrorResponse, GlazeResponse, InitResponse } from '../../shared/api';
+import type { DuelAction } from '../../shared/duel/play';
+import type { Level } from '../../shared/duel/rules';
 import type { PigmentId } from '../../shared/data';
 
 export class ApiError extends Error {
@@ -30,6 +32,9 @@ export const api = {
   collection: () => call<CollectionResponse>('/api/collection'),
   catchBlot: () => call<CatchResponse>('/api/catch', {}),
   glaze: (id: string, pigment: PigmentId) => call<GlazeResponse>('/api/glaze', { id, pigment }),
+  duel: () => call<DuelResponse>('/api/duel'),
+  duelStart: (level: Level) => call<DuelResponse>('/api/duel/start', { level }),
+  duelAct: (action: DuelAction) => call<DuelResponse>('/api/duel/act', { action }),
 };
 
 /** Abstand zwischen Server- und Geräteuhr, für Trockenzeit und Tagesende */

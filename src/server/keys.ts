@@ -1,6 +1,6 @@
 /*
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
- * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index).
+ * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players).
  */
 export const K = {
   /** Hash: seed, humidity, postId, bp, main, createdAt, named */
@@ -23,4 +23,10 @@ export const K = {
   speciesNames: 'species:names',
   /** Hash: Sperren für laufende Schreibvorgänge */
   locks: 'locks',
+  /** JSON des laufenden Duells (mit Würfelzufall, nur am Server) */
+  duel: (userId: string) => `duel:${userId}`,
+  /** JSON: Startbeutel mit 6 Würfeln (Bogen-Seed und Nummer je Monster) */
+  duelBag: (userId: string) => `duel:${userId}:bag`,
+  /** Sorted Set aller Spieler mit Duell, Score = letzte Aktion */
+  duelPlayers: 'duel:players',
 } as const;

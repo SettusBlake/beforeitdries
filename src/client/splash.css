@@ -25,3 +25,6 @@ body.splash { overflow: hidden; }
   .s-top .eyebrow { display: none; }
   .s-info .card-sub { display: none; }
 }
+.s-btns { display: flex; gap: 8px; width: 100%; max-width: 360px; }
+.s-btns .btn { flex: 1; min-width: 0; }
+.s-btns .btn:first-child { flex: 1.4; }

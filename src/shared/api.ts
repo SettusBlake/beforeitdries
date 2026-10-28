@@ -2,6 +2,8 @@
 import type { PigmentId } from './data';
 import type { LogEntry } from './glaze';
 import type { Monster } from './monster';
+import type { DuelState } from './duel/play';
+import type { Ev } from './duel/rules';
 
 /** Gespeichert unter monster:{id}. Nur Seed, Würfe und Zustand, nie das Bild. */
 export interface MonsterRecord extends Monster {
@@ -87,4 +89,10 @@ export interface ErrorResponse {
   error: string;
   code: ErrorCode;
   dryUntil?: number;
+}
+
+/** Antwort auf jede Duell-Anfrage: Ereignisse zum Abspielen und der Stand danach */
+export interface DuelResponse {
+  state: DuelState | null;
+  events: Ev[];
 }

@@ -10,6 +10,9 @@
       },
       "game": {
         "entry": "game.html"
+      },
+      "duel": {
+        "entry": "duel.html"
       }
     }
   },

@@ -5,6 +5,7 @@ import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
 import type { CollectionResponse, ErrorResponse, GlazeRequest, InitResponse } from '../shared/api';
 import { dayKey, isDayKey, shiftDay } from '../shared/day';
 import { adoptTopName, catchBlot, dayInfo, dryMsFromHours, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps, type RedditLike } from './core';
+import { duelAct, duelGet, duelStart } from './duel';
 import { K } from './keys';
 import { secureUint32 } from './rand';
 
@@ -89,6 +90,29 @@ app.post(
     const d = await deps();
     const body = (req.body ?? {}) as Partial<GlazeRequest>;
     res.json(await glazeMonster(d, context.userId, body.id, body.pigment));
+  }),
+);
+
+/* ---------- Farbschlacht ---------- */
+
+app.get(
+  '/api/duel',
+  wrap(async (_req, res) => {
+    res.json(await duelGet(await deps(), context.userId));
+  }),
+);
+
+app.post(
+  '/api/duel/start',
+  wrap(async (req, res) => {
+    res.json(await duelStart(await deps(), context.userId, (req.body as { level?: unknown } | undefined)?.level));
+  }),
+);
+
+app.post(
+  '/api/duel/act',
+  wrap(async (req, res) => {
+    res.json(await duelAct(await deps(), context.userId, (req.body as { action?: unknown } | undefined)?.action));
   }),
 );
 

@@ -194,7 +194,7 @@ export async function catchBlot(d: Deps, userId: string | undefined, username: s
   return { monster: rec, fresh: true, species: await getSpecies(d, speciesKey(rec)), serverNow: d.now };
 }
 
-async function withLock<T>(d: Pick<Deps, 'redis' | 'now'>, id: string, fn: () => Promise<T>): Promise<T> {
+export async function withLock<T>(d: Pick<Deps, 'redis' | 'now'>, id: string, fn: () => Promise<T>): Promise<T> {
   if (!(await d.redis.hSetNX(K.locks, id, String(d.now)))) {
     const since = Number(await d.redis.hGet(K.locks, id));
     if (d.now - since < 15000) throw new GameError('busy', 'Still painting. Try again in a moment.', 409);

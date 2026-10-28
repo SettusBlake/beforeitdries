@@ -52,6 +52,7 @@ const pd = context?.postData as Partial<DayPostData> | undefined;
 if (pd && isDayKey(pd.day)) show(makeMonster(pd.day, 0, humidityFor(pd.day)), pd.day);
 
 play.addEventListener('click', (e) => requestExpandedMode(e, 'game'));
+$('s-duel').addEventListener('click', (e) => requestExpandedMode(e, 'duel'));
 
 api
   .init()

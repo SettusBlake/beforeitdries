@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
+import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { K } from '../src/server/keys';
 import { dayKey } from '../src/shared/day';
 import { secureUint32 } from '../src/server/rand';
@@ -51,6 +52,14 @@ createServer(async (req, res) => {
     }
     if (url.pathname === '/api/collection') return send(200, { ...(await loadCollection(d, USER.id)), serverNow: d.now, dryMs: d.dryMs });
     if (url.pathname === '/api/catch') return send(200, await catchBlot(d, asUser, USER.name, await resolveDay(d, postId, undefined)));
+    if (url.pathname.startsWith('/api/duel')) {
+      let raw = '';
+      for await (const c of req) raw += c;
+      const b = JSON.parse(raw || '{}');
+      if (url.pathname === '/api/duel') return send(200, await duelGet(d, asUser));
+      if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level));
+      if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action));
+    }
     if (url.pathname === '/api/glaze') {
       let raw = '';
       for await (const c of req) raw += c;
