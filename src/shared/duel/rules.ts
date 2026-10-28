@@ -11,11 +11,11 @@ import { RNG, type Rand } from '../rng';
 
 /* ---------- Regeln (alle Zahlen hier) ---------- */
 export const COLS = 7,
-  ROWS = 9,
-  ROUNDS = 8,
+  ROWS = 7,
+  ROUNDS = 6,
   WET_TURNS = 2,
   WATER_MAX = 4,
-  ERASER_ROUNDS = [3, 6],
+  ERASER_ROUNDS = [2, 4],
   PAINT_RANGE = 2,
   HEARTS = 3,
   HEART_BONUS = 3,
@@ -25,7 +25,7 @@ export const COLS = 7,
   ROLL_N = 3;
 /** Sternseiten je Stufe (Index = Stufe) */
 const STAR_FACES = [0, 3, 3, 2];
-const START_CRESTS: Record<Crest, number> = { step: 2, brush: 1, splash: 0, guard: 0, glow: 0 };
+const START_CRESTS: Record<Crest, number> = { step: 1, brush: 2, splash: 0, guard: 0, glow: 0 };
 
 export type Side = 1 | 2;
 export type Phase = 'opening' | 'roll' | 'summon' | 'act' | 'over';
@@ -94,7 +94,7 @@ export type Ev =
   | { k: 'sync'; cells: Cell[]; units: UnitSnap[]; teams: TeamSnap[]; round: number };
 
 export const CRESTS: { k: Crest; label: string; stat: StatK; col: string; use: string }[] = [
-  { k: 'step', label: 'Step', stat: 'flo', col: '#2e7a57', use: 'one move' },
+  { k: 'step', label: 'Step', stat: 'flo', col: '#2e7a57', use: '+2 reach for one move' },
   { k: 'brush', label: 'Brush', stat: 'opa', col: '#5b4a8a', use: 'one stamp' },
   { k: 'splash', label: 'Splash', stat: 'sat', col: '#c0482a', use: 'one splash' },
   { k: 'guard', label: 'Guard', stat: 'grn', col: '#5f6474', use: 'halves a hit by itself' },
@@ -155,17 +155,17 @@ const NET_OF: Record<BlueprintId, number> = {
   doppelkopf: 4,
 };
 
-/* Gangart je Bauplan. Kleckse bewegen sich nur durch Farbe, blankes Papier ist eine Wand */
+/* Gangart je Bauplan. Eigene Farbe ist der schnelle Weg, blankes Papier kostet doppelt */
 export const GAIT: Record<BlueprintId, { key: string; text: string }> = {
   kriecher: { key: 'trail-dry', text: 'leaves a dry trail' },
-  flatterer: { key: 'fly', text: 'flies, even over bare paper' },
+  flatterer: { key: 'fly', text: 'flies: every cell costs 1' },
   schwebeblase: { key: 'float', text: 'floats over mud' },
   vierbeiner: { key: 'fast', text: 'runs one step further' },
   schlange: { key: 'slide', text: 'slides through own paint' },
   turm: { key: 'tower', text: 'never moves, reaches far' },
   krabbe: { key: 'pinch', text: '+3 damage up close' },
   qualle: { key: 'trail-wet', text: 'drips a wet trail' },
-  huepfer: { key: 'hop', text: 'hops two cells, even onto paper' },
+  huepfer: { key: 'hop', text: 'hops two cells, over anything' },
   knolle: { key: 'root', text: 'soaks twice as well' },
   strahler: { key: 'reach', text: 'splashes two cells away' },
   doppelkopf: { key: 'twin', text: 'splashes twice' },
@@ -546,21 +546,30 @@ export function doSummon(u: Unit, o: number, at: number): string {
   return s;
 }
 
-/* ---------- Bewegen: nur durch Farbe ---------- */
+/* ---------- Bewegen: jeder Klecks einmal pro Zug, Farbe ist der schnelle Weg ---------- */
+/** Ein Step im Vorrat lässt einen Klecks so viel weiter gehen */
+export const STEP_BONUS = 2;
 export function moveRange(u: Unit): number {
   if (u.rooted > 0 || GAIT[u.m.bp].key === 'tower') return 0;
   return Math.min(5, 2 + Math.floor(u.flo / 15) + (GAIT[u.m.bp].key === 'fast' ? 1 : 0));
 }
-export function reach(u: Unit): Map<number, number> {
-  const out = new Map<number, number>();
-  const range = moveRange(u);
+/**
+ * Erreichbare Felder mit Vorgänger und Kosten. Eigene Farbe kostet 1, blankes Papier, fremde Farbe
+ * und Schlamm kosten 2, aus Schlamm geht es nicht weiter. Mit einem Step im Vorrat reicht es STEP_BONUS weiter.
+ */
+export function reachCost(u: Unit): { prev: Map<number, number>; cost: Map<number, number> } {
+  const prev = new Map<number, number>();
+  const cost = new Map<number, number>();
+  const base = moveRange(u);
   const gait = GAIT[u.m.bp].key;
   const start = idx(u.x, u.y);
-  out.set(start, -1);
-  if (range === 0) return out;
+  prev.set(start, -1);
+  cost.set(start, 0);
+  if (base === 0) return { prev, cost };
+  const range = base + (teamOf(u).crests.step > 0 ? STEP_BONUS : 0);
   if (gait === 'hop') {
     let frontier = [start];
-    for (let h = 0; h < Math.max(1, Math.floor(range / 2)); h++) {
+    for (let h = 1; h <= Math.max(1, Math.floor(range / 2)); h++) {
       const next: number[] = [];
       for (const f of frontier) {
         const fx = f % COLS,
@@ -570,16 +579,16 @@ export function reach(u: Unit): Map<number, number> {
             ny = fy + dy;
           if (!inside(nx, ny) || unitAt(nx, ny) || S.cells[idx(nx, ny)]!.home) continue;
           const ni = idx(nx, ny);
-          if (out.has(ni)) continue;
-          out.set(ni, f);
+          if (prev.has(ni)) continue;
+          prev.set(ni, f);
+          cost.set(ni, h * 2);
           next.push(ni);
         }
       }
       frontier = next;
     }
-    return out;
+    return { prev, cost };
   }
-  const cost = new Map<number, number>([[start, 0]]);
   const queue = [start];
   while (queue.length) {
     queue.sort((a, b) => cost.get(a)! - cost.get(b)!);
@@ -595,22 +604,22 @@ export function reach(u: Unit): Map<number, number> {
       const ni = idx(nx, ny);
       const c = S.cells[ni]!;
       if (c.home) continue;
-      if (c.owner === 0 && gait !== 'fly') continue;
-      let step = 1;
-      if (gait !== 'fly') {
-        if (c.owner === u.side && gait === 'slide') step = 0.5;
-        else if (c.owner !== u.side && c.owner !== 3) step = 2;
-      }
+      let step = 2;
+      if (gait === 'fly' || (gait === 'float' && c.owner === 3)) step = 1;
+      else if (c.owner === u.side) step = gait === 'slide' ? 0.5 : 1;
       const nc = c0 + step;
       if (nc > range) continue;
       if (cost.has(ni) && cost.get(ni)! <= nc) continue;
       cost.set(ni, nc);
-      out.set(ni, cur);
+      prev.set(ni, cur);
       queue.push(ni);
     }
   }
-  return out;
+  return { prev, cost };
 }
+export const reach = (u: Unit): Map<number, number> => reachCost(u).prev;
+/** Braucht dieser Weg einen Step aus dem Vorrat? */
+export const needsStep = (u: Unit, to: number): boolean => (reachCost(u).cost.get(to) ?? 0) > moveRange(u);
 function pathTo(prev: Map<number, number>, to: number): number[] {
   const p: number[] = [];
   let c = to;
@@ -622,10 +631,10 @@ function pathTo(prev: Map<number, number>, to: number): number[] {
 }
 export function doMove(u: Unit, to: number, prev: Map<number, number>): string {
   const path = pathTo(prev, to);
+  if (needsStep(u, to)) teamOf(u).crests.step--;
   u.x = to % COLS;
   u.y = Math.floor(to / COLS);
   u.moved = true;
-  teamOf(u).crests.step--;
   const gait = GAIT[u.m.bp].key;
   const trail: number[] = [];
   if (gait === 'trail-dry' || gait === 'trail-wet') {
@@ -641,7 +650,7 @@ export function doMove(u: Unit, to: number, prev: Map<number, number>): string {
   sync();
   return trail.length ? `left a ${gait === 'trail-wet' ? 'wet' : 'dry'} trail of ${trail.length}` : '';
 }
-export const canMove = (u: Unit) => !u.moved && teamOf(u).crests.step > 0 && moveRange(u) > 0;
+export const canMove = (u: Unit) => !u.moved && moveRange(u) > 0;
 
 /* ---------- Malen ---------- */
 type Out = { kind: 'take' | 'refresh' | 'contest' | 'mud' | 'none' | 'over'; p: number };
@@ -734,9 +743,11 @@ export const touchesHome = (u: Unit, x = u.x, y = u.y) => {
   const h = foeTeam(u).home;
   return cheb(x, y, h % COLS, Math.floor(h / COLS)) <= 1;
 };
+/** Eine Palette ist geschützt, solange ein eigener Klecks direkt daneben steht */
+export const homeGuarded = (t: Team): boolean => onSheet(t).some((u) => cheb(u.x, u.y, t.home % COLS, Math.floor(t.home / COLS)) <= 1);
 export function splashCells(u: Unit): number[] {
   const out = splashTargets(u).map((t) => idx(t.x, t.y));
-  if (touchesHome(u)) out.push(foeTeam(u).home);
+  if (touchesHome(u) && !homeGuarded(foeTeam(u))) out.push(foeTeam(u).home);
   return out;
 }
 const grainOf = (t: Unit) => t.grn + (t.shield > 0 ? 25 : 0);
@@ -1388,12 +1399,15 @@ export function aiOpening(side: Side, lvl: Level | number): void {
   sync();
 }
 /** Einen Klecks-Zug wählen (Bewegen und Handeln) und ausführen. Gibt false zurück, wenn nichts mehr lohnt. */
-function aiAction(side: Side, look: number, r: Rand): boolean {
+/** Alle sinnvollen Züge (Bewegen und Handeln) einer Seite mit Bewertung. only: nur dieser Klecks, stay: ohne Bewegen */
+function candidates(side: Side, only?: Unit, stay = false): Cand[] {
   const team = S.teams[side - 1]!;
   const cands: Cand[] = [];
   for (const u of onSheet(team)) {
-    if (u.acted) continue;
-    const prev = canMove(u) ? reach(u) : new Map([[idx(u.x, u.y), -1]]);
+    if (u.acted || (only && u !== only)) continue;
+    const rc = canMove(u) && !stay ? reachCost(u) : { prev: new Map([[idx(u.x, u.y), -1]]), cost: new Map([[idx(u.x, u.y), 0]]) };
+    const prev = rc.prev;
+    const base = moveRange(u);
     const ox = u.x,
       oy = u.y;
     const pigs: PigmentId[] = u.sec ? [u.m.main, u.sec] : [u.m.main];
@@ -1403,8 +1417,14 @@ function aiAction(side: Side, look: number, r: Rand): boolean {
       u.x = to % COLS;
       u.y = Math.floor(to / COLS);
       const cHere = S.cells[to]!;
-      let pos = -danger(u, u.x, u.y) + 0.25 * (d0 - homeDist(u, u.x, u.y)) - (moving ? CREST_COST.step : 0);
+      let pos = -danger(u, u.x, u.y) + 0.25 * (d0 - homeDist(u, u.x, u.y)) - ((rc.cost.get(to) ?? 0) > base ? CREST_COST.step : 0);
       if (cHere.owner === side && cHere.wet > 0) pos += 0.4;
+      // Die eigene Palette bewachen, wenn Gegner in der Nähe sind
+      const h = team.home;
+      if (cheb(u.x, u.y, h % COLS, Math.floor(h / COLS)) <= 1) {
+        const threat = onSheet(foeTeam(u)).filter((e) => cheb(e.x, e.y, h % COLS, Math.floor(h / COLS)) <= 3).length;
+        if (threat) pos += (1 + threat) * (team.hearts <= 1 ? 2.5 : 1.2);
+      }
       const gait = GAIT[u.m.bp].key;
       if (moving && (gait === 'trail-dry' || gait === 'trail-wet')) pos += 0.3 * pathTo(prev, to).filter((i) => S.cells[i]!.owner === 0).length;
       const add = (v: number, a: Action, pig: PigmentId, at: number | null) => cands.push({ v: v + pos, u, to, a, pig, at });
@@ -1423,7 +1443,7 @@ function aiAction(side: Side, look: number, r: Rand): boolean {
             const dmg = baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1);
             add(splashOdds(u, t, pig) * hits * (dmg * 0.9 + killBonus(t, dmg * hits)) + (t.stain ? 0 : relation(pig, t.m.main) === 'komplementaer' ? 1 : 0) - CREST_COST.splash, 'splash', pig, idx(t.x, t.y));
           }
-        if (touchesHome(u)) add(foeTeam(u).hearts <= 1 ? 100 : 8, 'splash', u.m.main, foeTeam(u).home);
+        if (touchesHome(u) && !homeGuarded(foeTeam(u))) add(foeTeam(u).hearts <= 1 ? 100 : 8, 'splash', u.m.main, foeTeam(u).home);
       }
       if (u.hp < u.max || team.water < WATER_MAX) add(soakAmount(u) * 0.35 + (u.hp < u.max * 0.35 ? 2 : 0) + (team.water < WATER_MAX ? 0.3 : 0), 'soak', u.m.main, null);
       if (team.crests.glow >= abilityCost(u)) for (const at of abilityTargets(u)) add(evalAbility(u, at) - CREST_COST.glow * abilityCost(u), 'ability', u.m.main, at);
@@ -1432,6 +1452,18 @@ function aiAction(side: Side, look: number, r: Rand): boolean {
     u.x = ox;
     u.y = oy;
   }
+  return cands;
+}
+/** Vorschlag für den Spieler (wie der Meister spielen würde), ohne ihn auszuführen */
+export function suggest(side: Side, only?: Unit, stay = false): { u: Unit; to: number; a: Action; pig: PigmentId; at: number | null } | null {
+  const cands = candidates(side, only, stay).filter((c) => c.a !== 'none');
+  if (!cands.length) return null;
+  let b = cands[0]!;
+  for (const c of cands) if (c.v > b.v) b = c;
+  return b.v > 0.05 ? { u: b.u, to: b.to, a: b.a, pig: b.pig, at: b.at } : null;
+}
+function aiAction(side: Side, look: number, r: Rand): boolean {
+  const cands = candidates(side);
   if (!cands.length) return false;
   const b = pickBest(cands, look, r, (c) => c.a === 'ability' || (c.a === 'splash' && c.at === foeTeam(c.u).home));
   if (b.v <= 0.05) return false;

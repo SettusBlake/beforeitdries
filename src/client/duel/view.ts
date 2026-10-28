@@ -431,6 +431,21 @@ function drawPalette(side: Side, t: number): void {
   const x = cx(team.home) + wob,
     y = cy(team.home);
   const col = side === 1 ? '43,63,163' : '163,58,58';
+  // Bewacht: ein eigener Klecks steht direkt daneben
+  const hx = team.home % COLS,
+    hy = Math.floor(team.home / COLS);
+  const guarded = [...V.units.values()].some((u) => u.side === side && u.state === 'sheet' && Math.max(Math.abs(Math.round(u.dx) - hx), Math.abs(Math.round(u.dy) - hy)) <= 1);
+  if (guarded) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(${col},.55)`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.lineDashOffset = -t / 60;
+    ctx.beginPath();
+    ctx.arc(x, y, cell * 0.56, 0, 7);
+    ctx.stroke();
+    ctx.restore();
+  }
   ctx.save();
   ctx.fillStyle = 'rgba(255,253,248,1)';
   ctx.strokeStyle = `rgba(${col},.95)`;
