@@ -1,0 +1,281 @@
+<title>Before It Dries Dice</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Young+Serif&display=swap">
+<style>
+/* Layout: ein Zeichentisch. Oben der Rivale, in der Mitte das Blatt mit den Monstern, darunter Züge und das eigene Team. Bewusst nur ein helles Papier-Thema. */
+:root {
+  --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --line: #cfcabd; --track: #ece8dd;
+  --gold: #c9961e; --gold-soft: rgba(201,150,30,.45); --gold-ink: #8a6410; --you: #2b3fa3; --rival: #a33a3a; --mud: #74644f; --ok: #2e7a57; --water: #2b6fa3; --sepia: #6e4b33;
+  --f-display: "Young Serif", Georgia, serif; --f-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; --f-hand: "Caveat", "Segoe Print", cursive;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--table); color: var(--ink); }
+body { font-family: var(--f-body); font-size: 15px; line-height: 1.45; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--you); outline-offset: 2px; }
+.wrap { max-width: 460px; margin: 0 auto; display: grid; gap: 12px; }
+.eyebrow { font: 600 11px/1 var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.wrap { gap: 10px; }
+.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
+h1 { font: 400 1.6rem/1 var(--f-display); margin: 5px 0 0; white-space: nowrap; }
+.roundbox { display: grid; justify-items: end; font: 12px var(--f-mono); color: var(--muted); text-align: right; min-width: 0; }
+.roundbox b { font: 600 13px var(--f-mono); color: var(--ink); }
+.roundbox span, .roundbox b { white-space: nowrap; }
+.rivalbar { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.rivalbar .lbl { font: 600 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--rival); }
+#rival { display: flex; gap: 6px; }
+.rb { display: grid; justify-items: center; width: 58px; gap: 2px; }
+.rb canvas { border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
+.rb small { font-size: 10px; line-height: 1.1; text-align: center; color: var(--muted); }
+.rb.resting canvas { opacity: .45; }
+.drops { display: flex; gap: 3px; align-items: center; }
+.drops i { width: 11px; height: 14px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; box-shadow: inset 0 0 0 1.4px var(--water); display: inline-block; }
+.drops i.on { background: var(--water); }
+.score { display: grid; gap: 4px; }
+.score .nums { display: flex; justify-content: space-between; font: 600 13px var(--f-mono); font-variant-numeric: tabular-nums; }
+.score .nums .y { color: var(--you); } .score .nums .r { color: var(--rival); } .score .nums .m { color: var(--mud); }
+.sbar { height: 8px; border-radius: 4px; background: var(--track); display: flex; overflow: hidden; }
+.sbar i { display: block; height: 100%; transition: width .3s ease; }
+#bar-you { background: var(--you); } #bar-mud { background: var(--mud); margin-left: auto; } #bar-rival { background: var(--rival); }
+.paper { background: var(--sheet); padding: 6px; border-radius: 3px; box-shadow: 0 1px 2px rgba(30,25,20,.15), 0 14px 30px -18px rgba(30,25,20,.45); }
+#board { display: block; width: 100%; touch-action: manipulation; cursor: crosshair; }
+.controls { display: grid; grid-template-columns: auto auto 1fr; gap: 10px; align-items: center; }
+.tech { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--sheet); }
+.tech button { border: 0; background: transparent; padding: 9px 12px; min-height: 46px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.drop1 { width: 9px; height: 12px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: var(--water); display: inline-block; }
+.tech button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+.tech button:disabled { opacity: .4; cursor: not-allowed; }
+.tech small { font: 11px var(--f-mono); opacity: .8; margin-left: 4px; }
+#preview { font: 12px/1.35 var(--f-mono); color: var(--muted); min-height: 2.7em; }
+#paint { border: 0; border-radius: 10px; padding: 12px; min-height: 46px; font-weight: 700; font-size: 16px; background: var(--ink); color: var(--sheet); cursor: pointer; }
+#paint:disabled { opacity: .35; cursor: not-allowed; }
+#brushes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.brush { display: grid; gap: 3px; text-align: left; align-content: start; background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; min-width: 0; }
+.brush.sel { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.brush:disabled { opacity: .5; cursor: not-allowed; }
+.bt { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
+.bt canvas { border-radius: 3px; }
+.brush b { font-size: 12px; line-height: 1.15; }
+.bs { display: flex; flex-wrap: wrap; gap: 1px 6px; font: 10.5px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.brush .rest { font-size: 11px; color: var(--muted); }
+.brush.resting .rest { color: var(--water); font-weight: 600; }
+.pat { display: grid; grid-template-columns: repeat(5, 6px); gap: 1px; flex: none; }
+.pat i { width: 6px; height: 6px; border-radius: 1px; background: var(--track); }
+.pat i.on { background: var(--ink); }
+#log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font: 12px/1.4 var(--f-mono); }
+#log li { padding: 6px 8px; border-radius: 6px; background: var(--sheet); overflow-wrap: anywhere; }
+#log li.you { box-shadow: inset 3px 0 0 var(--you); } #log li.rival { box-shadow: inset 3px 0 0 var(--rival); }
+#log li.eraser { box-shadow: inset 3px 0 0 #b9b2a6; font-weight: 600; } #log li.muted { color: var(--muted); }
+#log li.ok { color: var(--ok); font-weight: 600; } #log li.bad { color: var(--rival); font-weight: 600; }
+.sepia { border-left: 3px solid var(--sepia); padding-left: 10px; }
+.sepia small { font: 600 10px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.sepia p { margin: 0; font: 500 1.35rem/1.1 var(--f-hand); color: var(--sepia); }
+.result { background: var(--sheet); border-radius: 8px; padding: 14px; display: grid; gap: 6px; box-shadow: inset 0 0 0 2px var(--ink); }
+.result h2 { margin: 0; font: 400 1.5rem var(--f-display); }
+.result p { margin: 0; color: var(--muted); }
+.result button, .foot button { justify-self: start; border: 1px solid var(--ink); background: var(--ink); color: var(--sheet); border-radius: 10px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+details { background: var(--sheet); border-radius: 8px; padding: 10px 12px; }
+summary { font-weight: 600; cursor: pointer; }
+details ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; color: var(--ink); max-width: 60ch; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 12px var(--f-mono); color: var(--muted); }
+.foot button { background: transparent; color: var(--ink); }
+
+.ru { display: grid; justify-items: center; width: 62px; gap: 2px; }
+.ru canvas { width: 36px; height: 36px; border-radius: 50%; box-shadow: 0 0 0 2px var(--rival); }
+.ru small { font-size: 10px; line-height: 1.1; text-align: center; color: var(--muted); }
+.ru.gone, .unit.gone { opacity: .35; }
+.hp { display: inline-block; width: 100%; height: 5px; border-radius: 3px; background: var(--track); overflow: hidden; vertical-align: middle; }
+.hp i { display: block; height: 100%; }
+.hp.you i { background: var(--you); } .hp.rival i { background: var(--rival); }
+.acts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.acts button { border: 1px solid var(--line); background: var(--sheet); border-radius: 10px; min-height: 46px; padding: 6px 4px; font-weight: 600; font-size: 13.5px; cursor: pointer; display: grid; justify-items: center; gap: 1px; }
+.acts button small { font: 10.5px var(--f-mono); color: var(--muted); font-weight: 400; }
+.acts button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.acts button[aria-pressed="true"] small { color: #c9ccd6; }
+.acts button:disabled { opacity: .4; cursor: not-allowed; }
+.gorow { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; }
+#go { border: 0; border-radius: 10px; padding: 12px; min-height: 46px; font-weight: 700; font-size: 16px; background: var(--ink); color: var(--sheet); cursor: pointer; }
+#go:disabled { opacity: .35; cursor: not-allowed; }
+#mine { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.unit { display: grid; gap: 3px; text-align: left; align-content: start; background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; min-width: 0; }
+.unit.sel { border-color: var(--you); box-shadow: inset 0 0 0 1px var(--you); }
+.unit:disabled { cursor: not-allowed; }
+.unit.resting { opacity: .6; }
+.ut { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
+.ut canvas { width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 0 0 2px var(--you); }
+.unit b { font-size: 12px; line-height: 1.15; }
+.hpline { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; font: 10.5px var(--f-mono); color: var(--muted); }
+.us { font: 10.5px var(--f-mono); color: var(--muted); }
+.unit small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+.unit.resting small { color: var(--water); font-weight: 600; }
+.levels { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.levels .lbl { font: 600 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.seg { display: flex; flex: 1; min-width: 0; max-width: 300px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--sheet); }
+.seg button { flex: 1; min-width: 0; border: 0; background: transparent; padding: 6px 4px; min-height: 36px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--rival); color: var(--sheet); }
+.acts { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.acts button { font-size: 13px; }
+#act-ability b { font-weight: 700; font-size: 13px; }
+#act-ability:not(:disabled) { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+#act-ability[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+#act-ability[aria-pressed="true"] small { color: var(--ink); }
+#pigs { display: flex; gap: 6px; flex-wrap: wrap; }
+.pigbtn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--sheet); border-radius: 999px; padding: 6px 12px; min-height: 38px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pigbtn[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.hp.charge { height: 4px; }
+.hp.charge i { background: var(--gold-soft); }
+.hp.charge.full i { background: var(--gold); }
+.abl { display: grid; grid-template-columns: auto 1fr; gap: 5px; align-items: center; }
+.abl b { font-size: 11px; color: var(--gold-ink); }
+.trs { display: flex; flex-wrap: wrap; gap: 3px; }
+.trs:empty { display: none; }
+.tr { font: 600 9.5px/1.3 var(--f-mono); padding: 1px 5px; border-radius: 999px; background: var(--track); color: var(--ink); white-space: nowrap; }
+.un { overflow-wrap: anywhere; }
+.ru { gap: 3px; }
+/* Fassung 4: Würfel */
+.hearts { display: inline-flex; gap: 1px; }
+.hearts i { font-style: normal; font-size: 15px; line-height: 1; color: #cfc9bc; }
+#hearts i.on { color: var(--you); } #rival-hearts i.on { color: var(--rival); }
+.rivalbar { flex-wrap: wrap; row-gap: 4px; }
+#rival-crests { display: flex; gap: 6px; }
+#rival-crests .crest { font-size: 11px; }
+#rival { display: flex; gap: 6px; flex-wrap: wrap; }
+.ru { display: grid; justify-items: center; width: 44px; gap: 2px; cursor: pointer; }
+.ru canvas { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 2px var(--rival); }
+.ru.bag canvas { box-shadow: 0 0 0 1.5px var(--line); }
+.ru.gone { opacity: .3; }
+.ru small { display: inline-flex; }
+.panel { background: var(--sheet); border-radius: 10px; padding: 10px; display: grid; gap: 8px; box-shadow: 0 1px 2px rgba(30,25,20,.12); }
+.ph { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ph b { font: 600 12px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; }
+#preview { min-height: 2.7em; }
+.pool { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+#crests { display: flex; gap: 10px; flex-wrap: wrap; }
+.crest { display: inline-flex; align-items: center; gap: 2px; font: 600 13px var(--f-mono); font-variant-numeric: tabular-nums; }
+.crest.zero { opacity: .35; }
+#rolled { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rl { font: 600 10px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); width: 100%; }
+.rd { display: grid; justify-items: center; gap: 2px; border: 1px solid var(--line); background: var(--sheet); border-radius: 10px; padding: 6px 8px; min-width: 70px; cursor: default; }
+.rd.can { border-color: var(--you); box-shadow: 0 0 0 3px rgba(43,63,163,.22); cursor: pointer; }
+.rd.sel { background: #e7eaf6; }
+.rd canvas { width: 22px; height: 22px; border-radius: 50%; }
+.rd small { font: 600 10.5px var(--f-mono); }
+.gorow { display: flex; gap: 8px; align-items: stretch; }
+#go { flex: 1; }
+#aux, #end { border: 1px solid var(--ink); background: transparent; border-radius: 10px; padding: 8px 12px; min-height: 46px; font-weight: 700; font-size: 14px; cursor: pointer; }
+#dice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.die { display: grid; gap: 4px; text-align: left; align-content: start; background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 7px; cursor: pointer; min-width: 0; }
+.die:disabled { cursor: default; }
+.die.chosen { border-color: var(--you); box-shadow: inset 0 0 0 2px var(--you); background: #f1f3fb; }
+.die.sel { border-color: var(--you); box-shadow: inset 0 0 0 1px var(--you); }
+.die.gone { opacity: .45; }
+.die.done { opacity: .7; }
+.dt { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.dt canvas { width: 34px; height: 34px; border-radius: 50%; box-shadow: 0 0 0 2px var(--you); flex: none; }
+.die.bag .dt canvas, .die.gone .dt canvas { box-shadow: 0 0 0 1.5px var(--line); }
+.dt { justify-content: space-between; }
+.lv { display: inline-flex; align-items: center; gap: 2px; font: 10.5px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.lv b { font-weight: 600; color: var(--ink); }
+.die .un { font-size: 12px; line-height: 1.15; }
+.net { display: flex; justify-content: center; padding: 2px 0; }
+.abl { display: flex; align-items: center; gap: 4px; }
+.abl b { font-size: 11px; color: var(--gold-ink); }
+.cost { display: inline-flex; }
+.die small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+.sect { font: 600 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 4px 0 -4px; }
+@media (prefers-reduced-motion: reduce) { .sbar i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Prototype 4 · dice duel</p>
+      <h1>Before It Dries</h1>
+    </div>
+    <div class="roundbox"><b id="round"></b><span id="dries"></span></div>
+  </header>
+
+  <div class="levels">
+    <span class="lbl">Level</span>
+    <div class="seg" role="group" aria-label="Rival strength">
+      <button type="button" id="lv-apprentice" aria-pressed="true">Apprentice</button>
+      <button type="button" id="lv-journeyman" aria-pressed="false">Journeyman</button>
+      <button type="button" id="lv-master" aria-pressed="false">Master</button>
+    </div>
+  </div>
+
+  <div class="rivalbar">
+    <span class="lbl">Rival</span>
+    <span class="hearts" id="rival-hearts" aria-label="Rival palette hearts"></span>
+    <span id="rival-crests" aria-label="Rival crests"></span>
+    <span class="drops" id="rival-water" aria-label="Rival water"></span>
+  </div>
+  <div id="rival" aria-label="Rival dice"></div>
+
+  <div class="score" aria-live="polite">
+    <div class="sbar"><i id="bar-you"></i><i id="bar-mud"></i><i id="bar-rival"></i></div>
+    <div class="nums"><span class="y">You <span id="score-you">0</span></span><span class="m">Mud <span id="score-mud">0</span></span><span class="r">Rival <span id="score-rival">0</span></span></div>
+  </div>
+
+  <div class="paper"><canvas id="board" aria-label="The sheet with both palettes and blots."></canvas></div>
+
+  <div class="result" id="result" hidden>
+    <h2 id="result-title"></h2>
+    <p id="result-sub"></p>
+    <button type="button" id="again">Paint another duel</button>
+  </div>
+
+  <section class="panel" aria-live="polite">
+    <div class="ph"><b id="phase"></b><span class="hearts" id="hearts" aria-label="Your palette hearts"></span></div>
+    <div id="preview"></div>
+    <div id="rolled" hidden></div>
+    <div class="pool"><span id="crests" aria-label="Your crests"></span><span class="drops" id="water" aria-label="Your water"></span></div>
+    <div class="acts" id="acts" role="group" aria-label="Action">
+      <button type="button" id="act-dry" aria-pressed="true">Dry<small>1 Brush</small></button>
+      <button type="button" id="act-wet" aria-pressed="false">Wet<small>+1 water</small></button>
+      <button type="button" id="act-splash" aria-pressed="false">Splash<small>1 Splash</small></button>
+      <button type="button" id="act-soak" aria-pressed="false">Soak<small>free</small></button>
+      <button type="button" id="act-ability" aria-pressed="false"><b>Ability</b><small>2 Glow</small></button>
+    </div>
+    <div id="pigs" role="group" aria-label="Colour" hidden></div>
+    <div class="gorow">
+      <button type="button" id="aux" hidden>Turn net</button>
+      <button type="button" id="go" disabled>Pick a die</button>
+      <button type="button" id="end" hidden>End turn</button>
+    </div>
+  </section>
+
+  <p class="sect">Your dice</p>
+  <div id="dice" role="group" aria-label="Your dice"></div>
+
+  <ul id="log" aria-live="polite"></ul>
+  <div class="sepia"><small>Master Sepia</small><p id="sepia"></p></div>
+
+  <details>
+    <summary>How the duel works</summary>
+    <ul>
+      <li>Every blot is a die. Its six sides come from the blot itself: stars (★ with its level) and symbols from its stats. Flow gives Step, Opacity gives Brush, Saturation gives Splash, Grain gives Guard, Glow gives Glow. A very high stat gives one doubled side. The net on the card is how the die unfolds.</li>
+      <li>Your bag holds six dice: the two weakest are level 1, the two strongest level 3.</li>
+      <li>Each turn you pick three dice and roll them. Symbols go to your pool and stay there.</li>
+      <li>Stars summon: a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint, touching your own paint, and the blot stands on it. At most three blots stand on the sheet.</li>
+      <li>Then each blot on the sheet may move once (1 Step) and act once: Dry stamp (1 Brush), Wet stamp (1 Brush and 1 water), Splash (1 Splash), its ability (2 Glow) or Soak (free: heals, +1 water).</li>
+      <li>Blots only travel through paint. Bare paper is a wall, except for flyers and hoppers. Own paint costs 1, rival paint 2, mud stops you.</li>
+      <li>Splash: Saturation plus a d20 against Grain plus a d20. Complementary colours hit for 1.5 times and stain, harmonious for 0.75. A Guard in the pool halves a hit by itself.</li>
+      <li>Each side has a palette with three hearts. A splash on the rival palette always takes a heart. Break all three and you win.</li>
+      <li>A washed-out blot loses its die for good, so your rolls get fewer.</li>
+      <li>After rounds 3 and 6 the Eraser wipes a row. After 8 rounds the paper dries: cells plus 3 per heart left.</li>
+      <li>Rival strength: the Apprentice weighs only a few moves and has weaker blots, the Master weighs every move.</li>
+    </ul>
+  </details>
+
+  <div class="foot"><span>Every blot is unique, so is every die.</span><button type="button" id="new">New random bags</button></div>
+</div>
+<script>
+/*SCRIPT*/
+</script>
