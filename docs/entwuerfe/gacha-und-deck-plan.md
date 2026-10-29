@@ -1,6 +1,6 @@
 # Plan: Ziehen mit richtiger Animation, Würfel als Deck
 
-Stand 29.10.2026. Entschieden: A (Deck) mit eigener Würfelwahl statt Ziehen, Deck mit 9 Würfeln, gebaut (Playtest). B und C nicht. Ziehen-Animation zuerst als Artifact, mit PixiJS (WebGL). Artifact gebaut: https://claude.ai/artifact/MAKns8AJCJ2mc8XfDjUZ66, Bild ziehen-pixi.png.
+Stand 29.10.2026. Entschieden: A (Deck) mit eigener Würfelwahl statt Ziehen, Deck mit 9 Würfeln, gebaut (Playtest). B und C nicht. Ziehen-Animation zuerst als Artifact, mit PixiJS (WebGL). Artifact gebaut: https://claude.ai/artifact/MAKns8AJCJ2mc8XfDjUZ66, Bild ziehen-pixi.png. Nach Rückmeldung geändert: kein Tropfen, der Pinsel malt den Klecks, die Seltenheit zeigt sich erst nach dem W100.
 
 ## Rückmeldung
 

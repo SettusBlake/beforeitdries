@@ -138,19 +138,15 @@ export const sfx = {
     hiss(0, 0.35, 'lowpass', 600, 200, 0.12);
     [0, 0.07, 0.15, 0.24].forEach((t, k) => tone(t, 260 + k * 40, 520 + k * 60, 0.07, 'sine', 0.05));
   },
-  /** Pinsel hebt sich, ein Tropfen hängt an der Spitze */
+  /** Pinsel hebt sich aus dem Glas */
   lift: () => tone(0, 520, 980, 0.35, 'sine', 0.05),
-  /** Der Tropfen fällt in Zeitlupe */
-  fall(): void {
-    tone(0, 1700, 600, 0.9, 'sine', 0.035);
-    hiss(0.1, 0.8, 'bandpass', 3000, 900, 0.03, 6);
+  /** Pinselstrich über das Papier */
+  stroke(): void {
+    hiss(0, 0.3, 'bandpass', 1700, 3200, 0.07, 0.9);
+    hiss(0, 0.22, 'lowpass', 700, 380, 0.04);
   },
-  /** Aufschlag aufs nasse Blatt */
-  splash(): void {
-    hiss(0, 0.5, 'lowpass', 2200, 300, 0.32);
-    tone(0, 110, 40, 0.45, 'sine', 0.35);
-    hiss(0.03, 0.18, 'highpass', 4000, 2500, 0.08);
-  },
+  /** Das echte Papier zeigt sich: ein heller Wisch */
+  wipe: () => hiss(0, 0.6, 'highpass', 2200, 7000, 0.06),
   /** Die Tinte blüht auf: ein Rauschen, das anschwillt, und ein weicher Akkord */
   swell(rank = 0): void {
     hiss(0, 1.3, 'bandpass', 300, 1800 + rank * 400, 0.06, 1.2);
@@ -160,11 +156,6 @@ export const sfx = {
   land: () => {
     tone(0, 160, 60, 0.25, 'sine', 0.3);
     hiss(0, 0.12, 'lowpass', 1200, 400, 0.15);
-  },
-  /** Die Farbe im Glas springt eine Seltenheit höher */
-  upgrade(): void {
-    [784, 988, 1319, 1568].forEach((f, k) => tone(k * 0.05, f, f * 1.01, 0.4, 'sine', 0.06));
-    hiss(0, 0.3, 'highpass', 5000, 3000, 0.06);
   },
   /** Karte dreht sich */
   cardFlip: () => hiss(0, 0.28, 'bandpass', 900, 3200, 0.1, 2),
