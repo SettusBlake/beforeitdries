@@ -17,14 +17,20 @@ function needUser(userId: string | undefined): string {
   if (!userId) throw new GameError('login', 'Log in to duel.', 401);
   return userId;
 }
+/** Gespeichertes Duell. Duelle nach älteren Regeln (andere Fassung) gelten als beendet */
+function parseSave(raw: string | undefined): DuelSave | null {
+  if (!raw) return null;
+  const s = JSON.parse(raw) as DuelSave;
+  return s.v === 2 ? s : null;
+}
 /** Kopie, damit spätere Anfragen nichts mehr daran ändern */
 const freeze = (r: DuelResponse): DuelResponse => JSON.parse(JSON.stringify(r)) as DuelResponse;
 
 export async function duelGet(d: Deps, userId: string | undefined): Promise<DuelResponse> {
   const uid = needUser(userId);
-  const raw = await d.redis.get(K.duel(uid));
-  if (!raw) return { state: null, events: [] };
-  loadState(JSON.parse(raw) as DuelSave);
+  const save = parseSave(await d.redis.get(K.duel(uid)));
+  if (!save) return { state: null, events: [] };
+  loadState(save);
   return freeze({ state: publicState(), events: [] });
 }
 
@@ -63,9 +69,9 @@ export async function duelAct(d: Deps, userId: string | undefined, action: unkno
   const uid = needUser(userId);
   if (!action || typeof action !== 'object' || typeof (action as { k?: unknown }).k !== 'string') throw new GameError('bad_request', 'Unknown action.');
   return withLock(d, playerLock(uid), async () => {
-    const raw = await d.redis.get(K.duel(uid));
-    if (!raw) throw new GameError('not_found', 'No duel running.', 404);
-    loadState(JSON.parse(raw) as DuelSave);
+    const save = parseSave(await d.redis.get(K.duel(uid)));
+    if (!save) throw new GameError('not_found', 'No duel running.', 404);
+    loadState(save);
     let out: DuelResponse;
     const wasOver = S.over;
     try {

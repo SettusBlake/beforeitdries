@@ -5,12 +5,12 @@
  */
 import type { Monster } from '../monster';
 import type { DuelAction } from './play';
-import { aiJokerCrest, bestOpening, bestPlacement, find, living, onSheet, ROLL_N, S, suggest, summonable, unitById, idx, type Rolled } from './rules';
+import { ABILITY, aiJokerCrest, bestOpening, byGesture, bestPlacement, find, living, onSheet, ROLL_N, S, suggest, summonable, unitById, idx, type Rolled } from './rules';
 
 /** Bis zu dieser Runde gibt Sepia jeden Schritt vor */
 export const TUTORIAL_ROUNDS = 3;
-/** Per Suche gewählt: der erste Wurf beschwört, dann wird trocken und nass gestempelt, gespritzt, die Palette getroffen und eine Fähigkeit genutzt */
-export const TUTORIAL_SEED = 38;
+/** Per Suche gewählt (Fassung 6): der erste Wurf beschwört, es wird gestempelt, gespritzt, zwei Rivalen platzen, die Palette wird getroffen, eine Fähigkeit genutzt */
+export const TUTORIAL_SEED = 598;
 
 export function tutorialBags(): [Monster[], Monster[]] {
   return [
@@ -54,20 +54,9 @@ export function tutorialAction(): DuelAction | null {
     }
     case 'act': {
       if (S.joker > 0) return { k: 'joker', crest: aiJokerCrest(me) };
-      // Erst den Klecks fertig machen, der schon gezogen hat (oder gerade aufgeklappt wurde)
-      for (const u of onSheet(me)) {
-        if (!u.moved || u.acted) continue;
-        const s = suggest(1, u, true);
-        if (s) return { k: 'act', id: u.id, a: s.a, pig: s.pig, at: s.at };
-      }
-      const pending = onSheet(me).filter((u) => !u.acted && !u.moved);
-      for (const u of pending) {
-        const s = suggest(1, u);
-        if (!s) continue;
-        if (s.to !== idx(u.x, u.y)) return { k: 'move', id: u.id, to: s.to };
-        return { k: 'act', id: u.id, a: s.a, pig: s.pig, at: s.at };
-      }
-      return { k: 'end' };
+      // Der beste Zug, der sich mit einem Wisch (oder dem Goldknopf) machen lässt
+      const s = suggest(1, undefined, false, byGesture);
+      return s ? { k: 'go', id: s.u.id, to: s.to, a: s.a, at: s.at } : { k: 'end' };
     }
     default:
       return null;
@@ -86,17 +75,14 @@ export function sameAction(a: DuelAction, b: DuelAction): boolean {
       const o = b as typeof a;
       return Array.isArray(o.ids) && [...a.ids].sort().join() === [...o.ids].sort().join();
     }
-    case 'move': {
+    case 'go': {
       const o = b as typeof a;
-      return a.id === o.id && a.to === o.to;
+      const self = a.a === 'ability' && ABILITY[unitById(a.id)?.m.bp ?? 'kriecher'].target === 'self';
+      return a.id === o.id && a.to === o.to && a.a === o.a && (a.a === 'soak' || self || a.at === o.at);
     }
     case 'joker': {
       const o = b as typeof a;
       return a.crest === o.crest;
-    }
-    case 'act': {
-      const o = b as typeof a;
-      return a.id === o.id && a.a === o.a && a.at === o.at && (a.a === 'soak' || a.a === 'ability' || a.pig === o.pig);
     }
     default:
       return true;

@@ -81,13 +81,14 @@ describe('Duell am Server', () => {
         a = u && p ? { k: 'summon', id: u.id, o: p.o, at: p.at } : { k: 'skip' };
       } else {
         const u = S.teams[0].units.find((x) => x.state === 'sheet' && !x.acted);
-        if (u && canMove(u) && !u.moved) {
+        if (u && canMove(u)) {
+          // Hinlaufen und am Ziel stempeln
           const to = [...reach(u).keys()].find((i) => i !== idx(u.x, u.y));
-          a = to !== undefined ? { k: 'move', id: u.id, to } : { k: 'act', id: u.id, a: 'soak', pig: u.m.main, at: null };
-        } else a = u ? { k: 'act', id: u.id, a: 'soak', pig: u.m.main, at: null } : { k: 'end' };
+          a = to !== undefined ? { k: 'go', id: u.id, to, a: 'stamp', at: to } : { k: 'go', id: u.id, to: idx(u.x, u.y), a: 'soak', at: null };
+        } else a = u ? { k: 'go', id: u.id, to: idx(u.x, u.y), a: 'soak', at: null } : { k: 'end' };
       }
       // Joker gleich als Symbol nehmen
-      if (S.joker > 0 && (S.phase === 'act' || S.phase === 'summon') && a.k !== 'summon') a = { k: 'joker', crest: 'brush' };
+      if (S.joker > 0 && (S.phase === 'act' || S.phase === 'summon') && a.k !== 'summon') a = { k: 'joker', crest: 'splash' };
       res = await duelAct(d, USER, a);
       reward ??= res.reward;
       biggest = Math.max(biggest, JSON.stringify(res).length);
@@ -106,6 +107,9 @@ describe('Duell am Server', () => {
   it('Joker wird zum Symbol nach Wahl, danach kein Beschwören mehr', async () => {
     const d = setup(12);
     view(await duelStart(d, USER, 'apprentice'));
+    const u0 = S.teams[0].units[0]!;
+    const p0 = placements(u0)[0]!;
+    view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
     // Stand mit einem offenen Joker in der Beschwörungsphase
     const raw = JSON.parse((await d.redis.get(`duel:${USER}`))!);
     raw.phase = 'summon';
@@ -119,6 +123,59 @@ describe('Duell am Server', () => {
     expect(S.joker).toBe(0);
     expect(S.phase).toBe('act');
     expect(await code(duelAct(d, USER, { k: 'joker', crest: 'splash' }))).toBe('bad_request');
+  });
+
+  it('ein Wisch: hinlaufen und handeln in einer Aktion, prüft vom Ziel aus, Zug endet von selbst', async () => {
+    const d = setup(21);
+    view(await duelStart(d, USER, 'apprentice'));
+    const u0 = S.teams[0].units[0]!;
+    const p0 = placements(u0)[0]!;
+    view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
+    const l = living(S.teams[0]);
+    view(await duelAct(d, USER, { k: 'roll', ids: l.slice(0, ROLL_N).map((u) => u.id) }));
+    if (S.phase === 'summon') view(await duelAct(d, USER, { k: 'skip' }));
+    if (S.joker > 0) view(await duelAct(d, USER, { k: 'joker', crest: 'step' }));
+    const u = S.teams[0].units.find((x) => x.state === 'sheet')!;
+    const here = idx(u.x, u.y);
+    const far = [...Array(49).keys()].find((i) => !reach(u).has(i) && Math.max(Math.abs((i % 7) - u.x), Math.abs(Math.floor(i / 7) - u.y)) > 4)!;
+    // Ziel außer Reichweite, Stempel außer Reichweite, unbekannte Aktion
+    expect(await code(duelAct(d, USER, { k: 'go', id: u.id, to: far, a: 'stamp', at: far }))).toBe('bad_request');
+    expect(await code(duelAct(d, USER, { k: 'go', id: u.id, to: here, a: 'stamp', at: far }))).toBe('bad_request');
+    expect(await code(duelAct(d, USER, { k: 'go', id: u.id, to: here, a: 'dance', at: null }))).toBe('bad_request');
+    const to = [...reach(u).keys()].find((i) => i !== here)!;
+    const res = await duelAct(d, USER, { k: 'go', id: u.id, to, a: 'stamp', at: to });
+    view(res);
+    expect(res.events.some((e) => e.k === 'move')).toBe(true);
+    expect(res.events.some((e) => e.k === 'stamp')).toBe(true);
+    // Der einzige Klecks hat gehandelt: der Rivale war schon dran, neue Runde
+    expect(res.events.some((e) => e.k === 'turn' && e.side === 2)).toBe(true);
+    expect(S.phase).toBe('roll');
+    expect(S.round).toBe(2);
+  });
+
+  it('Sepia paints: spielt den Rest des Zuges', async () => {
+    const d = setup(22);
+    view(await duelStart(d, USER, 'apprentice'));
+    const u0 = S.teams[0].units[0]!;
+    const p0 = placements(u0)[0]!;
+    view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
+    expect(await code(duelAct(d, USER, { k: 'auto' }))).toBe('bad_request');
+    const l = living(S.teams[0]);
+    view(await duelAct(d, USER, { k: 'roll', ids: l.slice(0, ROLL_N).map((u) => u.id) }));
+    const res = await duelAct(d, USER, { k: 'auto' });
+    view(res);
+    expect(S.round).toBe(2);
+    expect(S.phase === 'roll' || S.phase === 'over').toBe(true);
+  });
+
+  it('verwirft Duelle nach alten Regeln', async () => {
+    const d = setup(23);
+    await duelStart(d, USER, 'apprentice');
+    const raw = JSON.parse((await d.redis.get(`duel:${USER}`))!);
+    raw.v = 1;
+    await d.redis.set(`duel:${USER}`, JSON.stringify(raw));
+    expect((await duelGet(d, USER)).state).toBeNull();
+    expect(await code(duelAct(d, USER, { k: 'end' }))).toBe('not_found');
   });
 
   it('führt durch das Lern-Duell, immer gleich, und lässt nur Sepias Schritt zu', async () => {
@@ -137,11 +194,11 @@ describe('Duell am Server', () => {
       let guard = 0;
       while (tutorialActive() && guard++ < 100) {
         const a = tutorialAction()!;
-        seen.add(a.k === 'act' ? a.a : a.k);
+        seen.add(a.k === 'go' ? (a.a === 'splash' && a.at === S.teams[1].home ? 'palette' : a.a) : a.k);
         res = await duelAct(d, USER, a);
         view(res);
       }
-      for (const k of ['open', 'roll', 'summon', 'move', 'dry', 'wet', 'splash', 'ability', 'soak', 'end']) expect(seen.has(k)).toBe(true);
+      for (const k of ['open', 'roll', 'summon', 'stamp', 'splash', 'ability', 'palette']) expect(seen.has(k)).toBe(true);
       expect(S.teams[1].hearts).toBeLessThan(3);
       runs.push(JSON.stringify(S.cells.map((c) => c.owner)));
     }

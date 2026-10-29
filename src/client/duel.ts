@@ -13,7 +13,7 @@ import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
 import { tutorialAction, tutorialActive } from '../shared/duel/tutorial';
 import * as R from '../shared/duel/rules';
-import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, S, WATER_MAX, type Action, type Ev, type Face, type Level, type Side, type Unit } from '../shared/duel/rules';
+import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, S, type Ev, type Face, type Level, type Plan, type Side, type Unit } from '../shared/duel/rules';
 import { renderMonster } from './renderer/watercolor';
 import { api, ApiError } from './lib/api';
 import { makeCube, tumble } from './duel/dice3d';
@@ -61,11 +61,15 @@ let chosen = new Set<number>();
 let summonU: Unit | null = null,
   orient = 0,
   anchor: number | null = null;
-let sel: Unit | null = null,
-  moved = false,
-  action: Action = 'dry',
-  useSec = false,
-  target: number | null = null;
+/** Ziehen vom Klecks: wohin der Finger zeigt, was dort passieren würde, und die Vorschau dazu */
+type Preview = { path: number[]; cells: { i: number; col: string; pct: number | null }[]; target: number | null; pct: number | null; text: string };
+let drag: { u: Unit; start: number; over: number; moved: boolean; plan: Plan | null; pv: Preview | null } | null = null;
+/** Angetippter Klecks: der nächste Tipp ist sein Ziel (wie ein Wisch), ein Tipp auf ihn selbst ist Soak */
+let armed: Unit | null = null;
+/** Fähigkeit zielt: der Klecks, dessen Goldknopf getippt wurde */
+let aiming: Unit | null = null;
+/** Was ein angefasster Klecks erreicht (einmal berechnet, nicht in jedem Bild) */
+let reachHl: { id: number; spots: number[]; hits: number[] } | null = null;
 let resumable = false;
 const seenTips = new Set((store.get('bid-duel-tips') ?? '').split(',').filter(Boolean));
 let hints = store.get('bid-duel-hints') !== '0';
@@ -75,7 +79,6 @@ const board = $('board') as HTMLCanvasElement;
 const me = () => S.teams[0];
 const phase = () => (S.teams.length ? S.phase : 'opening');
 const myTurn = () => !busy && !S.over && S.turn === 1;
-const curPig = (u: Unit): PigmentId => (useSec && u.sec ? u.sec : u.m.main);
 const placing = () => (phase() === 'opening' || phase() === 'summon') && summonU !== null;
 /** Im Lern-Duell ist nur der markierte Schritt antippbar */
 const tut = () => tutorialActive() && myTurn();
@@ -84,7 +87,11 @@ const rgb = (p: PigmentId) => `rgb(${PIG[p].rgb})`;
 
 /* ---------- Server ---------- */
 async function playEvents(evs: Ev[]): Promise<void> {
-  for (const e of evs) await View.playEvent(e);
+  for (const e of evs) {
+    // Der Rivale zieht doppelt so schnell, der eigene Zug normal
+    if (e.k === 'turn') V.speed = e.side === 2 ? Math.max(V.speed, 2) : 1;
+    await View.playEvent(e);
+  }
 }
 /** Eine Anfrage an den Server, danach die Ereignisse abspielen */
 async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<boolean> {
@@ -100,13 +107,18 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
   }
   if (res.state) loadState(res.state);
   if (res.reward) reward = res.reward;
-  sel = sel ? R.unitById(sel.id) : null;
+  armed = null;
+  aiming = null;
+  drag = null;
+  reachHl = null;
   summonU = summonU ? R.unitById(summonU.id) : null;
   onState?.();
   renderAll();
   await playEvents(res.events);
   busy = false;
   V.speed = 1;
+  if (phase() === 'roll' && !chosen.size) chosen = defaultPick();
+  prepSummon();
   renderAll();
   if (S.over) void finishDuel();
   return true;
@@ -142,13 +154,16 @@ function showLogin(): void {
 View.setup(board, {
   overlay: drawOverlay,
   acted: (id) => S.turn === 1 && phase() === 'act' && !!R.unitById(id)?.acted,
-  selected: () => (phase() === 'act' ? (sel?.id ?? null) : null),
+  selected: () => (phase() === 'act' ? (drag?.u.id ?? armed?.id ?? aiming?.id ?? null) : null),
   hud: () => {
     renderTop();
     renderPool();
   },
   banner: showBanner,
-  ticker: showTicker,
+  // Ergebnisse stehen am Ziel, der Ticker meldet nur noch den Radierer (alles andere unter „What happened“)
+  ticker: (t, c) => {
+    if (c === 'eraser') showTicker(t, c);
+  },
   roll: playRoll,
 });
 
@@ -244,11 +259,11 @@ function showTicker(text: string, cls: string): void {
 
 /* ---------- Hinweise von Meisterin Sepia ---------- */
 const TIPS: Record<string, string> = {
-  opening: 'Every blot is a die. Pick one from your bag below: its net is the shape it unfolds into. Put it next to your palette.',
-  roll: 'Pick three dice and roll. Symbols go to your pool and keep. Stars bring new blots onto the sheet.',
-  summon: 'The stars add up. Tap a glowing die and unfold it, or skip if you are feeling modest.',
-  act: 'Each blot moves once and acts once. Your own paint is the fast road, bare paper costs double. A Step in your pool lets one blot go further. The gold ring shows what I would do.',
-  palette: 'You are touching their palette. One Splash, one heart. It is safe only while one of their blots stands next to it.',
+  opening: 'Every blot is a die. I put your best one by your palette already. Tap the net to unfold it, or tap a blue dot to move it first.',
+  roll: 'Roll three dice. Symbols go to your pool and keep. Stars bring new blots onto the sheet.',
+  summon: 'The stars add up. The net is placed where I would put it. Tap it to unfold.',
+  act: 'Drag a blot onto paper to stamp there, onto a rival to splash it. One drag per blot. When all of them are done, your turn ends by itself.',
+  palette: 'You can reach their palette. One Splash symbol, one heart, one per turn. It is safe while one of their blots stands within two cells.',
 };
 function tip(key: string): void {
   if (S.tutorial > 0 || seenTips.has(key) || !TIPS[key]) return;
@@ -258,23 +273,27 @@ function tip(key: string): void {
   $('tip').hidden = false;
 }
 /* Lern-Duell: Sepia erklärt jeden neuen Teil, sobald er dran ist */
+const tutGo = () => {
+  const a = tutorialAction();
+  return a?.k === 'go' ? a : null;
+};
 const LESSONS: [string, () => boolean, string][] = [
-  ['welcome', () => phase() === 'opening' && !summonU, 'This is the sheet, and I am Master Sepia. Today you duel my apprentice. I will tell you exactly what to tap: always the gold ring.'],
-  ['bag', () => phase() === 'opening' && !summonU, 'Down there is your bag: six dice. Every blot is a die, its sides come from the blot itself. Tap ⓘ on a die to see the net it unfolds into.'],
-  ['net', () => phase() === 'opening' && !!summonU, 'A net must touch your own paint. Turn it until it fits, then tap where the blot should stand. Tap there once more to unfold it.'],
+  ['welcome', () => phase() === 'opening', 'This is the sheet, and I am Master Sepia. Today you duel my apprentice. I will tell you exactly what to do: always the gold ring.'],
+  ['bag', () => phase() === 'opening', 'Down there is your bag: six dice. Every blot is a die, its sides come from the blot itself. Tap ⓘ on a die to read it.'],
+  ['net', () => phase() === 'opening' && !!summonU, 'I put the net where I would. A net must touch your own paint. Tap it to unfold.'],
   ['rival', () => phase() === 'roll' && S.round === 1, 'The apprentice unfolded first, up there by its palette. Each palette has three hearts. Break theirs, or cover more paper than them when it dries after six rounds.'],
   ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice. I picked three for you. Roll them.'],
-  ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Brush pays for a stamp, Splash for a hit, Guard blocks a hit by itself, two Glow buy an ability. I lent you two Glow.'],
-  ['summon', () => phase() === 'summon', 'Stars bring blots out. A die may unfold if the other dice show stars worth at least its level. This one qualifies.'],
-  ['move', () => phase() === 'act' && !sel && ['move', 'act'].includes(tutorialAction()?.k ?? ''), 'Each blot moves once and acts once per turn. Your own paint is the fast road. Bare paper and rival paint cost double.'],
-  ['palette', () => { const a = tutorialAction(); return a?.k === 'act' && a.a === 'splash' && a.at === S.teams[1].home; }, 'Their palette is unguarded. One splash, one heart. A palette is only safe while one of its own blots stands next to it.'],
-  ['stamp', () => { const a = tutorialAction(); return a?.k === 'act' && (a.a === 'dry' || a.a === 'wet'); }, 'A stamp paints the blot’s shape. Dry paint covers dried paint if your Opacity beats their Grain. Wet paint costs a drop of water and spreads next round, but slides off dry paint.'],
-  ['splash', () => { const a = tutorialAction(); return a?.k === 'act' && a.a === 'splash'; }, 'Splash hits a rival in reach: your Saturation plus a d20 against its Grain plus a d20. Complementary colours hit harder and stain.'],
-  ['ability', () => { const a = tutorialAction(); return a?.k === 'act' && a.a === 'ability'; }, 'Two Glow buy an ability. Every blueprint has its own. You can read them on the dice cards.'],
-  ['soak', () => { const a = tutorialAction(); return a?.k === 'act' && a.a === 'soak'; }, 'Soak is free. It heals, rinses stains and gives a drop of water.'],
-  ['end', () => tutorialAction()?.k === 'end', 'Nothing more worth doing. End your turn and watch the apprentice. Tap the sheet if it is too slow for you.'],
+  ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Splash hits a palette, Guard halves a hit by itself, two Glow buy an ability. I lent you two Glow.'],
+  ['summon', () => phase() === 'summon', 'Stars bring blots out. A die may unfold if the other dice show stars worth at least its level. This one qualifies, and the net is already placed.'],
+  ['drag', () => phase() === 'act' && !!tutGo() && (tutGo()!.a === 'stamp' || tutGo()!.a === 'splash'), 'Now the fun part. Drag a blot along the gold arrow and let go. Paper means stamp, a rival means splash. One drag per blot, the turn ends by itself.'],
+  ['palette', () => { const a = tutGo(); return a?.a === 'splash' && a.at === S.teams[1].home; }, 'Their palette is unguarded. One Splash symbol, one heart, one per turn. A palette is safe while one of its own blots stands within two cells.'],
+  ['stamp', () => tutGo()?.a === 'stamp', 'A stamp paints the blot’s shape in wet paint. Over dried paint it needs a roll: your Opacity against their Grain. Wet paint bleeds into free paper when the round ends.'],
+  ['splash', () => tutGo()?.a === 'splash', 'Splash hits a rival in reach: Saturation and a d20 against Grain and a d20. A hit paints the cell under the target. Two or three hits and a blot bursts.'],
+  ['ability', () => tutGo()?.a === 'ability', 'Two Glow buy an ability. A gold button appears on a blot that can use one. Tap it.'],
+  ['soak', () => tutGo()?.a === 'soak', 'Tap a blot twice to soak: it heals and rinses stains.'],
+  ['end', () => tutorialAction()?.k === 'end', 'Nothing worth doing. End your turn.'],
   ['eraser', () => S.round >= 3 && phase() === 'roll', 'Did you see the Eraser? Someone keeps wiping rows of my sheet. Lightfastness protects paint and blots.'],
-  ['free', () => S.round > S.tutorial && !S.over, 'That is all I can teach without doing it for you. Finish the duel on your own. The gold ring stays, if you want it.'],
+  ['free', () => S.round > S.tutorial && !S.over, 'That is all I can teach without doing it for you. Finish the duel on your own. In a hurry, Sepia paints plays a turn for you. Do not get used to it.'],
 ];
 let lessonsSeen = new Set((store.get('bid-duel-lessons') ?? '').split(',').filter(Boolean));
 function lessonCheck(): void {
@@ -317,10 +336,6 @@ function hearts(box: HTMLElement, n: number): void {
   box.replaceChildren();
   for (let k = 0; k < HEARTS; k++) box.append(el('i', k < n ? 'on' : '', '♥'));
 }
-function drops(box: HTMLElement, n: number): void {
-  box.replaceChildren();
-  for (let k = 0; k < WATER_MAX; k++) box.append(el('i', k < n ? 'on' : ''));
-}
 function portraitEl(id: number, px: number, alpha = 1): HTMLCanvasElement {
   const src = View.portrait(id, px);
   const c = document.createElement('canvas');
@@ -342,8 +357,6 @@ function renderTop(): void {
   const left = ROUNDS - V.round + 1;
   $('dries').textContent = S.over ? S.winReason : R.ERASER_ROUNDS.includes(V.round) ? 'Eraser next' : left <= 1 ? 'last round' : `dries in ${left}`;
   hearts($('rival-hearts'), V.teams[1]!.hearts);
-  drops($('rival-water'), V.teams[1]!.water);
-  crestRow($('rival-crests'), 2, true);
   const rd = $('rival-dice');
   rd.replaceChildren();
   for (const u of S.teams[1].units) {
@@ -368,7 +381,6 @@ function renderTop(): void {
 function renderPool(): void {
   if (!V.teams.length) return;
   hearts($('hearts'), V.teams[0]!.hearts);
-  drops($('water'), V.teams[0]!.water);
   crestRow($('crests'), 1, false);
 }
 const need = () => Math.min(R.ROLL_N, R.living(me()).length);
@@ -394,11 +406,7 @@ function dieChip(u: Unit): HTMLElement {
     if (p === 'roll') {
       if (chosen.has(u.id)) chosen.delete(u.id);
       else if (chosen.size < need()) chosen.add(u.id);
-    } else {
-      summonU = u;
-      orient = 0;
-      anchor = null;
-    }
+    } else pickSummon(u);
     renderAll();
   });
   return b;
@@ -424,40 +432,14 @@ function renderCtx(): void {
       b.addEventListener('click', () => {
         if (!allowedEl(b)) return;
         sfx.tap();
-        summonU = r.u;
-        orient = 0;
-        anchor = null;
+        pickSummon(r.u);
         renderAll();
       });
       box.append(b);
     }
-  } else if (S.turn === 1 && p === 'act') {
-    box.className = 'acts';
-    const acts: [Action, string, string][] = [
-      ['dry', 'Dry', '1 Brush'],
-      ['wet', 'Wet', '+1 water'],
-      ['splash', 'Splash', '1 Splash'],
-      ['soak', 'Soak', 'free'],
-      ['ability', sel ? ABILITY[sel.m.bp].name : 'Ability', sel ? `${R.abilityCost(sel)} Glow` : '2 Glow'],
-    ];
-    for (const [a, label, sub] of acts) {
-      const b = el('button', 'act' + (a === 'ability' ? ' ab' : '')) as HTMLButtonElement;
-      b.type = 'button';
-      b.dataset.a = a;
-      b.setAttribute('aria-pressed', String(action === a && !!sel));
-      b.disabled = busy || !sel || !R.canAct(sel, a) || (a === 'splash' && R.splashCells(sel).length === 0) || (a === 'ability' && R.abilityTargets(sel).length === 0);
-      b.append(el('b', '', label), el('small', '', sub));
-      b.addEventListener('click', () => {
-        if (!allowedEl(b)) return;
-        sfx.tap();
-        action = a;
-        target = null;
-        // Eine Aktion wählen heißt: dieser Klecks bleibt stehen
-        moved = true;
-        renderAll();
-      });
-      box.append(b);
-    }
+  } else if (S.turn === 1 && p === 'act' && !S.over) {
+    box.className = 'chips';
+    for (const u of me().units) box.append(dieChip(u));
   } else {
     box.className = 'waiting';
     box.append(el('p', '', S.turn === 2 && !S.over ? 'The rival is rolling and painting…' : ''));
@@ -497,6 +479,7 @@ function renderGo(): void {
   aux.hidden = true;
   end.hidden = true;
   go.disabled = true;
+  go.classList.remove('soft');
   const p = phase();
   if (busy) {
     go.textContent = '…';
@@ -518,7 +501,7 @@ function renderGo(): void {
     }
     if (summonU) {
       aux.hidden = false;
-      aux.textContent = 'Turn net';
+      aux.textContent = 'Turn';
       const list = anchor !== null ? R.netAt(summonU, orient, anchor) : null;
       go.textContent = 'Unfold';
       go.disabled = !(list && R.validNet(1, list));
@@ -532,28 +515,59 @@ function renderGo(): void {
   }
   end.hidden = false;
   end.textContent = 'End turn';
-  if (sel && sel.sec && moved && (action === 'dry' || action === 'wet' || action === 'splash')) {
-    aux.hidden = false;
-    aux.innerHTML = `<span class="dot" style="background:${rgb(curPig(sel))}"></span>${PIG[curPig(sel)].n.split(' ')[0]}`;
+  go.textContent = 'Sepia paints';
+  go.classList.add('soft');
+  go.disabled = S.tutorial > 0 && tutorialActive();
+}
+/** Vorschau eines Wischs: Weg, Stempelfelder mit Chancen oder Ziel mit Trefferchance, und ein Satz dazu */
+function previewOf(u: Unit, p: Plan | null): Preview | null {
+  if (!p) return null;
+  const here = R.idx(u.x, u.y);
+  const prev = p.to !== here ? R.reachCost(u).prev : null;
+  const path: number[] = [];
+  if (prev) for (let c: number | undefined = p.to; c !== undefined && c !== -1; c = prev.get(c)) path.unshift(c);
+  const pv: Preview = { path, cells: [], target: null, pct: null, text: '' };
+  if (p.a === 'soak') {
+    pv.text = `Soak: +${R.soakAmount(u)} opacity, rinses stains.`;
+    return pv;
   }
-  if (!sel) go.textContent = 'Pick a blot';
-  else if (!moved) {
-    go.textContent = 'Stay here';
-    go.disabled = false;
-  } else if (action === 'soak') {
-    go.textContent = 'Soak';
-    go.disabled = false;
-  } else if (action === 'ability') {
-    const ab = ABILITY[sel.m.bp];
-    go.textContent = ab.name;
-    go.disabled = !R.canAct(sel, 'ability') || (ab.target === 'self' ? R.abilityTargets(sel).length === 0 : target === null || !R.abilityTargets(sel).includes(target));
-  } else if (action === 'splash') {
-    go.textContent = 'Splash';
-    go.disabled = target === null;
-  } else {
-    go.textContent = action === 'wet' ? 'Paint wet' : 'Paint dry';
-    go.disabled = target === null;
+  if (p.a === 'stamp' && p.at !== null) {
+    const pig = R.atSpot(u, p.to, () => R.bestPig(u, 'stamp', p.at));
+    let free = 0,
+      mud = 0;
+    const odds: number[] = [];
+    for (const i of R.stampCells(u, p.at)) {
+      const o = R.outcome(u, pig, S.cells[i]!);
+      const col = o.kind === 'take' ? '46,122,87' : o.kind === 'mud' ? '110,75,51' : o.kind === 'none' ? '120,120,130' : o.kind === 'refresh' ? '90,100,120' : '168,108,18';
+      const contested = o.kind === 'contest' || o.kind === 'over';
+      pv.cells.push({ i, col, pct: contested ? Math.round(o.p * 100) : null });
+      if (o.kind === 'take') free++;
+      else if (o.kind === 'mud') mud++;
+      else if (contested) odds.push(Math.round(o.p * 100));
+    }
+    const parts = [];
+    if (free) parts.push(`${free} free`);
+    if (odds.length) parts.push(`${odds.length} contested (${odds.join('%, ')}%)`);
+    if (mud) parts.push(`${mud} to mud`);
+    pv.text = `${p.to !== here ? 'Walk and stamp' : 'Stamp'}${pig !== u.m.main ? ` in ${PIG[pig].n}` : ''}: ${parts.join(' · ') || 'nothing new'}.`;
+    return pv;
   }
+  if (p.a === 'splash' && p.at !== null) {
+    pv.target = p.at;
+    if (p.at === S.teams[1].home) {
+      pv.pct = 100;
+      pv.text = `Hit their palette: one heart (${S.teams[1].hearts} left), costs a Splash.`;
+      return pv;
+    }
+    const t = R.unitAt(p.at % COLS, Math.floor(p.at / COLS))!;
+    const [pig, pct, dmg] = R.atSpot(u, p.to, () => {
+      const g = R.bestPig(u, 'splash', p.at);
+      return [g, Math.round(R.splashOdds(u, t, g) * 100), R.baseDamage(u, t, g, R.cheb(u.x, u.y, t.x, t.y) <= 1)] as const;
+    });
+    pv.pct = pct;
+    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% to hit, -${dmg}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, t.m.main)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.`;
+  }
+  return pv;
 }
 function renderHint(): void {
   const p = phase();
@@ -561,55 +575,42 @@ function renderHint(): void {
   if (busy && S.turn === 2) return setHint('Rival turn. Tap the sheet to speed it up.');
   if (busy) return setHint('');
   if (S.turn !== 1) return setHint('');
-  if (p === 'opening') return setHint(summonU ? `${summonU.name}: tap a blue dot where it should stand. Turn the net to fit.` : 'Opening: pick one of your dice below to unfold first.');
-  if (p === 'roll') return setHint(`Pick ${need()} dice (${chosen.size} picked), then roll. Tap ⓘ to read a die.`);
-  if (p === 'summon') {
-    if (!summonU) return setHint('The stars add up. Tap a glowing die to unfold that blot, or skip.');
-    const list = anchor !== null ? R.netAt(summonU, orient, anchor) : null;
-    return setHint(anchor === null ? `${summonU.name}: tap a blue dot. The net must touch your paint.` : list && R.validNet(1, list) ? `Unfold ${summonU.name} here? Tap again or press Unfold.` : 'It does not fit there.');
+  if (p === 'opening') return setHint(summonU ? `Tap the net to unfold ${summonU.name}. Tap a blue dot to move it, Turn to rotate it.` : 'Opening: pick one of your dice below to unfold first.');
+  if (p === 'roll') return setHint(`Roll ${need()} dice. Tap a die to swap it, ⓘ to read it.`);
+  if (p === 'summon') return setHint(summonU ? `Tap the net to unfold ${summonU.name}, or skip. Blue dots move it.` : 'Tap a glowing die to unfold it, or skip.');
+  if (drag) return setHint(drag.pv?.text ?? 'Out of reach. Let go to cancel.');
+  if (aiming) {
+    const ab = ABILITY[aiming.m.bp];
+    return setHint(`${ab.name}: ${ab.text} Tap a gold target.`);
   }
-  const t = me();
-  if (!sel) return setHint(R.onSheet(t).some((u) => !u.acted) ? 'Tap one of your blots on the sheet. Tap a rival to read it.' : 'All blots are done. End your turn.');
-  if (!moved) {
-    if (!R.canMove(sel)) return setHint(`${sel.name}: ${sel.rooted ? 'rooted this turn' : sel.moved ? 'already moved' : 'towers never move'}. Tap it again to act.`);
-    return setHint(`${sel.name}: tap a green dot to move. Light dots use a Step from your pool. Or tap it again to stay.`);
+  if (armed) return setHint(`${armed.name}: tap where it should go. Paper: stamp there. Rival: splash it. Tap it again to soak.`);
+  if (!R.onSheet(me()).some((u) => !u.acted)) return setHint('All blots are done. End your turn.');
+  setHint('Drag a blot: onto paper to stamp, onto a rival to splash. Tap a blot to see its reach.');
+}
+/** Goldknöpfe für Fähigkeiten über den Klecksen, die eine nutzen können */
+function renderAbil(): void {
+  const box = $('abil');
+  box.replaceChildren();
+  if (!myTurn() || phase() !== 'act' || drag) return;
+  const cell = View.cellSize();
+  for (const u of R.onSheet(me())) {
+    if (u.acted || !R.abilityReady(u)) continue;
+    const b = el('button', 'abil' + (aiming === u ? ' on' : ''), ABILITY[u.m.bp].name) as HTMLButtonElement;
+    b.type = 'button';
+    b.dataset.id = String(u.id);
+    b.style.left = `${board.offsetLeft + (u.x + 0.5) * cell}px`;
+    b.style.top = `${board.offsetTop + u.y * cell + 2}px`;
+    b.addEventListener('click', () => {
+      if (!allowedEl(b) || busy) return;
+      sfx.tap();
+      const here = R.idx(u.x, u.y);
+      if (ABILITY[u.m.bp].target === 'self') return void sendGo(u, { to: here, a: 'ability', at: here });
+      aiming = aiming === u ? null : u;
+      armed = null;
+      renderAll();
+    });
+    box.append(b);
   }
-  if (action === 'soak') return setHint(`Soak: +${R.soakAmount(sel)} opacity, +1 water, rinses stains. Free.`);
-  if (action === 'ability') {
-    const ab = ABILITY[sel.m.bp];
-    return setHint(`${ab.name}: ${ab.text}${ab.target !== 'self' && target === null ? ' Tap a gold target.' : ''}`);
-  }
-  if (action === 'splash') {
-    const h = S.teams[1].home;
-    if (target === h) return setHint(`Splash their palette: always hits, one heart (${S.teams[1].hearts} left).`);
-    const tg = target !== null ? R.unitAt(target % COLS, Math.floor(target / COLS)) : null;
-    if (tg) {
-      const pig = curPig(sel);
-      const pr = Math.round(R.splashOdds(sel, tg, pig) * 100);
-      const dmg = R.baseDamage(sel, tg, pig, R.cheb(sel.x, sel.y, tg.x, tg.y) <= 1);
-      return setHint(`${tg.name}: ${pr}% to hit, -${dmg}${GAIT[sel.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, tg.m.main)}${relation(pig, tg.m.main) === 'komplementaer' || R.has(sel, 'staining') ? ', stains' : ''}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.`);
-    }
-    if (R.touchesHome(sel) && R.homeGuarded(S.teams[1])) return setHint('Their palette is guarded by a blot next to it. Wash that blot out first, or splash a circled rival.');
-    return setHint(`Tap a circled rival in reach ${R.splashRange(sel)}, or their palette when you stand next to it.`);
-  }
-  if (target === null) return setHint(`Tap the paper within ${R.paintRange(sel)} to aim the stamp.`);
-  let free = 0,
-    mud = 0,
-    none = 0;
-  const odds: number[] = [];
-  for (const i of R.stampCells(sel, target)) {
-    const o = R.outcome(sel, curPig(sel), action === 'wet', S.cells[i]!);
-    if (o.kind === 'take') free++;
-    else if (o.kind === 'mud') mud++;
-    else if (o.kind === 'none') none++;
-    else if (o.kind === 'contest' || o.kind === 'over') odds.push(Math.round(o.p * 100));
-  }
-  const parts = [];
-  if (free) parts.push(`${free} free`);
-  if (odds.length) parts.push(`${odds.length} contested (${odds.join('%, ')}%)`);
-  if (mud) parts.push(`${mud} to mud`);
-  if (none) parts.push(`${none} no effect`);
-  setHint((parts.join(' · ') || 'Nothing to gain here.') + ' Tap again to paint.');
 }
 function renderAll(): void {
   if (screen !== 'game' || !S.teams.length) return;
@@ -619,6 +620,7 @@ function renderAll(): void {
   renderJoker();
   renderGo();
   renderHint();
+  renderAbil();
   applyGuide();
   lessonCheck();
 }
@@ -682,57 +684,88 @@ function drawOverlay(ctx: CanvasRenderingContext2D, cell: number): void {
     drawGuide(ctx, cell);
     return;
   }
-  if (phase() !== 'act' || !sel) return drawGuide(ctx, cell);
-  if (!moved) {
-    if (R.canMove(sel)) {
-      const rc = R.reachCost(sel);
-      const base = R.moveRange(sel);
-      for (const [i, c] of rc.cost) if (i !== R.idx(sel.x, sel.y)) dot(i, c > base ? 'rgba(46,122,87,.25)' : 'rgba(46,122,87,.6)', 0.12);
-    }
-    drawGuide(ctx, cell);
-    return;
-  }
-  if (action === 'dry' || action === 'wet') {
-    const rr = R.paintRange(sel);
-    ctx.strokeStyle = 'rgba(43,63,163,.28)';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect((sel.x - rr) * cell + 1, (sel.y - rr) * cell + 1, (rr * 2 + 1) * cell - 2, (rr * 2 + 1) * cell - 2);
-    if (target !== null)
-      for (const i of R.stampCells(sel, target)) {
-        const o = R.outcome(sel, curPig(sel), action === 'wet', S.cells[i]!);
-        const col = o.kind === 'take' ? '46,122,87' : o.kind === 'mud' ? '110,75,51' : o.kind === 'none' ? '120,120,130' : o.kind === 'refresh' ? '90,100,120' : '168,108,18';
-        ctx.strokeStyle = `rgba(${col},.95)`;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([6, 4]);
-        ctx.strokeRect((i % COLS) * cell + 4, Math.floor(i / COLS) * cell + 4, cell - 8, cell - 8);
-        ctx.setLineDash([]);
-        if (o.kind === 'contest' || o.kind === 'over') {
-          ctx.fillStyle = `rgba(${col},1)`;
-          ctx.font = '700 11px "JetBrains Mono", monospace';
-          ctx.textAlign = 'center';
-          ctx.fillText(Math.round(o.p * 100) + '%', cx(i), Math.floor(i / COLS) * cell + cell - 7);
-        }
-      }
-  } else if (action === 'splash') {
-    for (const i of R.splashCells(sel)) ring(i, i === target ? 'rgba(163,58,58,1)' : 'rgba(163,58,58,.7)');
-  } else if (action === 'ability' && ABILITY[sel.m.bp].target !== 'self') {
-    for (const i of R.abilityTargets(sel)) {
+  if (phase() !== 'act') return drawGuide(ctx, cell);
+  if (aiming) {
+    for (const i of R.abilityTargets(aiming)) {
       if (R.unitAt(i % COLS, Math.floor(i / COLS))) ring(i, 'rgba(168,108,18,.95)');
-      else dot(i, i === target ? 'rgba(168,108,18,.95)' : 'rgba(168,108,18,.45)', i === target ? 0.16 : 0.1);
+      else dot(i, 'rgba(168,108,18,.55)', 0.12);
     }
-    if (target !== null && sel.m.bp === 'schwebeblase') {
-      ctx.strokeStyle = 'rgba(168,108,18,.95)';
+    return drawGuide(ctx, cell);
+  }
+  const u = drag?.u ?? armed;
+  if (u) {
+    const hl = reachOf(u);
+    for (const i of hl.spots) if (i !== R.idx(u.x, u.y)) dot(i, 'rgba(46,122,87,.4)', 0.09);
+    for (const i of hl.hits) ring(i, 'rgba(163,58,58,.5)');
+  }
+  const pv = drag?.pv;
+  if (drag && !pv && drag.moved) {
+    // Hier geht nichts: rotes Kreuz
+    const x = cx(drag.over),
+      y = cy(drag.over),
+      r = cell * 0.18;
+    ctx.strokeStyle = 'rgba(163,58,58,.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x - r, y - r);
+    ctx.lineTo(x + r, y + r);
+    ctx.moveTo(x + r, y - r);
+    ctx.lineTo(x - r, y + r);
+    ctx.stroke();
+  }
+  if (drag && pv) {
+    if (pv.path.length > 1) {
+      ctx.strokeStyle = 'rgba(46,122,87,.9)';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.setLineDash([2, 9]);
+      ctx.beginPath();
+      pv.path.forEach((i, k) => (k ? ctx.lineTo(cx(i), cy(i)) : ctx.moveTo(cx(i), cy(i))));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const end = pv.path[pv.path.length - 1]!;
+      ctx.strokeStyle = 'rgba(43,63,163,.75)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(cx(end), cy(end), cell * 0.4, 0, 7);
+      ctx.stroke();
+    }
+    for (const c of pv.cells) {
+      ctx.strokeStyle = `rgba(${c.col},.95)`;
+      ctx.fillStyle = `rgba(${c.col},.14)`;
       ctx.lineWidth = 3;
       ctx.setLineDash([6, 4]);
-      ctx.strokeRect(((target % COLS) - 1) * cell + 3, (Math.floor(target / COLS) - 1) * cell + 3, cell * 3 - 6, cell * 3 - 6);
+      ctx.fillRect((c.i % COLS) * cell + 4, Math.floor(c.i / COLS) * cell + 4, cell - 8, cell - 8);
+      ctx.strokeRect((c.i % COLS) * cell + 4, Math.floor(c.i / COLS) * cell + 4, cell - 8, cell - 8);
       ctx.setLineDash([]);
+      if (c.pct !== null) label(cx(c.i), Math.floor(c.i / COLS) * cell + cell - 9, `${c.pct}%`, `rgb(${c.col})`, 11);
+    }
+    if (pv.target !== null) {
+      ring(pv.target, 'rgba(163,58,58,1)');
+      if (pv.pct !== null) label(cx(pv.target), cy(pv.target) - cell * 0.62, pv.target === S.teams[1].home ? '♥' : `${pv.pct}%`, '#a33a3a', 16);
     }
   }
   drawGuide(ctx, cell);
+  function label(x: number, y: number, t: string, col: string, px: number): void {
+    ctx.font = `800 ${px}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(251,250,246,.95)';
+    ctx.strokeText(t, x, y);
+    ctx.fillStyle = col;
+    ctx.fillText(t, x, y);
+  }
+}
+/** Reichweite eines Kleckses: Felder, die er erreicht, und Rivalen (oder die Palette), die er von dort trifft */
+function reachOf(u: Unit): { spots: number[]; hits: number[] } {
+  if (reachHl?.id === u.id) return reachHl;
+  const hits = [...R.onSheet(S.teams[1]).map((t) => R.idx(t.x, t.y)), S.teams[1].home].filter((i) => R.planDrop(u, i)?.a === 'splash');
+  reachHl = { id: u.id, spots: R.spots(u), hits };
+  return reachHl;
 }
 
 /* ---------- Führung: Sepia zeigt, was sie tun würde ---------- */
-let guideNow: { cell?: number; el?: string } = {};
+let guideNow: { cell?: number; el?: string; from?: number } = {};
 /** Bester Anker für das Netz in der aktuellen Drehung: möglichst weit vorne, viel freies Papier */
 function bestAnchor(u: Unit): number | null {
   const h = S.teams[1].home;
@@ -749,21 +782,27 @@ function bestAnchor(u: Unit): number | null {
   }
   return best;
 }
+type Guide = { cell?: number; el?: string; from?: number };
+/** Führung für einen Klecks-Zug: Wisch (Pfeil vom Klecks zum Ziel), Doppeltipp (Soak) oder Goldknopf */
+function goGuide(g: { id: number; to: number; a: string; at: number | null }): Guide {
+  const u = R.unitById(g.id);
+  if (!u) return {};
+  const here = R.idx(u.x, u.y);
+  if (g.a === 'ability') return ABILITY[u.m.bp].target === 'self' || aiming?.id !== u.id ? { el: `#abil .abil[data-id="${u.id}"]` } : { cell: g.at ?? here };
+  if (g.a === 'soak') return { cell: here };
+  if (armed?.id === u.id) return { cell: g.at ?? here };
+  return { from: here, cell: g.at ?? here };
+}
 /** Im Lern-Duell: der vorgegebene Schritt, zerlegt in einzelne Tipps */
-function tutorialGuide(): { cell?: number; el?: string } {
+function tutorialGuide(): Guide {
   const exp = tutorialAction();
   if (!exp) return {};
-  const pos = (id: number) => {
-    const u = R.unitById(id);
-    return u ? R.idx(u.x, u.y) : undefined;
-  };
   switch (exp.k) {
     case 'open':
     case 'summon':
       if (summonU?.id !== exp.id) return { el: exp.k === 'open' ? `#ctx .chip[data-id="${exp.id}"]` : `#ctx .rchip[data-id="${exp.id}"]` };
       if (orient !== exp.o) return { el: '#aux' };
-      if (anchor !== exp.at) return { cell: exp.at };
-      return { el: '#go' };
+      return { cell: exp.at };
     case 'roll': {
       const missing = exp.ids.find((id) => !chosen.has(id));
       if (missing !== undefined) return { el: `#ctx .chip[data-id="${missing}"]` };
@@ -774,22 +813,12 @@ function tutorialGuide(): { cell?: number; el?: string } {
       return { el: '#end' };
     case 'joker':
       return { el: `#joker [data-crest="${exp.crest}"]` };
-    case 'move':
-      if (sel?.id !== exp.id) return { cell: pos(exp.id) };
-      return { cell: exp.to };
-    case 'act': {
-      if (sel?.id !== exp.id) return { cell: pos(exp.id) };
-      if (!moved) return { cell: pos(exp.id) };
-      if (action !== exp.a) return { el: `#ctx .act[data-a="${exp.a}"]` };
-      if ((exp.a === 'dry' || exp.a === 'wet' || exp.a === 'splash') && curPig(sel) !== exp.pig) return { el: '#aux' };
-      const needsTarget = exp.a === 'dry' || exp.a === 'wet' || exp.a === 'splash' || (exp.a === 'ability' && ABILITY[sel.m.bp].target !== 'self');
-      if (needsTarget && exp.at !== null && target !== exp.at) return { cell: exp.at };
-      return { el: '#go' };
-    }
+    case 'go':
+      return goGuide(exp);
   }
   return {};
 }
-function computeGuide(): { cell?: number; el?: string } {
+function computeGuide(): Guide {
   if (tut() && screen === 'game') return tutorialGuide();
   if (!hints || !myTurn() || screen !== 'game') return {};
   const p = phase();
@@ -799,31 +828,60 @@ function computeGuide(): { cell?: number; el?: string } {
       const a = bestAnchor(summonU);
       return a === null ? { el: '#aux' } : { cell: a };
     }
-    return { el: '#go' };
+    return { cell: anchor };
   }
   if (p === 'roll') return chosen.size === need() ? { el: '#go' } : { el: '#ctx .chip:not(.chosen):not(.st-gone)' };
-  if (p !== 'act') return {};
-  if (S.joker > 0 && !sel) return { el: `#joker [data-crest="${R.aiJokerCrest(me())}"]` };
-  const sug = R.suggest(1, sel ?? undefined, moved);
-  if (!sug) return { el: '#end' };
-  if (!sel) return { cell: R.idx(sug.u.x, sug.u.y) };
-  if (!moved) return sug.to !== R.idx(sel.x, sel.y) ? { cell: sug.to } : { cell: R.idx(sel.x, sel.y) };
-  if (action !== sug.a) return { el: `#ctx .act[data-a="${sug.a}"]` };
-  const needsTarget = sug.a === 'dry' || sug.a === 'wet' || sug.a === 'splash' || (sug.a === 'ability' && ABILITY[sel.m.bp].target !== 'self');
-  if (needsTarget && sug.at !== null && target !== sug.at) return { cell: sug.at };
-  return { el: '#go' };
+  if (p !== 'act' || drag) return {};
+  if (S.joker > 0) return { el: `#joker [data-crest="${R.aiJokerCrest(me())}"]` };
+  const sug = R.suggest(1, aiming ?? armed ?? undefined, false, R.byGesture);
+  if (!sug) return armed || aiming ? {} : { el: '#end' };
+  return goGuide({ id: sug.u.id, to: sug.to, a: sug.a, at: sug.at });
 }
 function drawGuide(ctx: CanvasRenderingContext2D, cell: number): void {
-  if (guideNow.cell === undefined) return;
+  if (guideNow.cell === undefined || drag) return;
   const i = guideNow.cell;
   const t = performance.now();
   const x = ((i % COLS) + 0.5) * cell,
     y = (Math.floor(i / COLS) + 0.5) * cell;
-  ctx.strokeStyle = `rgba(201,150,30,${0.65 + 0.35 * Math.sin(t / 180)})`;
+  const a = 0.65 + 0.35 * Math.sin(t / 180);
+  ctx.strokeStyle = `rgba(201,150,30,${a})`;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(x, y, cell * (0.42 + 0.06 * Math.sin(t / 180)), 0, 7);
   ctx.stroke();
+  if (guideNow.from === undefined || guideNow.from === i) return;
+  // Pfeil vom Klecks zum Ziel: so wird gewischt
+  const fx = ((guideNow.from % COLS) + 0.5) * cell,
+    fy = (Math.floor(guideNow.from / COLS) + 0.5) * cell;
+  const ang = Math.atan2(y - fy, x - fx);
+  const len = Math.hypot(x - fx, y - fy) - cell * 0.5;
+  const sx = fx + Math.cos(ang) * cell * 0.45,
+    sy = fy + Math.sin(ang) * cell * 0.45;
+  const ex = fx + Math.cos(ang) * len,
+    ey = fy + Math.sin(ang) * len;
+  ctx.strokeStyle = 'rgba(201,150,30,.95)';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.setLineDash([8, 7]);
+  ctx.lineDashOffset = -t / 40;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
+  ctx.fillStyle = 'rgba(201,150,30,.95)';
+  ctx.beginPath();
+  ctx.moveTo(ex + Math.cos(ang) * 10, ey + Math.sin(ang) * 10);
+  ctx.lineTo(ex + Math.cos(ang + 2.4) * 10, ey + Math.sin(ang + 2.4) * 10);
+  ctx.lineTo(ex + Math.cos(ang - 2.4) * 10, ey + Math.sin(ang - 2.4) * 10);
+  ctx.fill();
+  // Ein Punkt wandert den Weg entlang wie ein Finger
+  const k = (t % 1400) / 1400;
+  ctx.fillStyle = `rgba(201,150,30,${0.9 * (1 - k)})`;
+  ctx.beginPath();
+  ctx.arc(fx + (x - fx) * k, fy + (y - fy) * k, cell * 0.14, 0, 7);
+  ctx.fill();
 }
 function applyGuide(): void {
   guideNow = computeGuide();
@@ -831,28 +889,84 @@ function applyGuide(): void {
   if (guideNow.el) document.querySelector(guideNow.el)?.classList.add('guide');
 }
 
-/* ---------- Eingaben ---------- */
-board.addEventListener('click', (e) => {
-  if (busy && S.turn === 2) {
-    V.speed = 2.5;
-    return;
-  }
-  if (!myTurn()) return;
+/* ---------- Eingaben: Wisch vom Klecks aufs Ziel, oder antippen und dann das Ziel antippen ---------- */
+function cellAt(e: PointerEvent): number | null {
   const rect = board.getBoundingClientRect();
   const cell = View.cellSize();
   const x = Math.floor((e.clientX - rect.left) / cell),
     y = Math.floor((e.clientY - rect.top) / cell);
-  if (!R.inside(x, y)) return;
-  const i = R.idx(x, y);
-  const u = R.unitAt(x, y);
-  const p = phase();
-  if (tut() && guideNow.cell !== i) return;
-  if (placing()) {
-    const list = R.netAt(summonU!, orient, i);
-    if (list && R.validNet(1, list)) {
+  return R.inside(x, y) ? R.idx(x, y) : null;
+}
+board.addEventListener('pointerdown', (e) => {
+  if (busy && S.turn === 2) {
+    V.speed = 4;
+    return;
+  }
+  if (!myTurn() || phase() !== 'act' || aiming) return;
+  const i = cellAt(e);
+  if (i === null) return;
+  const u = R.unitAt(i % COLS, Math.floor(i / COLS));
+  if (!u || u.side !== 1 || u.acted || (armed && armed !== u)) return;
+  if (tut() && guideNow.from !== i && guideNow.cell !== i) return;
+  drag = { u, start: i, over: i, moved: false, plan: null, pv: null };
+  try {
+    board.setPointerCapture(e.pointerId);
+  } catch {
+    /* egal */
+  }
+  renderAll();
+});
+board.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const i = cellAt(e);
+  if (i === null || i === drag.over) return;
+  drag.over = i;
+  drag.moved = true;
+  drag.plan = i === drag.start ? null : R.planDrop(drag.u, i);
+  drag.pv = previewOf(drag.u, drag.plan);
+  renderHint();
+});
+board.addEventListener('pointerup', (e) => {
+  const i = cellAt(e);
+  if (drag) {
+    const d = drag;
+    drag = null;
+    if (!d.moved || i === d.start || i === null) {
+      // Nur angetippt: auswählen, ein zweiter Tipp auf ihn ist Soak
+      if (armed === d.u) return void tapCell(d.start);
+      armed = d.u;
       sfx.tap();
-      if (anchor === i) return void unfold();
-      anchor = i;
+      return renderAll();
+    }
+    if (tut() && (guideNow.from !== d.start || guideNow.cell !== i)) return renderAll();
+    if (d.plan) return void sendGo(d.u, d.plan);
+    return renderAll();
+  }
+  if (i !== null) tapCell(i);
+});
+board.addEventListener('pointercancel', () => {
+  drag = null;
+  renderAll();
+});
+function tapCell(i: number): void {
+  if (busy && S.turn === 2) return;
+  if (!myTurn()) return;
+  const u = R.unitAt(i % COLS, Math.floor(i / COLS));
+  const p = phase();
+  if (tut() && guideNow.cell !== i && guideNow.from !== i) return;
+  if (placing()) {
+    // Tipp aufs Netz klappt auf, Tipp auf einen anderen Punkt verschiebt es dorthin
+    const list = anchor !== null ? R.netAt(summonU!, orient, anchor) : null;
+    if (list && list.includes(i) && R.validNet(1, list)) return void unfold();
+    for (let k = 0; k < 8; k++) {
+      const o = (orient + k) % 8;
+      const l2 = R.netAt(summonU!, o, i);
+      if (l2 && R.validNet(1, l2)) {
+        orient = o;
+        anchor = i;
+        sfx.tap();
+        break;
+      }
     }
     return renderAll();
   }
@@ -860,59 +974,60 @@ board.addEventListener('click', (e) => {
     if (u) openInspect(u);
     return;
   }
-  if (u && u.side === 2 && (!sel || !moved || action === 'soak')) return openInspect(u);
-  if (!sel) {
-    if (u && u.side === 1) selectUnit(u);
-    return;
+  if (aiming) {
+    const a = aiming;
+    if (R.abilityTargets(a).includes(i)) return void sendGo(a, { to: R.idx(a.x, a.y), a: 'ability', at: i });
+    aiming = null;
+    return renderAll();
   }
-  if (!moved) {
-    if (u === sel) {
-      moved = true;
-      sfx.tap();
+  if (armed) {
+    const a = armed;
+    if (u && u.side === 1 && u !== a) {
+      armed = u.acted ? null : u;
+      reachHl = null;
       return renderAll();
     }
-    if (u && u.side === 1) return selectUnit(u);
-    if (!R.canMove(sel)) return;
-    if (!u && R.reach(sel).has(i)) void moveSel(i);
-    return;
+    const plan = R.planDrop(a, i);
+    armed = null;
+    if (plan) return void sendGo(a, plan);
+    return renderAll();
   }
-  if (action === 'splash') {
-    if (R.splashCells(sel).includes(i)) {
-      if (target === i) return void commit();
-      target = i;
-      sfx.tap();
-    }
-  } else if (action === 'ability') {
-    if (ABILITY[sel.m.bp].target === 'self' || !R.abilityTargets(sel).includes(i)) return;
-    if (target === i) return void commit();
-    target = i;
-    sfx.tap();
-  } else if (action === 'dry' || action === 'wet') {
-    if (!R.canPaintAt(sel, i)) return;
-    if (target === i) return void commit();
-    target = i;
-    sfx.tap();
-  } else if (u === sel) return void commit();
-  renderAll();
-});
-function selectUnit(u: Unit): void {
-  if (!myTurn() || u.state !== 'sheet' || u.side !== 1 || u.acted) return;
-  if (moved && sel !== u) return;
-  if (sel !== u) useSec = false;
-  sel = u;
-  target = null;
-  sfx.tap();
-  if (!R.canAct(u, action)) action = R.canAct(u, 'dry') ? 'dry' : R.canAct(u, 'splash') && R.splashCells(u).length ? 'splash' : 'soak';
-  renderAll();
+  if (u && u.side === 2) openInspect(u);
 }
-async function moveSel(to: number): Promise<void> {
-  if (!sel) return;
-  const ok = await request(api.duelAct({ k: 'move', id: sel.id, to }), () => (moved = true));
-  if (ok && sel && R.touchesHome(sel) && R.canAct(sel, 'splash')) {
-    action = 'splash';
-    tip('palette');
-    renderAll();
+/** Einen Klecks-Zug an den Server schicken */
+async function sendGo(u: Unit, p: Plan): Promise<void> {
+  armed = null;
+  aiming = null;
+  drag = null;
+  sfx.tap();
+  if (await request(api.duelAct({ k: 'go', id: u.id, to: p.to, a: p.a, at: p.at }))) afterAction();
+}
+function afterAction(): void {
+  renderAll();
+  tipForPhase();
+  if (phase() === 'act' && R.onSheet(me()).some((v) => !v.acted && R.planDrop(v, S.teams[1].home))) tip('palette');
+}
+/** Netz schon an die beste Stelle legen: ein Tipp klappt auf */
+function prepSummon(): void {
+  if (!myTurn() || summonU) return;
+  const p = phase();
+  if (p === 'opening') {
+    const b = R.bestOpening(1);
+    if (b) {
+      summonU = b.u;
+      orient = b.o;
+      anchor = b.at;
+    }
+  } else if (p === 'summon') {
+    const u = R.summonable(me(), lastRolled())[0];
+    if (u) pickSummon(u);
   }
+}
+function pickSummon(u: Unit): void {
+  summonU = u;
+  const b = R.bestPlacement(u);
+  orient = b?.o ?? 0;
+  anchor = b?.at ?? null;
 }
 async function unfold(): Promise<void> {
   if (!summonU || anchor === null || busy) return;
@@ -921,48 +1036,30 @@ async function unfold(): Promise<void> {
   const a: DuelAction = { k: phase() === 'opening' ? 'open' : 'summon', id: summonU.id, o: orient, at: anchor };
   summonU = null;
   anchor = null;
-  if (await request(api.duelAct(a))) {
-    if (phase() === 'roll') chosen = defaultPick();
-    renderAll();
-    tipForPhase();
-  }
+  if (await request(api.duelAct(a))) afterAction();
 }
 async function doRoll(): Promise<void> {
   if (!myTurn() || phase() !== 'roll' || chosen.size !== need()) return;
   const ids = [...chosen];
   chosen = new Set();
-  if (await request(api.duelAct({ k: 'roll', ids }))) tipForPhase();
-}
-async function commit(): Promise<void> {
-  if (!sel || !myTurn() || phase() !== 'act') return;
-  if (action === 'ability') {
-    if (!R.canAct(sel, 'ability')) return;
-    if (ABILITY[sel.m.bp].target !== 'self' && target === null) return;
-  } else if ((action === 'dry' || action === 'wet' || action === 'splash') && target === null) return;
-  if (!R.canAct(sel, action)) return;
-  const a: DuelAction = { k: 'act', id: sel.id, a: action, pig: curPig(sel), at: action === 'soak' ? null : action === 'ability' && ABILITY[sel.m.bp].target === 'self' ? R.idx(sel.x, sel.y) : target };
-  sel = null;
-  moved = false;
-  target = null;
-  useSec = false;
-  await request(api.duelAct(a));
+  if (await request(api.duelAct({ k: 'roll', ids }))) afterAction();
 }
 async function endTurn(): Promise<void> {
   if (!myTurn() || (phase() !== 'act' && phase() !== 'summon')) return;
-  sel = null;
-  moved = false;
-  target = null;
   summonU = null;
   anchor = null;
-  if (await request(api.duelAct({ k: 'end' }))) {
-    chosen = defaultPick();
-    renderAll();
-  }
+  if (await request(api.duelAct({ k: 'end' }))) afterAction();
+}
+async function autoTurn(): Promise<void> {
+  if (!myTurn() || (phase() !== 'act' && phase() !== 'summon')) return;
+  summonU = null;
+  anchor = null;
+  if (await request(api.duelAct({ k: 'auto' }))) afterAction();
 }
 async function skipSummon(): Promise<void> {
   summonU = null;
   anchor = null;
-  if (await request(api.duelAct({ k: 'skip' }))) tipForPhase();
+  if (await request(api.duelAct({ k: 'skip' }))) afterAction();
 }
 
 $('go').addEventListener('click', () => {
@@ -972,21 +1069,16 @@ $('go').addEventListener('click', () => {
   if (!myTurn()) return;
   if (placing()) return void unfold();
   if (phase() === 'roll') return void doRoll();
-  if (phase() !== 'act' || !sel) return;
-  if (!moved) {
-    moved = true;
-    sfx.tap();
-    return renderAll();
-  }
-  void commit();
+  if (phase() === 'act') return void autoTurn();
 });
 $('aux').addEventListener('click', () => {
   if (busy || !allowedEl($('aux'))) return;
   sfx.tap();
   if (placing()) {
     orient = (orient + 1) % 8;
-    if (anchor !== null && !R.netAt(summonU!, orient, anchor)) anchor = null;
-  } else if (sel && sel.sec) useSec = !useSec;
+    const list = anchor !== null ? R.netAt(summonU!, orient, anchor) : null;
+    if (!list || !R.validNet(1, list)) anchor = bestAnchor(summonU!);
+  }
   renderAll();
 });
 $('end').addEventListener('click', () => {
@@ -1098,12 +1190,12 @@ window.addEventListener('resize', () => {
 function resetUi(): void {
   for (const id of ['result', 'menu', 'rules', 'inspect', 'tip', 'logview']) $(id).hidden = true;
   reward = null;
-  sel = null;
-  moved = false;
-  target = null;
+  drag = null;
+  armed = null;
+  aiming = null;
+  reachHl = null;
   summonU = null;
   anchor = null;
-  action = 'dry';
   chosen = new Set();
 }
 
@@ -1290,15 +1382,13 @@ api
   state: () => S.teams.length < 2 ? { busy: true, phase: 'none', guide: {}, over: false } : ({
     phase: phase(),
     busy,
-    sel: sel?.id ?? null,
-    moved,
-    action,
+    armed: armed?.id ?? null,
+    aiming: aiming?.id ?? null,
     round: S.round,
     over: S.over,
     winner: S.winner,
     turn: S.turn,
     crests: { ...S.teams[0]?.crests },
-    water: S.teams[0]?.water,
     hearts: S.teams.map((t) => t.hearts),
     summonable: phase() === 'summon' ? R.summonable(me(), lastRolled()).map((u) => u.id) : [],
     units: R.allUnits().map((u) => ({ id: u.id, side: u.side, x: u.x, y: u.y, hp: u.hp, name: u.name, acted: u.acted, canAbility: R.abilityReady(u), abT: R.abilityTargets(u), abSelf: ABILITY[u.m.bp].target === 'self', splash: R.splashCells(u), canMove: R.canMove(u) })),

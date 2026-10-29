@@ -1,15 +1,18 @@
 /*
  * Ein Duell als Folge von Aktionen. Der Server lädt den Zustand, führt eine Aktion aus (würfelt dabei)
  * und speichert. Jede Aktion wird vorher geprüft, der Client kann nichts erzwingen.
+ * Fassung 6: Ein Klecks zieht mit einer Aktion „go“ (hinlaufen und handeln). Haben alle gehandelt, endet der Zug von selbst.
  */
-import type { PigmentId } from '../data';
 import { sameAction, tutorialAction, tutorialActive } from './tutorial';
 import {
   ABILITY,
+  aiJokerCrest,
   aiOpening,
   aiTurnSteps,
   abilityTargets,
   act,
+  bestPig,
+  bestPlacement,
   canAct,
   canMove,
   canPaintAt,
@@ -22,12 +25,14 @@ import {
   living,
   logAdd,
   netAt,
+  onSheet,
   reach,
   rollDice,
   ROLL_N,
   S,
   splashCells,
   startTurn,
+  suggest,
   summonable,
   sync,
   takeJoker,
@@ -46,6 +51,7 @@ import {
   type Rolled,
   type Side,
   type Team,
+  type Unit,
 } from './rules';
 
 export type DuelAction =
@@ -54,13 +60,15 @@ export type DuelAction =
   | { k: 'summon'; id: number; o: number; at: number }
   | { k: 'skip' }
   | { k: 'joker'; crest: Crest }
-  | { k: 'move'; id: number; to: number }
-  | { k: 'act'; id: number; a: Action; pig: PigmentId; at: number | null }
+  /** Hinlaufen (to = eigenes Feld: stehen bleiben) und handeln. Die Farbe wählt der Server */
+  | { k: 'go'; id: number; to: number; a: Action; at: number | null }
+  /** Sepia spielt den Rest des Zuges */
+  | { k: 'auto' }
   | { k: 'end' };
 
 /** Was der Client sieht: alles außer Würfelzufall und Seed */
 export type DuelState = {
-  v: 1;
+  v: 2;
   cells: Cell[];
   teams: Team[];
   round: number;
@@ -73,6 +81,7 @@ export type DuelState = {
   lastRoll: { id: number; fi: number }[];
   /** Joker aus dem letzten Wurf, noch nicht verbraucht */
   joker: number;
+  heartsTurn: number;
   paintSeed: number;
   stamp: number;
   log: { t: string; c: string }[];
@@ -90,7 +99,7 @@ const isInt = (v: unknown, lo: number, hi: number): v is number => Number.isInte
 
 export function publicState(): DuelState {
   return {
-    v: 1,
+    v: 2,
     cells: S.cells,
     teams: S.teams,
     round: S.round,
@@ -102,6 +111,7 @@ export function publicState(): DuelState {
     phase: S.phase,
     lastRoll: S.lastRoll,
     joker: S.joker,
+    heartsTurn: S.heartsTurn,
     paintSeed: S.paintSeed,
     stamp: S.stamp,
     log: S.log.slice(0, 40),
@@ -125,6 +135,7 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSee
   S.phase = s.phase;
   S.lastRoll = s.lastRoll;
   S.joker = s.joker ?? 0;
+  S.heartsTurn = s.heartsTurn ?? 0;
   S.paintSeed = s.paintSeed;
   S.stamp = s.stamp;
   S.log = s.log;
@@ -221,60 +232,106 @@ export function perform(a: DuelAction): Ev[] {
       S.phase = 'act';
       break;
     }
-    case 'move': {
+    case 'go': {
       if (S.phase !== 'act') bad('Not your move.');
       const u = own(a.id);
-      if (u.state !== 'sheet' || u.acted || !canMove(u)) bad('That blot cannot move.');
-      const prev = reach(u);
-      if (!isInt(a.to, 0, COLS * ROWS - 1) || !prev.has(a.to) || a.to === idx(u.x, u.y)) bad('It cannot get there.');
-      const note = doMove(u, a.to, prev);
-      logAdd(`Your ${u.name} moved${note ? ` and ${note}` : ''}.`, 'you');
+      goBlot(u, a);
       break;
     }
-    case 'act': {
-      if (S.phase !== 'act') bad('Not your move.');
-      const u = own(a.id);
-      const acts: Action[] = ['dry', 'wet', 'splash', 'soak', 'ability'];
-      if (!acts.includes(a.a)) bad('Unknown action.');
-      if (!canAct(u, a.a)) bad('That blot cannot do that now.');
-      if (a.pig !== u.m.main && a.pig !== u.sec) bad('Unknown colour.');
-      let at: number | null = null;
-      if (a.a === 'dry' || a.a === 'wet') {
-        if (!isInt(a.at, 0, COLS * ROWS - 1) || !canPaintAt(u, a.at)) bad('Out of reach.');
-        at = a.at;
-      } else if (a.a === 'splash') {
-        if (!isInt(a.at, 0, COLS * ROWS - 1) || !splashCells(u).includes(a.at)) bad('Nothing to splash there.');
-        at = a.at;
-      } else if (a.a === 'ability') {
-        const targets = abilityTargets(u);
-        if (!targets.length) bad('No target for that ability.');
-        at = ABILITY[u.m.bp].target === 'self' ? idx(u.x, u.y) : a.at;
-        if (at === null || !targets.includes(at)) bad('No target there.');
-      }
-      const s = act(u, a.a, a.a === 'soak' || a.a === 'ability' ? u.m.main : a.pig, at);
-      logAdd(`Your ${u.name} ${s}.`, 'you');
-      if (S.over) S.phase = 'over';
+    case 'auto': {
+      if (S.phase !== 'summon' && S.phase !== 'act') bad('Not your turn.');
+      autoTurn();
+      endTurn();
       break;
     }
     case 'end': {
       if (S.phase !== 'act' && S.phase !== 'summon') bad('Not your turn.');
-      const step = aiTurnSteps(2, TUNE.look[S.level]);
-      while (step()) {
-        /* der Rivale zieht */
-      }
-      if (!S.over && !checkWipe()) endRound();
-      if (S.over) S.phase = 'over';
-      else {
-        startTurn(1);
-        S.phase = 'roll';
-        S.lastRoll = [];
-        S.joker = 0;
-      }
+      endTurn();
       break;
     }
     default:
       bad('Unknown action.');
   }
+  // Haben alle Kleckse gehandelt, endet der Zug von selbst
+  if (!S.over && S.phase === 'act' && S.joker === 0 && onSheet(me).every((u) => u.acted)) endTurn();
   if (S.over) S.phase = 'over';
   return drain();
+}
+
+/** Ein Klecks: prüfen, hinlaufen, handeln. Geprüft wird vom Zielfeld aus, bevor sich etwas ändert */
+function goBlot(u: Unit, a: { to: unknown; a: unknown; at: unknown }): void {
+  if (u.state !== 'sheet' || u.acted) bad('That blot is done for this turn.');
+  const here = idx(u.x, u.y);
+  if (!isInt(a.to, 0, COLS * ROWS - 1)) bad('It cannot get there.');
+  const to = a.to as number;
+  const prev = to !== here ? (canMove(u) ? reach(u) : null) : null;
+  if (to !== here && (!prev || !prev.has(to))) bad('It cannot get there.');
+  const acts: Action[] = ['stamp', 'splash', 'soak', 'ability'];
+  const kind = acts.find((x) => x === a.a);
+  if (!kind) bad('Unknown action.');
+  // Vom Zielfeld aus prüfen
+  const ox = u.x,
+    oy = u.y;
+  u.x = to % COLS;
+  u.y = Math.floor(to / COLS);
+  let at: number | null = null;
+  let err = '';
+  if (!canAct(u, kind!)) err = 'That blot cannot do that now.';
+  else if (kind === 'stamp') {
+    if (!isInt(a.at, 0, COLS * ROWS - 1) || !canPaintAt(u, a.at as number)) err = 'Out of reach.';
+    else at = a.at as number;
+  } else if (kind === 'splash') {
+    if (!isInt(a.at, 0, COLS * ROWS - 1) || !splashCells(u).includes(a.at as number)) err = 'Nothing to splash there.';
+    else at = a.at as number;
+  } else if (kind === 'ability') {
+    const targets = abilityTargets(u);
+    at = ABILITY[u.m.bp].target === 'self' ? idx(u.x, u.y) : isInt(a.at, 0, COLS * ROWS - 1) ? (a.at as number) : null;
+    if (!targets.length || at === null || !targets.includes(at)) err = 'No target there.';
+  }
+  const pig = bestPig(u, kind!, at);
+  u.x = ox;
+  u.y = oy;
+  if (err) bad(err);
+  const note = prev ? doMove(u, to, prev) : '';
+  const s = act(u, kind!, pig, at);
+  logAdd(`Your ${u.name}${prev ? ` moved${note ? ` and ${note}` : ''}, then` : ''} ${s}.`, 'you');
+  if (S.over) S.phase = 'over';
+}
+
+/** Sepia spielt den Rest des Zuges: beschwören, Joker nehmen, dann jeden Klecks wie ihr goldener Ring */
+function autoTurn(): void {
+  const me = S.teams[0];
+  if (S.phase === 'summon') {
+    const u = summonable(me, lastRolled())[0];
+    const p = u ? bestPlacement(u) : null;
+    if (u && p) {
+      logAdd(`You ${doSummon(u, p.o, p.at)}.`, 'you');
+      S.joker = 0;
+      sync();
+    }
+    S.phase = 'act';
+  }
+  while (S.joker > 0) takeJoker(me, aiJokerCrest(me));
+  for (let k = 0; k < 6 && !S.over; k++) {
+    const sg = suggest(1);
+    if (!sg) break;
+    goBlot(sg.u, { to: sg.to, a: sg.a, at: sg.at });
+  }
+}
+
+/** Zug beenden: der Rivale zieht, dann endet die Runde */
+function endTurn(): void {
+  if (S.over) return;
+  const step = aiTurnSteps(2, TUNE.look[S.level]);
+  while (step()) {
+    /* der Rivale zieht */
+  }
+  if (!S.over && !checkWipe()) endRound();
+  if (S.over) S.phase = 'over';
+  else {
+    startTurn(1);
+    S.phase = 'roll';
+    S.lastRoll = [];
+    S.joker = 0;
+  }
 }

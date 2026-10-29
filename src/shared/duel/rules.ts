@@ -14,8 +14,7 @@ import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
 export const COLS = 7,
   ROWS = 7,
   ROUNDS = 6,
-  WET_TURNS = 2,
-  WATER_MAX = 4,
+  WET_TURNS = 1,
   ERASER_ROUNDS = [2, 4],
   PAINT_RANGE = 2,
   HEARTS = 3,
@@ -26,13 +25,22 @@ export const COLS = 7,
   ROLL_N = 3;
 /** Sternseiten je Stufe (Index = Stufe) */
 const STAR_FACES = [0, 3, 3, 2];
-const START_CRESTS: Record<Crest, number> = { step: 1, brush: 2, splash: 0, guard: 0, glow: 0 };
+export const START_CRESTS: Record<Crest, number> = { step: 1, splash: 1, guard: 0, glow: 0 };
+/** Symbole, die jede Seite zu Beginn jedes eigenen Zuges bekommt */
+export const TURN_GIFT: Partial<Record<Crest, number>> = {};
+/** Palette: bewacht, solange ein eigener Klecks höchstens guardR Felder entfernt steht. Höchstens perTurn Herzen pro Zug */
+export const PALETTE = { guardR: 2, perTurn: 1 };
+/**
+ * Treffer: Schaden = base + Sättigung / satDiv, Deckkraft = hpBase + Deckkraft / hpDiv, toHit kommt auf jeden Spritzwurf,
+ * range ist die Grundreichweite. freeSplash: Spritzer auf Kleckse kosten nichts, ein Splash-Symbol braucht nur der Treffer auf die Palette
+ */
+export const HIT = { base: 4, satDiv: 4, hpBase: 10, hpDiv: 3, toHit: 3, range: 2, freeSplash: true };
 
 export type Side = 1 | 2;
 export type Phase = 'opening' | 'roll' | 'summon' | 'act' | 'over';
 export type Level = 'apprentice' | 'journeyman' | 'master';
-export type Action = 'dry' | 'wet' | 'splash' | 'soak' | 'ability' | 'none';
-export type Crest = 'step' | 'brush' | 'splash' | 'guard' | 'glow';
+export type Action = 'stamp' | 'splash' | 'soak' | 'ability' | 'none';
+export type Crest = 'step' | 'splash' | 'guard' | 'glow';
 type StatK = 'flo' | 'opa' | 'sat' | 'grn' | 'glw';
 /** Eine Würfelseite: Stern mit Stufe oder Symbol mit Anzahl */
 /** Joker: Stern, der für andere als Stufe 3 zählt. Gold: je ein Symbol jeder Sorte. */
@@ -74,14 +82,14 @@ export type Unit = {
   sec: PigmentId | null;
   traits: Trait[];
 };
-export type Team = { side: Side; units: Unit[]; water: number; crests: Record<Crest, number>; hearts: number; home: number };
+export type Team = { side: Side; units: Unit[]; crests: Record<Crest, number>; hearts: number; home: number };
 export type Rolled = { u: Unit; fi: number; face: Face };
 
 /* ---------- Ereignisse für die Darstellung ---------- */
 export type CellSnap = { i: number; c: Cell };
 export type StampRes = 'take' | 'refresh' | 'mud' | 'held' | 'none';
 export type UnitSnap = { id: number; x: number; y: number; hp: number; max: number; state: Unit['state']; stain: number; rooted: number; shield: number; acted: boolean };
-export type TeamSnap = { crests: Record<Crest, number>; water: number; hearts: number };
+export type TeamSnap = { crests: Record<Crest, number>; hearts: number };
 export type Ev =
   | { k: 'roll'; side: Side; dice: { id: number; fi: number }[]; crests: Record<Crest, number> }
   | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[] }
@@ -92,7 +100,7 @@ export type Ev =
   | { k: 'wash'; id: number; cell: CellSnap }
   | { k: 'pos'; id: number; x: number; y: number; how: 'push' | 'dash' | 'leap' | 'drift' }
   | { k: 'ability'; id: number; name: string; bp: BlueprintId; at: number; area: number[] }
-  | { k: 'cells'; how: 'bleed' | 'seep' | 'rain' | 'wet' | 'splat'; cells: CellSnap[] }
+  | { k: 'cells'; how: 'bleed' | 'seep' | 'rain' | 'wet' | 'splat' | 'burst'; cells: CellSnap[] }
   | { k: 'heart'; side: Side; hearts: number; from: number }
   | { k: 'eraser'; row: number; cells: CellSnap[] }
   | { k: 'round'; round: number }
@@ -102,21 +110,20 @@ export type Ev =
 
 export const CRESTS: { k: Crest; label: string; stat: StatK; col: string; use: string }[] = [
   { k: 'step', label: 'Step', stat: 'flo', col: '#2e7a57', use: '+2 reach for one move' },
-  { k: 'brush', label: 'Brush', stat: 'opa', col: '#5b4a8a', use: 'one stamp' },
   { k: 'splash', label: 'Splash', stat: 'sat', col: '#c0482a', use: 'one splash' },
   { k: 'guard', label: 'Guard', stat: 'grn', col: '#5f6474', use: 'halves a hit by itself' },
   { k: 'glow', label: 'Glow', stat: 'glw', col: '#b8860b', use: 'two for an ability' },
 ];
+/** Wert hinter einem Symbol. Guard kommt aus Körnung oder Deckkraft, je nachdem, was größer ist */
+const crestStat = (u: Unit, c: Crest): number => (c === 'guard' ? Math.max(u.grn, u.opa) : u[crestDef(c).stat]);
 export const crestDef = (k: Crest) => CRESTS.find((c) => c.k === k)!;
 
-/* Rivale: bedenkt nur eine Handvoll Züge (0 = alle), schwächere Kleckse, weniger Wasser */
+/* Rivale: bedenkt nur eine Handvoll Züge (0 = alle), schwächere Kleckse */
 export const TUNE = {
   look: { apprentice: 3, journeyman: 15, master: 0 } as Record<Level, number>,
   hp: { apprentice: 0.7, journeyman: 0.85, master: 1 } as Record<Level, number>,
   stat: { apprentice: 0.65, journeyman: 0.85, master: 1 } as Record<Level, number>,
-  water: { apprentice: 1, journeyman: 2, master: 3 } as Record<Level, number>,
 };
-const PLAYER_WATER = 3;
 
 const PATTERNS: Record<BlueprintId, P[]> = {
   kriecher: [[-1, 0], [0, 0], [1, 0], [2, 0]],
@@ -174,7 +181,7 @@ export const GAIT: Record<BlueprintId, { key: string; text: string }> = {
   qualle: { key: 'trail-wet', text: 'drips a wet trail' },
   huepfer: { key: 'hop', text: 'hops two cells, over anything' },
   knolle: { key: 'root', text: 'soaks twice as well' },
-  strahler: { key: 'reach', text: 'splashes two cells away' },
+  strahler: { key: 'reach', text: 'splashes one cell further' },
   doppelkopf: { key: 'twin', text: 'splashes twice' },
 };
 
@@ -189,10 +196,10 @@ export const ABILITY: Record<BlueprintId, { name: string; text: string; target: 
   turm: { name: 'Bastion', text: 'All your blots get +5 on defence rolls for two rounds.', target: 'self' },
   krabbe: { name: 'Crush', text: 'Crush an adjacent rival: ignores Grain, double damage.', target: 'unit' },
   qualle: { name: 'Drift', text: 'Drift to any of your wet cells and stain every rival next to it.', target: 'cell' },
-  huepfer: { name: 'Bound', text: 'Leap to a free cell within 4 and stamp dry where you land.', target: 'cell' },
+  huepfer: { name: 'Bound', text: 'Leap to a free cell within 4 and stamp where you land.', target: 'cell' },
   knolle: { name: 'Sprout', text: 'All your blots heal 6 and the paint under them turns wet.', target: 'self' },
   strahler: { name: 'Flare', text: 'Burst wet paint into all 8 cells around and splash every adjacent rival for 0.6×.', target: 'self' },
-  doppelkopf: { name: 'Howl', text: 'The rival loses 2 water and 1 Glow. Rivals within 2 lose 3 opacity.', target: 'self' },
+  doppelkopf: { name: 'Howl', text: 'The rival loses 1 Splash and 1 Glow. Rivals within 2 lose 3 opacity.', target: 'self' },
 };
 const MUD: RGB = [116, 100, 82];
 export const PAPER: RGB = [247, 245, 239];
@@ -205,7 +212,7 @@ function traitsOf(m: Monster): Trait[] {
   if (m.events.alcohol) t.push({ key: 'alcohol', label: 'Alcohol', text: 'dodge +6%' });
   if (m.events.bloom) {
     const n = BLOOM_TRAITS[m.bloomTrait]!.split(':')[0]!;
-    const fx = ['heals 1 each round', 'wet stamps +2', 'dry stamps +2', 'takes 15% less', 'dodge +5%'][m.bloomTrait]!;
+    const fx = ['heals 1 each round', 'stamps +2 against wet paint', 'stamps +2 against dry paint', 'takes 15% less', 'dodge +5%'][m.bloomTrait]!;
     t.push({ key: 'bloom' + m.bloomTrait, label: n, text: fx });
   }
   if (m.events.print) t.push({ key: 'print', label: 'Fingerprint', text: 'abilities cost 1 Glow' });
@@ -229,7 +236,7 @@ export const titleBlots = (): Monster[] => [find('schlange', 'ultra', 'A', true)
 let uid = 0;
 function unitOf(m: Monster, side: Side): Unit {
   const s = Object.fromEntries(statRows(m).map((r) => [r.k, r.total]));
-  const max = 12 + Math.round(s.deckkraft! / 2);
+  const max = HIT.hpBase + Math.round(s.deckkraft! / HIT.hpDiv);
   return {
     id: ++uid,
     side,
@@ -266,7 +273,7 @@ function makeFaces(u: Unit): Face[] {
   const r = RNG(u.m.seed ^ 0x51ce);
   const f: Face[] = [];
   for (let i = 0; i < STAR_FACES[u.lv]!; i++) f.push({ k: 'star', n: u.lv });
-  const w = CRESTS.map((c) => Math.pow(Math.max(1, u[c.stat]), 1.5));
+  const w = CRESTS.map((c) => Math.pow(Math.max(1, crestStat(u, c.k)), 1.5));
   const total = w.reduce((a, b) => a + b, 0);
   const top = CRESTS[w.indexOf(Math.max(...w))]!;
   let doubled = false;
@@ -278,7 +285,7 @@ function makeFaces(u: Unit): Face[] {
       i++;
     }
     const c = CRESTS[i]!;
-    const dbl = !doubled && c === top && u[c.stat] >= 30;
+    const dbl = !doubled && c === top && crestStat(u, c.k) >= 30;
     if (dbl) doubled = true;
     f.push({ k: c.k, n: dbl ? 2 : 1 });
   }
@@ -378,6 +385,8 @@ export const S = {
   lastRoll: [] as { id: number; fi: number }[],
   /** Joker aus dem letzten Wurf, die noch nicht als Stern oder Symbol verbraucht sind */
   joker: 0,
+  /** Herzen, die die Seite am Zug in diesem Zug schon getroffen hat */
+  heartsTurn: 0,
   /** Lern-Duell: bis zu dieser Runde gibt Sepia jeden Schritt vor (0 = aus) */
   tutorial: 0,
   log: [] as { t: string; c: string }[],
@@ -406,7 +415,7 @@ export function sync(): void {
     k: 'sync',
     cells: S.cells.map((c) => ({ ...c })),
     units: [...S.teams[0].units, ...S.teams[1].units].map(snapUnit),
-    teams: S.teams.map((t) => ({ crests: { ...t.crests }, water: t.water, hearts: t.hearts })),
+    teams: S.teams.map((t) => ({ crests: { ...t.crests }, hearts: t.hearts })),
     round: S.round,
   });
 }
@@ -454,6 +463,7 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.phase = 'opening';
   S.lastRoll = [];
   S.joker = 0;
+  S.heartsTurn = 0;
   S.tutorial = 0;
   uid = 0;
   S.cells = Array.from({ length: COLS * ROWS }, emptyCell);
@@ -467,8 +477,8 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.events = [];
   const homeOf = (side: Side) => idx(Math.floor(COLS / 2), side === 1 ? ROWS - 1 : 0);
   S.teams = [
-    { side: 1, units: mine.map((m) => unitOf(m, 1)), water: PLAYER_WATER, crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(1) },
-    { side: 2, units: theirs.map((m) => unitOf(m, 2)), water: TUNE.water[level], crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(2) },
+    { side: 1, units: mine.map((m) => unitOf(m, 1)), crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(1) },
+    { side: 2, units: theirs.map((m) => unitOf(m, 2)), crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(2) },
   ];
   for (const t of S.teams) {
     // Stufe aus der Stärke, Seiten aus Werten, Seltenheit und Lasuren
@@ -734,24 +744,24 @@ export function doMove(u: Unit, to: number, prev: Map<number, number>): string {
 }
 export const canMove = (u: Unit) => !u.moved && moveRange(u) > 0;
 
-/* ---------- Malen ---------- */
+/* ---------- Malen: jeder Stempel ist nasse Farbe, über trockene Farbe kommt er mit einem Wurf ---------- */
 type Out = { kind: 'take' | 'refresh' | 'contest' | 'mud' | 'none' | 'over'; p: number };
-function stampBonus(u: Unit, wet: boolean): number {
-  return (wet && has(u, 'bloom1')) || (!wet && has(u, 'bloom2')) ? 2 : 0;
+/** Blüten: Edge Runner gegen nasse Farbe, Dry Edge gegen trockene */
+function stampBonus(u: Unit, againstWet: boolean): number {
+  return (againstWet && has(u, 'bloom1')) || (!againstWet && has(u, 'bloom2')) ? 2 : 0;
 }
-export function outcome(u: Unit, pig: PigmentId, wet: boolean, c: Cell): Out {
+export function outcome(u: Unit, pig: PigmentId, c: Cell): Out {
   const foe = u.side === 1 ? 2 : 1;
   const sec = pig !== u.m.main ? 1 : 0;
   if (c.home) return { kind: 'none', p: 0 };
   if (c.owner === 0) return { kind: 'take', p: 1 };
   if (c.owner === u.side) return { kind: 'refresh', p: 1 };
-  if (c.owner === 3) return wet ? { kind: 'none', p: 0 } : { kind: 'over', p: pWin(bonus(u.opa) - sec + stampBonus(u, wet), 6) };
+  if (c.owner === 3) return { kind: 'over', p: pWin(bonus(u.opa) - sec + stampBonus(u, false), 6) };
   if (c.owner === foe && c.wet > 0) {
     if (c.hue && relation(pig, c.hue) === 'komplementaer') return { kind: 'mud', p: 1 };
-    return { kind: 'contest', p: pWin(bonus(u.sat) - sec + stampBonus(u, wet), c.atk) };
+    return { kind: 'contest', p: pWin(bonus(u.sat) - sec + stampBonus(u, true), c.atk) };
   }
-  if (wet) return { kind: 'none', p: 0 };
-  return { kind: 'over', p: pWin(bonus(u.opa) - sec + stampBonus(u, wet), c.def) };
+  return { kind: 'over', p: pWin(bonus(u.opa) - sec + stampBonus(u, false), c.def) };
 }
 export const paintRange = (u: Unit) => (GAIT[u.m.bp].key === 'tower' ? 3 : PAINT_RANGE);
 export function stampCells(u: Unit, at: number): number[] {
@@ -762,7 +772,7 @@ export function stampCells(u: Unit, at: number): number[] {
 export function canPaintAt(u: Unit, at: number): boolean {
   return cheb(u.x, u.y, at % COLS, Math.floor(at / COLS)) <= paintRange(u);
 }
-function applyPaint(u: Unit, pig: PigmentId, wet: boolean, list: number[]): { took: number; mud: number; held: number; rolls: string[] } {
+function applyPaint(u: Unit, pig: PigmentId, list: number[]): { took: number; mud: number; held: number; rolls: string[] } {
   let took = 0,
     mud = 0,
     held = 0;
@@ -771,10 +781,10 @@ function applyPaint(u: Unit, pig: PigmentId, wet: boolean, list: number[]): { to
   const sec = pig !== u.m.main ? 1 : 0;
   for (const i of list) {
     const c = S.cells[i]!;
-    const o = outcome(u, pig, wet, c);
+    const o = outcome(u, pig, c);
     let r: StampRes = 'none';
     if (o.kind === 'take' || o.kind === 'refresh') {
-      paintCell(c, u, pig, wet);
+      paintCell(c, u, pig, true);
       if (o.kind === 'take') took++;
       r = o.kind;
     } else if (o.kind === 'mud') {
@@ -784,11 +794,11 @@ function applyPaint(u: Unit, pig: PigmentId, wet: boolean, list: number[]): { to
     } else if (o.kind === 'contest' || o.kind === 'over') {
       const a = d20(),
         d = d20();
-      const atk = (o.kind === 'contest' ? bonus(u.sat) : bonus(u.opa)) - sec + stampBonus(u, wet);
+      const atk = (o.kind === 'contest' ? bonus(u.sat) : bonus(u.opa)) - sec + stampBonus(u, o.kind === 'contest');
       const def = c.owner === 3 ? 6 : o.kind === 'contest' ? c.atk : c.def;
       rolls.push(`d${a}+${atk} vs d${d}+${def}`);
       if (a + atk > d + def) {
-        paintCell(c, u, pig, wet);
+        paintCell(c, u, pig, true);
         took++;
         r = 'take';
       } else {
@@ -798,21 +808,20 @@ function applyPaint(u: Unit, pig: PigmentId, wet: boolean, list: number[]): { to
     }
     res.push({ ...snap(i), r });
   }
-  emit({ k: 'stamp', id: u.id, wet, cells: res });
+  emit({ k: 'stamp', id: u.id, wet: true, cells: res });
   return { took, mud, held, rolls };
 }
-function doPaint(u: Unit, pig: PigmentId, wet: boolean, at: number): string {
-  if (wet) teamOf(u).water--;
-  const r = applyPaint(u, pig, wet, stampCells(u, at));
+function doStamp(u: Unit, pig: PigmentId, at: number): string {
+  const r = applyPaint(u, pig, stampCells(u, at));
   const parts = [`${r.took} taken`];
   if (r.mud) parts.push(`${r.mud} to mud`);
   if (r.held) parts.push(`${r.held} held`);
-  return `painted ${wet ? 'wet' : 'dry'}${pig !== u.m.main ? ` in ${PIG[pig].n}` : ''}: ${parts.join(', ')}${r.rolls.length ? ` (${r.rolls.join('; ')})` : ''}`;
+  return `stamped${pig !== u.m.main ? ` in ${PIG[pig].n}` : ''}: ${parts.join(', ')}${r.rolls.length ? ` (${r.rolls.join('; ')})` : ''}`;
 }
 
 /* ---------- Spritzer ---------- */
 export function splashRange(u: Unit): number {
-  let r = GAIT[u.m.bp].key === 'reach' || GAIT[u.m.bp].key === 'tower' ? 2 : 1;
+  let r = HIT.range + (GAIT[u.m.bp].key === 'reach' || GAIT[u.m.bp].key === 'tower' ? 1 : 0);
   const c = S.cells[idx(u.x, u.y)]!;
   if (c.owner === u.side && c.wet > 0) r++;
   return r;
@@ -825,18 +834,21 @@ export const touchesHome = (u: Unit, x = u.x, y = u.y) => {
   const h = foeTeam(u).home;
   return cheb(x, y, h % COLS, Math.floor(h / COLS)) <= 1;
 };
+/** Kann dieser Klecks die gegnerische Palette treffen: daneben, ein Splash im Vorrat, nicht bewacht, Zuglimit nicht erreicht */
+export const paletteOpen = (u: Unit): boolean => teamOf(u).crests.splash > 0 && touchesHome(u) && !homeGuarded(foeTeam(u)) && S.heartsTurn < PALETTE.perTurn;
 /** Eine Palette ist geschützt, solange ein eigener Klecks direkt daneben steht */
-export const homeGuarded = (t: Team): boolean => onSheet(t).some((u) => cheb(u.x, u.y, t.home % COLS, Math.floor(t.home / COLS)) <= 1);
+export const homeGuarded = (t: Team): boolean => onSheet(t).some((u) => cheb(u.x, u.y, t.home % COLS, Math.floor(t.home / COLS)) <= PALETTE.guardR);
 export function splashCells(u: Unit): number[] {
-  const out = splashTargets(u).map((t) => idx(t.x, t.y));
-  if (touchesHome(u) && !homeGuarded(foeTeam(u))) out.push(foeTeam(u).home);
+  const free = HIT.freeSplash || teamOf(u).crests.splash > 0;
+  const out = free ? splashTargets(u).map((t) => idx(t.x, t.y)) : [];
+  if (paletteOpen(u)) out.push(foeTeam(u).home);
   return out;
 }
 const grainOf = (t: Unit) => t.grn + (t.shield > 0 ? 25 : 0);
 const dodgeOf = (t: Unit) => Math.min(0.4, t.flo / 400 + (has(t, 'alcohol') ? 0.06 : 0) + (has(t, 'bloom4') ? 0.05 : 0));
 const critOf = (u: Unit) => 0.05 + (has(u, 'salt') ? 0.08 : 0);
 export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean): number {
-  let dmg = (3 + u.sat / 6 - (pig !== u.m.main ? 1 : 0)) * typeMult(pig, t.m.main);
+  let dmg = (HIT.base + u.sat / HIT.satDiv - (pig !== u.m.main ? 1 : 0)) * typeMult(pig, t.m.main);
   if (GAIT[u.m.bp].key === 'pinch' && near) dmg += 3;
   if (has(u, 'fugitive')) dmg += 2;
   if (GAIT[u.m.bp].key === 'twin') dmg *= 0.6;
@@ -844,7 +856,7 @@ export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean): num
   return Math.max(1, Math.round(dmg));
 }
 export function splashOdds(u: Unit, t: Unit, pig: PigmentId, plus = 0, ignoreGrain = false): number {
-  return pWin(bonus(u.sat) - (pig !== u.m.main ? 1 : 0) + plus, ignoreGrain ? 0 : bonus(grainOf(t))) * (1 - dodgeOf(t));
+  return pWin(bonus(u.sat) - (pig !== u.m.main ? 1 : 0) + HIT.toHit + plus, ignoreGrain ? 0 : bonus(grainOf(t))) * (1 - dodgeOf(t));
 }
 /** Deckkraft ändern und melden */
 function setHp(t: Unit, hp: number, why: string): void {
@@ -862,7 +874,7 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
   }
   const a = d20(),
     d = d20();
-  const atk = bonus(u.sat) - (pig !== u.m.main ? 1 : 0) + plus,
+  const atk = bonus(u.sat) - (pig !== u.m.main ? 1 : 0) + HIT.toHit + plus,
     def = ignoreGrain ? 0 : bonus(grainOf(t));
   const roll = `d${a}+${atk} vs d${d}+${def}`;
   if (a + atk <= d + def) {
@@ -888,6 +900,7 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
   const ft = foeTeam(u);
   if (at === ft.home) {
     ft.hearts--;
+    S.heartsTurn++;
     count(`${u.side}heart`);
     emit({ k: 'shot', id: u.id, at, res: 'hit', dmg: 0, guard: false, rgb: PIG[pig].rgb, text: 'palette' });
     emit({ k: 'heart', side: ft.side, hearts: ft.hearts, from: u.id });
@@ -907,8 +920,9 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
     parts.push(s);
     total += dmg;
   }
+  // Wer trifft, färbt das Feld unter dem Ziel
   const c = S.cells[idx(t.x, t.y)]!;
-  if (total > 0 && (c.owner === 0 || c.owner === t.side)) {
+  if (total > 0 && !c.home) {
     paintCell(c, u, pig, true);
     emit({ k: 'cells', how: 'splat', cells: [snap(idx(t.x, t.y))] });
   }
@@ -916,6 +930,7 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
   if (t.hp <= 0) s += washOut(t);
   return s;
 }
+/** Ausgewaschen: der Klecks platzt, sein Feld wird Schlamm, seine Farbe spritzt auf freies Papier ringsum */
 function washOut(t: Unit): string {
   if (t.state !== 'sheet') return '';
   count(`kill${t.side}`);
@@ -924,7 +939,17 @@ function washOut(t: Unit): string {
   const i = idx(t.x, t.y);
   mudCell(S.cells[i]!);
   emit({ k: 'wash', id: t.id, cell: snap(i) });
-  return `. ${t.name} washed out, its die is lost`;
+  const burst: number[] = [];
+  for (let y = t.y - 1; y <= t.y + 1; y++)
+    for (let x = t.x - 1; x <= t.x + 1; x++) {
+      if (!inside(x, y) || unitAt(x, y)) continue;
+      const c = S.cells[idx(x, y)]!;
+      if (c.owner !== 0 || c.home) continue;
+      paintCell(c, t, t.m.main, false);
+      burst.push(idx(x, y));
+    }
+  if (burst.length) emit({ k: 'cells', how: 'burst', cells: burst.map(snap) });
+  return `. ${t.name} burst and washed out, its die is lost`;
 }
 export function soakAmount(u: Unit): number {
   const c = S.cells[idx(u.x, u.y)]!;
@@ -936,9 +961,7 @@ function doSoak(u: Unit): string {
   const heal = soakAmount(u);
   setHp(u, u.hp + heal, 'soak');
   u.stain = 0;
-  const team = teamOf(u);
-  team.water = Math.min(WATER_MAX, team.water + 1);
-  return `soaked: +${heal} opacity, +1 water, stains rinsed`;
+  return `soaked: +${heal} opacity, stains rinsed`;
 }
 
 /* ---------- Fähigkeiten ---------- */
@@ -1121,7 +1144,7 @@ function doAbility(u: Unit, at: number): string {
       u.x = at % COLS;
       u.y = Math.floor(at / COLS);
       emit({ k: 'pos', id: u.id, x: u.x, y: u.y, how: 'leap' });
-      const r = applyPaint(u, u.m.main, false, stampCells(u, at));
+      const r = applyPaint(u, u.m.main, stampCells(u, at));
       s += `: landed and took ${r.took}`;
       break;
     }
@@ -1142,7 +1165,7 @@ function doAbility(u: Unit, at: number): string {
     case 'strahler': {
       const ring: number[] = [];
       for (let y = u.y - 1; y <= u.y + 1; y++) for (let x = u.x - 1; x <= u.x + 1; x++) if (inside(x, y) && (x !== u.x || y !== u.y) && !unitAt(x, y)) ring.push(idx(x, y));
-      const r = applyPaint(u, u.m.main, true, ring);
+      const r = applyPaint(u, u.m.main, ring);
       const parts: string[] = [];
       for (const t of near(1)) {
         const [rs] = strike(u, t, u.m.main, 0.6);
@@ -1154,7 +1177,7 @@ function doAbility(u: Unit, at: number): string {
     }
     case 'doppelkopf': {
       const ft = foeTeam(u);
-      ft.water = Math.max(0, ft.water - 2);
+      ft.crests.splash = Math.max(0, ft.crests.splash - 1);
       ft.crests.glow = Math.max(0, ft.crests.glow - 1);
       const parts: string[] = [];
       for (const t of near(2)) {
@@ -1162,7 +1185,7 @@ function doAbility(u: Unit, at: number): string {
         parts.push(`${t.name} -3`);
         if (t.hp <= 0) parts.push(washOut(t).slice(2));
       }
-      s += `: rival water -2, Glow -1${parts.length ? `, ${parts.join(', ')}` : ''}`;
+      s += `: rival Splash -1, Glow -1${parts.length ? `, ${parts.join(', ')}` : ''}`;
       break;
     }
   }
@@ -1173,20 +1196,16 @@ function doAbility(u: Unit, at: number): string {
 export function canAct(u: Unit, a: Action): boolean {
   const t = teamOf(u);
   if (u.acted || u.state !== 'sheet') return false;
-  if (a === 'dry') return t.crests.brush > 0;
-  if (a === 'wet') return t.crests.brush > 0 && t.water > 0;
-  if (a === 'splash') return t.crests.splash > 0;
+  if (a === 'splash') return HIT.freeSplash || t.crests.splash > 0;
   if (a === 'ability') return t.crests.glow >= abilityCost(u);
   return true;
 }
 export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): string {
   const t = teamOf(u);
   let s = '';
-  if (a === 'dry' || a === 'wet') {
-    t.crests.brush--;
-    s = doPaint(u, pig, a === 'wet', at!);
-  } else if (a === 'splash') {
-    t.crests.splash--;
+  if (a === 'stamp') s = doStamp(u, pig, at!);
+  else if (a === 'splash') {
+    if (!HIT.freeSplash || at === foeTeam(u).home) t.crests.splash--;
     s = doSplash(u, pig, at!);
   } else if (a === 'soak') s = doSoak(u);
   else if (a === 'ability') s = doAbility(u, at ?? idx(u.x, u.y));
@@ -1198,6 +1217,9 @@ export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): stri
 }
 export function startTurn(side: Side): void {
   S.turn = side;
+  S.heartsTurn = 0;
+  const t = S.teams[side - 1]!;
+  for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (TURN_GIFT[c.k] ?? 0));
   for (const u of S.teams[side - 1]!.units) {
     u.moved = u.rooted > 0;
     u.rooted = 0;
@@ -1290,7 +1312,6 @@ export function endRound(): void {
     logAdd(`The Eraser passed through row ${row + 1}: ${gone.length} cells erased.`, 'eraser');
   }
   if (notes.length) logAdd(notes.join('. ') + '.', 'muted');
-  S.teams.forEach((t) => (t.water = Math.min(WATER_MAX, t.water + 1)));
   S.round++;
   if (!checkWipe() && S.round > ROUNDS) finish();
   if (!S.over) emit({ k: 'round', round: S.round });
@@ -1321,20 +1342,32 @@ function finish(): void {
 }
 
 /* ---------- Gegner ---------- */
-const CREST_COST: Record<Crest, number> = { step: 0.25, brush: 0.4, splash: 0.4, guard: 0, glow: 0.35 };
+const CREST_COST: Record<Crest, number> = { step: 0.25, splash: 0.4, guard: 0, glow: 0.35 };
 type Cand = { v: number; u: Unit; to: number; a: Action; pig: PigmentId; at: number | null };
-function evalPaint(u: Unit, pig: PigmentId, wet: boolean, at: number): number {
+function evalPaint(u: Unit, pig: PigmentId, at: number): number {
   let v = 0;
   const list = stampCells(u, at);
   for (const i of list) {
     const c = S.cells[i]!;
-    const o = outcome(u, pig, wet, c);
+    const o = outcome(u, pig, c);
     if (o.kind === 'take') v += 1;
     else if (o.kind === 'mud') v += 1.2;
     else if (o.kind === 'contest' || o.kind === 'over') v += o.p * (c.owner === 3 ? 1 : 2);
   }
-  if (wet) v += 0.3 * list.filter((i) => S.cells[i]!.owner === 0).length * (u.flo / 40) - 0.7;
+  // Nasse Farbe verläuft am Rundenende in freies Papier
+  v += 0.3 * list.filter((i) => S.cells[i]!.owner === 0).length * (u.flo / 40);
   return v;
+}
+/** Welche Farbe ein Klecks für eine Aktion nimmt: die bessere gegen das Ziel (Zweitfarbe ist automatisch) */
+export function bestPig(u: Unit, a: Action, at: number | null): PigmentId {
+  if (!u.sec || at === null || (a !== 'stamp' && a !== 'splash')) return u.m.main;
+  const pigs: PigmentId[] = [u.m.main, u.sec];
+  if (a === 'stamp') return evalPaint(u, u.sec, at) > evalPaint(u, u.m.main, at) + 0.01 ? u.sec : u.m.main;
+  const t = unitAt(at % COLS, Math.floor(at / COLS));
+  if (!t || t.side === u.side) return u.m.main;
+  const near = cheb(u.x, u.y, t.x, t.y) <= 1;
+  const val = (p: PigmentId) => splashOdds(u, t, p) * baseDamage(u, t, p, near);
+  return val(pigs[1]!) > val(pigs[0]!) + 0.01 ? pigs[1]! : pigs[0]!;
 }
 function danger(u: Unit, x: number, y: number): number {
   let d = 0;
@@ -1392,7 +1425,7 @@ function evalAbility(u: Unit, at: number): number {
         oy = u.y;
       u.x = at % COLS;
       u.y = Math.floor(at / COLS);
-      const v = evalPaint(u, u.m.main, false, at) + 0.5;
+      const v = evalPaint(u, u.m.main, at) + 0.5;
       u.x = ox;
       u.y = oy;
       return v;
@@ -1402,7 +1435,7 @@ function evalAbility(u: Unit, at: number): number {
     case 'strahler':
       return near(1).reduce((s, t) => s + baseDamage(u, t, u.m.main, true) * 0.6 * 0.8, 0) + 3;
     case 'doppelkopf':
-      return Math.min(2, foeTeam(u).water) * 0.8 + Math.min(1, foeTeam(u).crests.glow) * 0.8 + near(2).reduce((s, t) => s + 2.7 + killBonus(t, 3), 0);
+      return Math.min(1, foeTeam(u).crests.splash) * 0.8 + Math.min(1, foeTeam(u).crests.glow) * 0.8 + near(2).reduce((s, t) => s + 2.7 + killBonus(t, 3), 0);
   }
   return 0;
 }
@@ -1418,7 +1451,7 @@ function pickBest<T extends { v: number }>(cands: T[], look: number, r: Rand, ke
 }
 
 /** Würfelwahl: Chance auf eine Beschwörung und erwartete Symbole */
-const FACE_VALUE: Record<Crest, number> = { step: 0.7, brush: 1, splash: 0.8, guard: 0.4, glow: 0.6 };
+const FACE_VALUE: Record<Crest, number> = { step: 0.6, splash: 0.6, guard: 0.5, glow: 0.7 };
 export function aiChooseDice(t: Team, look: number, r: Rand): Unit[] {
   const pool = living(t);
   if (pool.length <= ROLL_N) return pool;
@@ -1467,7 +1500,7 @@ function evalPlacement(u: Unit, list: number[], at: number): number {
 }
 /** Welches Symbol der Computer aus einem Joker macht: das wertvollste, von dem er wenig hat */
 export function aiJokerCrest(t: Team): Crest {
-  let best: Crest = 'brush',
+  let best: Crest = 'splash',
     bv = -1;
   for (const c of CRESTS) {
     const v = FACE_VALUE[c.k] / (1 + t.crests[c.k]);
@@ -1536,7 +1569,6 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
     const base = moveRange(u);
     const ox = u.x,
       oy = u.y;
-    const pigs: PigmentId[] = u.sec ? [u.m.main, u.sec] : [u.m.main];
     const d0 = homeDist(u, ox, oy);
     for (const to of prev.keys()) {
       const moving = to !== idx(ox, oy);
@@ -1547,31 +1579,27 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
       if (cHere.owner === side && cHere.wet > 0) pos += 0.4;
       // Die eigene Palette bewachen, wenn Gegner in der Nähe sind
       const h = team.home;
-      if (cheb(u.x, u.y, h % COLS, Math.floor(h / COLS)) <= 1) {
+      if (cheb(u.x, u.y, h % COLS, Math.floor(h / COLS)) <= PALETTE.guardR) {
         const threat = onSheet(foeTeam(u)).filter((e) => cheb(e.x, e.y, h % COLS, Math.floor(h / COLS)) <= 3).length;
         if (threat) pos += (1 + threat) * (team.hearts <= 1 ? 2.5 : 1.2);
       }
       const gait = GAIT[u.m.bp].key;
       if (moving && (gait === 'trail-dry' || gait === 'trail-wet')) pos += 0.3 * pathTo(prev, to).filter((i) => S.cells[i]!.owner === 0).length;
       const add = (v: number, a: Action, pig: PigmentId, at: number | null) => cands.push({ v: v + pos, u, to, a, pig, at });
-      if (team.crests.brush > 0)
-        for (let at = 0; at < COLS * ROWS; at++) {
-          if (!canPaintAt(u, at)) continue;
-          for (const pig of pigs) {
-            add(evalPaint(u, pig, false, at) - CREST_COST.brush, 'dry', pig, at);
-            if (team.water > 0) add(evalPaint(u, pig, true, at) - CREST_COST.brush, 'wet', pig, at);
-          }
-        }
-      if (team.crests.splash > 0) {
-        for (const t of splashTargets(u))
-          for (const pig of pigs) {
-            const hits = GAIT[u.m.bp].key === 'twin' ? 1.6 : 1;
-            const dmg = baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1);
-            add(splashOdds(u, t, pig) * hits * (dmg * 0.9 + killBonus(t, dmg * hits)) + (t.stain ? 0 : relation(pig, t.m.main) === 'komplementaer' ? 1 : 0) - CREST_COST.splash, 'splash', pig, idx(t.x, t.y));
-          }
-        if (touchesHome(u) && !homeGuarded(foeTeam(u))) add(foeTeam(u).hearts <= 1 ? 100 : 8, 'splash', u.m.main, foeTeam(u).home);
+      for (let at = 0; at < COLS * ROWS; at++) {
+        if (!canPaintAt(u, at)) continue;
+        const pig = bestPig(u, 'stamp', at);
+        add(evalPaint(u, pig, at), 'stamp', pig, at);
       }
-      if (u.hp < u.max || team.water < WATER_MAX) add(soakAmount(u) * 0.35 + (u.hp < u.max * 0.35 ? 2 : 0) + (team.water < WATER_MAX ? 0.3 : 0), 'soak', u.m.main, null);
+      if (HIT.freeSplash || team.crests.splash > 0)
+        for (const t of splashTargets(u)) {
+          const pig = bestPig(u, 'splash', idx(t.x, t.y));
+          const hits = GAIT[u.m.bp].key === 'twin' ? 1.6 : 1;
+          const dmg = baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1);
+          add(splashOdds(u, t, pig) * hits * (dmg * 0.9 + killBonus(t, dmg * hits)) + (t.stain ? 0 : relation(pig, t.m.main) === 'komplementaer' ? 1 : 0) - (HIT.freeSplash ? 0 : CREST_COST.splash), 'splash', pig, idx(t.x, t.y));
+        }
+      if (paletteOpen(u)) add(foeTeam(u).hearts <= 1 ? 100 : 8, 'splash', u.m.main, foeTeam(u).home);
+      if (u.hp < u.max) add(soakAmount(u) * 0.35 + (u.hp < u.max * 0.35 ? 2 : 0), 'soak', u.m.main, null);
       if (team.crests.glow >= abilityCost(u)) for (const at of abilityTargets(u)) add(evalAbility(u, at) - CREST_COST.glow * abilityCost(u), 'ability', u.m.main, at);
       if (moving) add(0, 'none', u.m.main, null);
     }
@@ -1580,14 +1608,66 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
   }
   return cands;
 }
-/** Vorschlag für den Spieler (wie der Meister spielen würde), ohne ihn auszuführen */
-export function suggest(side: Side, only?: Unit, stay = false): { u: Unit; to: number; a: Action; pig: PigmentId; at: number | null } | null {
-  const cands = candidates(side, only, stay).filter((c) => c.a !== 'none');
+/** Vorschlag für den Spieler (wie der Meister spielen würde), ohne ihn auszuführen. ok: nur solche Züge */
+export function suggest(side: Side, only?: Unit, stay = false, ok?: (c: Plan & { u: Unit }) => boolean): { u: Unit; to: number; a: Action; pig: PigmentId; at: number | null } | null {
+  const cands = candidates(side, only, stay).filter((c) => c.a !== 'none' && (!ok || ok(c)));
   if (!cands.length) return null;
   let b = cands[0]!;
   for (const c of cands) if (c.v > b.v) b = c;
   return b.v > 0.05 ? { u: b.u, to: b.to, a: b.a, pig: b.pig, at: b.at } : null;
 }
+/* ---------- Ein Wisch: vom Klecks auf ein Feld ziehen, das Feld entscheidet ---------- */
+export type Plan = { to: number; a: Action; at: number | null };
+/** Etwas so prüfen, als stünde der Klecks auf Feld p */
+export function atSpot<T>(u: Unit, p: number, fn: () => T): T {
+  const ox = u.x,
+    oy = u.y;
+  u.x = p % COLS;
+  u.y = Math.floor(p / COLS);
+  try {
+    return fn();
+  } finally {
+    u.x = ox;
+    u.y = oy;
+  }
+}
+/** Erreichbare Felder, das eigene zuerst, dann nach Weglänge */
+export function spots(u: Unit): number[] {
+  const here = idx(u.x, u.y);
+  if (!canMove(u)) return [here];
+  const cost = reachCost(u).cost;
+  return [...cost.keys()].sort((a, b) => (a === here ? -1 : b === here ? 1 : cost.get(a)! - cost.get(b)!));
+}
+/**
+ * Was ein Wisch auf Feld i bedeutet:
+ * eigener Klecks: Soak. Rivale oder Rivalen-Palette: vom nächsten passenden Feld aus spritzen.
+ * Papier oder Farbe: hinlaufen und dort stempeln, sonst vom nächsten Feld in Reichweite stempeln.
+ */
+export function planDrop(u: Unit, i: number): Plan | null {
+  if (u.state !== 'sheet' || u.acted || !inside(i % COLS, Math.floor(i / COLS))) return null;
+  const here = idx(u.x, u.y);
+  if (i === here) return { to: here, a: 'soak', at: null };
+  const t = unitAt(i % COLS, Math.floor(i / COLS));
+  if (t && t.side === u.side) return null;
+  const sp = spots(u);
+  if (t || i === foeTeam(u).home) {
+    const p = sp.find((q) => atSpot(u, q, () => splashCells(u).includes(i)));
+    return p === undefined ? null : { to: p, a: 'splash', at: i };
+  }
+  if (S.cells[i]!.home) return null;
+  if (sp.includes(i)) return { to: i, a: 'stamp', at: i };
+  const p = sp.find((q) => atSpot(u, q, () => canPaintAt(u, i)));
+  return p === undefined ? null : { to: p, a: 'stamp', at: i };
+}
+/** Lässt sich dieser Zug mit einem Wisch (oder dem Goldknopf auf dem Feld, wo der Klecks steht) ausführen? */
+export function byGesture(c: Plan & { u: Unit }): boolean {
+  const here = idx(c.u.x, c.u.y);
+  if (c.a === 'soak' || c.a === 'ability') return c.to === here;
+  if (c.at === null) return false;
+  const p = planDrop(c.u, c.at);
+  return !!p && p.to === c.to && p.a === c.a && p.at === c.at;
+}
+
 function aiAction(side: Side, look: number, r: Rand): boolean {
   const cands = candidates(side);
   if (!cands.length) return false;

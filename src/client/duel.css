@@ -77,7 +77,7 @@ button { font: inherit; color: inherit; }
 @keyframes bump { 40% { transform: scale(1.45); } }
 
 #boardwrap { flex: 1 1 auto; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; }
-#board { display: block; touch-action: manipulation; border-radius: 4px; box-shadow: 0 1px 2px rgba(30,25,20,.15), 0 14px 30px -18px rgba(30,25,20,.5); }
+#board { display: block; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 4px; box-shadow: 0 1px 2px rgba(30,25,20,.15), 0 14px 30px -18px rgba(30,25,20,.5); }
 #stage { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 10px; perspective: 700px;
   background: radial-gradient(ellipse at center, rgba(251,250,246,.92), rgba(228,225,216,.55) 70%, rgba(228,225,216,0)); opacity: 0; transition: opacity .25s ease; pointer-events: none; }
 #stage.on { opacity: 1; }
@@ -294,3 +294,13 @@ button { font: inherit; color: inherit; }
 #result-reward { margin: 4px 0 0; font: 700 14px var(--f-mono); }
 #result-reward small { font-weight: 400; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .bloom { transition: none; } .drop.fall { animation: none; } .dstage.r-legendary.open .dsheet { animation: none; } }
+
+/* ---------- Fassung 6: Goldknopf für Fähigkeiten, Sepia paints ---------- */
+#abil { position: absolute; inset: 0; pointer-events: none; }
+.abil { position: absolute; transform: translate(-50%, -100%); pointer-events: auto; border: 0; border-radius: 999px; padding: 4px 9px; min-height: 26px;
+  font: 800 11px var(--f-body); color: #3b2a05; background: linear-gradient(180deg, #f3d77a, #c9961e); box-shadow: 0 2px 8px rgba(120,80,10,.45); cursor: pointer; animation: abil 1.6s ease-in-out infinite; }
+.abil.on { background: #3b2a05; color: #f3d77a; }
+@keyframes abil { 50% { transform: translate(-50%, -100%) scale(1.08); } }
+#go.soft { background: transparent; color: var(--ink); border: 1px solid var(--ink); font-weight: 700; }
+#go.soft:disabled { opacity: .3; }
+@media (prefers-reduced-motion: reduce) { .abil { animation: none; } }

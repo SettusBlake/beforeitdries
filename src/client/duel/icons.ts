@@ -3,7 +3,6 @@ import { crestDef, type Face } from '../../shared/duel/rules';
 
 const ICON_PATH: Record<Face['k'], string> = {
   step: '<path d="M4 4.5l5.5 5.5-5.5 5.5M10.5 4.5l5.5 5.5-5.5 5.5" fill="none" stroke="C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
-  brush: '<path d="M14.2 2.6l3.2 3.2-7.4 7.4-3.2-3.2z" fill="C"/><path d="M6 11.2c-2.4.4-3 2.2-3 3.6 0 1.1-.6 1.6-1.2 1.7 2.4 1.3 6 .6 6.6-2.1z" fill="C"/>',
   splash: '<path d="M10 2.5c3.1 4.2 4.7 6.6 4.7 8.8a4.7 4.7 0 0 1-9.4 0c0-2.2 1.6-4.6 4.7-8.8z" fill="C"/><circle cx="3.4" cy="6.2" r="1.4" fill="C"/><circle cx="16.8" cy="4.8" r="1.2" fill="C"/>',
   guard: '<path d="M10 2.2l6.3 2.4v4.8c0 4.1-2.7 7-6.3 8.5-3.6-1.5-6.3-4.4-6.3-8.5V4.6z" fill="C"/>',
   glow: '<path d="M10 1.2l2.1 6.7 6.7 2.1-6.7 2.1-2.1 6.7-2.1-6.7-6.7-2.1 6.7-2.1z" fill="C"/>',

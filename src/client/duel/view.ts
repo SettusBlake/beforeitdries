@@ -619,7 +619,7 @@ export async function playEvent(e: Ev): Promise<void> {
           }
         }
       }
-      V.teams = e.teams.map((t) => ({ crests: { ...t.crests }, water: t.water, hearts: t.hearts }));
+      V.teams = e.teams.map((t) => ({ crests: { ...t.crests }, hearts: t.hearts }));
       V.round = e.round;
       hooks.hud();
       return;
@@ -628,9 +628,11 @@ export async function playEvent(e: Ev): Promise<void> {
       hooks.ticker(e.t, e.c);
       return;
     case 'turn':
-      hooks.banner(e.side === 1 ? 'Your turn' : 'Rival turn', 'turn');
+      // Der Rivale zieht ohne Banner
+      if (e.side === 2) return;
+      hooks.banner('Your turn', 'turn');
       sfx.turn();
-      await wait(700);
+      await wait(650);
       return;
     case 'round':
       hooks.banner(`Round ${e.round}`, 'round');
@@ -717,6 +719,9 @@ export async function playEvent(e: Ev): Promise<void> {
       sfx.launch();
       await wait(340);
       const target = [...V.units.values()].find((u) => u.state === 'sheet' && Math.round(u.dx) === e.at % COLS && Math.round(u.dy) === Math.floor(e.at / COLS));
+      // Der Wurf steht am Ziel: Angriff gegen Abwehr
+      const m = /d(\d+)\+(-?\d+) vs d(\d+)\+(-?\d+)/.exec(e.text);
+      if (m) text(x1, y1 + cell * 0.42, `${+m[1]! + +m[2]!} vs ${+m[3]! + +m[4]!}`, '#5f6474', 12, 900);
       if (e.res === 'miss' || e.res === 'dodge') {
         splatter(x1 + (Math.random() - 0.5) * cell * 0.6, y1 + cell * 0.3, col, 6, 0.6);
         text(x1, y1 - cell * 0.2, e.res === 'miss' ? 'miss' : 'dodged', '#6b6f7c', 15);
@@ -878,6 +883,14 @@ export async function playEvent(e: Ev): Promise<void> {
         await wait(700);
       } else if (e.how === 'splat') {
         for (const s of e.cells) setCell(s.i, s.c, 'grow', 0, 260);
+      } else if (e.how === 'burst') {
+        // Der ausgewaschene Klecks platzt: seine Farbe spritzt ringsum
+        for (const s of e.cells) {
+          setCell(s.i, s.c, 'grow', Math.random() * 120, 380);
+          splatter(cx(s.i), cy(s.i), rgbCss(s.c.rgb, 0.8), 6, 0.7);
+        }
+        shake(7);
+        await wait(420);
       } else {
         for (const s of e.cells) setCell(s.i, s.c, 'shine', Math.random() * 200, 500);
         await wait(450);

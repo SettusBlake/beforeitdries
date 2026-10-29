@@ -38,18 +38,18 @@
   <div class="rivalrow">
     <div id="rival-dice" aria-label="Rival dice"></div>
     <div class="rside">
-      <div class="r1"><span class="hearts" id="rival-hearts" aria-label="Rival palette"></span><span class="drops" id="rival-water" aria-label="Rival water"></span></div>
-      <span class="crests" id="rival-crests" aria-label="Rival crests"></span>
+      <div class="r1"><span class="hearts" id="rival-hearts" aria-label="Rival palette"></span></div>
     </div>
   </div>
   <div id="boardwrap">
     <canvas id="board" aria-label="The sheet with both palettes and blots"></canvas>
+    <div id="abil"></div>
     <div id="stage" hidden></div>
     <div id="banner"></div>
     <div id="ticker"></div>
   </div>
   <section class="panel">
-    <div class="pool"><span class="hearts" id="hearts" aria-label="Your palette"></span><span class="crests" id="crests" aria-label="Your crests"></span><span class="drops" id="water" aria-label="Your water"></span></div>
+    <div class="pool"><span class="hearts" id="hearts" aria-label="Your palette"></span><span class="crests" id="crests" aria-label="Your crests"></span></div>
     <div id="hint" aria-live="polite"></div>
     <div id="joker" hidden></div>
     <div id="ctx"></div>
@@ -116,19 +116,18 @@
     <button type="button" class="close" id="rules-close">✕</button>
     <h2>How to play</h2>
     <ul>
-      <li><b>Every blot is a die.</b> Its sides come from the blot itself: stars (★ with its level) and symbols from its stats. Flow gives Step, Opacity gives Brush, Saturation gives Splash, Grain gives Guard, Glow gives Glow. Tap ⓘ on a die to see its net.</li>
-      <li><b>Opening:</b> both sides unfold one blot for free next to their palette.</li>
-      <li><b>Each turn</b> pick three of your six dice and roll them. Symbols go to your pool and keep.</li>
-      <li><b>Stars summon:</b> a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint, touching your own paint. At most three blots stand on the sheet.</li>
-      <li><b>Then each blot</b> moves once and acts once: Dry stamp (1 Brush), Wet stamp (1 Brush and 1 water), Splash (1 Splash), its ability (2 Glow) or Soak (free: heals, +1 water).</li>
-      <li><b>Moving:</b> your own paint costs 1, bare paper, rival paint and mud cost 2, mud stops you. A Step in your pool lets one blot go 2 further (light green dots).</li>
-      <li><b>Splash:</b> Saturation plus a d20 against Grain plus a d20. Complementary colours hit for 1.5 times and stain, harmonious ones for 0.75. A Guard in your pool halves a hit by itself.</li>
-      <li><b>Palettes:</b> each side has three hearts. Stand next to the rival palette and splash it: one heart, every time. A palette is safe while one of its own blots stands next to it. Break all three hearts and you win.</li>
-      <li><b>Washed out</b> blots lose their die for good, so you roll with fewer.</li>
+      <li><b>Every blot is a die.</b> Its sides come from the blot itself: stars (★ with its level) and symbols from its stats. Flow gives Step, Saturation gives Splash, Grain or Opacity gives Guard, Glow gives Glow. Tap ⓘ on a die to see its net.</li>
+      <li><b>Opening:</b> both sides unfold one blot for free next to their palette. The net is already placed, tap it to unfold.</li>
+      <li><b>Each turn</b> roll three dice (picked for you, tap to swap). Symbols go to your pool and keep.</li>
+      <li><b>Stars summon:</b> a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint. At most three blots stand on the sheet.</li>
+      <li><b>One drag per blot:</b> drag it onto paper to walk there and stamp its shape, onto a rival to splash it, onto their palette to hit it. Or tap a blot, then tap the target. Tap it twice to soak (heal, rinse stains). When every blot has acted, the turn ends by itself.</li>
+      <li><b>Moving:</b> your own paint costs 1, bare paper, rival paint and mud cost 2, mud stops you. A Step in your pool lets one blot go 2 further.</li>
+      <li><b>Stamps</b> are wet paint and free. Over dried rival paint they need a roll: Opacity against Grain. Wet paint bleeds into free paper when the round ends, then dries.</li>
+      <li><b>Splash</b> is free: Saturation plus a d20 against Grain plus a d20, the roll shows at the target. A hit paints the cell under the target. Complementary colours hit for 1.5 times and stain. A Guard in your pool halves a hit by itself. Two or three hits and a blot bursts, its die is lost for good.</li>
+      <li><b>Abilities:</b> two Glow. A gold button appears on a blot that can use one.</li>
+      <li><b>Palettes:</b> three hearts each. A blot next to the rival palette hits it with a Splash symbol: one heart, at most one per turn. A palette is safe while one of its own blots stands within two cells. Break all three and you win.</li>
       <li><b>The Eraser</b> wipes a row after rounds 2 and 4. After 6 rounds the paper dries: cells plus 3 per heart left.</li>
-      <li><b>Rarity</b> comes from the paper of a die. Uncommon dice have a doubled crest, Rare ones a Joker (any star or any crest), Epic ones another doubled crest, Legendary ones a Gold side (one of every crest).</li>
-      <li><b>Your dice:</b> dip the brush for new dice with pigment you earn in duels. The d100 is open, its ranges are shown. A species you already have turns into glaze, and glaze doubles a single crest on a die.</li>
-      <li><b>The gold ring</b> shows what Master Sepia would do next. Turn hints off in the menu.</li>
+      <li><b>The gold ring and arrow</b> show what Master Sepia would do. Sepia paints plays the rest of your turn for you. Turn hints off in the menu.</li>
     </ul>
   </div>
 </div>
