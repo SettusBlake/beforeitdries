@@ -7,7 +7,7 @@ import { initAudio, isMuted, setMuted } from '../../../src/client/duel/sound';
 import { LEGENDARY_PAPERS, RARITIES, rarityDef, rarityFromRoll, rarityIndex, type Rarity } from '../../../src/shared/dice';
 import { dieUnit } from '../../../src/shared/duel/rules';
 import { humidityFor, makeMonster } from '../../../src/shared/monster';
-import { Reveal, type RevealPull } from './reveal';
+import { Reveal, type RevealPull } from '../../../src/client/duel/gacha/reveal';
 
 const $ = (id: string) => document.getElementById(id)!;
 const rand = (n: number) => Math.floor(Math.random() * n);

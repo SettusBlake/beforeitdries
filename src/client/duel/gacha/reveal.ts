@@ -4,13 +4,13 @@
  * Die Würfe kommen von außen (in der App vom Server), hier wird nur inszeniert. Ein Tipp beschleunigt alles.
  */
 import { Application, Container, DisplacementFilter, Graphics, Sprite, Text, Texture } from 'pixi.js';
-import { PAPER, PIG, type PaperId } from '../../../src/shared/data';
-import { RARITIES, rarityDef, rarityIndex, type Rarity } from '../../../src/shared/dice';
-import type { Face } from '../../../src/shared/duel/rules';
-import type { Monster } from '../../../src/shared/monster';
-import { renderMonster } from '../../../src/client/renderer/watercolor';
-import { iconSvg } from '../../../src/client/duel/icons';
-import { sfx } from '../../../src/client/duel/sound';
+import { PAPER, PIG, type PaperId } from '../../../shared/data';
+import { RARITIES, rarityDef, rarityIndex, type Rarity } from '../../../shared/dice';
+import type { Face } from '../../../shared/duel/rules';
+import type { Monster } from '../../../shared/monster';
+import { renderMonster } from '../../renderer/watercolor';
+import { iconSvg } from '../icons';
+import { sfx } from '../sound';
 import { Particles, backdropCanvas, dropTex, edgeGlowCanvas, flakeTex, glowTex, noiseTex, paperCanvas, raysTex, ringTex, sparkTex } from './fx';
 
 export type RevealPull = {
@@ -30,6 +30,8 @@ export type RevealPull = {
 export const GLOW: Record<Rarity, number> = { common: 0xa3acc2, uncommon: 0x4fd08f, rare: 0x58aaff, epic: 0xbd74ff, legendary: 0xffcc4d };
 /** Bis zum Wurf malen alle Züge auf dasselbe Papier, damit nichts die Seltenheit verrät */
 const PLAIN: PaperId = 'schul';
+/** Wie stark nasse Farbe das Blatt tönt, bevor sie trocknet */
+const WET = 0.18;
 const hex = (s: string) => parseInt(s.slice(1), 16);
 const rgbNum = (c: readonly number[]) => (c[0]! << 16) | (c[1]! << 8) | c[2]!;
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -72,7 +74,9 @@ export class Reveal {
   W = 390;
   H = 760;
 
+  private host: HTMLElement | null = null;
   async init(host: HTMLElement): Promise<void> {
+    this.host = host;
     await this.app.init({ resizeTo: host, antialias: true, backgroundAlpha: 0, resolution: Math.min(2, window.devicePixelRatio || 1), autoDensity: true });
     host.appendChild(this.app.canvas);
     this.app.stage.addChild(this.bg, this.world, this.flash);
@@ -81,12 +85,30 @@ export class Reveal {
     this.layout();
     window.addEventListener('resize', () => this.layout());
   }
+  /** Größe neu messen. Solange die Bühne versteckt ist (Größe 0), bleibt alles, wie es war */
   private layout(): void {
-    this.W = this.app.screen.width;
-    this.H = this.app.screen.height;
-    this.bg.texture = Texture.from(backdropCanvas(this.W, this.H));
-    this.world.pivot.set(this.W / 2, this.H / 2);
-    this.world.position.set(this.W / 2, this.H / 2);
+    if (!this.host || this.host.clientWidth < 2 || this.host.clientHeight < 2) return;
+    this.app.resize();
+    const w = this.app.screen.width,
+      h = this.app.screen.height;
+    if (w === this.W && h === this.H && this.bg.texture !== Texture.EMPTY) return;
+    this.W = w;
+    this.H = h;
+    const old = this.bg.texture;
+    this.bg.texture = Texture.from(backdropCanvas(w, h));
+    if (old !== Texture.EMPTY) old.destroy(true);
+    this.world.pivot.set(w / 2, h / 2);
+    this.world.position.set(w / 2, h / 2);
+  }
+  /** Bühne zeigen: Größe messen, Uhr läuft */
+  show(): void {
+    this.layout();
+    this.app.ticker.start();
+  }
+  /** Bühne verstecken: abräumen und die Uhr anhalten, damit nichts im Hintergrund rechnet */
+  hide(): void {
+    this.reset();
+    this.app.ticker.stop();
   }
 
   /* ---------- Zeit ---------- */
@@ -454,7 +476,7 @@ export class Reveal {
       // 2. Der Pinsel malt den Klecks in Bahnen aufs Blatt
       sfx.lift();
       void this.tween(600, (q) => (jar.c.alpha = 1 - q * 0.8));
-      wet.alpha = 0.3;
+      wet.alpha = WET;
       dfilter.scale.x = dfilter.scale.y = 10;
       await this.paintStrokes({ cx: g.cx, cy: g.cy, S: g.S, mask, brush, color: pig, rows: 5, ms: 420, scale: 1, sound: true });
       // 3. Der Pinsel geht, die Farbe läuft ineinander und trocknet
@@ -473,7 +495,7 @@ export class Reveal {
       }, ease.out);
       mask.fill();
       await this.tween(700, (q) => {
-        wet.alpha = 0.3 * (1 - q);
+        wet.alpha = WET * (1 - q);
         dfilter.scale.x = dfilter.scale.y = 4 * (1 - q);
       }, ease.out);
       jar.c.destroy({ children: true });
@@ -766,7 +788,7 @@ export class Reveal {
       wet.width = wet.height = s;
       wet.tint = rgbNum(PIG[p.monster.main].rgb);
       wet.blendMode = 'multiply';
-      wet.alpha = 0.3;
+      wet.alpha = WET;
       // Kleines Schild für den W100
       const num = new Text({ text: '··', style: { fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: '800', fill: 0xfdf8ee } });
       num.anchor.set(0.5);
@@ -800,7 +822,7 @@ export class Reveal {
       }, ease.out).then(() => {
         if (m.c.destroyed) return;
         m.mask.fill();
-        return this.tween(500, (q) => (m.wet.alpha = 0.3 * (1 - q)));
+        return this.tween(500, (q) => (m.wet.alpha = WET * (1 - q)));
       });
     }
     const bx = brush.c.x,

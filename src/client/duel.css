@@ -262,38 +262,22 @@ button { font: inherit; color: inherit; }
 #inspect .trow { margin: 0 auto 10px; }
 
 /* ---------- Ziehen ---------- */
-#dip { align-items: center; background: rgba(29,33,48,.6); }
-.dipwrap { width: 100%; max-width: 420px; max-height: 92vh; overflow-y: auto; background: var(--sheet); border-radius: 18px; padding: 14px 16px 16px; display: grid; justify-items: center; gap: 8px; text-align: center; animation: up .25s ease; }
-.dstage { position: relative; width: 190px; height: 190px; display: grid; place-items: center; }
-.dsheet { width: 170px; height: 170px; border-radius: 6px; background: #fbfaf6; box-shadow: 0 10px 24px -12px rgba(30,25,20,.55); display: grid; place-items: center; overflow: hidden; transition: box-shadow .4s ease; }
-.dsheet.hit { animation: hit .35s ease; }
-@keyframes hit { 40% { transform: scale(.96); } }
-.bloom { width: 170px; height: 170px; opacity: 0; transform: scale(.25); filter: blur(10px) saturate(.4); transition: opacity .7s ease, transform .8s cubic-bezier(.2,.9,.25,1.2), filter .9s ease; }
-.dstage.open .bloom { opacity: 1; transform: scale(1); filter: none; }
-.dstage.open .dsheet { box-shadow: 0 0 0 4px var(--c), 0 14px 30px -10px var(--c); }
-.dstage.r-legendary.open .dsheet { animation: shine 1.6s ease-in-out infinite; }
-@keyframes shine { 50% { box-shadow: 0 0 0 4px #f0cd6e, 0 0 34px 6px rgba(240,205,110,.7); } }
-.dstage.r-epic.open .dsheet { box-shadow: 0 0 0 4px var(--c), 0 0 26px 2px rgba(122,63,163,.45); }
-.drop { position: absolute; left: 50%; top: -30px; width: 18px; height: 24px; margin-left: -9px; border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%; background: radial-gradient(circle at 35% 65%, #fff8, #2b3fa3 60%); transform: rotate(180deg); opacity: 0; }
-.drop.fall { animation: fall .42s cubic-bezier(.5,0,.9,.6) forwards; }
-@keyframes fall { 0% { opacity: 1; top: -30px; } 90% { opacity: 1; top: 82px; } 100% { opacity: 0; top: 86px; transform: rotate(180deg) scale(1.8, .3); } }
-.droll { display: grid; justify-items: center; gap: 2px; width: 100%; max-width: 300px; }
-.droll small { font: 600 10px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-.dnum { font: 700 2.2rem/1 var(--f-mono); font-variant-numeric: tabular-nums; }
-.band { position: relative; display: flex; width: 100%; height: 10px; border-radius: 5px; overflow: visible; margin-top: 4px; }
-.band i:first-child { border-radius: 5px 0 0 5px; } .band i:nth-last-child(2) { border-radius: 0 5px 5px 0; min-width: 4px; }
-.band .mark { position: absolute; top: -5px; width: 3px; height: 20px; margin-left: -1.5px; background: var(--ink); border-radius: 2px; opacity: 0; transition: left .3s ease, opacity .2s; left: 0; }
-.band .mark.on { opacity: 1; }
-.rlbl { margin: 2px 0 0; font: 400 1.7rem/1 var(--f-display); opacity: 0; transform: scale(.7); transition: opacity .3s, transform .4s cubic-bezier(.2,.9,.25,1.4); min-height: 1em; }
-.rlbl.on { opacity: 1; transform: none; }
-.dname { margin: 0; font-weight: 800; min-height: 1.3em; }
-.dfaces { display: flex; gap: 6px; transition: opacity .4s; }
+/* Dunkle Bühne: das Leuchten der Seltenheiten braucht Dunkelheit */
+#dip { align-items: center; background: #0d0b12; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+#dip-stage { position: absolute; inset: 0; touch-action: manipulation; }
+#dip-stage canvas { display: block; }
+#dip-hint { position: absolute; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); margin: 0; text-align: center; pointer-events: none;
+  font: 600 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: #a99d90; animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .35; } }
+.dipwrap { position: relative; width: 100%; max-width: 420px; max-height: 92vh; overflow-y: auto; background: var(--sheet); border-radius: 18px; padding: 14px 16px 16px; display: grid; justify-items: center; gap: 8px; text-align: center; animation: up .25s ease; }
+.dipwrap.bar { align-self: end; gap: 10px; box-shadow: 0 -10px 30px -12px rgba(0,0,0,.6); }
+.dipwrap .eyebrow { margin: 0; }
 .dnote { margin: 0; font: 12px/1.4 var(--f-mono); color: var(--muted); min-height: 1.4em; max-width: 34ch; }
 .dipwrap .trow { justify-content: center; }
 .dsum { width: 100%; }
 #result-reward { margin: 4px 0 0; font: 700 14px var(--f-mono); }
 #result-reward small { font-weight: 400; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { .bloom { transition: none; } .drop.fall { animation: none; } .dstage.r-legendary.open .dsheet { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #dip-hint { animation: none; } }
 
 /* ---------- Fassung 6: Goldknopf für Fähigkeiten, Sepia paints ---------- */
 #abil { position: absolute; inset: 0; pointer-events: none; }

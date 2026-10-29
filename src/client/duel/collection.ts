@@ -10,6 +10,7 @@ import { speciesLabel } from '../../shared/monster';
 import { renderMonster } from '../renderer/watercolor';
 import { api } from '../lib/api';
 import { iconSvg, netSvg } from './icons';
+import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -258,9 +259,40 @@ async function glazeFace(d: DieRec, i: number): Promise<void> {
   busy = false;
 }
 
-/* ---------- Ziehen: Tropfen, offener W100, Klecks blüht auf ---------- */
-let fast = false;
-const wait = (ms: number) => sleep(fast ? ms / 6 : ms);
+/* ---------- Ziehen: der Pinsel malt, der offene W100 entscheidet (PixiJS, erst beim Öffnen der Würfel geladen) ---------- */
+type Gacha = typeof import('./gacha');
+let gachaP: Promise<Gacha> | null = null;
+function loadGacha(): Promise<Gacha> {
+  gachaP ??= import('./gacha').catch((e: unknown) => {
+    gachaP = null;
+    throw e;
+  });
+  return gachaP;
+}
+let stage: Reveal | null = null;
+let animating = false;
+/** Die Bühne einmal aufbauen. Ohne WebGL schlägt das fehl, dann gibt es nur die Übersicht */
+async function stageReady(): Promise<Reveal> {
+  const g = await loadGacha();
+  if (!stage) {
+    // Schriften vor dem ersten Text laden, sonst malt Pixi mit Ersatzschrift
+    await Promise.race([Promise.all(['16px "Young Serif"', '700 16px Figtree', '600 16px "JetBrains Mono"'].map((f) => document.fonts.load(f))).catch(() => undefined), sleep(2500)]);
+    const r = new g.Reveal();
+    await r.init($('dip-stage'));
+    $('dip-stage').addEventListener('pointerdown', () => {
+      if (animating && stage) stage.speed = 7;
+    });
+    stage = r;
+  }
+  stage.show();
+  return stage;
+}
+function toReveal(p: PullResult): RevealPull {
+  const m = dieMonster(p.die);
+  const u = dieUnit(m, p.die.mods);
+  return { rarity: p.rarity, d100: p.d100, pity: p.pity, monster: m, name: u.name, lv: u.lv, faces: u.faces, dup: !!p.dup, glaze: p.glaze };
+}
+
 async function pull(kind: PullKind): Promise<void> {
   if (busy) return;
   initAudio();
@@ -284,112 +316,60 @@ async function pull(kind: PullKind): Promise<void> {
 }
 async function reveal(pulls: PullResult[], before: DiceSave | null): Promise<void> {
   const ov = $('dip');
+  const body = $('dip-body');
+  body.replaceChildren();
+  body.hidden = true;
   ov.hidden = false;
-  fast = false;
-  let skipAll = false;
-  for (let k = 0; k < pulls.length && !skipAll; k++) {
-    const p = pulls[k]!;
-    const next = await showOne(p, k, pulls.length, before);
-    if (next === 'skip') skipAll = true;
+  let r: Reveal | null = null;
+  try {
+    r = await stageReady();
+  } catch (e) {
+    console.warn('dip animation unavailable', e);
   }
-  if (pulls.length > 1) await summary(pulls);
+  if (r) {
+    animating = true;
+    $('dip-hint').hidden = false;
+    try {
+      if (pulls.length > 1) await r.ten(pulls.map(toReveal));
+      else await r.single(toReveal(pulls[0]!));
+    } catch (e) {
+      console.error(e);
+    }
+    animating = false;
+    $('dip-hint').hidden = true;
+  }
+  body.hidden = false;
+  if (pulls.length > 1 || !r) await summary(pulls);
+  else await doneBar(pulls[0]!, before);
+  r?.hide();
   ov.hidden = true;
-  $('dip-body').replaceChildren();
+  body.replaceChildren();
 }
-function bandHtml(): string {
-  return RARITIES.map((r) => `<i style="flex:${r.to - r.from + 1};background:${r.col}"></i>`).join('');
-}
-function showOne(p: PullResult, k: number, n: number, before: DiceSave | null): Promise<'next' | 'skip'> {
+/** Nach einem einzelnen Zug: was daraus wurde, und weiter */
+function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
   return new Promise((done) => {
-    void (async () => {
-      fast = false;
-      const body = $('dip-body');
-      body.replaceChildren();
-      const u = unitOfDie(p.die);
-      const r = rarityDef(p.rarity);
-      const ri = rarityIndex(p.rarity);
-      const stage = el('div', 'dstage');
-      stage.style.setProperty('--c', r.col);
-      const drop = el('div', 'drop');
-      const sheet = el('div', 'dsheet');
-      const cv = art(p.die, 150);
-      cv.className = 'bloom';
-      sheet.append(cv);
-      stage.append(sheet, drop);
-      const roll = el('div', 'droll');
-      const num = el('b', 'dnum', '–');
-      const band = html('div', 'band', bandHtml());
-      const mark = el('span', 'mark');
-      band.append(mark);
-      roll.append(el('small', '', 'd100'), num, band);
-      const label = el('p', 'rlbl', '');
-      const name = el('p', 'dname', '');
-      const note = el('p', 'dnote', '');
-      const faces = html('div', 'dfaces', u.faces.map((f) => iconSvg(f, 24)).join(''));
-      faces.style.opacity = '0';
-      const go = el('div', 'trow');
-      const nextB = el('button', 'primary', k < n - 1 ? `Next (${k + 1}/${n})` : 'Done') as HTMLButtonElement;
-      nextB.type = 'button';
-      nextB.id = 'dip-next';
-      nextB.hidden = true;
-      go.append(nextB);
-      if (n > 1 && k < n - 1) {
-        const sk = el('button', 'ghost', 'Show all') as HTMLButtonElement;
-        sk.type = 'button';
-        sk.id = 'dip-skip';
-        sk.addEventListener('click', () => {
-          fast = true;
-          done('skip');
-        });
-        go.append(sk);
-      }
-      body.append(el('p', 'eyebrow', n > 1 ? `Dip ${k + 1} of ${n}` : 'Dip the brush'), stage, roll, label, name, faces, note, go);
-      body.onclick = (e) => {
-        if (!(e.target as HTMLElement).closest('button')) fast = true;
-      };
-      // Tropfen fällt
-      await sleep(30);
-      drop.classList.add('fall');
-      await wait(420);
-      sfx.drop();
-      sheet.classList.add('hit');
-      // W100 rattert und bleibt stehen
-      for (let i = 0; i < 14; i++) {
-        num.textContent = String(1 + Math.floor(Math.random() * 100));
-        sfx.tick(i);
-        await wait(45 + i * 6);
-      }
-      num.textContent = String(p.d100);
-      mark.style.left = `${p.d100 - 0.5}%`;
-      mark.classList.add('on');
-      await wait(380);
-      // Seltenheit
-      label.textContent = r.label;
-      label.style.color = r.col;
-      label.classList.add('on');
-      if (p.pity) note.textContent = p.pity === 'ten' ? 'Ten dips: Rare or better guaranteed.' : `Bad luck shield: ${rarityDef(p.pity).label} guaranteed.`;
-      sfx.reveal(ri);
-      stage.classList.add(`r-${p.rarity}`, 'open');
-      await wait(650);
-      name.textContent = `${u.name} · ★${u.lv}`;
-      faces.style.opacity = '1';
-      const had = before?.dice.some((x) => dieSpecies(x) === dieSpecies(p.die));
-      const line = p.dup ? `Already in your dice: +${p.glaze} glaze for ${speciesLabel(u.m)}.` : had ? 'A rarer copy of a species you have. New die.' : 'New die.';
-      note.textContent = (note.textContent ? note.textContent + ' ' : '') + line;
-      nextB.hidden = false;
-      nextB.onclick = () => {
-        sfx.tap();
-        done('next');
-      };
-      if (fast && n > 1) done('next');
-    })();
+    const body = $('dip-body');
+    body.className = 'dipwrap bar';
+    const u = unitOfDie(p.die);
+    const had = before?.dice.some((x) => dieSpecies(x) === dieSpecies(p.die));
+    const lines: string[] = [];
+    if (p.pity) lines.push(p.pity === 'ten' ? 'Ten dips: Rare or better guaranteed.' : `Bad luck shield: ${rarityDef(p.pity).label} guaranteed.`);
+    lines.push(p.dup ? `Already in your dice: +${p.glaze} glaze for ${speciesLabel(u.m)}.` : had ? 'A rarer copy of a species you have. New die.' : 'New die.');
+    const ok = el('button', 'primary', 'Done') as HTMLButtonElement;
+    ok.type = 'button';
+    ok.id = 'dip-next';
+    ok.addEventListener('click', () => {
+      sfx.tap();
+      done();
+    });
+    body.append(el('p', 'dnote', lines.join(' ')), ok);
   });
 }
 function summary(pulls: PullResult[]): Promise<void> {
   return new Promise((done) => {
     const body = $('dip-body');
+    body.className = 'dipwrap';
     body.replaceChildren();
-    body.onclick = null;
     const grid = el('div', 'dsum');
     for (const p of pulls) {
       const u = unitOfDie(p.die);
@@ -425,6 +405,8 @@ export function openDice(): void {
   swapIn = null;
   render();
   void load();
+  // PixiJS schon laden, während man die Würfel ansieht
+  void loadGacha().catch(() => undefined);
 }
 /** Für den Titel: gibt es etwas Freies zu ziehen? */
 export async function diceBadge(): Promise<string> {

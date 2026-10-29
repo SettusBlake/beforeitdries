@@ -3,7 +3,7 @@
  * und ein kleines Partikelsystem. Alles prozedural, keine Bilddateien.
  */
 import { Container, Sprite, Texture } from 'pixi.js';
-import { grainTex } from '../../../src/client/renderer/watercolor';
+import { grainTex } from '../../renderer/watercolor';
 
 function canvas(w: number, h = w): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
