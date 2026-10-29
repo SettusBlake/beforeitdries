@@ -49,10 +49,16 @@ let hooks: Hooks;
 let canvas: HTMLCanvasElement;
 let ctx: CanvasRenderingContext2D;
 let cell = 48;
+/** Rand über dem Blatt, damit große Kleckse in der obersten Reihe nicht abgeschnitten werden */
+let pad = 0;
+const PAD = 0.6;
+/** So groß steht ein Klecks auf seinem Feld (in Feldern) */
+const BIG = 1.7;
 const dpr = Math.min(2, window.devicePixelRatio || 1);
 let bg: HTMLCanvasElement | null = null;
 const blobCache = new Map<string, HTMLCanvasElement>();
 const portraitCache = new Map<string, HTMLCanvasElement>();
+const stickerCache = new Map<string, { img: HTMLCanvasElement; sil: HTMLCanvasElement }>();
 
 const now = () => performance.now();
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -87,18 +93,22 @@ export function setup(c: HTMLCanvasElement, h: Hooks): void {
 }
 /** Größe des Blatts an den Platz anpassen */
 export function resize(w: number, h: number): void {
-  const c = Math.max(24, Math.floor(Math.min(w / COLS, h / ROWS)));
+  const c = Math.max(24, Math.floor(Math.min(w / COLS, h / (ROWS + PAD))));
   if (c === cell && bg) return;
   cell = c;
+  pad = Math.round(c * PAD);
   canvas.width = Math.round(c * COLS * dpr);
-  canvas.height = Math.round(c * ROWS * dpr);
+  canvas.height = Math.round((c * ROWS + pad) * dpr);
   canvas.style.width = c * COLS + 'px';
-  canvas.style.height = c * ROWS + 'px';
+  canvas.style.height = c * ROWS + pad + 'px';
   bg = null;
   blobCache.clear();
   portraitCache.clear();
+  stickerCache.clear();
 }
 export const cellSize = () => cell;
+/** Abstand vom oberen Rand der Leinwand bis zum Blatt */
+export const padTop = () => pad;
 export function reset(): void {
   V.cells = [];
   V.units.clear();
@@ -187,6 +197,48 @@ export function portrait(id: number, size: number): HTMLCanvasElement {
   portraitCache.set(key, c);
   return c;
 }
+/**
+ * Ein Klecks frei stehend wie ein ausgeschnittener Aufkleber: ohne Papier, mit hellem Rand und leichtem Schatten,
+ * damit er auf jeder Farbe lesbar bleibt. sil ist die helle Form allein (für Treffer-Blitze)
+ */
+function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLCanvasElement } {
+  const key = `${id}:${size}`;
+  const hit = stickerCache.get(key);
+  if (hit) return hit;
+  const bare = document.createElement('canvas');
+  bare.width = bare.height = 1;
+  const u = unitById(id);
+  if (u) renderMonster(bare, u.m, size, { dpr, paper: false });
+  const S = bare.width;
+  const mk = () => {
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    return [c, c.getContext('2d')!] as const;
+  };
+  // Form: zweimal übereinander, damit dünne Lasurränder nur einen zarten Rand bekommen, dann einfärben
+  const [sil, sx] = mk();
+  for (let k = 0; k < 2; k++) sx.drawImage(bare, 0, 0);
+  sx.globalCompositeOperation = 'source-in';
+  sx.fillStyle = '#fffdf8';
+  sx.fillRect(0, 0, S, S);
+  const [img, ix] = mk();
+  const e = Math.max(2, S * 0.03);
+  // Schatten nach unten, dann der helle Rand rundum, dann der Klecks
+  ix.globalAlpha = 0.22;
+  ix.filter = 'brightness(0)';
+  ix.drawImage(sil, 0, e * 1.6);
+  ix.filter = 'none';
+  ix.globalAlpha = 1;
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2;
+    ix.drawImage(sil, Math.cos(a) * e, Math.sin(a) * e);
+  }
+  ix.drawImage(bare, 0, 0);
+  const out = { img, sil };
+  if (stickerCache.size > 80) stickerCache.clear();
+  stickerCache.set(key, out);
+  return out;
+}
 function drawBlob(i: number, c: Cell, scale: number, alpha: number): void {
   const b = blob(i, c);
   const s = cell * 1.7 * scale;
@@ -202,7 +254,9 @@ function draw(): void {
   const t = now();
   const dt = Math.min(50, t - last) / 1000;
   last = t;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, pad * dpr);
   // Wackeln bei kräftigen Treffern
   const sp = clamp01((t - V.shake.t0) / 350);
   if (sp < 1) {
@@ -210,6 +264,14 @@ function draw(): void {
     ctx.translate((Math.random() * 2 - 1) * a, (Math.random() * 2 - 1) * a);
   }
   ctx.drawImage(paperBg(), 0, 0, cell * COLS, cell * ROWS);
+  ctx.strokeStyle = 'rgba(30,25,20,.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, cell * COLS - 1, cell * ROWS - 1);
+  // Farbe bleibt auf dem Blatt, nur Kleckse und Effekte dürfen darüber hinausragen
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, cell * COLS, cell * ROWS);
+  ctx.clip();
   // Farbe
   ctx.globalCompositeOperation = 'multiply';
   V.cells.forEach((c, i) => {
@@ -329,6 +391,7 @@ function draw(): void {
     if (Math.random() < 0.6) V.parts.push({ x: ex - cell * 0.3, y: y + cell * (0.3 + Math.random() * 0.4), vx: -30 - Math.random() * 40, vy: -40 - Math.random() * 40, g: 260, r: 1.6 + Math.random() * 1.4, t0: t, life: 500, col: 'rgba(200,150,160,.9)' });
     if (p >= 1) V.eraser = null;
   }
+  ctx.restore();
   for (const side of [1, 2] as Side[]) drawPalette(side, t);
   hooks.overlay(ctx, cell);
   drawFocus(t);
@@ -485,96 +548,95 @@ function drawUnit(u: VUnit, t: number): void {
     groundY = (u.dy + u.oy + 0.5) * cell;
   // Ruhig wippen und atmen, solange nichts passiert
   const idle = u.busy ? 0 : 0.035 * (0.5 + 0.5 * Math.sin(t / 520 + u.id * 1.7));
-  const y = groundY - (u.lift + idle) * cell - 2;
+  const lift = (u.lift + idle) * cell;
   const breathe = 1 + 0.025 * Math.sin(t / 450 + u.id * 1.3);
   const s = u.scale * breathe;
-  const size = Math.round(cell * 1.02);
-  // Schatten
-  ctx.fillStyle = `rgba(40,35,30,${0.12 * u.alpha})`;
-  ctx.beginPath();
-  ctx.ellipse(x, groundY + cell * 0.36, cell * 0.32 * u.scale * u.sqx * (1 - (u.lift + idle) * 0.3), cell * 0.08, 0, 0, 7);
-  ctx.fill();
-  const rad = cell * 0.46 * s;
-  ctx.save();
-  // Stauchen von unten aus, damit der Klecks auf dem Boden bleibt
-  ctx.translate(x, y + rad);
-  ctx.rotate(u.rot);
-  ctx.scale(u.sqx, u.sqy);
-  ctx.translate(-x, -y - rad);
-  ctx.beginPath();
-  ctx.arc(x, y, rad, 0, 7);
-  ctx.clip();
-  ctx.globalAlpha = u.alpha * (0.3 + 0.7 * clamp01(u.hpShown / u.max));
-  ctx.drawImage(portrait(u.id, size), x - (size * s) / 2, y - (size * s) / 2, size * s, size * s);
-  if (u.flash > 0) {
-    ctx.fillStyle = `rgba(255,255,255,${u.flash})`;
-    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-    u.flash = Math.max(0, u.flash - 0.06);
-  }
-  ctx.restore();
-  ctx.save();
-  ctx.translate(x, y + rad);
-  ctx.rotate(u.rot);
-  ctx.scale(u.sqx, u.sqy);
-  ctx.translate(-x, -y - rad);
-  ctx.globalAlpha = u.alpha;
+  const size = Math.round(cell * BIG);
   const sel = hooks.selected() === u.id;
-  ctx.strokeStyle = u.side === 1 ? 'rgba(43,63,163,.95)' : 'rgba(163,58,58,.95)';
-  ctx.lineWidth = sel ? 3.5 : 2;
+  const col = u.side === 1 ? [43, 63, 163] : [163, 58, 58];
+  // Sockel in der Farbe der Seite: so sieht man auf einen Blick, wem der Klecks gehört
+  const baseY = groundY + cell * 0.24;
+  const rx = cell * 0.4 * u.scale * u.sqx,
+    ry = cell * 0.14 * u.scale;
+  ctx.globalAlpha = u.alpha;
+  ctx.fillStyle = rgbCss(col, sel ? 0.32 : 0.2);
+  ctx.strokeStyle = rgbCss(col, 0.95);
+  ctx.lineWidth = sel ? 3 : 2;
   ctx.beginPath();
-  ctx.arc(x, y, rad, 0, 7);
+  ctx.ellipse(x, baseY, rx, ry, 0, 0, 7);
+  ctx.fill();
   ctx.stroke();
   if (sel) {
-    ctx.strokeStyle = 'rgba(43,63,163,.35)';
+    ctx.strokeStyle = rgbCss(col, 0.4);
     ctx.lineWidth = 2;
+    const g = 5 + Math.sin(t / 200) * 2;
     ctx.beginPath();
-    ctx.arc(x, y, rad + 4 + Math.sin(t / 200) * 1.5, 0, 7);
+    ctx.ellipse(x, baseY, rx + g, ry + g * 0.45, 0, 0, 7);
     ctx.stroke();
   }
   if (u.shield > 0) {
-    ctx.strokeStyle = 'rgba(90,100,120,.8)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([2, 3]);
+    ctx.strokeStyle = 'rgba(90,100,120,.85)';
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([3, 3]);
     ctx.beginPath();
-    ctx.arc(x, y, rad - 4, 0, 7);
+    ctx.ellipse(x, baseY, rx + 4, ry + 2.5, 0, 0, 7);
     ctx.stroke();
     ctx.setLineDash([]);
   }
-  // Deckkraft
+  // Der Klecks steht auf dem Sockel und ragt nach oben ins nächste Feld
+  const st = sticker(u.id, size);
+  ctx.save();
+  ctx.translate(x, baseY - lift);
+  ctx.rotate(u.rot);
+  ctx.scale(u.sqx * s, u.sqy * s);
+  ctx.globalAlpha = u.alpha * (0.45 + 0.55 * clamp01(u.hpShown / u.max));
+  ctx.drawImage(st.img, -size / 2, -size * 0.84, size, size);
+  if (u.flash > 0) {
+    ctx.globalAlpha = u.flash * u.alpha;
+    ctx.drawImage(st.sil, -size / 2, -size * 0.84, size, size);
+    u.flash = Math.max(0, u.flash - 0.06);
+  }
+  ctx.restore();
+  ctx.globalAlpha = u.alpha;
+  // Deckkraft unter dem Sockel
   u.hpShown += (u.hp - u.hpShown) * 0.12;
   if (Math.abs(u.hp - u.hpShown) < 0.05) u.hpShown = u.hp;
   const bw = cell * 0.7,
     bx = x - bw / 2,
-    by = groundY + cell * 0.5 - 7;
-  ctx.fillStyle = 'rgba(255,255,255,.88)';
+    by = groundY + cell * 0.5 - 6;
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
   ctx.fillRect(bx - 1, by - 1, bw + 2, 6);
   ctx.fillStyle = 'rgba(230,120,110,.9)';
   ctx.fillRect(bx, by, bw * clamp01(u.hpShown / u.max), 4);
   ctx.fillStyle = u.side === 1 ? '#2b3fa3' : '#a33a3a';
   ctx.fillRect(bx, by, bw * clamp01(Math.min(u.hp, u.hpShown) / u.max), 4);
+  // Zeichen oben am Klecks: Fleck oder Wurzeln rechts, fertig links
+  const topY = baseY - lift - size * 0.62;
   if (u.stain > 0 || u.rooted > 0) {
-    ctx.fillStyle = u.rooted > 0 ? 'rgba(46,122,87,.9)' : 'rgba(110,75,51,.9)';
-    ctx.beginPath();
-    ctx.arc(x + cell * 0.34, groundY - cell * 0.34, 4, 0, 7);
-    ctx.fill();
-  }
-  if (u.side === 1 && hooks.acted(u.id)) {
-    const dx = x - cell * 0.34,
-      dy = groundY - cell * 0.34;
-    ctx.fillStyle = 'rgba(255,255,255,.92)';
-    ctx.beginPath();
-    ctx.arc(dx, dy, 7, 0, 7);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(46,122,87,1)';
+    ctx.fillStyle = u.rooted > 0 ? 'rgba(46,122,87,.95)' : 'rgba(110,75,51,.95)';
+    ctx.strokeStyle = 'rgba(255,253,248,.95)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(dx - 3.5, dy);
-    ctx.lineTo(dx - 1, dy + 3);
-    ctx.lineTo(dx + 4, dy - 3);
+    ctx.arc(x + cell * 0.42, topY, 5, 0, 7);
+    ctx.fill();
+    ctx.stroke();
+  }
+  if (u.side === 1 && hooks.acted(u.id)) {
+    const dx = x - cell * 0.42,
+      dy = topY;
+    ctx.fillStyle = 'rgba(255,255,255,.95)';
+    ctx.beginPath();
+    ctx.arc(dx, dy, 8, 0, 7);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(46,122,87,1)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(dx - 4, dy);
+    ctx.lineTo(dx - 1, dy + 3.5);
+    ctx.lineTo(dx + 4.5, dy - 3.5);
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
-  ctx.restore();
 }
 /** Der Rivale zeigt vor jedem Zug, wer was vorhat: Ring um den Klecks, gestrichelte Linie zum Ziel */
 function drawFocus(t: number): void {
@@ -588,14 +650,15 @@ function drawFocus(t: number): void {
   const u = V.units.get(f.id);
   if (!u || u.state !== 'sheet') return;
   const x = (u.dx + 0.5) * cell,
-    y = (u.dy + 0.5) * cell;
+    y = (u.dy + 0.5) * cell - cell * 0.2;
   const a = Math.min(1, age / 180) * (age > 1600 / V.speed ? 1 - (age - 1600 / V.speed) / (600 / V.speed) : 1);
   ctx.save();
   ctx.globalAlpha = Math.max(0, a);
   ctx.strokeStyle = 'rgba(163,58,58,.9)';
   ctx.lineWidth = 3;
+  const w = 1 + 0.06 * Math.sin(t / 120);
   ctx.beginPath();
-  ctx.arc(x, y, cell * (0.55 + 0.05 * Math.sin(t / 120)), 0, 7);
+  ctx.ellipse(x, y + cell * 0.44, cell * 0.5 * w, cell * 0.2 * w, 0, 0, 7);
   ctx.stroke();
   const tgt = f.at ?? (f.to !== Math.round(u.dy) * COLS + Math.round(u.dx) ? f.to : null);
   if (tgt !== null) {
@@ -634,7 +697,7 @@ function shake(amp: number): void {
 }
 const unitPos = (id: number): [number, number] => {
   const u = V.units.get(id);
-  return u ? [(u.dx + 0.5) * cell, (u.dy + 0.5) * cell - u.lift * cell] : [0, 0];
+  return u ? [(u.dx + 0.5) * cell, (u.dy + 0.5) * cell - (u.lift + 0.2) * cell] : [0, 0];
 };
 const rgbCss = (rgb: readonly number[], a = 1) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
 function setCell(i: number, c: Cell, kind: CellAnim['kind'], delay: number, dur: number, face?: Face): void {

@@ -320,7 +320,7 @@ function crestRow(box: HTMLElement, side: Side, small: boolean): void {
   if (box.childElementCount !== CRESTS.length) {
     box.replaceChildren();
     for (const c of CRESTS) {
-      const s = html('span', 'crest', iconSvg({ k: c.k, n: 1 }, small ? 15 : 20) + '<b></b>');
+      const s = html('span', 'crest', iconSvg({ k: c.k, n: 1 }, small ? 15 : 22) + '<b></b>');
       s.dataset.k = c.k;
       s.title = `${c.label}: ${c.use}`;
       box.append(s);
@@ -405,9 +405,24 @@ function dieChip(u: Unit): HTMLElement {
   b.dataset.id = String(u.id);
   b.classList.add(`r-${u.rarity}`);
   b.style.setProperty('--c', rarityDef(u.rarity).col);
-  b.append(portraitEl(u.id, 30, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('span', 'st', used ? 'used' : st === 'bag' ? 'ready' : st === 'sheet' ? 'sheet' : 'lost'), el('span', 'info', 'i'));
-  b.addEventListener('click', (ev) => {
-    if ((ev.target as HTMLElement).closest('.info') || !pickable) return openInspect(u);
+  b.append(portraitEl(u.id, 34, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 15)), el('span', 'st', used ? 'used' : st === 'bag' ? 'ready' : st === 'sheet' ? 'on sheet' : 'lost'));
+  // Halten zeigt die Seiten, auch wenn man den Würfel gerade wählen kann
+  let hold = 0,
+    held = false;
+  const stop = () => window.clearTimeout(hold);
+  b.addEventListener('pointerdown', () => {
+    held = false;
+    stop();
+    hold = window.setTimeout(() => {
+      held = true;
+      openInspect(u);
+    }, 450);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, stop);
+  b.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  b.addEventListener('click', () => {
+    if (held) return;
+    if (!pickable) return openInspect(u);
     if (!allowedEl(b)) return;
     sfx.tap();
     if (p === 'roll') {
@@ -583,16 +598,16 @@ function renderHint(): void {
   if (busy) return setHint('');
   if (S.turn !== 1) return setHint('');
   if (p === 'opening') return setHint(summonU ? `Tap the net to unfold ${summonU.name}. Tap a blue dot to move it, Turn to rotate it.` : 'Opening: pick one of your dice below to unfold first.');
-  if (p === 'roll') return setHint(`Roll ${need()} dice from your deck. Tap a die to swap it, ⓘ to read it. Rolled dice are used until the deck is shuffled.`);
+  if (p === 'roll') return setHint(`Roll ${need()} dice. Tap to swap, hold to read. Rolled dice stay used until you reshuffle.`);
   if (p === 'summon') return setHint(summonU ? `Tap the net to unfold ${summonU.name}, or skip. Blue dots move it.` : 'Tap a glowing die to unfold it, or skip.');
   if (drag) return setHint(drag.pv?.text ?? 'Out of reach. Let go to cancel.');
   if (aiming) {
     const ab = ABILITY[aiming.m.bp];
-    return setHint(`${ab.name}: ${ab.text} Tap a gold target.`);
+    return setHint(ab.text);
   }
-  if (armed) return setHint(`${armed.name}: tap where it should go. Paper: stamp there. Rival: splash it. Tap it again to soak.`);
+  if (armed) return setHint(`${armed.name}: tap a target. Paper: stamp. Rival: splash. Tap it again to soak.`);
   if (!R.onSheet(me()).some((u) => !u.acted)) return setHint('All blots are done. End your turn.');
-  setHint('Drag a blot: onto paper to stamp, onto a rival to splash. Tap a blot to see its reach.');
+  setHint('Drag a blot onto paper to stamp, onto a rival to splash. Tap it for its reach.');
 }
 /** Goldknöpfe für Fähigkeiten über den Klecksen, die eine nutzen können */
 function renderAbil(): void {
@@ -606,7 +621,7 @@ function renderAbil(): void {
     b.type = 'button';
     b.dataset.id = String(u.id);
     b.style.left = `${board.offsetLeft + (u.x + 0.5) * cell}px`;
-    b.style.top = `${board.offsetTop + u.y * cell + 2}px`;
+    b.style.top = `${board.offsetTop + View.padTop() + u.y * cell - cell * 0.55}px`;
     b.addEventListener('click', () => {
       if (!allowedEl(b) || busy) return;
       sfx.tap();
@@ -901,8 +916,19 @@ function cellAt(e: PointerEvent): number | null {
   const rect = board.getBoundingClientRect();
   const cell = View.cellSize();
   const x = Math.floor((e.clientX - rect.left) / cell),
-    y = Math.floor((e.clientY - rect.top) / cell);
+    y = Math.floor((e.clientY - rect.top - View.padTop()) / cell);
   return R.inside(x, y) ? R.idx(x, y) : null;
+}
+/** Kleckse ragen nach oben ins nächste Feld: ein Griff an den Kopf zählt für den eigenen Klecks darunter */
+function grabAt(e: PointerEvent): number | null {
+  const rect = board.getBoundingClientRect();
+  const cell = View.cellSize();
+  const fx = (e.clientX - rect.left) / cell,
+    fy = (e.clientY - rect.top - View.padTop()) / cell;
+  const x = Math.floor(fx),
+    y = Math.floor(fy);
+  const mine = (yy: number) => (R.inside(x, yy) && R.unitAt(x, yy)?.side === 1 ? R.idx(x, yy) : null);
+  return mine(y) ?? (fy - y > 0.45 ? mine(y + 1) : null) ?? cellAt(e);
 }
 board.addEventListener('pointerdown', (e) => {
   if (busy && S.turn === 2) {
@@ -910,12 +936,13 @@ board.addEventListener('pointerdown', (e) => {
     return;
   }
   if (!myTurn() || phase() !== 'act' || aiming) return;
-  const i = cellAt(e);
+  const i = grabAt(e);
   if (i === null) return;
   const u = R.unitAt(i % COLS, Math.floor(i / COLS));
   if (!u || u.side !== 1 || u.acted || (armed && armed !== u)) return;
   if (tut() && guideNow.from !== i && guideNow.cell !== i) return;
-  drag = { u, start: i, over: i, moved: false, plan: null, pv: null };
+  // over: das Feld unter dem Finger (beim Griff am Kopf das Feld darüber), erst ein Wechsel zählt als Wisch
+  drag = { u, start: i, over: cellAt(e) ?? i, moved: false, plan: null, pv: null };
   try {
     board.setPointerCapture(e.pointerId);
   } catch {
@@ -1194,6 +1221,10 @@ function layout(): void {
 window.addEventListener('resize', () => {
   if (screen === 'game') layout();
 });
+// Das Menü unten wächst und schrumpft je nach Phase: das Blatt passt sich an
+new ResizeObserver(() => {
+  if (screen === 'game') layout();
+}).observe($('boardwrap'));
 function resetUi(): void {
   for (const id of ['result', 'menu', 'rules', 'inspect', 'tip', 'logview']) $(id).hidden = true;
   reward = null;

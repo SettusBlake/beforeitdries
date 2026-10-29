@@ -13,6 +13,8 @@ export interface RenderOptions {
   /** Pixel pro CSS-Pixel, Standard: devicePixelRatio, begrenzt auf 1 bis 2 */
   dpr?: number;
   quality?: Quality;
+  /** false: ohne Papier, der Klecks steht frei (Duell). Der Papierwurf hat einen eigenen Zufall, der Klecks bleibt gleich */
+  paper?: boolean;
 }
 
 /** Was der Renderer vom Monster braucht */
@@ -639,7 +641,7 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
     main = PIG[m.main];
   const r = RNG(m.seed ^ 0x9e3779b9);
   ctx.save();
-  drawPaper(ctx, S, pa, r);
+  if (opts.paper !== false) drawPaper(ctx, S, pa, r);
   const geo = BP[m.bp].build(RNG(m.seed + 7919 * m.mutations + 13));
   const vf = 0.65 + clamp((m.humidity - 30) / 65, 0, 1) * 0.75;
   const gr = RNG(m.seed + 31 * m.mutations + 5);
