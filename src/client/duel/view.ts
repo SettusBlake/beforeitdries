@@ -293,43 +293,49 @@ function draw(): void {
     }
   });
   ctx.globalCompositeOperation = 'source-over';
-  // Grenzen der Gebiete in der Farbe des Teams, damit gleiche Pigmente unterscheidbar bleiben
-  ctx.lineWidth = 1.6;
-  ctx.setLineDash([3, 3]);
+  // Gebiete mit kräftigem Rand in der Farbe der Seite (wie Länder auf einer Karte), auch am Rand des Blatts geschlossen
+  const lw = Math.max(2.5, cell * 0.06);
+  const edges: [number, number, number, number][][] = [[], []];
   V.cells.forEach((c, i) => {
     if (c.owner !== 1 && c.owner !== 2) return;
     const a = V.anims.get(i);
     if (a && t < a.t0 + a.dur * 0.5) return;
     const x = (i % COLS) * cell,
       y = Math.floor(i / COLS) * cell;
-    ctx.strokeStyle = c.owner === 1 ? 'rgba(43,63,163,.5)' : 'rgba(163,58,58,.5)';
-    ctx.beginPath();
     const side = (dx: number, dy: number) => {
       const nx = (i % COLS) + dx,
         ny = Math.floor(i / COLS) + dy;
-      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) return false;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) return true;
       return V.cells[ny * COLS + nx]!.owner !== c.owner;
     };
-    const k = 2.5;
-    if (side(0, -1)) {
-      ctx.moveTo(x + k, y + k);
-      ctx.lineTo(x + cell - k, y + k);
-    }
-    if (side(0, 1)) {
-      ctx.moveTo(x + k, y + cell - k);
-      ctx.lineTo(x + cell - k, y + cell - k);
-    }
-    if (side(-1, 0)) {
-      ctx.moveTo(x + k, y + k);
-      ctx.lineTo(x + k, y + cell - k);
-    }
-    if (side(1, 0)) {
-      ctx.moveTo(x + cell - k, y + k);
-      ctx.lineTo(x + cell - k, y + cell - k);
-    }
+    const k = lw / 2 + 1;
+    const list = edges[c.owner - 1]!;
+    if (side(0, -1)) list.push([x + k, y + k, x + cell - k, y + k]);
+    if (side(0, 1)) list.push([x + k, y + cell - k, x + cell - k, y + cell - k]);
+    if (side(-1, 0)) list.push([x + k, y + k, x + k, y + cell - k]);
+    if (side(1, 0)) list.push([x + cell - k, y + k, x + cell - k, y + cell - k]);
+  });
+  ctx.lineCap = 'round';
+  edges.forEach((list, s) => {
+    if (!list.length) return;
+    const path = () => {
+      ctx.beginPath();
+      for (const [x0, y0, x1, y1] of list) {
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+      }
+    };
+    // Heller Saum darunter, damit der Rand auf jeder Farbe steht
+    path();
+    ctx.strokeStyle = 'rgba(255,253,248,.7)';
+    ctx.lineWidth = lw + 2.5;
+    ctx.stroke();
+    path();
+    ctx.strokeStyle = s === 0 ? 'rgba(43,63,163,.92)' : 'rgba(163,58,58,.92)';
+    ctx.lineWidth = lw;
     ctx.stroke();
   });
-  ctx.setLineDash([]);
+  ctx.lineCap = 'butt';
   // Nasse Farbe glänzt
   V.cells.forEach((c, i) => {
     if (c.wet <= 0 || c.owner === 0 || c.home) return;
