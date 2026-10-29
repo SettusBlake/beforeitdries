@@ -88,8 +88,8 @@ const rgb = (p: PigmentId) => `rgb(${PIG[p].rgb})`;
 /* ---------- Server ---------- */
 async function playEvents(evs: Ev[]): Promise<void> {
   for (const e of evs) {
-    // Der Rivale zieht doppelt so schnell, der eigene Zug normal
-    if (e.k === 'turn') V.speed = e.side === 2 ? Math.max(V.speed, 2) : 1;
+    // Jeder Zug beginnt im normalen Tempo (Tippen aufs Blatt beschleunigt den Rivalen)
+    if (e.k === 'turn') V.speed = 1;
     await View.playEvent(e);
   }
 }
@@ -899,7 +899,7 @@ function cellAt(e: PointerEvent): number | null {
 }
 board.addEventListener('pointerdown', (e) => {
   if (busy && S.turn === 2) {
-    V.speed = 4;
+    V.speed = 3;
     return;
   }
   if (!myTurn() || phase() !== 'act' || aiming) return;

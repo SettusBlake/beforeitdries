@@ -131,9 +131,13 @@ describe('Würfelsammlung', () => {
     const s = await dicePull(d, USER, 'ten');
     const ids = s.dice.dice.map((x) => x.id);
     expect(ids.length).toBeGreaterThan(6);
-    expect(await code(diceBag(d, USER, ids.slice(0, 5)))).toBe('bad_request');
-    expect(await code(diceBag(d, USER, [...ids.slice(0, 5), ids[0]]))).toBe('bad_request');
+    expect(await code(diceBag(d, USER, ids.slice(0, 7)))).toBe('bad_request');
     expect(await code(diceBag(d, USER, [...ids.slice(0, 5), 'd999']))).toBe('bad_request');
+    // Herausnehmen geht: ein halber Beutel ist erlaubt, das Duell füllt auf
+    const half = await diceBag(d, USER, ids.slice(0, 3));
+    expect(half.dice.bag).toEqual(ids.slice(0, 3));
+    const filled = await duelStart(d, USER, 'apprentice');
+    expect(filled.state!.teams[0]!.units).toHaveLength(6);
     const pick = ids.slice(-6);
     const res = await diceBag(d, USER, pick);
     expect(res.dice.bag).toEqual(pick);

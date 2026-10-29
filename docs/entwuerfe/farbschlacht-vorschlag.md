@@ -10,17 +10,20 @@ Stand 29.10.2026, Fassung 6 (weniger tippen, mehr Wumms, Plan: docs/entwuerfe/fa
 - Fassung 4 (Würfel): „Ist irgendwie cool jetzt.“
 - Animierte Fassung 4: Gefühl ok, aber unverständlich (warum man sich nicht bewegen kann), vielleicht zu lang für Reddit, Grafik muss viel besser werden.
 - Fassung 5 im Reddit-Playtest: „Der Kampf ist noch recht fade, unübersichtlich und zu viel Geklicke.“ Gemessen: 69 Taps pro Duell, 0,2 ausgewaschene Rivalen.
+- Fassung 6 (29.10.2026): Wischen ja, Splash nur für die Palette passt, Meister soll stärker werden, Platzen in der Farbe des Treffers. Es fehlen Animationen, die Rivalenzüge laufen zu schnell. Würfel ließen sich nicht aus dem Beutel nehmen.
 
 ## Neu in Fassung 6
 
 - **Ein Wisch pro Klecks:** Klecks auf ein Feld ziehen. Papier: hinlaufen und dort stempeln (liegt das Feld zu weit, stempelt er vom nächsten Feld aus). Rivale: hinlaufen und spritzen. Rivalen-Palette: Herz treffen. Oder Klecks antippen und dann das Ziel antippen. Zweimal antippen: Soak. Beim Ziehen zeigt das Blatt Weg, Stempelfelder mit Chancen oder die Trefferchance am Ziel.
 - **Fähigkeit:** Goldknopf über dem Klecks, sobald genug Glow da ist. Fähigkeiten wirken von dort, wo der Klecks steht.
 - **Ein Tipp für Würfeln und Beschwören:** Die Würfel sind vorgewählt, das Netz liegt schon an der besten Stelle. Ein Tipp aufs Netz klappt es auf, ein Tipp auf einen blauen Punkt verschiebt es.
-- **Der Zug endet von selbst,** wenn alle Kleckse gehandelt haben. Der Rivale zieht doppelt so schnell und ohne Banner.
+- **Der Zug endet von selbst,** wenn alle Kleckse gehandelt haben.
+- **Rivalenzug zum Mitschauen (29.10.2026):** normales Tempo mit Banner. Vor jedem Zug zeigt ein roter Ring, welcher Klecks dran ist, und eine gestrichelte Linie, wohin er will. Antippen des Blatts beschleunigt.
+- **Animationen (29.10.2026):** Kleckse wippen im Stand, hüpfen beim Laufen (strecken, landen gestaucht, Tropfen), drücken sich beim Stempeln aufs Papier, holen vor dem Spritzen aus und machen einen Ausfallschritt, Getroffene prallen zurück, Gegenfarbe zeigt „×1.5“, ausgewaschene Kleckse blähen sich auf und platzen, Paletten splittern. Bild: docs/entwuerfe/farbschlacht-animationen.png
 - **„Sepia paints“:** Sepia spielt den Rest des Zuges (nicht im Lern-Duell).
 - **Weniger Regeln:** Brush und Wasser fallen weg. Stempeln und Spritzen auf Kleckse sind frei, einmal pro Klecks. Jeder Stempel ist nasse Farbe, über trockene Rivalenfarbe kommt er mit einem Wurf. Die Zweitfarbe wählt das Spiel selbst.
 - **4 Symbole:** Step, Splash (nur noch für Treffer auf die Palette), Guard (aus Körnung oder Deckkraft, je nachdem, was größer ist), Glow.
-- **Mehr Wumms:** Spritzer reichen 2 Felder. Ein Klecks hält etwa 2 Treffer aus. Ein Treffer färbt das Feld unter dem Ziel. Ein ausgewaschener Klecks platzt, seine Farbe spritzt auf das freie Papier ringsum. Der Wurf (Angriff gegen Abwehr) steht kurz am Ziel.
+- **Mehr Wumms:** Spritzer reichen 2 Felder. Ein Klecks hält etwa 2 Treffer aus. Ein Treffer färbt das Feld unter dem Ziel. Ein ausgewaschener Klecks platzt, und die Farbe dessen, der getroffen hat, spritzt auf das freie Papier ringsum (festgelegt am 29.10.2026). Der Wurf (Angriff gegen Abwehr) steht kurz am Ziel.
 - **Palette:** bewacht, solange ein eigener Klecks höchstens 2 Felder entfernt steht. Höchstens ein Herz pro Zug.
 - **Ergebnisse am Ziel** statt im Ticker. Oben stehen nur noch Herzen und der Gebietsbalken, unten die 4 Symbole und die Würfel.
 
@@ -57,7 +60,7 @@ Stand 29.10.2026, Fassung 6 (weniger tippen, mehr Wumms, Plan: docs/entwuerfe/fa
 - **Pigment** nur durchs Spielen: Sieg 60, Unentschieden 40, Niederlage 25 (höchstens 5 belohnte Duelle am Tag), Lern-Duell einmal 200, Tagesklecks fangen 50.
 - **Doppelte Art** (gleicher Bauplan und Hauptpigment, nicht seltener als die eigene) wird Lasur für diese Art: Common 1, Uncommon 2, Rare 3, Epic 5, Legendary 10. Ein seltenerer Doppelter bleibt ein neuer Würfel.
 - **Lasur auf Würfelseiten:** 3 Lasur machen ein einfaches Symbol doppelt. So verändert sich ein Würfel durch Lasuren (festgelegt am 28.10.2026).
-- **Beutel:** 6 Würfel aus der Sammlung. Auf der Karte „Put in bag“ tippen, dann den Platz, den er ersetzen soll.
+- **Beutel:** bis zu 6 Würfel aus der Sammlung. Auf der Karte „Take out of bag“ nimmt ihn heraus, „Put in bag“ legt ihn auf einen freien Platz. Ist der Beutel voll, „Swap into bag“ und dann den Würfel antippen, den er ersetzt. Leere Plätze füllt ein Duell mit den übrigen Würfeln.
 
 ## Idee
 
@@ -98,7 +101,7 @@ Ein Malduell, in dem die Monster selbst auf dem Blatt stehen. Farbe ist Gelände
 - **Guard:** Liegt ein Guard im Vorrat, halbiert er von selbst den nächsten Spritzertreffer.
 - **Ausweichen und Krit:** jeder Spritzer kann ausweichen (Fluss / 400, höchstens 40 %). Eine natürliche 20 ist ein kritischer Treffer (× 1,5), Salz erhöht die Chance.
 - **Boden wirkt:** auf eigener nasser Farbe +1 Reichweite für Spritzer und +1 Deckkraft am Rundenende. In nasser Gegenfarbe −2 am Rundenende.
-- **Ausgewaschen:** Ein ausgewaschener Klecks platzt: sein Feld wird Schlamm, seine Farbe spritzt auf das freie Papier ringsum. Sein Würfel ist für immer verloren, man wirft künftig mit weniger Würfeln. Wer keinen Würfel mehr hat, verliert.
+- **Ausgewaschen:** Ein ausgewaschener Klecks platzt: sein Feld wird Schlamm, die Farbe dessen, der getroffen hat, spritzt auf das freie Papier ringsum (bei Flecken oder Radierer nur Schlamm). Sein Würfel ist für immer verloren, man wirft künftig mit weniger Würfeln. Wer keinen Würfel mehr hat, verliert.
 - **Der Radierer:** nach Runde 2 und 4 wischt er eine Zeile und streift Kleckse darin (−4). Lichtechtheit rettet.
 - **Ende:** Palette ohne Herzen, oder nach 6 Runden mehr Felder (jedes übrige Herz zählt 3 dazu).
 - Alle Würfe am Server und offen im Protokoll. Vor jedem Zug zeigt das Blatt Chancen und Schaden.
@@ -151,21 +154,21 @@ Jeder Bauplan hat ein eigenes Würfelnetz (elf Netze, Twinhead teilt seines mit 
 
 ## Rivale in drei Stufen
 
-| Stufe | bedenkt | Lebenskraft | Sättigung, Deckkraft, Körnung |
-|---|---|---|---|
-| Apprentice | 3 zufällige Züge, Würfel zufällig | × 0,7 | × 0,65 |
-| Journeyman | 15 zufällige Züge | × 0,85 | × 0,85 |
-| Master | alle | voll | voll |
+| Stufe | bedenkt | Lebenskraft | Sättigung, Deckkraft, Körnung | Start |
+|---|---|---|---|---|
+| Apprentice | 3 zufällige Züge, Würfel zufällig | × 0,7 | × 0,65 | wie du |
+| Journeyman | 15 zufällige Züge | × 0,85 | × 0,85 | wie du |
+| Master | alle | × 1,25 | × 1,15 | 2 Guard und 2 Glow mehr (stärker als du, festgelegt am 29.10.2026) |
 
 **Simulation** mit den Regeln von Fassung 6, je 200 Duelle mit zufälligen Beuteln. Die Spielerseite spielt dabei als Computer, einmal stark (bedenkt jeden Zug), einmal schwach (bedenkt 4 zufällige Züge). Siege des Spielers (in Klammern Fassung 5):
 
 | Spieler | gegen Apprentice | gegen Journeyman | gegen Master |
 |---|---|---|---|
-| stark | 85 % (88) | 73 % (77) | 56 % (65) |
-| schwach | 69 % (65) | 47 % (44) | 44 % (26) |
+| stark | 86 % (88) | 73 % (77) | 43 % (65) |
+| schwach | 68 % (65) | 47 % (44) | 35 % (26) |
 
-- Ausgewaschene Kleckse pro Duell (beide Seiten): bei starkem Spiel 1,9 bis 2,8 statt 0,2 bis 0,4.
-- 28 bis 52 % der Duelle enden an der Palette, der Rest beim Trocknen.
+- Ausgewaschene Kleckse pro Duell (beide Seiten): bei starkem Spiel 1,8 bis 2,7 statt 0,2 bis 0,4.
+- 31 bis 57 % der Duelle enden an der Palette, der Rest beim Trocknen.
 - Ein Duell dauert etwa 5 bis 6 Würfe pro Seite.
 - Bedienung im Browser gemessen (ein Bot folgt Sepias Pfeil): 14 Taps für ein ganzes Duell gegen den Lehrling statt 69, 3 bis 5 pro Zug. Das Lern-Duell braucht 29 Taps über 6 Runden.
 
@@ -187,7 +190,5 @@ Aus dem Gacha-Plan noch offen: Wochenbanner und Pigment fürs Benennen von Arten
 
 ## Fragen
 
-1. Fühlt sich das Wischen gut an, oder lieber antippen und Ziel antippen?
-2. Splash als Symbol nur noch für die Palette: verständlich, oder soll es einen anderen Namen bekommen?
-3. Gegen den Meister gewinnt man jetzt öfter als vorher (schwach 44 % statt 26 %). Soll der Meister stärker werden?
-4. Platzen färbt das Papier in der Farbe des geplatzten Kleckses (so stand es im Plan). Oder lieber in der Farbe dessen, der getroffen hat?
+1. Ist das Tempo des Rivalen jetzt gut, oder noch langsamer?
+2. Welche Animationen fehlen dir noch am meisten?

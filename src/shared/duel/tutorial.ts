@@ -10,7 +10,7 @@ import { ABILITY, aiJokerCrest, bestOpening, byGesture, bestPlacement, find, liv
 /** Bis zu dieser Runde gibt Sepia jeden Schritt vor */
 export const TUTORIAL_ROUNDS = 3;
 /** Per Suche gewählt (Fassung 6): der erste Wurf beschwört, es wird gestempelt, gespritzt, zwei Rivalen platzen, die Palette wird getroffen, eine Fähigkeit genutzt */
-export const TUTORIAL_SEED = 598;
+export const TUTORIAL_SEED = 624;
 
 export function tutorialBags(): [Monster[], Monster[]] {
   return [

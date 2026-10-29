@@ -9,7 +9,8 @@ import { iconImage } from './icons';
 import { COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type UnitSnap } from '../../shared/duel/rules';
 import { sfx } from './sound';
 
-export type VUnit = UnitSnap & { side: Side; dx: number; dy: number; lift: number; scale: number; alpha: number; flash: number; hpShown: number; busy: boolean };
+/** sqx, sqy: Stauchen und Strecken. ox, oy: Ausholen, Ausfallschritt, Rückstoß (in Feldern). rot: Kippen */
+export type VUnit = UnitSnap & { side: Side; dx: number; dy: number; lift: number; scale: number; alpha: number; flash: number; hpShown: number; busy: boolean; sqx: number; sqy: number; ox: number; oy: number; rot: number };
 type CellAnim = { t0: number; dur: number; kind: 'grow' | 'fade' | 'flip' | 'erase' | 'shine'; from?: Cell; face?: Face };
 type Particle = { x: number; y: number; vx: number; vy: number; g: number; r: number; t0: number; life: number; col: string };
 type FText = { x: number; y: number; text: string; col: string; size: number; t0: number; life: number };
@@ -40,6 +41,8 @@ export const V = {
   flashRed: 0,
   crack: [0, 0],
   eraser: null as null | { row: number; t0: number; dur: number },
+  /** Der Rivale zeigt, was er gleich tut */
+  focus: null as null | { id: number; to: number; at: number | null; t0: number },
   speed: 1,
 };
 let hooks: Hooks;
@@ -106,6 +109,7 @@ export function reset(): void {
   V.rings = [];
   V.shots = [];
   V.eraser = null;
+  V.focus = null;
   V.crack = [0, 0];
   blobCache.clear();
 }
@@ -327,6 +331,7 @@ function draw(): void {
   }
   for (const side of [1, 2] as Side[]) drawPalette(side, t);
   hooks.overlay(ctx, cell);
+  drawFocus(t);
   // Kleckse
   const list = [...V.units.values()].filter((u) => u.state === 'sheet' || u.busy).sort((a, b) => a.dy - b.dy);
   for (const u of list) drawUnit(u, t);
@@ -476,19 +481,26 @@ function drawPalette(side: Side, t: number): void {
   ctx.restore();
 }
 function drawUnit(u: VUnit, t: number): void {
-  const x = (u.dx + 0.5) * cell,
-    groundY = (u.dy + 0.5) * cell;
-  const y = groundY - u.lift * cell - 2;
+  const x = (u.dx + u.ox + 0.5) * cell,
+    groundY = (u.dy + u.oy + 0.5) * cell;
+  // Ruhig wippen und atmen, solange nichts passiert
+  const idle = u.busy ? 0 : 0.035 * (0.5 + 0.5 * Math.sin(t / 520 + u.id * 1.7));
+  const y = groundY - (u.lift + idle) * cell - 2;
   const breathe = 1 + 0.025 * Math.sin(t / 450 + u.id * 1.3);
   const s = u.scale * breathe;
   const size = Math.round(cell * 1.02);
   // Schatten
   ctx.fillStyle = `rgba(40,35,30,${0.12 * u.alpha})`;
   ctx.beginPath();
-  ctx.ellipse(x, groundY + cell * 0.36, cell * 0.32 * u.scale * (1 - u.lift * 0.3), cell * 0.08, 0, 0, 7);
+  ctx.ellipse(x, groundY + cell * 0.36, cell * 0.32 * u.scale * u.sqx * (1 - (u.lift + idle) * 0.3), cell * 0.08, 0, 0, 7);
   ctx.fill();
   const rad = cell * 0.46 * s;
   ctx.save();
+  // Stauchen von unten aus, damit der Klecks auf dem Boden bleibt
+  ctx.translate(x, y + rad);
+  ctx.rotate(u.rot);
+  ctx.scale(u.sqx, u.sqy);
+  ctx.translate(-x, -y - rad);
   ctx.beginPath();
   ctx.arc(x, y, rad, 0, 7);
   ctx.clip();
@@ -500,6 +512,11 @@ function drawUnit(u: VUnit, t: number): void {
     u.flash = Math.max(0, u.flash - 0.06);
   }
   ctx.restore();
+  ctx.save();
+  ctx.translate(x, y + rad);
+  ctx.rotate(u.rot);
+  ctx.scale(u.sqx, u.sqy);
+  ctx.translate(-x, -y - rad);
   ctx.globalAlpha = u.alpha;
   const sel = hooks.selected() === u.id;
   ctx.strokeStyle = u.side === 1 ? 'rgba(43,63,163,.95)' : 'rgba(163,58,58,.95)';
@@ -557,6 +574,44 @@ function drawUnit(u: VUnit, t: number): void {
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
+  ctx.restore();
+}
+/** Der Rivale zeigt vor jedem Zug, wer was vorhat: Ring um den Klecks, gestrichelte Linie zum Ziel */
+function drawFocus(t: number): void {
+  const f = V.focus;
+  if (!f) return;
+  const age = t - f.t0;
+  if (age > 2200 / V.speed) {
+    V.focus = null;
+    return;
+  }
+  const u = V.units.get(f.id);
+  if (!u || u.state !== 'sheet') return;
+  const x = (u.dx + 0.5) * cell,
+    y = (u.dy + 0.5) * cell;
+  const a = Math.min(1, age / 180) * (age > 1600 / V.speed ? 1 - (age - 1600 / V.speed) / (600 / V.speed) : 1);
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, a);
+  ctx.strokeStyle = 'rgba(163,58,58,.9)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(x, y, cell * (0.55 + 0.05 * Math.sin(t / 120)), 0, 7);
+  ctx.stroke();
+  const tgt = f.at ?? (f.to !== Math.round(u.dy) * COLS + Math.round(u.dx) ? f.to : null);
+  if (tgt !== null) {
+    ctx.setLineDash([6, 6]);
+    ctx.lineDashOffset = -t / 30;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(cx(tgt), cy(tgt));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx(tgt), cy(tgt), cell * 0.18, 0, 7);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 /* ---------- Effekte ---------- */
@@ -589,7 +644,7 @@ function setCell(i: number, c: Cell, kind: CellAnim['kind'], delay: number, dur:
 }
 function vunitFrom(s: UnitSnap): VUnit {
   const u = unitById(s.id)!;
-  return { ...s, side: u.side, dx: s.x, dy: s.y, lift: 0, scale: 1, alpha: 1, flash: 0, hpShown: s.hp, busy: false };
+  return { ...s, side: u.side, dx: s.x, dy: s.y, lift: 0, scale: 1, alpha: 1, flash: 0, hpShown: s.hp, busy: false, sqx: 1, sqy: 1, ox: 0, oy: 0, rot: 0 };
 }
 
 /* ---------- Ereignisse abspielen ---------- */
@@ -628,12 +683,19 @@ export async function playEvent(e: Ev): Promise<void> {
       hooks.ticker(e.t, e.c);
       return;
     case 'turn':
-      // Der Rivale zieht ohne Banner
-      if (e.side === 2) return;
-      hooks.banner('Your turn', 'turn');
+      V.focus = null;
+      hooks.banner(e.side === 1 ? 'Your turn' : 'Rival turn', 'turn');
       sfx.turn();
-      await wait(650);
+      await wait(800);
       return;
+    case 'focus': {
+      // Kurz zeigen, was der Rivale vorhat, damit man folgen kann
+      V.focus = { id: e.id, to: e.to, at: e.at, t0: now() };
+      const v = V.units.get(e.id);
+      if (v) await tween(260, (p) => (v.sqy = 1 + 0.12 * Math.sin(Math.PI * p)));
+      await wait(520);
+      return;
+    }
     case 'round':
       hooks.banner(`Round ${e.round}`, 'round');
       sfx.turn();
@@ -674,6 +736,7 @@ export async function playEvent(e: Ev): Promise<void> {
       if (!v) return;
       v.busy = true;
       const trail = new Map(e.trail.map((s) => [s.i, s.c]));
+      const col = rgbCss(unitColor(e.id), 0.6);
       for (let k = 1; k < e.path.length; k++) {
         const a = e.path[k - 1]!,
           b = e.path[k]!;
@@ -681,24 +744,47 @@ export async function playEvent(e: Ev): Promise<void> {
           ay = Math.floor(a / COLS),
           bx = b % COLS,
           by = Math.floor(b / COLS);
-        sfx.step();
-        await tween(150, (p) => {
+        // Hüpfen: abstoßen (gestreckt), fliegen, landen (gestaucht)
+        await tween(230, (p) => {
           v.dx = ax + (bx - ax) * p;
           v.dy = ay + (by - ay) * p;
-          v.lift = Math.sin(Math.PI * p) * 0.12;
+          v.lift = Math.sin(Math.PI * p) * 0.3;
+          v.sqy = 1 + 0.14 * Math.sin(Math.PI * p);
+          v.sqx = 1 - 0.08 * Math.sin(Math.PI * p);
+          v.rot = (bx - ax) * 0.12 * Math.sin(Math.PI * p);
+        });
+        sfx.step();
+        splatter(cx(b), cy(b) + cell * 0.3, col, 3, 0.35);
+        await tween(90, (p) => {
+          v.sqy = 1 - 0.16 * Math.sin(Math.PI * p);
+          v.sqx = 1 + 0.12 * Math.sin(Math.PI * p);
         });
         const c = trail.get(a);
         if (c) setCell(a, c, 'grow', 0, 260);
       }
-      v.lift = 0;
-      v.busy = false;
+      Object.assign(v, { lift: 0, sqx: 1, sqy: 1, rot: 0, busy: false });
       return;
     }
     case 'stamp': {
-      sfx.brush();
+      // Der Klecks drückt sich aufs Papier, dann blüht die Farbe auf
+      const v = V.units.get(e.id);
+      if (v) {
+        v.busy = true;
+        await tween(160, (p) => {
+          v.sqy = 1 - 0.22 * p;
+          v.sqx = 1 + 0.16 * p;
+        });
+        sfx.brush();
+        const [ux, uy] = unitPos(e.id);
+        ring(ux, uy + cell * 0.2, cell * 0.2, cell * 1.1, rgbCss(unitColor(e.id), 0.55), 520, 4);
+        void tween(260, (p) => {
+          v.sqy = 0.78 + 0.22 * easeOutBack(p);
+          v.sqx = 1.16 - 0.16 * easeOutBack(p);
+        }).then(() => Object.assign(v, { sqx: 1, sqy: 1, busy: false }));
+      } else sfx.brush();
       const t = unitById(e.id);
       e.cells.forEach((s, k) => {
-        const d = k * 85;
+        const d = k * 110;
         if (s.r === 'take' || s.r === 'refresh' || s.r === 'mud') setCell(s.i, s.c, 'grow', d, 320);
         else if (s.r === 'held')
           window.setTimeout(() => {
@@ -707,18 +793,40 @@ export async function playEvent(e: Ev): Promise<void> {
           }, d / V.speed);
         if (s.r === 'take' && t) window.setTimeout(() => splatter(cx(s.i), cy(s.i), rgbCss(s.c.rgb, 0.7), 3, 0.4), d / V.speed);
       });
-      await wait(e.cells.length * 85 + 260);
+      await wait(e.cells.length * 110 + 380);
       return;
     }
     case 'shot': {
+      const shooter = V.units.get(e.id);
+      const target = [...V.units.values()].find((u) => u.state === 'sheet' && Math.round(u.dx) === e.at % COLS && Math.round(u.dy) === Math.floor(e.at / COLS));
+      // Ausholen und Ausfallschritt Richtung Ziel
+      if (shooter) {
+        shooter.busy = true;
+        const ddx = e.at % COLS - shooter.dx,
+          ddy = Math.floor(e.at / COLS) - shooter.dy;
+        const len = Math.max(0.001, Math.hypot(ddx, ddy));
+        const nx = ddx / len,
+          ny = ddy / len;
+        await tween(200, (p) => {
+          shooter.ox = -nx * 0.14 * p;
+          shooter.oy = -ny * 0.14 * p;
+          shooter.sqy = 1 - 0.1 * p;
+        });
+        void tween(260, (p) => {
+          const q = Math.sin(Math.PI * p);
+          shooter.ox = nx * 0.22 * q;
+          shooter.oy = ny * 0.22 * q;
+          shooter.sqy = 0.9 + 0.1 * p + 0.12 * q;
+        }).then(() => Object.assign(shooter, { ox: 0, oy: 0, sqy: 1, busy: false }));
+        await wait(90);
+      }
       const [x0, y0] = unitPos(e.id);
       const x1 = cx(e.at),
         y1 = cy(e.at);
       const col = rgbCss(e.rgb);
-      V.shots.push({ x0, y0, x1, y1, t0: now(), dur: 340 / V.speed, col, h: cell * (0.6 + Math.hypot(x1 - x0, y1 - y0) / cell / 6) });
+      V.shots.push({ x0, y0, x1, y1, t0: now(), dur: 420 / V.speed, col, h: cell * (0.6 + Math.hypot(x1 - x0, y1 - y0) / cell / 6) });
       sfx.launch();
-      await wait(340);
-      const target = [...V.units.values()].find((u) => u.state === 'sheet' && Math.round(u.dx) === e.at % COLS && Math.round(u.dy) === Math.floor(e.at / COLS));
+      await wait(420);
       // Der Wurf steht am Ziel: Angriff gegen Abwehr
       const m = /d(\d+)\+(-?\d+) vs d(\d+)\+(-?\d+)/.exec(e.text);
       if (m) text(x1, y1 + cell * 0.42, `${+m[1]! + +m[2]!} vs ${+m[3]! + +m[4]!}`, '#5f6474', 12, 900);
@@ -730,9 +838,27 @@ export async function playEvent(e: Ev): Promise<void> {
         await wait(220);
         return;
       }
-      splatter(x1, y1, col, e.res === 'crit' ? 22 : 14, e.res === 'crit' ? 1.4 : 1);
-      ring(x1, y1, cell * 0.15, cell * 0.7, col, 450, 4);
-      if (target) target.flash = 0.9;
+      splatter(x1, y1, col, e.res === 'crit' ? 26 : 16, e.res === 'crit' ? 1.5 : 1.1);
+      ring(x1, y1, cell * 0.15, cell * 0.8, col, 500, 4);
+      if (target) {
+        // Rückstoß weg vom Schützen, gestaucht
+        target.flash = 0.9;
+        target.busy = true;
+        const sx = shooter ? Math.sign(target.dx - shooter.dx) : 0,
+          sy = shooter ? Math.sign(target.dy - shooter.dy) : 0;
+        void tween(420, (p) => {
+          const q = Math.sin(Math.PI * p) * (1 - p * 0.3);
+          target.ox = sx * 0.2 * q;
+          target.oy = sy * 0.2 * q;
+          target.sqx = 1 + 0.18 * q;
+          target.sqy = 1 - 0.2 * q;
+          target.rot = sx * 0.18 * q;
+        }).then(() => Object.assign(target, { ox: 0, oy: 0, sqx: 1, sqy: 1, rot: 0, busy: false }));
+      }
+      if (e.mult && e.mult > 1 && e.text !== 'palette') {
+        text(x1 + cell * 0.55, y1 - cell * 0.55, '×1.5', '#b8860b', 15, 1100);
+        ring(x1, y1, cell * 0.4, cell * 1.2, 'rgba(201,150,30,.8)', 600, 3);
+      }
       if (e.text !== 'palette') {
         if (e.guard) {
           ring(x1, y1, cell * 0.5, cell * 0.5, 'rgba(95,100,116,.9)', 600, 4);
@@ -742,11 +868,11 @@ export async function playEvent(e: Ev): Promise<void> {
         text(x1, y1 - cell * 0.15, `-${e.dmg}`, e.res === 'crit' ? '#b8860b' : '#a33a3a', e.res === 'crit' ? 28 : 21);
         if (e.res === 'crit') {
           text(x1, y1 - cell * 0.75, 'CRIT', '#b8860b', 15, 900);
-          shake(9);
+          shake(11);
         }
       }
       sfx.hit(e.res === 'crit');
-      await wait(e.res === 'crit' ? 480 : 320);
+      await wait(e.res === 'crit' ? 720 : 520);
       return;
     }
     case 'hp': {
@@ -757,6 +883,7 @@ export async function playEvent(e: Ev): Promise<void> {
       const [x, y] = unitPos(e.id);
       if (e.delta > 0) {
         text(x, y - cell * 0.1, `+${e.delta}`, '#2e7a57', 17);
+        for (let k = 0; k < 7; k++) V.parts.push({ x: x + (Math.random() - 0.5) * cell * 0.6, y: y + cell * 0.2, vx: 0, vy: -50 - Math.random() * 40, g: 0, r: 2, t0: now() + k * 50, life: 700, col: 'rgba(70,160,90,.85)' });
         sfx.heal();
       } else {
         text(x, y - cell * 0.1, `${e.delta}`, e.why === 'round' ? '#6e4b33' : '#a33a3a', e.why === 'round' ? 15 : 19);
@@ -771,17 +898,28 @@ export async function playEvent(e: Ev): Promise<void> {
       if (!v) return;
       v.busy = true;
       const [x, y] = unitPos(e.id);
-      const col = rgbCss(unitColor(e.id), 0.8);
-      sfx.wash();
-      text(x, y - cell * 0.4, 'washed out', '#6e4b33', 15, 1200);
-      for (let k = 0; k < 14; k++) V.parts.push({ x: x + (Math.random() - 0.5) * cell * 0.6, y: y + (Math.random() - 0.3) * cell * 0.4, vx: (Math.random() - 0.5) * 20, vy: 10 + Math.random() * 40, g: 160, r: 2 + Math.random() * 2.5, t0: now(), life: 800, col });
-      await tween(650, (p) => {
-        v.alpha = 1 - p;
-        v.scale = 1 + 0.3 * p;
-        v.lift = -0.1 * p;
+      // Aufblähen und zittern, dann platzen: Tropfen in der Farbe dessen, der getroffen hat
+      const col = rgbCss(e.by !== null ? unitColor(e.by) : unitColor(e.id), 0.85);
+      const own = rgbCss(unitColor(e.id), 0.7);
+      await tween(380, (p) => {
+        v.scale = 1 + 0.32 * p;
+        v.rot = Math.sin(p * 40) * 0.08 * p;
+        v.flash = 0.5 * p;
       });
-      v.state = 'gone';
-      v.busy = false;
+      sfx.wash();
+      shake(9);
+      text(x, y - cell * 0.4, 'burst!', '#6e4b33', 18, 1300);
+      ring(x, y, cell * 0.3, cell * 1.6, col, 600, 6);
+      for (let k = 0; k < 26; k++) {
+        const a = (k / 26) * Math.PI * 2 + Math.random() * 0.2,
+          sp = 120 + Math.random() * 160;
+        V.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, g: 260, r: 2.5 + Math.random() * 3, t0: now(), life: 700 + Math.random() * 300, col: k % 3 ? col : own });
+      }
+      await tween(260, (p) => {
+        v.alpha = 1 - p;
+        v.scale = 1.32 + 0.4 * p;
+      });
+      Object.assign(v, { state: 'gone', busy: false, rot: 0, flash: 0 });
       setCell(e.cell.i, e.cell.c, 'grow', 0, 400);
       return;
     }
@@ -904,10 +1042,16 @@ export async function playEvent(e: Ev): Promise<void> {
       hooks.hud();
       shake(12);
       if (e.side === 1) V.flashRed = now();
-      text(cx(team.home), cy(team.home) - cell * 0.3, '-♥', e.side === 1 ? '#2b3fa3' : '#a33a3a', 30, 1200);
-      splatter(cx(team.home), cy(team.home), e.side === 1 ? 'rgba(43,63,163,.8)' : 'rgba(163,58,58,.8)', 18, 1.2);
+      text(cx(team.home), cy(team.home) - cell * 0.3, '-♥', e.side === 1 ? '#2b3fa3' : '#a33a3a', 34, 1400);
+      splatter(cx(team.home), cy(team.home), e.side === 1 ? 'rgba(43,63,163,.8)' : 'rgba(163,58,58,.8)', 24, 1.3);
+      // Scherben der Palette
+      for (let k = 0; k < 10; k++) {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4;
+        V.parts.push({ x: cx(team.home), y: cy(team.home), vx: Math.cos(a) * (90 + Math.random() * 90), vy: Math.sin(a) * (120 + Math.random() * 80), g: 420, r: 3 + Math.random() * 2, t0: now(), life: 900, col: 'rgba(255,253,248,.95)' });
+      }
+      ring(cx(team.home), cy(team.home), cell * 0.3, cell * 1.4, e.side === 1 ? 'rgba(43,63,163,.7)' : 'rgba(163,58,58,.7)', 700, 5);
       sfx.heart();
-      await wait(950);
+      await wait(1200);
       return;
     }
     case 'eraser': {

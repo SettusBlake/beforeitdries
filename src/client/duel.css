@@ -304,3 +304,7 @@ button { font: inherit; color: inherit; }
 #go.soft { background: transparent; color: var(--ink); border: 1px solid var(--ink); font-weight: 700; }
 #go.soft:disabled { opacity: .3; }
 @media (prefers-reduced-motion: reduce) { .abil { animation: none; } }
+.bslot.empty { cursor: default; }
+.bslot.empty.swap { cursor: pointer; }
+.bslot .plus { font: 300 22px var(--f-body); color: var(--line); }
+#inspect .trow .inbag-lbl { margin: auto 0; }

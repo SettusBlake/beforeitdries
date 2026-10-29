@@ -101,7 +101,8 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
     return { d100, rarity, pity, die, dup: key, glaze: g };
   }
   s.dice.push(die);
-  if (s.bag.length < BAG) s.bag.push(die.id);
+  // Startzüge füllen den Beutel, spätere Würfel packt man selbst ein
+  if (starter && s.bag.length < BAG) s.bag.push(die.id);
   return { d100, rarity, pity, die, dup: null, glaze: 0 };
 }
 
@@ -151,14 +152,14 @@ export async function dicePull(d: Deps, userId: string | undefined, kind: unknow
   });
 }
 
-/** Beutel neu packen: so viele eigene, verschiedene Würfel wie möglich, höchstens 6 */
+/** Beutel neu packen: eigene, verschiedene Würfel, höchstens 6. Leere Plätze füllt das Duell mit den übrigen Würfeln */
 export async function diceBag(d: Deps, userId: string | undefined, ids: unknown): Promise<DiceResponse> {
   const uid = needUser(userId);
   if (!Array.isArray(ids) || ids.some((x) => typeof x !== 'string')) throw new GameError('bad_request', 'Unknown dice.');
   return withLock(d, playerLock(uid), async () => {
     const s = await loadDice(d, uid);
     const set = [...new Set(ids as string[])];
-    if (set.length !== Math.min(BAG, s.dice.length)) throw new GameError('bad_request', `Pack ${Math.min(BAG, s.dice.length)} dice.`);
+    if (set.length > BAG) throw new GameError('bad_request', `At most ${BAG} dice fit in the bag.`);
     if (!set.every((id) => s.dice.some((x) => x.id === id))) throw new GameError('bad_request', 'That die is not yours.');
     s.bag = set;
     await saveDice(d, uid, s);

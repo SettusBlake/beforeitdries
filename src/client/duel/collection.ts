@@ -85,21 +85,23 @@ function render(): void {
   bag.replaceChildren();
   for (let k = 0; k < BAG; k++) {
     const d = s.dice.find((x) => x.id === s.bag[k]);
-    const b = el('button', 'bslot' + (swapIn ? ' swap' : '')) as HTMLButtonElement;
+    const b = el('button', 'bslot' + (swapIn ? ' swap' : '') + (d ? '' : ' empty')) as HTMLButtonElement;
     b.type = 'button';
+    b.dataset.slot = String(k);
     if (d) {
       const u = unitOfDie(d);
       b.style.setProperty('--c', rarityDef(u.rarity).col);
       b.append(art(d, 46), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 13)));
       b.title = u.name;
-      b.addEventListener('click', () => {
-        if (swapIn) return void swap(k);
-        openDie(d);
-      });
-    } else b.disabled = true;
+    } else b.append(el('span', 'plus', '+'));
+    b.addEventListener('click', () => {
+      if (swapIn) return void swap(k);
+      if (d) openDie(d);
+    });
     bag.append(b);
   }
-  $('bag-hint').textContent = swapIn ? 'Tap the die it should replace.' : 'The six dice you duel with.';
+  const free = BAG - s.bag.length;
+  $('bag-hint').textContent = swapIn ? 'Tap the die it should replace.' : free > 0 ? `${free} empty: a duel fills ${free > 1 ? 'them' : 'it'} with your other dice.` : 'The six dice you duel with. Tap one to take it out.';
   // Sammlung
   const coll = $('coll');
   coll.replaceChildren();
@@ -142,8 +144,12 @@ async function swap(slot: number): Promise<void> {
     swapIn = null;
     return render();
   }
-  ids[slot] = swapIn;
+  if (slot < ids.length) ids[slot] = swapIn;
+  else ids.push(swapIn);
   swapIn = null;
+  await packBag(ids);
+}
+async function packBag(ids: string[]): Promise<void> {
   busy = true;
   sfx.tap();
   try {
@@ -210,14 +216,25 @@ function openDie(d: DieRec): void {
   lines.append(html('p', '', `<b>Moves</b> ${GAIT[u.m.bp].text}`), html('p', 'ab', `<b>${ab.name}</b> ${ab.text}`));
   for (const t of u.traits) lines.append(html('p', 'trait', `<b>${t.label}</b> ${t.text}`));
   const row = el('div', 'trow');
-  if (s.bag.includes(d.id)) row.append(el('span', 'inbag-lbl', 'In your bag'));
-  else {
-    const b = el('button', 'primary', 'Put in bag') as HTMLButtonElement;
+  if (s.bag.includes(d.id)) {
+    // Im Beutel: herausnehmen
+    const b = el('button', 'ghost', 'Take out of bag') as HTMLButtonElement;
+    b.type = 'button';
+    b.id = 'take-bag';
+    b.addEventListener('click', () => {
+      $('inspect').hidden = true;
+      void packBag(s.bag.filter((x) => x !== d.id));
+    });
+    row.append(el('span', 'inbag-lbl', 'In your bag'), b);
+  } else {
+    const b = el('button', 'primary', s.bag.length < BAG ? 'Put in bag' : 'Swap into bag') as HTMLButtonElement;
     b.type = 'button';
     b.id = 'put-bag';
     b.addEventListener('click', () => {
-      swapIn = d.id;
       $('inspect').hidden = true;
+      // Freier Platz: gleich hinein. Sonst den Würfel antippen, den er ersetzen soll
+      if (s.bag.length < BAG) return void packBag([...s.bag, d.id]);
+      swapIn = d.id;
       render();
       $('bag').scrollIntoView({ block: 'center', behavior: 'smooth' });
     });

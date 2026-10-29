@@ -95,9 +95,11 @@ export type Ev =
   | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[] }
   | { k: 'move'; id: number; path: number[]; trail: CellSnap[] }
   | { k: 'stamp'; id: number; wet: boolean; cells: (CellSnap & { r: StampRes })[] }
-  | { k: 'shot'; id: number; at: number; res: 'miss' | 'dodge' | 'hit' | 'crit'; dmg: number; guard: boolean; rgb: RGB; text: string }
+  | { k: 'shot'; id: number; at: number; res: 'miss' | 'dodge' | 'hit' | 'crit'; dmg: number; guard: boolean; rgb: RGB; text: string; mult?: number }
   | { k: 'hp'; id: number; hp: number; delta: number; why: string }
-  | { k: 'wash'; id: number; cell: CellSnap }
+  | { k: 'wash'; id: number; cell: CellSnap; by: number | null }
+  /** Der Rivale zeigt, was er gleich tut: wer, wohin, welches Ziel */
+  | { k: 'focus'; id: number; to: number; at: number | null; a: Action }
   | { k: 'pos'; id: number; x: number; y: number; how: 'push' | 'dash' | 'leap' | 'drift' }
   | { k: 'ability'; id: number; name: string; bp: BlueprintId; at: number; area: number[] }
   | { k: 'cells'; how: 'bleed' | 'seep' | 'rain' | 'wet' | 'splat' | 'burst'; cells: CellSnap[] }
@@ -118,11 +120,13 @@ export const CRESTS: { k: Crest; label: string; stat: StatK; col: string; use: s
 const crestStat = (u: Unit, c: Crest): number => (c === 'guard' ? Math.max(u.grn, u.opa) : u[crestDef(c).stat]);
 export const crestDef = (k: Crest) => CRESTS.find((c) => c.k === k)!;
 
-/* Rivale: bedenkt nur eine Handvoll Züge (0 = alle), schwächere Kleckse */
+/* Rivale: bedenkt nur eine Handvoll Züge (0 = alle), Lehrling und Geselle mit schwächeren Klecksen, der Meister mit stärkeren */
 export const TUNE = {
   look: { apprentice: 3, journeyman: 15, master: 0 } as Record<Level, number>,
-  hp: { apprentice: 0.7, journeyman: 0.85, master: 1 } as Record<Level, number>,
-  stat: { apprentice: 0.65, journeyman: 0.85, master: 1 } as Record<Level, number>,
+  hp: { apprentice: 0.7, journeyman: 0.85, master: 1.25 } as Record<Level, number>,
+  stat: { apprentice: 0.65, journeyman: 0.85, master: 1.15 } as Record<Level, number>,
+  /** Zusätzliche Symbole zum Start (der Meister ist stärker als du, festgelegt am 29.10.2026) */
+  extra: { apprentice: {}, journeyman: {}, master: { guard: 2, glow: 2 } } as Record<Level, Partial<Record<Crest, number>>>,
 };
 
 const PATTERNS: Record<BlueprintId, P[]> = {
@@ -494,6 +498,7 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
       hy = Math.floor(t.home / COLS);
     for (const [x, y] of [[hx - 1, hy], [hx + 1, hy], [hx, hy + (t.side === 1 ? -1 : 1)]] as P[]) paintCell(S.cells[idx(x, y)]!, t.units[0]!, t.units[0]!.m.main, false);
   }
+  for (const [c, n] of Object.entries(TUNE.extra[level]) as [Crest, number][]) S.teams[1].crests[c] += n;
   for (const u of S.teams[1].units) {
     const k = TUNE.stat[level];
     u.hp = u.max = Math.round(u.max * TUNE.hp[level]);
@@ -867,7 +872,7 @@ function setHp(t: Unit, hp: number, why: string): void {
 /** Ein Treffer mit Würfeln. Ein Guard des Gegners halbiert den Schaden von selbst. */
 function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignoreGrain = false): [string, number] {
   const at = idx(t.x, t.y);
-  const shot = (res: 'miss' | 'dodge' | 'hit' | 'crit', dmg: number, guard: boolean, text: string) => emit({ k: 'shot', id: u.id, at, res, dmg, guard, rgb: PIG[pig].rgb, text });
+  const shot = (res: 'miss' | 'dodge' | 'hit' | 'crit', dmg: number, guard: boolean, text: string) => emit({ k: 'shot', id: u.id, at, res, dmg, guard, rgb: PIG[pig].rgb, text, mult: typeMult(pig, t.m.main) });
   if (rand01() < dodgeOf(t)) {
     shot('dodge', 0, false, 'dodged');
     return ['dodged', 0];
@@ -927,25 +932,25 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
     emit({ k: 'cells', how: 'splat', cells: [snap(idx(t.x, t.y))] });
   }
   let s = `splashed ${t.side === 1 ? 'your' : 'the rival'} ${t.name}, ${relWord(pig, t.m.main)} (${parts.join('; ')})`;
-  if (t.hp <= 0) s += washOut(t);
+  if (t.hp <= 0) s += washOut(t, u);
   return s;
 }
-/** Ausgewaschen: der Klecks platzt, sein Feld wird Schlamm, seine Farbe spritzt auf freies Papier ringsum */
-function washOut(t: Unit): string {
+/** Ausgewaschen: der Klecks platzt, sein Feld wird Schlamm. Hat ihn jemand getroffen, spritzt dessen Farbe auf freies Papier ringsum */
+function washOut(t: Unit, by?: Unit): string {
   if (t.state !== 'sheet') return '';
   count(`kill${t.side}`);
   t.state = 'gone';
   t.hp = 0;
   const i = idx(t.x, t.y);
   mudCell(S.cells[i]!);
-  emit({ k: 'wash', id: t.id, cell: snap(i) });
+  emit({ k: 'wash', id: t.id, cell: snap(i), by: by?.id ?? null });
   const burst: number[] = [];
   for (let y = t.y - 1; y <= t.y + 1; y++)
     for (let x = t.x - 1; x <= t.x + 1; x++) {
-      if (!inside(x, y) || unitAt(x, y)) continue;
+      if (!by || !inside(x, y) || unitAt(x, y)) continue;
       const c = S.cells[idx(x, y)]!;
       if (c.owner !== 0 || c.home) continue;
-      paintCell(c, t, t.m.main, false);
+      paintCell(c, by, by.m.main, false);
       burst.push(idx(x, y));
     }
   if (burst.length) emit({ k: 'cells', how: 'burst', cells: burst.map(snap) });
@@ -1068,7 +1073,7 @@ function doAbility(u: Unit, at: number): string {
         }
         setHp(t, t.hp - 3, 'gust');
         parts.push(`${t.name} -3`);
-        if (t.hp <= 0) parts.push(washOut(t).slice(2));
+        if (t.hp <= 0) parts.push(washOut(t, u).slice(2));
       }
       s += parts.length ? `: ${parts.join(', ')}` : ': nobody close';
       break;
@@ -1105,7 +1110,7 @@ function doAbility(u: Unit, at: number): string {
       emit({ k: 'pos', id: u.id, x: u.x, y: u.y, how: 'dash' });
       const [r, dmg] = strike(u, tAt!, u.m.main, 1.5, 4);
       s += ` into ${tAt!.name} (${r})`;
-      if (dmg && tAt!.hp <= 0) s += washOut(tAt!);
+      if (dmg && tAt!.hp <= 0) s += washOut(tAt!, u);
       break;
     }
     case 'schlange': {
@@ -1113,7 +1118,7 @@ function doAbility(u: Unit, at: number): string {
       tAt!.stain = 2;
       tAt!.rooted = 1;
       s += ` on ${tAt!.name}: -4, stained, rooted`;
-      if (tAt!.hp <= 0) s += washOut(tAt!);
+      if (tAt!.hp <= 0) s += washOut(tAt!, u);
       break;
     }
     case 'turm': {
@@ -1124,7 +1129,7 @@ function doAbility(u: Unit, at: number): string {
     case 'krabbe': {
       const [r, dmg] = strike(u, tAt!, u.m.main, 2, 0, true);
       s += ` on ${tAt!.name} (${r})`;
-      if (dmg && tAt!.hp <= 0) s += washOut(tAt!);
+      if (dmg && tAt!.hp <= 0) s += washOut(tAt!, u);
       break;
     }
     case 'qualle': {
@@ -1135,7 +1140,7 @@ function doAbility(u: Unit, at: number): string {
       for (const t of hit) {
         t.stain = 2;
         setHp(t, t.hp - 2, 'drift');
-        if (t.hp <= 0) washOut(t);
+        if (t.hp <= 0) washOut(t, u);
       }
       s += `: drifted, stained ${hit.length}`;
       break;
@@ -1170,7 +1175,7 @@ function doAbility(u: Unit, at: number): string {
       for (const t of near(1)) {
         const [rs] = strike(u, t, u.m.main, 0.6);
         parts.push(`${t.name}: ${rs}`);
-        if (t.hp <= 0) parts.push(washOut(t).slice(2));
+        if (t.hp <= 0) parts.push(washOut(t, u).slice(2));
       }
       s += `: ${r.took} cells${parts.length ? `, ${parts.join('; ')}` : ''}`;
       break;
@@ -1183,7 +1188,7 @@ function doAbility(u: Unit, at: number): string {
       for (const t of near(2)) {
         setHp(t, t.hp - 3, 'howl');
         parts.push(`${t.name} -3`);
-        if (t.hp <= 0) parts.push(washOut(t).slice(2));
+        if (t.hp <= 0) parts.push(washOut(t, u).slice(2));
       }
       s += `: rival Splash -1, Glow -1${parts.length ? `, ${parts.join(', ')}` : ''}`;
       break;
@@ -1673,6 +1678,7 @@ function aiAction(side: Side, look: number, r: Rand): boolean {
   if (!cands.length) return false;
   const b = pickBest(cands, look, r, (c) => c.a === 'ability' || (c.a === 'splash' && c.at === foeTeam(c.u).home));
   if (b.v <= 0.05) return false;
+  emit({ k: 'focus', id: b.u.id, to: b.to, at: b.at, a: b.a });
   const prev = reach(b.u);
   const didMove = b.to !== idx(b.u.x, b.u.y);
   const moveNote = didMove ? doMove(b.u, b.to, prev) : '';
