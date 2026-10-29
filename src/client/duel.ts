@@ -384,6 +384,7 @@ const TIPS: Record<string, string> = {
   keep: 'Your roll lies open. Tap dice to hold them and reroll the rest, once per turn. A pair gives one more of its symbol, a triple two more and a Joker, three different symbols a Joker.',
   summon: 'The stars add up. The net is placed where I would put it. Tap it to unfold.',
   act: 'Drag a blot onto paper to stamp there, onto a rival to splash it. One drag per blot. When all of them are done, your turn ends by itself.',
+  glaze: 'Paint reacts. The same pigment over your own dried paint glazes it: a second layer, worth double, harder to paint over. A neighbouring colour bleeds into free paper. A complementary colour turns wet rival paint into mud.',
   palette: 'You can reach their palette. One Splash symbol, one heart, one per turn. It is safe while one of their blots stands within two cells.',
 };
 function tip(key: string): void {
@@ -415,6 +416,7 @@ const LESSONS: [string, () => boolean, string][] = [
   ['ability', () => tutGo()?.a === 'ability', 'Two Glow buy an ability. A gold button appears on a blot that can use one. Tap it.'],
   ['soak', () => tutGo()?.a === 'soak', 'Tap a blot twice to soak: it heals and rinses stains.'],
   ['end', () => tutorialAction()?.k === 'end', 'Nothing worth doing. End your turn.'],
+  ['react', () => S.round >= 2 && phase() === 'act', 'Paint reacts. The same pigment over your own dried paint glazes it: a second layer, worth double, harder to paint over. A neighbouring colour bleeds into free paper. A complementary colour turns wet rival paint into mud.'],
   ['eraser', () => S.round >= 3 && phase() === 'roll', 'Did you see the Eraser? Someone keeps wiping rows of my sheet. Lightfastness protects paint and blots.'],
   ['free', () => S.round > S.tutorial && !S.over, 'That is all I can teach without doing it for you. Finish the duel on your own. In a hurry, Sepia paints plays a turn for you. Do not get used to it.'],
 ];
@@ -593,6 +595,8 @@ function renderCtx(): void {
     for (const u of me().units) box.append(dieChip(u));
     where = 'top';
   }
+  // Solange Züge abgespielt werden, bleibt das Brett frei
+  if (busy) where = null;
   tray.hidden = !where;
   tray.className = where ?? '';
   $('deck').setAttribute('aria-pressed', String(deckOpen));
@@ -696,11 +700,17 @@ function previewOf(u: Unit, p: Plan | null): Preview | null {
   if (p.a === 'stamp' && p.at !== null) {
     const pig = R.atSpot(u, p.to, () => R.bestPig(u, 'stamp', p.at));
     let free = 0,
-      mud = 0;
+      mud = 0,
+      glaze = 0,
+      bleed = 0;
     const odds: number[] = [];
     for (const i of R.stampCells(u, p.at)) {
       const o = R.outcome(u, pig, S.cells[i]!);
-      const col = o.kind === 'take' ? '46,122,87' : o.kind === 'mud' ? '110,75,51' : o.kind === 'none' ? '120,120,130' : o.kind === 'refresh' ? '90,100,120' : '168,108,18';
+      // Farbreaktion, falls die Farbe dort ankommt
+      const re = o.kind !== 'none' && o.kind !== 'mud' && o.kind !== 'take' ? R.reactionOf(1, pig, S.cells[i]!) : null;
+      if (re === 'glaze') glaze++;
+      else if (re === 'bleed') bleed++;
+      const col = re === 'glaze' ? '168,120,18' : o.kind === 'take' ? '46,122,87' : o.kind === 'mud' ? '110,75,51' : o.kind === 'none' ? '120,120,130' : o.kind === 'refresh' ? '90,100,120' : '168,108,18';
       const contested = o.kind === 'contest' || o.kind === 'over';
       pv.cells.push({ i, col, pct: contested ? Math.round(o.p * 100) : null });
       if (o.kind === 'take') free++;
@@ -711,6 +721,8 @@ function previewOf(u: Unit, p: Plan | null): Preview | null {
     if (free) parts.push(`${free} free`);
     if (odds.length) parts.push(`${odds.length} contested (${odds.join('%, ')}%)`);
     if (mud) parts.push(`${mud} to mud`);
+    if (glaze) parts.push(`${glaze} glazed`);
+    if (bleed) parts.push(`bleeds`);
     pv.text = `${p.to !== here ? 'Walk and stamp' : 'Stamp'}${pig !== u.m.main ? ` in ${PIG[pig].n}` : ''}: ${parts.join(' · ') || 'nothing new'}.`;
     return pv;
   }
@@ -1196,6 +1208,7 @@ function afterAction(): void {
   renderAll();
   tipForPhase();
   if (phase() === 'act' && R.onSheet(me()).some((v) => !v.acted && R.planDrop(v, S.teams[1].home))) tip('palette');
+  if (phase() === 'act' && S.round >= 2) tip('glaze');
 }
 /** Netz schon an die beste Stelle legen: ein Tipp klappt auf */
 function prepSummon(): void {

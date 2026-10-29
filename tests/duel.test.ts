@@ -6,7 +6,7 @@ import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
 import { tutorialAction, tutorialActive } from '../src/shared/duel/tutorial';
-import { canMove, COLS, comboOf, CRESTS, idx, placements, reach, rollable, ROLL_N, ROWS, S, summonable, unitById, type Face, type Rolled } from '../src/shared/duel/rules';
+import { canMove, COLS, comboOf, counts, CRESTS, idx, reactionOf, type Cell, placements, reach, rollable, ROLL_N, ROWS, S, summonable, unitById, type Face, type Rolled } from '../src/shared/duel/rules';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -251,6 +251,22 @@ describe('Duell am Server', () => {
     expect(comboOf([f('joker', 3), f('step'), f('star', 1)])).toMatchObject({ kind: 'pair', sym: 'step' });
     expect(comboOf([f('step'), f('glow'), f('star', 1)])).toBeNull();
     expect(comboOf([f('glow')])).toBeNull();
+  });
+
+  it('Farbreaktionen: Lasur nur über getrockneter eigener Farbe, Nachbarfarbe verläuft, Lasur zählt doppelt', () => {
+    const cell = (o: Partial<Cell>): Cell => ({ owner: 0, rgb: [0, 0, 0], hue: null, wet: 0, atk: 0, def: 0, lf: 0, stamp: 0, home: 0, ...o });
+    expect(reactionOf(1, 'ultra', cell({ owner: 1, hue: 'ultra' }))).toBe('glaze');
+    expect(reactionOf(1, 'ultra', cell({ owner: 1, hue: 'ultra', wet: 1 }))).toBeNull();
+    expect(reactionOf(1, 'ultra', cell({ owner: 1, hue: 'ultra', layer: 1 }))).toBeNull();
+    expect(reactionOf(1, 'ultra', cell({ owner: 2, hue: 'ultra' }))).toBeNull();
+    // Ultramarin und Indigo liegen nah beieinander, Ultramarin und Kadmiumgelb nicht
+    expect(reactionOf(1, 'ultra', cell({ owner: 2, hue: 'indigo' }))).toBe('bleed');
+    expect(reactionOf(1, 'ultra', cell({ owner: 1, hue: 'indigo', wet: 1 }))).toBe('bleed');
+    expect(reactionOf(1, 'ultra', cell({ owner: 2, hue: 'kadmium' }))).toBeNull();
+    expect(reactionOf(1, 'ultra', cell({}))).toBeNull();
+    const before = counts([cell({ owner: 1, hue: 'ultra' }), cell({ owner: 2, hue: 'opera' })]);
+    const after = counts([cell({ owner: 1, hue: 'ultra', layer: 1 }), cell({ owner: 2, hue: 'opera' })]);
+    expect(after[0]).toBe(before[0] + 1);
   });
 
   it('verwirft Duelle nach alten Regeln', async () => {

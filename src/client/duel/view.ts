@@ -283,7 +283,11 @@ function draw(): void {
     if (a?.from && a.from.owner !== 0 && !a.from.home && p < 1) drawBlob(i, a.from, 1, a.kind === 'erase' ? 1 - p : 1 - p * 0.6);
     if (a?.kind === 'erase') return;
     if (c.owner === 0 || c.home) return;
-    if (!a || a.kind === 'shine') return drawBlob(i, c, 1, 1);
+    if (!a || a.kind === 'shine') {
+      drawBlob(i, c, 1, 1);
+      if (c.layer) drawBlob(i, c, 0.78, 0.6);
+      return;
+    }
     if (t < a.t0) return;
     if (a.kind === 'grow') drawBlob(i, c, 0.3 + 0.7 * easeOutBack(p), Math.min(1, p * 1.6));
     else if (a.kind === 'fade') drawBlob(i, c, 0.85 + 0.15 * p, p);
@@ -867,9 +871,23 @@ export async function playEvent(e: Ev): Promise<void> {
         }).then(() => Object.assign(v, { sqx: 1, sqy: 1, busy: false }));
       } else sfx.brush();
       const t = unitById(e.id);
+      let glazed = false,
+        mudded = false;
       e.cells.forEach((s, k) => {
         const d = k * 110;
-        if (s.r === 'take' || s.r === 'refresh' || s.r === 'mud') setCell(s.i, s.c, 'grow', d, 320);
+        if (s.r === 'take' || s.r === 'refresh' || s.r === 'mud' || s.r === 'glaze') setCell(s.i, s.c, 'grow', d, 320);
+        // Farbreaktionen: ein Wort am Feld (einmal pro Stempel), Lasur glänzt
+        if (s.r === 'glaze')
+          window.setTimeout(() => {
+            ring(cx(s.i), cy(s.i), cell * 0.15, cell * 0.55, 'rgba(201,150,30,.8)', 500, 2.5);
+            if (!glazed) text(cx(s.i), cy(s.i), 'Glaze', '#8a6410', 16, 1100);
+            glazed = true;
+          }, (d + 200) / V.speed);
+        if (s.r === 'mud')
+          window.setTimeout(() => {
+            if (!mudded) text(cx(s.i), cy(s.i), 'Mud', '#74644f', 16, 1100);
+            mudded = true;
+          }, (d + 200) / V.speed);
         else if (s.r === 'held')
           window.setTimeout(() => {
             splatter(cx(s.i), cy(s.i), 'rgba(150,145,140,.8)', 6, 0.5);
@@ -1105,6 +1123,13 @@ export async function playEvent(e: Ev): Promise<void> {
         await wait(700);
       } else if (e.how === 'splat') {
         for (const s of e.cells) setCell(s.i, s.c, 'grow', 0, 260);
+      } else if (e.how === 'flow') {
+        // Farbreaktion: eine Nachbarfarbe verläuft auf freies Papier
+        sfx.bleed();
+        for (const s of e.cells) setCell(s.i, s.c, 'fade', Math.random() * 150, 520);
+        const s0 = e.cells[0]!;
+        text(cx(s0.i), cy(s0.i), 'Bleed', rgbCss(s0.c.rgb, 1), 16, 1100);
+        await wait(560);
       } else if (e.how === 'burst') {
         // Der ausgewaschene Klecks platzt: seine Farbe spritzt ringsum
         for (const s of e.cells) {

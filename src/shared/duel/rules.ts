@@ -36,6 +36,11 @@ export const PALETTE = { guardR: 2, perTurn: 1 };
  * range ist die Grundreichweite. freeSplash: Spritzer auf Kleckse kosten nichts, ein Splash-Symbol braucht nur der Treffer auf die Palette
  */
 export const HIT = { base: 4, satDiv: 4, hpBase: 10, hpDiv: 3, toHit: 3, range: 2, freeSplash: true };
+/**
+ * Farbreaktionen (festgelegt am 29.10.2026): gleiches Pigment auf eigener, getrockneter Farbe lasiert (eine zweite Schicht, zählt am Ende doppelt,
+ * def mehr in der Abwehr), eine Nachbarfarbe verläuft auf freies Papier daneben (höchstens bleedMax Felder pro Aktion)
+ */
+export const REACT = { def: 2, bleedMax: 2 };
 
 export type Side = 1 | 2;
 export type Phase = 'opening' | 'roll' | 'keep' | 'summon' | 'act' | 'over';
@@ -51,7 +56,8 @@ export const starValue = (f: Face): number => (f.k === 'joker' ? 3 : f.k === 'st
 const isCrest = (f: Face): f is { k: Crest; n: number } => f.k !== 'star' && f.k !== 'joker' && f.k !== 'gold';
 export const isCrestFace = isCrest;
 export type P = [number, number];
-export type Cell = { owner: 0 | 1 | 2 | 3; rgb: RGB; hue: PigmentId | null; wet: number; atk: number; def: number; lf: number; stamp: number; home: 0 | Side };
+/** layer: zweite Schicht aus einer Lasur (zählt am Ende doppelt) */
+export type Cell = { owner: 0 | 1 | 2 | 3; rgb: RGB; hue: PigmentId | null; wet: number; atk: number; def: number; lf: number; stamp: number; home: 0 | Side; layer?: number };
 export type Trait = { key: string; label: string; text: string };
 /** Ein Klecks ist zugleich sein Würfel */
 export type Unit = {
@@ -90,7 +96,7 @@ export type Rolled = { u: Unit; fi: number; face: Face };
 
 /* ---------- Ereignisse für die Darstellung ---------- */
 export type CellSnap = { i: number; c: Cell };
-export type StampRes = 'take' | 'refresh' | 'mud' | 'held' | 'none';
+export type StampRes = 'take' | 'refresh' | 'glaze' | 'mud' | 'held' | 'none';
 export type UnitSnap = { id: number; x: number; y: number; hp: number; max: number; state: Unit['state']; stain: number; rooted: number; shield: number; acted: boolean; used: boolean };
 export type TeamSnap = { crests: Record<Crest, number>; hearts: number };
 export type Ev =
@@ -110,7 +116,8 @@ export type Ev =
   | { k: 'focus'; id: number; to: number; at: number | null; a: Action }
   | { k: 'pos'; id: number; x: number; y: number; how: 'push' | 'dash' | 'leap' | 'drift' }
   | { k: 'ability'; id: number; name: string; bp: BlueprintId; at: number; area: number[] }
-  | { k: 'cells'; how: 'bleed' | 'seep' | 'rain' | 'wet' | 'splat' | 'burst'; cells: CellSnap[] }
+  /** flow: Farbreaktion, eine Nachbarfarbe ist auf freies Papier verlaufen */
+  | { k: 'cells'; how: 'bleed' | 'seep' | 'rain' | 'wet' | 'splat' | 'burst' | 'flow'; cells: CellSnap[] }
   | { k: 'heart'; side: Side; hearts: number; from: number }
   | { k: 'eraser'; row: number; cells: CellSnap[] }
   | { k: 'round'; round: number }
@@ -557,6 +564,47 @@ function paintCell(c: Cell, u: Unit, pig: PigmentId, wet: boolean): void {
   c.def = bonus(u.grn) + (has(u, 'granulating') ? 2 : 0);
   c.lf = u.lf;
   c.stamp = ++S.stamp;
+  c.layer = 0;
+}
+export type Reaction = 'glaze' | 'bleed' | null;
+/** Was passiert, wenn nasse Farbe dieses Pigments auf das Feld trifft: gleiches Pigment auf eigener, getrockneter Farbe lasiert, eine Nachbarfarbe verläuft */
+export function reactionOf(side: Side, pig: PigmentId, c: Cell): Reaction {
+  if (!c.hue || c.home || (c.owner !== 1 && c.owner !== 2)) return null;
+  // Lasieren geht wie beim echten Aquarell nur über getrocknete Farbe
+  if (c.owner === side && c.hue === pig) return (c.layer ?? 0) >= 1 || c.wet > 0 ? null : 'glaze';
+  if (c.hue !== pig && relation(pig, c.hue) === 'harmonisch') return 'bleed';
+  return null;
+}
+/** Freie Nachbarfelder, auf die Farbe verlaufen kann */
+function freeAround(i: number, skip: number[]): number[] {
+  const x = i % COLS,
+    y = Math.floor(i / COLS);
+  return ([[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as P[])
+    .filter(([a, b]) => inside(a, b))
+    .map(([a, b]) => idx(a, b))
+    .filter((j) => S.cells[j]!.owner === 0 && !S.cells[j]!.home && !skip.includes(j));
+}
+/** Nasse Farbe auf ein Feld, mit Farbreaktion. flows sammelt die Felder, auf die Farbe verlaufen ist */
+function paintReact(i: number, u: Unit, pig: PigmentId, flows: number[], skip: number[]): Reaction {
+  const c = S.cells[i]!;
+  const re = reactionOf(u.side, pig, c);
+  const layer = c.layer ?? 0;
+  paintCell(c, u, pig, true);
+  if (re === 'glaze') {
+    c.layer = layer + 1;
+    c.atk += REACT.def;
+    c.def += REACT.def;
+    count(`${u.side}glaze`);
+  } else if (re === 'bleed' && flows.length < REACT.bleedMax) {
+    const free = freeAround(i, [...skip, ...flows]);
+    if (free.length) {
+      const j = free[Math.floor(rand01() * free.length)]!;
+      paintCell(S.cells[j]!, u, pig, true);
+      flows.push(j);
+      count(`${u.side}bleed`);
+    }
+  }
+  return re;
 }
 function mudCell(c: Cell): void {
   if (c.home) return;
@@ -915,14 +963,15 @@ function applyPaint(u: Unit, pig: PigmentId, list: number[]): { took: number; mu
   const rolls: string[] = [];
   const res: (CellSnap & { r: StampRes })[] = [];
   const sec = pig !== u.m.main ? 1 : 0;
+  const flows: number[] = [];
   for (const i of list) {
     const c = S.cells[i]!;
     const o = outcome(u, pig, c);
     let r: StampRes = 'none';
     if (o.kind === 'take' || o.kind === 'refresh') {
-      paintCell(c, u, pig, true);
+      const re = paintReact(i, u, pig, flows, list);
       if (o.kind === 'take') took++;
-      r = o.kind;
+      r = re === 'glaze' ? 'glaze' : o.kind;
     } else if (o.kind === 'mud') {
       mudCell(c);
       mud++;
@@ -934,7 +983,7 @@ function applyPaint(u: Unit, pig: PigmentId, list: number[]): { took: number; mu
       const def = c.owner === 3 ? 6 : o.kind === 'contest' ? c.atk : c.def;
       rolls.push(`d${a}+${atk} vs d${d}+${def}`);
       if (a + atk > d + def) {
-        paintCell(c, u, pig, true);
+        paintReact(i, u, pig, flows, list);
         took++;
         r = 'take';
       } else {
@@ -945,7 +994,8 @@ function applyPaint(u: Unit, pig: PigmentId, list: number[]): { took: number; mu
     res.push({ ...snap(i), r });
   }
   emit({ k: 'stamp', id: u.id, wet: true, cells: res });
-  return { took, mud, held, rolls };
+  if (flows.length) emit({ k: 'cells', how: 'flow', cells: flows.map(snap) });
+  return { took: took + flows.length, mud, held, rolls };
 }
 function doStamp(u: Unit, pig: PigmentId, at: number): string {
   const r = applyPaint(u, pig, stampCells(u, at));
@@ -1059,8 +1109,10 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
   // Wer trifft, färbt das Feld unter dem Ziel
   const c = S.cells[idx(t.x, t.y)]!;
   if (total > 0 && !c.home) {
-    paintCell(c, u, pig, true);
+    const flows: number[] = [];
+    paintReact(idx(t.x, t.y), u, pig, flows, []);
     emit({ k: 'cells', how: 'splat', cells: [snap(idx(t.x, t.y))] });
+    if (flows.length) emit({ k: 'cells', how: 'flow', cells: flows.map(snap) });
   }
   let s = `splashed ${t.side === 1 ? 'your' : 'the rival'} ${t.name}, ${relWord(pig, t.m.main)} (${parts.join('; ')})`;
   if (t.hp <= 0) s += washOut(t, u);
@@ -1396,7 +1448,7 @@ export function endRound(): void {
       const n = ([[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as P[]).filter(([a, b]) => inside(a, b) && S.cells[idx(a, b)]!.owner === 0 && !S.cells[idx(a, b)]!.home);
       if (n.length) {
         const [a, b] = n[Math.floor(r() * n.length)]!;
-        spreads.push([idx(a, b), { ...c, wet: Math.max(0, c.wet - 1), stamp: ++S.stamp }]);
+        spreads.push([idx(a, b), { ...c, wet: Math.max(0, c.wet - 1), stamp: ++S.stamp, layer: 0 }]);
       }
     }
   });
@@ -1465,8 +1517,8 @@ export function counts(cells: Cell[] = S.cells): [number, number, number] {
     m = 0;
   for (const c of cells) {
     if (c.home) continue;
-    if (c.owner === 1) a++;
-    else if (c.owner === 2) b++;
+    if (c.owner === 1) a += 1 + (c.layer ?? 0);
+    else if (c.owner === 2) b += 1 + (c.layer ?? 0);
     else if (c.owner === 3) m++;
   }
   return [a, b, m];
@@ -1488,12 +1540,21 @@ type Cand = { v: number; u: Unit; to: number; a: Action; pig: PigmentId; at: num
 function evalPaint(u: Unit, pig: PigmentId, at: number): number {
   let v = 0;
   const list = stampCells(u, at);
+  let bleeds = 0;
   for (const i of list) {
     const c = S.cells[i]!;
     const o = outcome(u, pig, c);
     if (o.kind === 'take') v += 1;
     else if (o.kind === 'mud') v += 1.2;
     else if (o.kind === 'contest' || o.kind === 'over') v += o.p * (c.owner === 3 ? 1 : 2);
+    // Farbreaktionen: Lasur ist ein Punkt mehr und hält besser, Verlaufen nimmt freies Papier dazu
+    const p = o.kind === 'take' || o.kind === 'refresh' ? 1 : o.kind === 'contest' || o.kind === 'over' ? o.p : 0;
+    const re = p > 0 ? reactionOf(u.side, pig, c) : null;
+    if (re === 'glaze') v += 1.1 * p;
+    else if (re === 'bleed' && bleeds < REACT.bleedMax && freeAround(i, list).length) {
+      v += 0.9 * p;
+      bleeds++;
+    }
   }
   // Nasse Farbe verläuft am Rundenende in freies Papier
   v += 0.3 * list.filter((i) => S.cells[i]!.owner === 0).length * (u.flo / 40);
