@@ -58,6 +58,10 @@ let reward: DuelReward | null = null;
 let busy = false;
 let level: Level = (['apprentice', 'journeyman', 'master'] as Level[]).find((l) => l === store.get('bid-duel-level')) ?? 'apprentice';
 let chosen = new Set<number>();
+/** Nach dem Wurf: Würfel, die beim Neuwurf liegen bleiben */
+let held = new Set<number>();
+/** Die 3D-Würfel auf der Bühne, vom Wurf bis der Wurf gilt */
+const stageDice = new Map<number, { cube: HTMLElement; box: HTMLElement; fi: number }>();
 let summonU: Unit | null = null,
   orient = 0,
   anchor: number | null = null;
@@ -72,6 +76,7 @@ let aiming: Unit | null = null;
 let reachHl: { id: number; spots: number[]; hits: number[] } | null = null;
 let resumable = false;
 const seenTips = new Set((store.get('bid-duel-tips') ?? '').split(',').filter(Boolean));
+/** Sepias goldener Ring: am Anfang an, nach dem ersten fertigen Duell aus, außer man schaltet ihn selbst ein (festgelegt am 29.10.2026) */
 let hints = store.get('bid-duel-hints') !== '0';
 setMuted(store.get('bid-duel-muted') === '1');
 
@@ -118,6 +123,7 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
   busy = false;
   V.speed = 1;
   if (phase() === 'roll' && !chosen.size) chosen = defaultPick();
+  held = phase() === 'keep' ? defaultHold() : new Set();
   prepSummon();
   renderAll();
   if (S.over) void finishDuel();
@@ -165,50 +171,142 @@ View.setup(board, {
     if (c === 'eraser') showTicker(t, c);
   },
   roll: playRoll,
+  reroll: playReroll,
+  apply: playApply,
 });
 
-/* ---------- Würfeln mit 3D-Würfeln ---------- */
-async function playRoll(e: Extract<Ev, { k: 'roll' }>): Promise<void> {
+/* ---------- Würfeln mit 3D-Würfeln: offen hinlegen, halten, neu werfen, dann gilt der Wurf ---------- */
+function stageDie(id: number, size: number): { cube: HTMLElement; box: HTMLElement; fi: number } {
+  const u = R.unitById(id)!;
+  const box = el('div', 'stage-die');
+  box.dataset.id = String(id);
+  const cube = makeCube(u.faces, size, rgb(u.m.main));
+  box.append(cube, el('small', '', u.name.split(' ')[1] ?? u.name));
+  box.addEventListener('click', () => toggleHold(id));
+  const x = { cube, box, fi: -1 };
+  stageDice.set(id, x);
+  return x;
+}
+function openStage(label: string): HTMLElement {
   const stage = $('stage');
   stage.replaceChildren();
   stage.hidden = false;
-  stage.append(el('p', 'stage-lbl', e.side === 1 ? 'Your roll' : 'Rival roll'));
+  stage.classList.remove('pick');
+  stageDice.clear();
+  stage.append(el('p', 'stage-lbl', label));
   const row = el('div', 'stage-row');
-  stage.append(row);
+  stage.append(row, el('p', 'stage-combo', ''));
   requestAnimationFrame(() => stage.classList.add('on'));
-  const size = Math.max(46, Math.round(View.cellSize() * 1.2));
+  return row;
+}
+const dieSize = () => Math.max(46, Math.round(View.cellSize() * 1.2));
+/** Seite zeigen: Name der Seite unter dem Würfel, Sterne leuchten */
+function landDie(id: number, fi: number): void {
+  const d = stageDice.get(id);
+  const f = R.unitById(id)?.faces[fi];
+  if (!d || !f) return;
+  d.fi = fi;
+  d.box.classList.add('landed');
+  d.box.querySelector('small')!.textContent = R.faceText(f);
+  d.box.classList.toggle('star', f.k === 'star' || f.k === 'joker');
+}
+/** Was der Wurf gerade ergeben würde */
+function comboPreview(): void {
+  const line = document.querySelector('#stage .stage-combo') as HTMLElement | null;
+  if (!line) return;
+  const c = R.comboOf(lastRolled().map((r) => r.face));
+  line.textContent = c ? c.text : phase() === 'keep' && S.turn === 1 ? 'No combo yet' : '';
+  line.classList.toggle('has', !!c);
+}
+async function playRoll(e: Extract<Ev, { k: 'roll' }>): Promise<void> {
+  const row = openStage(e.side === 1 ? 'Your roll' : 'Rival roll');
+  const size = dieSize();
   const dice = e.dice.map((d) => {
-    const u = R.unitById(d.id)!;
-    const box = el('div', 'stage-die');
-    const cube = makeCube(u.faces, size, rgb(u.m.main));
-    box.append(cube, el('small', '', u.name.split(' ')[1] ?? u.name));
-    row.append(box);
-    return { cube, box, d, u, f: u.faces[d.fi]! };
+    const x = stageDie(d.id, size);
+    row.append(x.box);
+    return { ...x, d };
   });
   sfx.dice(dice.length);
   await Promise.all(dice.map((x, k) => tumble(x.cube, x.d.fi, (k * 110) / V.speed, 1050 / V.speed, (k - 1) * 70)));
-  for (const x of dice) {
-    x.box.classList.add('landed');
-    x.box.querySelector('small')!.textContent = R.faceText(x.f);
-    if (x.f.k === 'star' || x.f.k === 'joker') x.box.classList.add('star');
+  for (const x of dice) landDie(x.d.id, x.d.fi);
+  await View.wait(e.side === 1 ? 200 : 420);
+}
+async function playReroll(e: Extract<Ev, { k: 'reroll' }>): Promise<void> {
+  const list = e.dice.map((d) => ({ d, x: stageDice.get(d.id) })).filter((y) => y.x);
+  for (const y of list) {
+    y.x!.box.classList.remove('landed', 'star', 'held');
+    y.x!.box.querySelector('small')!.textContent = '…';
   }
-  await View.wait(380);
+  $('stage').classList.remove('pick');
+  sfx.dice(list.length);
+  await Promise.all(list.map((y, k) => tumble(y.x!.cube, y.d.fi, (k * 110) / V.speed, 900 / V.speed, (k - 1) * 60)));
+  for (const y of list) landDie(y.d.id, y.d.fi);
+  await View.wait(e.side === 1 ? 250 : 380);
+}
+async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
+  const stage = $('stage');
+  stage.classList.remove('pick');
+  for (const x of stageDice.values()) x.box.classList.remove('held');
+  const line = stage.querySelector('.stage-combo') as HTMLElement | null;
+  if (e.combo && line) {
+    line.textContent = e.combo.text;
+    line.classList.add('has', 'pop', `k-${e.combo.kind}`);
+    for (const x of stageDice.values()) x.box.classList.add('combo');
+    sfx.combo(e.combo.kind);
+    await View.wait(e.combo.kind === 'pair' ? 650 : 900);
+  }
+  // Symbole fliegen in den Vorrat: von den Würfelseiten, dazu der Gewinn der Kombi
   const flights: [HTMLElement, Face][] = [];
-  for (const x of dice) {
-    if (x.f.k === 'gold') for (const c of CRESTS) flights.push([x.cube, { k: c.k, n: 1 }]);
-    else if (R.isCrestFace(x.f)) flights.push([x.cube, x.f]);
+  for (const [id, x] of stageDice) {
+    const f = R.unitById(id)?.faces[x.fi];
+    if (!f) continue;
+    if (f.k === 'gold') for (const c of CRESTS) flights.push([x.cube, { k: c.k, n: 1 }]);
+    else if (R.isCrestFace(f)) flights.push([x.cube, f]);
   }
+  if (e.combo && line) for (const c of CRESTS) if (e.combo.gain[c.k]) flights.push([line, { k: c.k, n: e.combo.gain[c.k]! }]);
   await Promise.all(flights.map(([from, f], k) => flyCrest(from, f, e.side, k)));
   const t = V.teams[e.side - 1];
   if (t) t.crests = { ...e.crests };
   renderTop();
   renderPool();
-  await View.wait(e.side === 1 ? 420 : 260);
+  await View.wait(e.side === 1 ? 380 : 260);
   stage.classList.remove('on');
   await View.wait(260);
   stage.hidden = true;
   stage.replaceChildren();
+  stageDice.clear();
 }
+/** Nach dem Neuladen in der Haltephase: den Wurf ohne Rollen wieder hinlegen */
+function ensureKeepStage(): void {
+  if (phase() !== 'keep' || S.turn !== 1 || stageDice.size || busy) return;
+  const row = openStage('Your roll');
+  const size = dieSize();
+  for (const r of S.lastRoll) {
+    const x = stageDie(r.id, size);
+    row.append(x.box);
+    void tumble(x.cube, r.fi, 0, 1, 0);
+    landDie(r.id, r.fi);
+  }
+}
+/** Haltephase: Würfel antippbar, gehaltene sind angehoben */
+function renderKeep(): void {
+  const keep = phase() === 'keep' && myTurn();
+  ensureKeepStage();
+  $('stage').classList.toggle('pick', keep);
+  for (const [id, x] of stageDice) x.box.classList.toggle('held', keep && held.has(id));
+  if (keep) comboPreview();
+}
+function toggleHold(id: number): void {
+  if (phase() !== 'keep' || !myTurn() || S.rerolls < 1) return;
+  const box = stageDice.get(id)?.box;
+  if (!box || !allowedEl(box)) return;
+  sfx.tap();
+  if (held.has(id)) held.delete(id);
+  else held.add(id);
+  renderAll();
+}
+/** Sepias Vorschlag zum Halten */
+const defaultHold = () => new Set(R.aiHold(me(), lastRolled()));
 function flyCrest(from: HTMLElement, f: Face, side: Side, k: number): Promise<void> {
   const dest = document.querySelector(`#${side === 1 ? 'crests' : 'rival-crests'} [data-k="${f.k}"]`) as HTMLElement | null;
   if (!dest) return Promise.resolve();
@@ -261,6 +359,7 @@ function showTicker(text: string, cls: string): void {
 const TIPS: Record<string, string> = {
   opening: 'Every blot is a die. I put your best one by your palette already. Tap the net to unfold it, or tap a blue dot to move it first.',
   roll: 'Pick three dice from your deck and roll. Rolled dice are used up until the deck is shuffled. Symbols go to your pool and keep, stars bring new blots onto the sheet.',
+  keep: 'Your roll lies open. Tap dice to hold them and reroll the rest, once per turn. A pair gives one more of its symbol, a triple two more and a Joker, three different symbols a Joker.',
   summon: 'The stars add up. The net is placed where I would put it. Tap it to unfold.',
   act: 'Drag a blot onto paper to stamp there, onto a rival to splash it. One drag per blot. When all of them are done, your turn ends by itself.',
   palette: 'You can reach their palette. One Splash symbol, one heart, one per turn. It is safe while one of their blots stands within two cells.',
@@ -279,11 +378,12 @@ const tutGo = () => {
 };
 const LESSONS: [string, () => boolean, string][] = [
   ['welcome', () => phase() === 'opening', 'This is the sheet, and I am Master Sepia. Today you duel my apprentice. I will tell you exactly what to do: always the gold ring.'],
-  ['bag', () => phase() === 'opening', 'Down there is your deck. Every blot is a die, its sides come from the blot itself. Tap ⓘ on a die to read it.'],
+  ['bag', () => phase() === 'opening', 'Down there is your deck. Every blot is a die, its sides come from the blot itself. Hold a die to read it.'],
   ['net', () => phase() === 'opening' && !!summonU, 'I put the net where I would. A net must touch your own paint. Tap it to unfold.'],
   ['rival', () => phase() === 'roll' && S.round === 1, 'The apprentice unfolded first, up there by its palette. Each palette has three hearts. Break theirs, or cover more paper than them when it dries after six rounds.'],
   ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice from your deck. I picked three for you. Roll them.'],
   ['deck', () => phase() === 'roll' && me().units.some((u) => u.used), 'Rolled dice are used up, like cards: grey in your deck. When fewer than three are ready, I shuffle the used ones back in. Plan which dice you spend.'],
+  ['keep', () => phase() === 'keep', 'The roll lies open. Hold what you like and reroll the rest, once per turn. Pairs, triples and three different symbols pay extra. I marked what I would hold.'],
   ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Splash hits a palette, Guard halves a hit by itself, two Glow buy an ability. I lent you two Glow.'],
   ['summon', () => phase() === 'summon', 'Stars bring blots out. A die may unfold if the other dice show stars worth at least its level. This one qualifies, and the net is already placed.'],
   ['drag', () => phase() === 'act' && !!tutGo() && (tutGo()!.a === 'stamp' || tutGo()!.a === 'splash'), 'Now the fun part. Drag a blot along the gold arrow and let go. Paper means stamp, a rival means splash. One drag per blot, the turn ends by itself.'],
@@ -310,7 +410,7 @@ function lessonCheck(): void {
 }
 function tipForPhase(): void {
   const p = phase();
-  if (p === 'opening' || p === 'roll' || p === 'summon' || p === 'act') tip(p);
+  if (p === 'opening' || p === 'roll' || p === 'keep' || p === 'summon' || p === 'act') tip(p);
 }
 
 /* ---------- Oberfläche ---------- */
@@ -441,6 +541,15 @@ function renderCtx(): void {
   if (S.turn === 1 && !S.over && (p === 'opening' || p === 'roll')) {
     box.className = 'chips';
     for (const u of me().units) box.append(dieChip(u));
+  } else if (S.turn === 1 && p === 'keep' && !S.over) {
+    box.className = 'combos';
+    for (const [k, t] of [
+      ['Pair', '+1 of that symbol'],
+      ['Triple', '+2 and a Joker'],
+      ['Rainbow', '3 different symbols: a Joker'],
+      ['3 stars', 'same level: a Joker'],
+    ])
+      box.append(html('div', 'cmb', `<b>${k}</b><span>${t}</span>`));
   } else if (S.turn === 1 && p === 'summon') {
     box.className = 'rolled';
     const can = R.summonable(me(), lastRolled());
@@ -535,6 +644,15 @@ function renderGo(): void {
     go.disabled = chosen.size !== need();
     return;
   }
+  if (p === 'keep') {
+    const n = S.lastRoll.length - held.size;
+    go.textContent = 'Keep';
+    go.disabled = false;
+    aux.hidden = false;
+    aux.textContent = n ? `Reroll ${n}` : 'Reroll';
+    aux.disabled = !n || S.rerolls < 1;
+    return;
+  }
   end.hidden = false;
   end.textContent = 'End turn';
   go.textContent = 'Sepia paints';
@@ -599,6 +717,7 @@ function renderHint(): void {
   if (S.turn !== 1) return setHint('');
   if (p === 'opening') return setHint(summonU ? `Tap the net to unfold ${summonU.name}. Tap a blue dot to move it, Turn to rotate it.` : 'Opening: pick one of your dice below to unfold first.');
   if (p === 'roll') return setHint(`Roll ${need()} dice. Tap to swap, hold to read. Rolled dice stay used until you reshuffle.`);
+  if (p === 'keep') return setHint('Tap dice to hold them, then reroll the rest once. Or keep the roll as it is.');
   if (p === 'summon') return setHint(summonU ? `Tap the net to unfold ${summonU.name}, or skip. Blue dots move it.` : 'Tap a glowing die to unfold it, or skip.');
   if (drag) return setHint(drag.pv?.text ?? 'Out of reach. Let go to cancel.');
   if (aiming) {
@@ -638,6 +757,7 @@ function renderAll(): void {
   if (screen !== 'game' || !S.teams.length) return;
   renderTop();
   renderPool();
+  renderKeep();
   renderCtx();
   renderJoker();
   renderGo();
@@ -805,6 +925,13 @@ function bestAnchor(u: Unit): number | null {
   return best;
 }
 type Guide = { cell?: number; el?: string; from?: number };
+/** Halten wie Sepia: erst die Würfel richtig antippen, dann Neuwurf. hold = null heißt behalten */
+function keepGuide(hold: number[] | null): Guide {
+  if (!hold) return { el: '#go' };
+  const wrong = S.lastRoll.map((r) => r.id).find((id) => held.has(id) !== hold.includes(id));
+  if (wrong !== undefined) return { el: `#stage .stage-die[data-id="${wrong}"]` };
+  return { el: '#aux' };
+}
 /** Führung für einen Klecks-Zug: Wisch (Pfeil vom Klecks zum Ziel), Doppeltipp (Soak) oder Goldknopf */
 function goGuide(g: { id: number; to: number; a: string; at: number | null }): Guide {
   const u = R.unitById(g.id);
@@ -830,6 +957,9 @@ function tutorialGuide(): Guide {
       if (missing !== undefined) return { el: `#ctx .chip[data-id="${missing}"]` };
       return { el: '#go' };
     }
+    case 'reroll':
+    case 'keep':
+      return keepGuide(exp.k === 'reroll' ? exp.hold : null);
     case 'skip':
     case 'end':
       return { el: '#end' };
@@ -853,6 +983,10 @@ function computeGuide(): Guide {
     return { cell: anchor };
   }
   if (p === 'roll') return chosen.size === need() ? { el: '#go' } : { el: '#ctx .chip:not(.chosen):not(.st-gone):not(.used):not(.st-sheet)' };
+  if (p === 'keep') {
+    const hold = R.aiHold(me(), lastRolled());
+    return keepGuide(S.rerolls > 0 && hold.length < S.lastRoll.length ? hold : null);
+  }
   if (p !== 'act' || drag) return {};
   if (S.joker > 0) return { el: `#joker [data-crest="${R.aiJokerCrest(me())}"]` };
   const sug = R.suggest(1, aiming ?? armed ?? undefined, false, R.byGesture);
@@ -1078,6 +1212,18 @@ async function doRoll(): Promise<void> {
   chosen = new Set();
   if (await request(api.duelAct({ k: 'roll', ids }))) afterAction();
 }
+async function doKeep(): Promise<void> {
+  if (!myTurn() || phase() !== 'keep') return;
+  sfx.tap();
+  if (await request(api.duelAct({ k: 'keep' }))) afterAction();
+}
+async function doReroll(): Promise<void> {
+  if (!myTurn() || phase() !== 'keep' || S.rerolls < 1) return;
+  const hold = [...held].filter((id) => S.lastRoll.some((r) => r.id === id));
+  if (hold.length >= S.lastRoll.length) return;
+  sfx.tap();
+  if (await request(api.duelAct({ k: 'reroll', hold }))) afterAction();
+}
 async function endTurn(): Promise<void> {
   if (!myTurn() || (phase() !== 'act' && phase() !== 'summon')) return;
   summonU = null;
@@ -1103,10 +1249,12 @@ $('go').addEventListener('click', () => {
   if (!myTurn()) return;
   if (placing()) return void unfold();
   if (phase() === 'roll') return void doRoll();
+  if (phase() === 'keep') return void doKeep();
   if (phase() === 'act') return void autoTurn();
 });
 $('aux').addEventListener('click', () => {
   if (busy || !allowedEl($('aux'))) return;
+  if (phase() === 'keep') return void doReroll();
   sfx.tap();
   if (placing()) {
     orient = (orient + 1) % 8;
@@ -1170,6 +1318,11 @@ function sepiaEnd(): string {
   return S.winner === 1 ? 'The paper remembers who painted it. Today, you.' : S.winner === 2 ? 'The rival covered more paper. Paper keeps score, not excuses.' : 'A draw. The paper cannot decide either.';
 }
 async function finishDuel(): Promise<void> {
+  // Nach dem ersten fertigen Duell entscheidet man selbst: Sepias Ring geht aus, außer man hat ihn selbst eingeschaltet
+  if (store.get('bid-duel-hints') === null) {
+    hints = false;
+    store.set('bid-duel-hints', '0');
+  }
   renderAll();
   await View.wait(700);
   const [a, b] = R.scores();

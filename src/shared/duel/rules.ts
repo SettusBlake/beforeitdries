@@ -37,7 +37,7 @@ export const PALETTE = { guardR: 2, perTurn: 1 };
 export const HIT = { base: 4, satDiv: 4, hpBase: 10, hpDiv: 3, toHit: 3, range: 2, freeSplash: true };
 
 export type Side = 1 | 2;
-export type Phase = 'opening' | 'roll' | 'summon' | 'act' | 'over';
+export type Phase = 'opening' | 'roll' | 'keep' | 'summon' | 'act' | 'over';
 export type Level = 'apprentice' | 'journeyman' | 'master';
 export type Action = 'stamp' | 'splash' | 'soak' | 'ability' | 'none';
 export type Crest = 'step' | 'splash' | 'guard' | 'glow';
@@ -93,7 +93,12 @@ export type StampRes = 'take' | 'refresh' | 'mud' | 'held' | 'none';
 export type UnitSnap = { id: number; x: number; y: number; hp: number; max: number; state: Unit['state']; stain: number; rooted: number; shield: number; acted: boolean; used: boolean };
 export type TeamSnap = { crests: Record<Crest, number>; hearts: number };
 export type Ev =
-  | { k: 'roll'; side: Side; dice: { id: number; fi: number }[]; crests: Record<Crest, number> }
+  /** Würfe liegen offen, Symbole zählen erst bei apply */
+  | { k: 'roll'; side: Side; dice: { id: number; fi: number }[] }
+  /** Neuwurf: nur die nicht gehaltenen Würfel */
+  | { k: 'reroll'; side: Side; dice: { id: number; fi: number }[] }
+  /** Der Wurf gilt: Symbole und Kombi kommen in den Vorrat */
+  | { k: 'apply'; side: Side; crests: Record<Crest, number>; combo: Combo | null; joker: number }
   | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[] }
   | { k: 'move'; id: number; path: number[]; trail: CellSnap[] }
   | { k: 'stamp'; id: number; wet: boolean; cells: (CellSnap & { r: StampRes })[] }
@@ -131,6 +136,9 @@ export const TUNE = {
   stat: { apprentice: 0.65, journeyman: 0.85, master: 1.15 } as Record<Level, number>,
   /** Zusätzliche Symbole zum Start (der Meister ist stärker als du, festgelegt am 29.10.2026) */
   extra: { apprentice: {}, journeyman: {}, master: { guard: 2, glow: 2 } } as Record<Level, Partial<Record<Crest, number>>>,
+  /** Neuwürfe pro Zug und ob Kombis zählen (zum Vergleichen in der Simulation) */
+  rerolls: 1,
+  combos: true,
 };
 
 const PATTERNS: Record<BlueprintId, P[]> = {
@@ -392,8 +400,16 @@ export const S = {
   paintSeed: 0,
   phase: 'opening' as Phase,
   lastRoll: [] as { id: number; fi: number }[],
-  /** Joker aus dem letzten Wurf, die noch nicht als Stern oder Symbol verbraucht sind */
+  /** Joker aus dem letzten Wurf, die noch nicht als Stern oder Symbol verbraucht sind (Würfelseiten und Kombi-Joker) */
   joker: 0,
+  /** Davon Joker aus Kombis: sie zählen beim Beschwören als Stern 3, gehören aber zu keinem Würfel */
+  freeJoker: 0,
+  /** Zusätzlicher Sternwert aus einer Kombi (Paar Sterne) */
+  starBonus: 0,
+  /** Neuwürfe, die in diesem Zug noch übrig sind */
+  rerolls: 0,
+  /** Die Kombi des letzten Wurfs */
+  combo: null as Combo | null,
   /** Herzen, die die Seite am Zug in diesem Zug schon getroffen hat */
   heartsTurn: 0,
   /** Lern-Duell: bis zu dieser Runde gibt Sepia jeden Schritt vor (0 = aus) */
@@ -484,6 +500,10 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.phase = 'opening';
   S.lastRoll = [];
   S.joker = 0;
+  S.freeJoker = 0;
+  S.starBonus = 0;
+  S.rerolls = 0;
+  S.combo = null;
   S.heartsTurn = 0;
   S.tutorial = 0;
   uid = 0;
@@ -547,6 +567,7 @@ function mudCell(c: Cell): void {
 }
 
 /* ---------- Würfel ---------- */
+/** Würfe offen hinlegen. Die Symbole zählen erst, wenn der Wurf gilt (applyRoll), dazwischen darf man einmal neu werfen */
 export function rollDice(t: Team, us: Unit[]): Rolled[] {
   const out = us.map((u) => {
     const fi = Math.floor(rand01() * 6);
@@ -554,21 +575,111 @@ export function rollDice(t: Team, us: Unit[]): Rolled[] {
     u.used = true;
     return { u, fi, face: u.faces[fi]! };
   });
+  S.lastRoll = out.map((r) => ({ id: r.u.id, fi: r.fi }));
+  S.joker = 0;
+  S.freeJoker = 0;
+  S.starBonus = 0;
+  S.combo = null;
+  count(`${t.side}roll`);
+  emit({ k: 'roll', side: t.side, dice: S.lastRoll.map((r) => ({ ...r })) });
+  return out;
+}
+/** Der Wurf, wie er gerade liegt */
+export function currentRoll(): Rolled[] {
+  return S.lastRoll.map((r) => {
+    const u = unitById(r.id)!;
+    return { u, fi: r.fi, face: u.faces[r.fi]! };
+  });
+}
+/** Alle Würfel außer den gehaltenen neu werfen (einmal pro Zug) */
+export function rerollDice(t: Team, hold: number[]): Rolled[] {
+  const again: { id: number; fi: number }[] = [];
+  for (const r of S.lastRoll) {
+    if (hold.includes(r.id)) continue;
+    r.fi = Math.floor(rand01() * 6);
+    again.push({ ...r });
+  }
+  S.rerolls = Math.max(0, S.rerolls - 1);
+  count(`${t.side}reroll`);
+  emit({ k: 'reroll', side: t.side, dice: again });
+  return currentRoll();
+}
+
+/* ---------- Kombis wie Pokerhände: Paar, Drilling, Regenbogen ---------- */
+export type Sym = 'star' | 'gold' | Crest;
+export type Combo = { kind: 'pair' | 'triple' | 'rainbow'; sym: Sym | null; gain: Partial<Record<Crest, number>>; joker: number; star: number; text: string };
+/** Bei Gleichstand zählt das wertvollere Symbol */
+const CREST_ORDER: Crest[] = ['glow', 'splash', 'guard', 'step'];
+export const symLabel = (s: Sym): string => (s === 'star' ? 'stars' : s === 'gold' ? 'gold' : crestDef(s).label);
+/**
+ * Kombi eines Wurfs. Paar und Drilling aus gleichen Symbolen, Regenbogen aus drei verschiedenen Symbolen.
+ * Sterne zählen nur als Drilling gleicher Stufe (sonst beschwören sie), Gold zählt nicht mit.
+ * Ein Joker zählt als beliebiges Symbol oder als Stern und bleibt trotzdem ein Joker
+ */
+export function comboOf(faces: Face[]): Combo | null {
+  if (!TUNE.combos || faces.length < 2) return null;
+  const wild = faces.filter((f) => f.k === 'joker').length;
+  // Drei Sterne zählen nur mit gleicher Stufe (die Zahl steht auf der Seite)
+  const stars = Math.max(0, ...[1, 2, 3].map((lv) => faces.filter((f) => f.k === 'star' && f.n === lv).length));
+  const n = new Map<Crest, number>();
+  for (const f of faces) if (isCrest(f)) n.set(f.k, (n.get(f.k) ?? 0) + 1);
+  let best: Crest | null = null,
+    bc = 0;
+  for (const c of CREST_ORDER) {
+    const k = n.get(c) ?? 0;
+    if (k > bc) {
+      best = c;
+      bc = k;
+    }
+  }
+  const sym = best ?? 'glow';
+  if (best && bc + wild >= 3)
+    return { kind: 'triple', sym, gain: { [sym]: 2 }, joker: 1, star: 0, text: `Triple ${symLabel(sym)}: +2 and a Joker` };
+  if (stars + wild >= 3 && faces.length >= 3) return { kind: 'triple', sym: 'star', gain: {}, joker: 1, star: 0, text: 'Three stars: a Joker' };
+  if (best && bc + wild >= 2) return { kind: 'pair', sym, gain: { [sym]: 1 }, joker: 0, star: 0, text: `Pair of ${symLabel(sym)}: +1 ${symLabel(sym)}` };
+  if (faces.length >= 3 && wild === 0 && n.size === 3 && bc === 1) return { kind: 'rainbow', sym: null, gain: {}, joker: 1, star: 0, text: 'Rainbow: a Joker' };
+  return null;
+}
+/** Der Wurf gilt: Symbole der Seiten und die Kombi kommen in den Vorrat */
+export function applyRoll(t: Team): Rolled[] {
+  const out = currentRoll();
   for (const r of out) {
     const f = r.face;
     if (f.k === 'gold') for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + 1);
     else if (isCrest(f)) t.crests[f.k] = Math.min(CREST_MAX, t.crests[f.k] + f.n);
   }
-  S.lastRoll = out.map((r) => ({ id: r.u.id, fi: r.fi }));
-  S.joker = out.filter((r) => r.face.k === 'joker').length;
-  count(`${t.side}roll`);
-  emit({ k: 'roll', side: t.side, dice: out.map((r) => ({ id: r.u.id, fi: r.fi })), crests: { ...t.crests } });
-  logAdd(`${t.side === 2 ? 'Rival' : 'You'} rolled ${out.map((x) => faceText(x.face)).join(', ')}.`, t.side === 2 ? 'rival' : 'you');
+  const combo = comboOf(out.map((r) => r.face));
+  if (combo) {
+    for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (combo.gain[c.k] ?? 0));
+    count(`${t.side}combo-${combo.kind}`);
+  }
+  S.combo = combo;
+  S.freeJoker = combo?.joker ?? 0;
+  S.starBonus = combo?.star ?? 0;
+  S.joker = out.filter((r) => r.face.k === 'joker').length + S.freeJoker;
+  S.rerolls = 0;
+  emit({ k: 'apply', side: t.side, crests: { ...t.crests }, combo, joker: S.joker });
+  logAdd(`${t.side === 2 ? 'Rival' : 'You'} rolled ${out.map((x) => faceText(x.face)).join(', ')}${combo ? `. ${combo.text}` : ''}.`, t.side === 2 ? 'rival' : 'you');
   return out;
+}
+/** Welche Würfel halten: Drilling und Regenbogen ganz, ein Paar, Sterne (wenn noch Platz ist), Joker und Gold */
+export function aiHold(t: Team, rolled: Rolled[]): number[] {
+  const all = rolled.map((r) => r.u.id);
+  const combo = comboOf(rolled.map((r) => r.face));
+  if (combo && (combo.kind === 'triple' || combo.kind === 'rainbow')) return all;
+  const room = onSheet(t).length < ON_SHEET && t.units.some((u) => u.state === 'bag');
+  const hold = rolled.filter((r) => {
+    const f = r.face;
+    if (f.k === 'joker' || f.k === 'gold') return true;
+    if (f.k === 'star') return room;
+    return combo?.kind === 'pair' && combo.sym === f.k;
+  });
+  return hold.map((r) => r.u.id);
 }
 /** Ein Joker, der nicht zum Beschwören dient, wird zu einem Symbol nach Wahl */
 export function takeJoker(t: Team, c: Crest): void {
   S.joker = Math.max(0, S.joker - 1);
+  S.freeJoker = Math.min(S.freeJoker, S.joker);
   t.crests[c] = Math.min(CREST_MAX, t.crests[c] + 1);
   logAdd(`${t.side === 2 ? 'Rival' : 'You'} turned a Joker into ${crestDef(c).label}.`, t.side === 2 ? 'rival' : 'you');
 }
@@ -577,7 +688,7 @@ export function summonable(t: Team, rolled: Rolled[]): Unit[] {
   if (onSheet(t).length >= ON_SHEET) return [];
   return rolled
     .filter((r) => isStar(r.face) && r.u.state === 'bag')
-    .filter((r) => rolled.filter((o) => o !== r && isStar(o.face)).reduce((a, o) => a + starValue(o.face), 0) >= r.u.lv)
+    .filter((r) => rolled.filter((o) => o !== r && isStar(o.face)).reduce((a, o) => a + starValue(o.face), 0) + S.starBonus + 3 * S.freeJoker >= r.u.lv)
     .filter((r) => placements(r.u).length > 0)
     .map((r) => r.u);
 }
@@ -1242,6 +1353,10 @@ export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): stri
 export function startTurn(side: Side): void {
   S.turn = side;
   S.heartsTurn = 0;
+  S.rerolls = TUNE.rerolls;
+  S.combo = null;
+  S.starBonus = 0;
+  S.freeJoker = 0;
   const t = S.teams[side - 1]!;
   refillDeck(t);
   for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (TURN_GIFT[c.k] ?? 0));
@@ -1722,11 +1837,21 @@ export function aiTurnSteps(side: Side, look: number): () => boolean {
     if (S.over) return false;
     if (stage === 0) {
       const pick = aiChooseDice(team, look, r);
-      const rolled = pick.length ? rollDice(team, pick) : [];
+      let rolled = pick.length ? rollDice(team, pick) : [];
+      if (rolled.length) {
+        // Halten und einmal neu werfen, dann gilt der Wurf
+        const hold = aiHold(team, rolled);
+        if (S.rerolls > 0 && hold.length < rolled.length) rolled = rerollDice(team, hold);
+        rolled = applyRoll(team);
+      }
       stage = 1;
       const s = aiSummon(side, rolled, look, r);
       if (s) logAdd(`${side === 2 ? 'Rival' : 'You'} ${s}.`, side === 2 ? 'rival' : 'you');
-      if (s) S.joker = 0;
+      if (s) {
+        S.joker = 0;
+        S.freeJoker = 0;
+        S.starBonus = 0;
+      }
       while (S.joker > 0) takeJoker(team, aiJokerCrest(team));
       sync();
       return true;

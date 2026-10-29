@@ -6,7 +6,7 @@ import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
 import { tutorialAction, tutorialActive } from '../src/shared/duel/tutorial';
-import { canMove, idx, placements, reach, rollable, ROLL_N, S, summonable, unitById, type Rolled } from '../src/shared/duel/rules';
+import { canMove, comboOf, CRESTS, idx, placements, reach, rollable, ROLL_N, S, summonable, unitById, type Face, type Rolled } from '../src/shared/duel/rules';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -75,6 +75,9 @@ describe('Duell am Server', () => {
       if (S.phase === 'roll') {
         const l = rollable(S.teams[0]);
         a = { k: 'roll', ids: l.slice(0, Math.min(ROLL_N, l.length)).map((u) => u.id) };
+      } else if (S.phase === 'keep') {
+        // Abwechselnd behalten und den ersten Würfel neu werfen
+        a = guard % 2 ? { k: 'keep' } : { k: 'reroll', hold: S.lastRoll.slice(1).map((r) => r.id) };
       } else if (S.phase === 'summon') {
         const u = summonable(S.teams[0], rolled())[0];
         const p = u ? placements(u)[0] : undefined;
@@ -113,6 +116,7 @@ describe('Duell am Server', () => {
     const first = rollable(S.teams[0]).slice(0, ROLL_N).map((u) => u.id);
     view(await duelAct(d, USER, { k: 'roll', ids: first }));
     expect(first.every((id) => unitById(id)!.used)).toBe(true);
+    if (S.phase === 'keep') view(await duelAct(d, USER, { k: 'keep' }));
     // Bis zur nächsten Runde: dieselben Würfel gehen nicht noch einmal
     if (S.phase === 'summon') view(await duelAct(d, USER, { k: 'skip' }));
     if (S.joker > 0) view(await duelAct(d, USER, { k: 'joker', crest: 'step' }));
@@ -153,6 +157,7 @@ describe('Duell am Server', () => {
     view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
     const l = rollable(S.teams[0]);
     view(await duelAct(d, USER, { k: 'roll', ids: l.slice(0, ROLL_N).map((u) => u.id) }));
+    if (S.phase === 'keep') view(await duelAct(d, USER, { k: 'keep' }));
     if (S.phase === 'summon') view(await duelAct(d, USER, { k: 'skip' }));
     if (S.joker > 0) view(await duelAct(d, USER, { k: 'joker', crest: 'step' }));
     const u = S.teams[0].units.find((x) => x.state === 'sheet')!;
@@ -188,6 +193,66 @@ describe('Duell am Server', () => {
     expect(S.phase === 'roll' || S.phase === 'over').toBe(true);
   });
 
+  it('Neuwurf: halten, den Rest einmal neu werfen, erst dann zählen Symbole und Kombi', async () => {
+    // Einen Wurf suchen, der in der Haltephase landet (ein Drilling gilt sofort)
+    let d = setup(41),
+      l: number[] = [],
+      res: DuelResponse | null = null;
+    for (let seed = 41; seed < 60; seed++) {
+      d = setup(seed);
+      view(await duelStart(d, USER, 'apprentice'));
+      const u0 = S.teams[0].units[0]!;
+      const p0 = placements(u0)[0]!;
+      view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
+      l = rollable(S.teams[0]).slice(0, ROLL_N).map((u) => u.id);
+      res = await duelAct(d, USER, { k: 'roll', ids: l });
+      view(res);
+      if (S.phase === 'keep') break;
+    }
+    const u0 = S.teams[0].units.find((u) => u.state === 'sheet')!;
+    expect(res!.events.some((e) => e.k === 'roll')).toBe(true);
+    expect(S.phase).toBe('keep');
+    const before = { ...S.teams[0].crests };
+    expect(res!.events.some((e) => e.k === 'apply')).toBe(false);
+    // Nur Würfel aus diesem Wurf, mindestens einer muss neu
+    expect(await code(duelAct(d, USER, { k: 'reroll', hold: [999] }))).toBe('bad_request');
+    expect(await code(duelAct(d, USER, { k: 'reroll', hold: l }))).toBe('bad_request');
+    expect(await code(duelAct(d, USER, { k: 'go', id: u0.id, to: idx(u0.x, u0.y), a: 'soak', at: null }))).toBe('bad_request');
+    const kept = S.lastRoll[0]!;
+    const r2 = await duelAct(d, USER, { k: 'reroll', hold: [kept.id] });
+    view(r2);
+    const again = r2.events.find((e) => e.k === 'reroll');
+    expect(again && again.k === 'reroll' && again.dice.map((x) => x.id).sort()).toEqual(l.filter((id) => id !== kept.id).sort());
+    expect(S.lastRoll.find((r) => r.id === kept.id)!.fi).toBe(kept.fi);
+    // Nur ein Neuwurf: danach gilt der Wurf von selbst
+    const ap = r2.events.find((e) => e.k === 'apply');
+    expect(ap).toBeTruthy();
+    expect(['summon', 'act', 'roll', 'over']).toContain(String(S.phase));
+    const gained = CRESTS.reduce((a, c) => a + S.teams[0].crests[c.k] - before[c.k], 0);
+    expect(gained).toBeGreaterThanOrEqual(0);
+    expect(await code(duelAct(d, USER, { k: 'reroll', hold: [] }))).toBe('bad_request');
+  });
+
+  it('Kombis: Paar, Drilling, Regenbogen, Joker zählt als beliebiges Symbol', () => {
+    const f = (k: Face['k'], n = 1): Face => ({ k, n });
+    expect(comboOf([f('glow'), f('glow'), f('step')])).toMatchObject({ kind: 'pair', sym: 'glow', gain: { glow: 1 } });
+    expect(comboOf([f('splash'), f('splash'), f('splash')])).toMatchObject({ kind: 'triple', gain: { splash: 2 }, joker: 1 });
+    expect(comboOf([f('step'), f('guard'), f('glow')])).toMatchObject({ kind: 'rainbow', joker: 1 });
+    // Zwei Sterne sind keine Kombi, sie beschwören
+    expect(comboOf([f('star', 2), f('star', 1), f('glow')])).toBeNull();
+    expect(comboOf([f('star', 2), f('glow'), f('gold')])).toBeNull();
+    expect(comboOf([f('star', 2), f('star', 2), f('joker', 3)])).toMatchObject({ kind: 'triple', sym: 'star' });
+    // Drei Sterne nur mit gleicher Stufe
+    expect(comboOf([f('star', 2), f('star', 1), f('star', 2)])).toBeNull();
+    expect(comboOf([f('star', 1), f('star', 1), f('star', 1)])).toMatchObject({ kind: 'triple', sym: 'star', joker: 1 });
+    expect(comboOf([f('joker', 3), f('guard'), f('guard')])).toMatchObject({ kind: 'triple', sym: 'guard' });
+    expect(comboOf([f('joker', 3), f('guard'), f('step')])).toMatchObject({ kind: 'pair', sym: 'guard' });
+    expect(comboOf([f('glow', 2), f('step'), f('step')])).toMatchObject({ kind: 'pair', sym: 'step' });
+    expect(comboOf([f('joker', 3), f('step'), f('star', 1)])).toMatchObject({ kind: 'pair', sym: 'step' });
+    expect(comboOf([f('step'), f('glow'), f('star', 1)])).toBeNull();
+    expect(comboOf([f('glow')])).toBeNull();
+  });
+
   it('verwirft Duelle nach alten Regeln', async () => {
     const d = setup(23);
     await duelStart(d, USER, 'apprentice');
@@ -216,9 +281,11 @@ describe('Duell am Server', () => {
         const a = tutorialAction()!;
         seen.add(a.k === 'go' ? (a.a === 'splash' && a.at === S.teams[1].home ? 'palette' : a.a) : a.k);
         res = await duelAct(d, USER, a);
+        for (const e of res.events) if (e.k === 'apply' && e.side === 1 && e.combo) seen.add('combo');
         view(res);
       }
-      for (const k of ['open', 'roll', 'summon', 'stamp', 'splash', 'ability', 'palette']) expect(seen.has(k)).toBe(true);
+      // Sepia zeigt auch Neuwurf und eine Kombi
+      for (const k of ['open', 'roll', 'reroll', 'combo', 'summon', 'stamp', 'splash', 'ability', 'palette']) expect([k, seen.has(k)]).toEqual([k, true]);
       expect(S.teams[1].hearts).toBeLessThan(3);
       runs.push(JSON.stringify(S.cells.map((c) => c.owner)));
     }

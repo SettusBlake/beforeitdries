@@ -6,7 +6,7 @@
 import type { Monster } from '../monster';
 import type { DuelAction } from './play';
 import { RNG } from '../rng';
-import { ABILITY, aiChooseDice, aiJokerCrest, bestOpening, byGesture, bestPlacement, find, onSheet, S, suggest, summonable, unitById, idx, type Rolled } from './rules';
+import { ABILITY, aiChooseDice, aiHold, aiJokerCrest, bestOpening, byGesture, bestPlacement, currentRoll, find, onSheet, S, suggest, summonable, unitById, idx } from './rules';
 
 /** Bis zu dieser Runde gibt Sepia jeden Schritt vor */
 export const TUTORIAL_ROUNDS = 3;
@@ -28,13 +28,6 @@ export function startTutorial(): void {
   S.teams[0].crests.glow = 2;
 }
 
-function rolledNow(): Rolled[] {
-  return S.lastRoll.map((r) => {
-    const u = unitById(r.id)!;
-    return { u, fi: r.fi, face: u.faces[r.fi]! };
-  });
-}
-
 /** Der eine erlaubte nächste Schritt im Lern-Duell */
 export function tutorialAction(): DuelAction | null {
   const me = S.teams[0];
@@ -45,8 +38,10 @@ export function tutorialAction(): DuelAction | null {
     }
     case 'roll':
       return { k: 'roll', ids: bestRoll() };
+    case 'keep':
+      return keepOrReroll();
     case 'summon': {
-      const u = summonable(me, rolledNow())[0];
+      const u = summonable(me, currentRoll())[0];
       const p = u ? bestPlacement(u) : null;
       return u && p ? { k: 'summon', id: u.id, o: p.o, at: p.at } : { k: 'skip' };
     }
@@ -61,6 +56,12 @@ export function tutorialAction(): DuelAction | null {
   }
 }
 
+/** Sepias Wahl nach dem Wurf: alles halten heißt behalten, sonst den Rest neu werfen */
+export function keepOrReroll(): DuelAction {
+  const rolled = currentRoll();
+  const hold = aiHold(S.teams[0], rolled);
+  return S.rerolls > 0 && hold.length < rolled.length ? { k: 'reroll', hold } : { k: 'keep' };
+}
 /** Die drei Würfel, die Sepia werfen würde (aus denen, die im Deck bereitliegen) */
 export function bestRoll(): number[] {
   return aiChooseDice(S.teams[0], 0, RNG(1)).map((u) => u.id);
@@ -77,6 +78,10 @@ export function sameAction(a: DuelAction, b: DuelAction): boolean {
     case 'roll': {
       const o = b as typeof a;
       return Array.isArray(o.ids) && [...a.ids].sort().join() === [...o.ids].sort().join();
+    }
+    case 'reroll': {
+      const o = b as typeof a;
+      return Array.isArray(o.hold) && [...a.hold].sort().join() === [...o.hold].sort().join();
     }
     case 'go': {
       const o = b as typeof a;

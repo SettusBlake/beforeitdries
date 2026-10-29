@@ -6,8 +6,13 @@
 import { sameAction, tutorialAction, tutorialActive } from './tutorial';
 import {
   ABILITY,
+  aiHold,
   aiJokerCrest,
   aiOpening,
+  applyRoll,
+  comboOf,
+  currentRoll,
+  rerollDice,
   aiTurnSteps,
   abilityTargets,
   act,
@@ -44,6 +49,7 @@ import {
   ROWS,
   type Action,
   type Cell,
+  type Combo,
   type Crest,
   type Ev,
   type Level,
@@ -57,6 +63,10 @@ import {
 export type DuelAction =
   | { k: 'open'; id: number; o: number; at: number }
   | { k: 'roll'; ids: number[] }
+  /** Diese Würfel halten, den Rest neu werfen */
+  | { k: 'reroll'; hold: number[] }
+  /** Den Wurf nehmen, wie er liegt */
+  | { k: 'keep' }
   | { k: 'summon'; id: number; o: number; at: number }
   | { k: 'skip' }
   | { k: 'joker'; crest: Crest }
@@ -81,6 +91,10 @@ export type DuelState = {
   lastRoll: { id: number; fi: number }[];
   /** Joker aus dem letzten Wurf, noch nicht verbraucht */
   joker: number;
+  freeJoker: number;
+  starBonus: number;
+  rerolls: number;
+  combo: Combo | null;
   heartsTurn: number;
   paintSeed: number;
   stamp: number;
@@ -111,6 +125,10 @@ export function publicState(): DuelState {
     phase: S.phase,
     lastRoll: S.lastRoll,
     joker: S.joker,
+    freeJoker: S.freeJoker,
+    starBonus: S.starBonus,
+    rerolls: S.rerolls,
+    combo: S.combo,
     heartsTurn: S.heartsTurn,
     paintSeed: S.paintSeed,
     stamp: S.stamp,
@@ -135,6 +153,10 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSee
   S.phase = s.phase;
   S.lastRoll = s.lastRoll;
   S.joker = s.joker ?? 0;
+  S.freeJoker = s.freeJoker ?? 0;
+  S.starBonus = s.starBonus ?? 0;
+  S.rerolls = s.rerolls ?? 0;
+  S.combo = s.combo ?? null;
   S.heartsTurn = s.heartsTurn ?? 0;
   S.paintSeed = s.paintSeed;
   S.stamp = s.stamp;
@@ -145,11 +167,12 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSee
   S.events = [];
 }
 /** Der letzte Wurf mit Würfeln und Seiten */
-export function lastRolled(): Rolled[] {
-  return S.lastRoll.map((r) => {
-    const u = unitById(r.id)!;
-    return { u, fi: r.fi, face: u.faces[r.fi]! };
-  });
+export const lastRolled = (): Rolled[] => currentRoll();
+/** Der Wurf gilt: Symbole und Kombi, dann beschwören oder handeln */
+function settle(me: Team): void {
+  const rolled = applyRoll(me);
+  sync();
+  S.phase = summonable(me, rolled).length ? 'summon' : 'act';
 }
 
 /** Der Rivale eröffnet, danach ist der Spieler dran */
@@ -202,7 +225,26 @@ export function perform(a: DuelAction): Ev[] {
       if (us.some((u) => u.state !== 'bag' || u.used)) bad('That die is not ready in your deck.');
       const rolled = rollDice(me, us);
       sync();
-      S.phase = summonable(me, rolled).length ? 'summon' : 'act';
+      // Ein Drilling lässt sich nicht verbessern: gilt sofort
+      if (!rolled.length || S.rerolls < 1 || comboOf(rolled.map((r) => r.face))?.kind === 'triple') settle(me);
+      else S.phase = 'keep';
+      break;
+    }
+    case 'reroll': {
+      if (S.phase !== 'keep') bad('Nothing to reroll.');
+      if (S.rerolls < 1) bad('No reroll left this turn.');
+      const ids = new Set(S.lastRoll.map((r) => r.id));
+      const hold = Array.isArray(a.hold) ? [...new Set(a.hold)] : [];
+      if (hold.some((id) => !ids.has(id as number))) bad('Hold only dice from this roll.');
+      if (hold.length >= ids.size) bad('Pick at least one die to reroll.');
+      rerollDice(me, hold);
+      sync();
+      if (S.rerolls < 1) settle(me);
+      break;
+    }
+    case 'keep': {
+      if (S.phase !== 'keep') bad('Nothing to keep.');
+      settle(me);
       break;
     }
     case 'summon': {
@@ -213,6 +255,8 @@ export function perform(a: DuelAction): Ev[] {
       logAdd(`You ${s}.`, 'you');
       // Die Joker haben als Sterne gezählt
       S.joker = 0;
+      S.freeJoker = 0;
+      S.starBonus = 0;
       sync();
       S.phase = 'act';
       break;
@@ -239,7 +283,7 @@ export function perform(a: DuelAction): Ev[] {
       break;
     }
     case 'auto': {
-      if (S.phase !== 'summon' && S.phase !== 'act') bad('Not your turn.');
+      if (S.phase !== 'keep' && S.phase !== 'summon' && S.phase !== 'act') bad('Not your turn.');
       autoTurn();
       endTurn();
       break;
@@ -301,12 +345,19 @@ function goBlot(u: Unit, a: { to: unknown; a: unknown; at: unknown }): void {
 /** Sepia spielt den Rest des Zuges: beschwören, Joker nehmen, dann jeden Klecks wie ihr goldener Ring */
 function autoTurn(): void {
   const me = S.teams[0];
+  if (S.phase === 'keep') {
+    const hold = aiHold(me, currentRoll());
+    if (S.rerolls > 0 && hold.length < S.lastRoll.length) rerollDice(me, hold);
+    settle(me);
+  }
   if (S.phase === 'summon') {
     const u = summonable(me, lastRolled())[0];
     const p = u ? bestPlacement(u) : null;
     if (u && p) {
       logAdd(`You ${doSummon(u, p.o, p.at)}.`, 'you');
       S.joker = 0;
+      S.freeJoker = 0;
+      S.starBonus = 0;
       sync();
     }
     S.phase = 'act';
@@ -332,6 +383,8 @@ function endTurn(): void {
     startTurn(1);
     S.lastRoll = [];
     S.joker = 0;
+    S.freeJoker = 0;
+    S.starBonus = 0;
     // Kein Würfel mehr im Deck (alle auf dem Blatt oder verloren): gleich handeln
     S.phase = rollable(S.teams[0]).length ? 'roll' : 'act';
   }

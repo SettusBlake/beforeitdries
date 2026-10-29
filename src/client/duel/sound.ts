@@ -126,6 +126,14 @@ export const sfx = {
   },
   /** Der W100 rattert */
   tick: (i = 0) => tone(0, 1500 + (i % 3) * 120, 1400, 0.025, 'square', 0.015),
+  /** Kombi im Wurf: Paar zwei Töne, Drilling ein Lauf mit Funkeln, Regenbogen ein Glissando */
+  combo(kind: 'pair' | 'triple' | 'rainbow'): void {
+    if (kind === 'pair') [660, 880].forEach((f, k) => tone(k * 0.09, f, f, 0.3, 'triangle', 0.07));
+    else if (kind === 'triple') {
+      [523, 659, 784, 1047].forEach((f, k) => tone(k * 0.07, f, f, 0.45, 'triangle', 0.07));
+      for (let k = 0; k < 5; k++) tone(0.3 + k * 0.06, 2000 + k * 220, 2400 + k * 220, 0.1, 'sine', 0.03);
+    } else [392, 494, 587, 698, 880, 1047].forEach((f, k) => tone(k * 0.05, f, f * 1.02, 0.25, 'sine', 0.05));
+  },
   /** Seltenheit wird sichtbar: je seltener, desto länger der Akkord */
   reveal(rank = 0): void {
     const notes = [392, 494, 587, 784, 988, 1175, 1568];

@@ -25,6 +25,8 @@ export type Hooks = {
   banner: (text: string, kind: 'turn' | 'round' | 'ability' | 'big') => void;
   ticker: (text: string, cls: string) => void;
   roll: (e: Extract<Ev, { k: 'roll' }>) => Promise<void>;
+  reroll: (e: Extract<Ev, { k: 'reroll' }>) => Promise<void>;
+  apply: (e: Extract<Ev, { k: 'apply' }>) => Promise<void>;
 };
 
 export const V = {
@@ -772,6 +774,12 @@ export async function playEvent(e: Ev): Promise<void> {
       return;
     case 'roll':
       await hooks.roll(e);
+      return;
+    case 'reroll':
+      await hooks.reroll(e);
+      return;
+    case 'apply':
+      await hooks.apply(e);
       return;
     case 'summon': {
       e.cells.forEach((s, k) => {

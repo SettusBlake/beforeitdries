@@ -94,6 +94,23 @@ button { font: inherit; color: inherit; }
 .d3face { position: absolute; inset: 0; display: grid; place-items: center; background: #fffdf8; border: 2.5px solid; border-radius: 9px;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), inset 0 -6px 10px rgba(30,25,20,.08); backface-visibility: hidden; }
 .stage-die.star .die3 { filter: drop-shadow(0 0 8px rgba(43,63,163,.55)); }
+/* Haltephase: Würfel antippen, gehaltene heben sich mit goldenem Rand */
+#stage.pick { pointer-events: auto; }
+#stage.pick .stage-die { cursor: pointer; transition: transform .2s ease; }
+.stage-die.held { transform: translateY(-12px); }
+.stage-die.held .die3 { filter: drop-shadow(0 0 0 #c9961e) drop-shadow(0 0 7px rgba(201,150,30,.85)); }
+.stage-die.held small::after { content: " · held"; color: var(--gold-ink); }
+.stage-combo { margin: 2px 0 0; min-height: 1.4em; font: 400 1.15rem var(--f-display); color: var(--muted); }
+.stage-combo.has { color: var(--gold-ink); }
+.stage-combo.pop { animation: comboPop .5s cubic-bezier(.2,.9,.25,1.4); }
+.stage-combo.k-triple { font-size: 1.45rem; }
+.stage-die.combo .die3 { animation: comboDie .5s ease; }
+@keyframes comboPop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes comboDie { 40% { transform: translateY(-10px) scale(1.08); } }
+#ctx.combos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cmb { display: grid; gap: 1px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: #fffdf8; }
+.cmb b { font: 700 13px var(--f-body); color: var(--gold-ink); }
+.cmb span { font: 12px/1.25 var(--f-body); color: var(--muted); }
 #banner { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); pointer-events: none; opacity: 0; white-space: nowrap;
   font: 400 1.9rem var(--f-display); color: var(--ink); padding: 6px 22px; border-radius: 40px;
   background: radial-gradient(ellipse at center, rgba(251,250,246,.96) 55%, rgba(251,250,246,0) 72%); }
@@ -279,7 +296,7 @@ button { font: inherit; color: inherit; }
 .dsum { width: 100%; }
 #result-reward { margin: 4px 0 0; font: 700 14px var(--f-mono); }
 #result-reward small { font-weight: 400; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { #dip-hint { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #dip-hint { animation: none; } .stage-combo.pop, .stage-die.combo .die3 { animation: none; } }
 
 /* ---------- Fassung 6: Goldknopf für Fähigkeiten, Sepia paints ---------- */
 #abil { position: absolute; inset: 0; pointer-events: none; }
