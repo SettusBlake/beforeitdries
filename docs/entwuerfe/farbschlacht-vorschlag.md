@@ -16,6 +16,7 @@ Stand 29.10.2026, Fassung 6 (weniger tippen, mehr Wumms, Plan: docs/entwuerfe/fa
 
 - **Ein Wisch pro Klecks:** Klecks auf ein Feld ziehen. Papier: hinlaufen und dort stempeln (liegt das Feld zu weit, stempelt er vom nächsten Feld aus). Rivale: hinlaufen und spritzen. Rivalen-Palette: Herz treffen. Oder Klecks antippen und dann das Ziel antippen. Zweimal antippen: Soak. Beim Ziehen zeigt das Blatt Weg, Stempelfelder mit Chancen oder die Trefferchance am Ziel.
 - **Fähigkeit:** Goldknopf über dem Klecks, sobald genug Glow da ist. Fähigkeiten wirken von dort, wo der Klecks steht.
+- **Deck statt Beutel (29.10.2026, Plan docs/entwuerfe/gacha-und-deck-plan.md, Variante A mit eigener Wahl):** 9 Würfel. Man wählt jeden Zug 3 bereite Würfel (Sepia schlägt 3 vor). Geworfene Würfel sind verbraucht wie Karten. Liegen weniger als 3 bereit, wird die Ablage zurück ins Deck gemischt. Ein Würfel, dessen Klecks auf dem Blatt steht, wird nicht geworfen. Ausgewaschen: für dieses Duell weg.
 - **Ein Tipp für Würfeln und Beschwören:** Die Würfel sind vorgewählt, das Netz liegt schon an der besten Stelle. Ein Tipp aufs Netz klappt es auf, ein Tipp auf einen blauen Punkt verschiebt es.
 - **Der Zug endet von selbst,** wenn alle Kleckse gehandelt haben.
 - **Rivalenzug zum Mitschauen (29.10.2026):** normales Tempo mit Banner. Vor jedem Zug zeigt ein roter Ring, welcher Klecks dran ist, und eine gestrichelte Linie, wohin er will. Antippen des Blatts beschleunigt.
@@ -60,7 +61,7 @@ Stand 29.10.2026, Fassung 6 (weniger tippen, mehr Wumms, Plan: docs/entwuerfe/fa
 - **Pigment** nur durchs Spielen: Sieg 60, Unentschieden 40, Niederlage 25 (höchstens 5 belohnte Duelle am Tag), Lern-Duell einmal 200, Tagesklecks fangen 50.
 - **Doppelte Art** (gleicher Bauplan und Hauptpigment, nicht seltener als die eigene) wird Lasur für diese Art: Common 1, Uncommon 2, Rare 3, Epic 5, Legendary 10. Ein seltenerer Doppelter bleibt ein neuer Würfel.
 - **Lasur auf Würfelseiten:** 3 Lasur machen ein einfaches Symbol doppelt. So verändert sich ein Würfel durch Lasuren (festgelegt am 28.10.2026).
-- **Beutel:** bis zu 6 Würfel aus der Sammlung. Auf der Karte „Take out of bag“ nimmt ihn heraus, „Put in bag“ legt ihn auf einen freien Platz. Ist der Beutel voll, „Swap into bag“ und dann den Würfel antippen, den er ersetzt. Leere Plätze füllt ein Duell mit den übrigen Würfeln.
+- **Deck:** bis zu 9 Würfel aus der Sammlung. Auf der Karte nimmt „Take out of deck“ ihn heraus, „Put in deck“ legt ihn auf einen freien Platz. Ist das Deck voll, „Swap into deck“ und dann den Würfel antippen, den er ersetzt. Leere Plätze füllt ein Duell mit den übrigen Würfeln. 9 freie Startzüge.
 
 ## Idee
 
@@ -83,10 +84,10 @@ Ein Malduell, in dem die Monster selbst auf dem Blatt stehen. Farbe ist Gelände
 ## Regeln
 
 - **Blatt:** 7 × 7 Felder, 6 Runden, abwechselnd ein Zug. Jede Seite hat ihre Palette (3 Herzen) in der Mitte ihres Randes, darum ein kleiner Fleck eigener Farbe.
-- **Beutel:** 6 Würfel aus der eigenen Sammlung. Die Stufe kommt aus der Stärke des Kleckses (Summe der fünf Kampfwerte): unter 110 Stufe 1, unter 123 Stufe 2, sonst Stufe 3. Sternseiten: Stufe 1 und 2 haben drei, Stufe 3 hat zwei. Der Rivale bekommt 6 zufällige Würfel, auch mit Seltenheiten.
+- **Deck:** 9 Würfel aus der eigenen Sammlung. Die Stufe kommt aus der Stärke des Kleckses (Summe der fünf Kampfwerte): unter 110 Stufe 1, unter 123 Stufe 2, sonst Stufe 3. Sternseiten: Stufe 1 und 2 haben drei, Stufe 3 hat zwei. Der Rivale bekommt 6 zufällige Würfel, auch mit Seltenheiten.
 - **Eröffnung:** Jede Seite klappt einen Klecks ihrer Wahl kostenlos auf.
 - **Ein Zug:**
-  1. **Würfeln:** drei Würfel werfen (vorgewählt, tauschbar). Symbole kommen in den eigenen Vorrat und bleiben dort (höchstens 9 je Sorte). Zum Start liegen 1 Step und 1 Splash im Vorrat.
+  1. **Würfeln:** drei bereite Würfel aus dem Deck wählen und werfen (vorgewählt, tauschbar). Geworfene Würfel sind verbraucht, bis neu gemischt wird. Würfel auf dem Blatt werden nicht geworfen. Symbole kommen in den eigenen Vorrat und bleiben dort (höchstens 9 je Sorte). Zum Start liegen 1 Step und 1 Splash im Vorrat.
   2. **Beschwören:** Ein Würfel aus dem Beutel mit Stern (oder Joker) darf aufklappen, wenn die Sterne der anderen geworfenen Würfel zusammen mindestens seine Stufe ergeben. Ein Joker zählt als Stern beliebiger Stufe. Das Netz muss die eigene Farbe berühren und darf nur auf blankes Papier oder eigene Farbe. Es wird zu sechs Feldern nasser Farbe, der Klecks steht darauf. Höchstens drei Kleckse auf dem Blatt.
   3. **Handeln:** Jeder Klecks auf dem Blatt zieht einmal: hinlaufen und handeln in einem Wisch. Haben alle gehandelt, endet der Zug.
 - **Bewegen:** Eigene Farbe kostet 1, blankes Papier, fremde Farbe und Schlamm kosten 2, im Schlamm bleibt man stehen. Die Reichweite kommt aus Fluss (2 bis 5). Ein Step im Vorrat erlaubt 2 mehr und wird nur verbraucht, wenn man die zusätzliche Reichweite nutzt.
@@ -108,9 +109,9 @@ Ein Malduell, in dem die Monster selbst auf dem Blatt stehen. Farbe ist Gelände
 
 ## Bewusste Abweichungen von Dungeon Dice Monsters
 
-- 6 statt 15 Würfel, damit ein Duell kurz bleibt.
+- 9 statt 15 Würfel, damit ein Duell kurz bleibt.
 - Beschwören über die Summe der Sterne statt zwei gleiche Stufen. Sonst bliebe der zweite Würfel einer Stufe für immer im Beutel.
-- Würfel von Klecksen, die schon auf dem Blatt stehen, werfen weiter mit (für Symbole und als Sterne für andere).
+- Geworfene Würfel sind verbraucht, bis die Ablage zurückgemischt wird (wie ein Kartendeck).
 - Bewegen kostet nichts, ein Step gibt zusätzliche Reichweite.
 - Stempeln und Spritzen auf Kleckse kosten nichts. Symbole braucht man für Reichweite, Palette, Abwehr und Fähigkeiten.
 - Guard wird von selbst ausgegeben, damit man im Zug des Rivalen nichts antippen muss.
@@ -164,11 +165,11 @@ Jeder Bauplan hat ein eigenes Würfelnetz (elf Netze, Twinhead teilt seines mit 
 
 | Spieler | gegen Apprentice | gegen Journeyman | gegen Master |
 |---|---|---|---|
-| stark | 86 % (88) | 73 % (77) | 43 % (65) |
-| schwach | 68 % (65) | 47 % (44) | 35 % (26) |
+| stark | 88 % (88) | 77 % (77) | 47 % (65) |
+| schwach | 74 % (65) | 60 % (44) | 33 % (26) |
 
 - Ausgewaschene Kleckse pro Duell (beide Seiten): bei starkem Spiel 1,8 bis 2,7 statt 0,2 bis 0,4.
-- 31 bis 57 % der Duelle enden an der Palette, der Rest beim Trocknen.
+- 23 bis 65 % der Duelle enden an der Palette, der Rest beim Trocknen.
 - Ein Duell dauert etwa 5 bis 6 Würfe pro Seite.
 - Bedienung im Browser gemessen (ein Bot folgt Sepias Pfeil): 14 Taps für ein ganzes Duell gegen den Lehrling statt 69, 3 bis 5 pro Zug. Das Lern-Duell braucht 29 Taps über 6 Runden.
 

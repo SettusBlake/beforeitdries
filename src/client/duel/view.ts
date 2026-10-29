@@ -696,6 +696,12 @@ export async function playEvent(e: Ev): Promise<void> {
       await wait(520);
       return;
     }
+    case 'shuffle':
+      // Ablage zurück ins Deck
+      hooks.banner(e.side === 1 ? 'Deck shuffled' : 'Rival shuffles', 'round');
+      sfx.dice(2);
+      await wait(700);
+      return;
     case 'round':
       hooks.banner(`Round ${e.round}`, 'round');
       sfx.turn();
@@ -713,7 +719,7 @@ export async function playEvent(e: Ev): Promise<void> {
       let v = V.units.get(e.id);
       const u = unitById(e.id)!;
       if (!v) {
-        v = vunitFrom({ id: e.id, x: e.x, y: e.y, hp: u.max, max: u.max, state: 'sheet', stain: 0, rooted: 0, shield: 0, acted: false });
+        v = vunitFrom({ id: e.id, x: e.x, y: e.y, hp: u.max, max: u.max, state: 'sheet', stain: 0, rooted: 0, shield: 0, acted: false, used: false });
         V.units.set(e.id, v);
       }
       Object.assign(v, { state: 'sheet', dx: e.x, dy: e.y, hp: u.max, max: u.max, hpShown: u.max, busy: true });

@@ -1,6 +1,6 @@
 # Plan: Ziehen mit richtiger Animation, Würfel als Deck
 
-Stand 29.10.2026. Vorschlag, nichts davon ist gebaut. Wartet auf Freigabe, Fragen am Ende.
+Stand 29.10.2026. Entschieden: A (Deck) mit eigener Würfelwahl statt Ziehen, Deck mit 9 Würfeln, gebaut (Playtest). B und C nicht. Ziehen-Animation zuerst als Artifact, Technik noch offen (Frage 4).
 
 ## Rückmeldung
 

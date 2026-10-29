@@ -5,12 +5,13 @@
  */
 import type { Monster } from '../monster';
 import type { DuelAction } from './play';
-import { ABILITY, aiJokerCrest, bestOpening, byGesture, bestPlacement, find, living, onSheet, ROLL_N, S, suggest, summonable, unitById, idx, type Rolled } from './rules';
+import { RNG } from '../rng';
+import { ABILITY, aiChooseDice, aiJokerCrest, bestOpening, byGesture, bestPlacement, find, onSheet, S, suggest, summonable, unitById, idx, type Rolled } from './rules';
 
 /** Bis zu dieser Runde gibt Sepia jeden Schritt vor */
 export const TUTORIAL_ROUNDS = 3;
 /** Per Suche gewählt (Fassung 6): der erste Wurf beschwört, es wird gestempelt, gespritzt, zwei Rivalen platzen, die Palette wird getroffen, eine Fähigkeit genutzt */
-export const TUTORIAL_SEED = 624;
+export const TUTORIAL_SEED = 626;
 
 export function tutorialBags(): [Monster[], Monster[]] {
   return [
@@ -42,11 +43,8 @@ export function tutorialAction(): DuelAction | null {
       const b = bestOpening(1);
       return b ? { k: 'open', id: b.u.id, o: b.o, at: b.at } : null;
     }
-    case 'roll': {
-      const l = living(me);
-      const ids = [...l.filter((u) => u.state === 'bag'), ...l.filter((u) => u.state === 'sheet')].slice(0, Math.min(ROLL_N, l.length)).map((u) => u.id);
-      return { k: 'roll', ids };
-    }
+    case 'roll':
+      return { k: 'roll', ids: bestRoll() };
     case 'summon': {
       const u = summonable(me, rolledNow())[0];
       const p = u ? bestPlacement(u) : null;
@@ -61,6 +59,11 @@ export function tutorialAction(): DuelAction | null {
     default:
       return null;
   }
+}
+
+/** Die drei Würfel, die Sepia werfen würde (aus denen, die im Deck bereitliegen) */
+export function bestRoll(): number[] {
+  return aiChooseDice(S.teams[0], 0, RNG(1)).map((u) => u.id);
 }
 
 export function sameAction(a: DuelAction, b: DuelAction): boolean {

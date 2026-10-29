@@ -4,7 +4,7 @@ import { GameError, type Deps } from '../src/server/core';
 import { diceBag, diceGet, diceGlaze, dicePull, loadDice, saveDice } from '../src/server/dice';
 import { duelStart } from '../src/server/duel';
 import { dieMonster, dieSpecies, GLAZE_COST, PITY, rarityFromRoll, rarityIndex, STARTER_PULLS } from '../src/shared/dice';
-import { dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
+import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
 import { loadState } from '../src/shared/duel/play';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
@@ -43,9 +43,9 @@ describe('Würfelsammlung', () => {
     const d = setup();
     const res = await dicePull(d, USER, 'starter');
     expect(res.pulls).toHaveLength(STARTER_PULLS);
-    expect(res.dice.dice).toHaveLength(6);
-    expect(res.dice.bag).toHaveLength(6);
-    expect(new Set(res.dice.dice.map(dieSpecies)).size).toBe(6);
+    expect(res.dice.dice).toHaveLength(STARTER_PULLS);
+    expect(res.dice.bag).toHaveLength(BAG);
+    expect(new Set(res.dice.dice.map(dieSpecies)).size).toBe(STARTER_PULLS);
     for (const p of res.pulls) {
       expect(p.d100).toBeGreaterThanOrEqual(1);
       expect(p.d100).toBeLessThanOrEqual(100);
@@ -130,15 +130,15 @@ describe('Würfelsammlung', () => {
     await dicePull(d, USER, 'starter');
     const s = await dicePull(d, USER, 'ten');
     const ids = s.dice.dice.map((x) => x.id);
-    expect(ids.length).toBeGreaterThan(6);
-    expect(await code(diceBag(d, USER, ids.slice(0, 7)))).toBe('bad_request');
+    expect(ids.length).toBeGreaterThan(BAG);
+    expect(await code(diceBag(d, USER, ids.slice(0, BAG + 1)))).toBe("bad_request");
     expect(await code(diceBag(d, USER, [...ids.slice(0, 5), 'd999']))).toBe('bad_request');
     // Herausnehmen geht: ein halber Beutel ist erlaubt, das Duell füllt auf
     const half = await diceBag(d, USER, ids.slice(0, 3));
     expect(half.dice.bag).toEqual(ids.slice(0, 3));
     const filled = await duelStart(d, USER, 'apprentice');
-    expect(filled.state!.teams[0]!.units).toHaveLength(6);
-    const pick = ids.slice(-6);
+    expect(filled.state!.teams[0]!.units).toHaveLength(BAG);
+    const pick = ids.slice(-BAG);
     const res = await diceBag(d, USER, pick);
     expect(res.dice.bag).toEqual(pick);
     const duel = await duelStart(d, USER, 'apprentice');
@@ -150,9 +150,9 @@ describe('Würfelsammlung', () => {
   it('das erste Duell ohne Würfel macht die Startzüge selbst', async () => {
     const d = setup(44);
     const duel = await duelStart(d, USER, 'apprentice');
-    expect(duel.state!.teams[0]!.units).toHaveLength(6);
+    expect(duel.state!.teams[0]!.units).toHaveLength(BAG);
     const s = await loadDice(d, USER);
     expect(s.starter).toBe(0);
-    expect(s.bag).toHaveLength(6);
+    expect(s.bag).toHaveLength(BAG);
   });
 });

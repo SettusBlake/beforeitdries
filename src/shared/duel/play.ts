@@ -22,12 +22,12 @@ import {
   drain,
   endRound,
   idx,
-  living,
   logAdd,
   netAt,
   onSheet,
   reach,
   rollDice,
+  rollable,
   ROLL_N,
   S,
   splashCells,
@@ -190,16 +190,16 @@ export function perform(a: DuelAction): Ev[] {
       logAdd(`You ${s}.`, 'you');
       sync();
       startTurn(1);
-      S.phase = 'roll';
+      S.phase = rollable(me).length ? 'roll' : 'act';
       break;
     }
     case 'roll': {
       if (S.phase !== 'roll') bad('Not the time to roll.');
-      const need = Math.min(ROLL_N, living(me).length);
+      const need = Math.min(ROLL_N, rollable(me).length);
       const ids = Array.isArray(a.ids) ? [...new Set(a.ids)] : [];
       if (ids.length !== need) bad(`Pick ${need} dice.`);
       const us = ids.map((id) => own(id));
-      if (us.some((u) => u.state === 'gone')) bad('That die is lost.');
+      if (us.some((u) => u.state !== 'bag' || u.used)) bad('That die is not ready in your deck.');
       const rolled = rollDice(me, us);
       sync();
       S.phase = summonable(me, rolled).length ? 'summon' : 'act';
@@ -330,8 +330,9 @@ function endTurn(): void {
   if (S.over) S.phase = 'over';
   else {
     startTurn(1);
-    S.phase = 'roll';
     S.lastRoll = [];
     S.joker = 0;
+    // Kein Würfel mehr im Deck (alle auf dem Blatt oder verloren): gleich handeln
+    S.phase = rollable(S.teams[0]).length ? 'roll' : 'act';
   }
 }

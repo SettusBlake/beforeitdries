@@ -6,7 +6,7 @@ import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
 import { tutorialAction, tutorialActive } from '../src/shared/duel/tutorial';
-import { canMove, idx, living, placements, reach, ROLL_N, S, summonable, unitById, type Rolled } from '../src/shared/duel/rules';
+import { canMove, idx, placements, reach, rollable, ROLL_N, S, summonable, unitById, type Rolled } from '../src/shared/duel/rules';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -73,7 +73,7 @@ describe('Duell am Server', () => {
     for (let guard = 0; guard < 200 && !S.over; guard++) {
       let a: DuelAction;
       if (S.phase === 'roll') {
-        const l = living(S.teams[0]);
+        const l = rollable(S.teams[0]);
         a = { k: 'roll', ids: l.slice(0, Math.min(ROLL_N, l.length)).map((u) => u.id) };
       } else if (S.phase === 'summon') {
         const u = summonable(S.teams[0], rolled())[0];
@@ -104,6 +104,26 @@ describe('Duell am Server', () => {
     expect(biggest).toBeLessThan(400_000);
   });
 
+  it('Deck: geworfene Würfel sind verbraucht, bis neu gemischt wird', async () => {
+    const d = setup(31);
+    view(await duelStart(d, USER, 'apprentice'));
+    const u0 = S.teams[0].units[0]!;
+    const p0 = placements(u0)[0]!;
+    view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
+    const first = rollable(S.teams[0]).slice(0, ROLL_N).map((u) => u.id);
+    view(await duelAct(d, USER, { k: 'roll', ids: first }));
+    expect(first.every((id) => unitById(id)!.used)).toBe(true);
+    // Bis zur nächsten Runde: dieselben Würfel gehen nicht noch einmal
+    if (S.phase === 'summon') view(await duelAct(d, USER, { k: 'skip' }));
+    if (S.joker > 0) view(await duelAct(d, USER, { k: 'joker', crest: 'step' }));
+    if (S.phase === 'act') view(await duelAct(d, USER, { k: 'end' }));
+    expect(S.phase).toBe('roll');
+    const stillUsed = first.filter((id) => unitById(id)!.state === 'bag');
+    if (stillUsed.length) expect(await code(duelAct(d, USER, { k: 'roll', ids: [stillUsed[0]!, ...rollable(S.teams[0]).slice(0, ROLL_N - 1).map((u) => u.id)] }))).toBe('bad_request');
+    // Beschworene Würfel werden nicht geworfen
+    expect(rollable(S.teams[0]).every((u) => u.state === 'bag')).toBe(true);
+  });
+
   it('Joker wird zum Symbol nach Wahl, danach kein Beschwören mehr', async () => {
     const d = setup(12);
     view(await duelStart(d, USER, 'apprentice'));
@@ -131,7 +151,7 @@ describe('Duell am Server', () => {
     const u0 = S.teams[0].units[0]!;
     const p0 = placements(u0)[0]!;
     view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
-    const l = living(S.teams[0]);
+    const l = rollable(S.teams[0]);
     view(await duelAct(d, USER, { k: 'roll', ids: l.slice(0, ROLL_N).map((u) => u.id) }));
     if (S.phase === 'summon') view(await duelAct(d, USER, { k: 'skip' }));
     if (S.joker > 0) view(await duelAct(d, USER, { k: 'joker', crest: 'step' }));
@@ -160,7 +180,7 @@ describe('Duell am Server', () => {
     const p0 = placements(u0)[0]!;
     view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
     expect(await code(duelAct(d, USER, { k: 'auto' }))).toBe('bad_request');
-    const l = living(S.teams[0]);
+    const l = rollable(S.teams[0]);
     view(await duelAct(d, USER, { k: 'roll', ids: l.slice(0, ROLL_N).map((u) => u.id) }));
     const res = await duelAct(d, USER, { k: 'auto' });
     view(res);

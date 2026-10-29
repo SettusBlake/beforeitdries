@@ -49,7 +49,7 @@
     <div id="ticker"></div>
   </div>
   <section class="panel">
-    <div class="pool"><span class="hearts" id="hearts" aria-label="Your palette"></span><span class="crests" id="crests" aria-label="Your crests"></span></div>
+    <div class="pool"><span class="hearts" id="hearts" aria-label="Your palette"></span><span class="crests" id="crests" aria-label="Your crests"></span><span class="deck" id="deck" aria-label="Your deck"></span></div>
     <div id="hint" aria-live="polite"></div>
     <div id="joker" hidden></div>
     <div id="ctx"></div>
@@ -75,7 +75,7 @@
       <p class="pity" id="pity"></p>
     </section>
     <section class="dbox">
-      <div class="bagrow"><span class="eyebrow">Bag</span><small id="bag-hint"></small></div>
+      <div class="bagrow"><span class="eyebrow">Deck</span><small id="bag-hint"></small></div>
       <div id="bag"></div>
     </section>
     <section class="dbox">
@@ -118,7 +118,7 @@
     <ul>
       <li><b>Every blot is a die.</b> Its sides come from the blot itself: stars (★ with its level) and symbols from its stats. Flow gives Step, Saturation gives Splash, Grain or Opacity gives Guard, Glow gives Glow. Tap ⓘ on a die to see its net.</li>
       <li><b>Opening:</b> both sides unfold one blot for free next to their palette. The net is already placed, tap it to unfold.</li>
-      <li><b>Each turn</b> roll three dice (picked for you, tap to swap). Symbols go to your pool and keep.</li>
+      <li><b>Your deck</b> holds nine dice. Each turn pick three ready dice and roll them (I suggest three, tap to swap). Rolled dice are used up, like cards. When fewer than three are ready, the used ones are shuffled back in. A die whose blot stands on the sheet stays out of the deck. Symbols go to your pool and keep.</li>
       <li><b>Stars summon:</b> a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint. At most three blots stand on the sheet.</li>
       <li><b>One drag per blot:</b> drag it onto paper to walk there and stamp its shape, onto a rival to splash it, onto their palette to hit it. Or tap a blot, then tap the target. Tap it twice to soak (heal, rinse stains). When every blot has acted, the turn ends by itself.</li>
       <li><b>Moving:</b> your own paint costs 1, bare paper, rival paint and mud cost 2, mud stops you. A Step in your pool lets one blot go 2 further.</li>

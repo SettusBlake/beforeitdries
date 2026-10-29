@@ -19,7 +19,7 @@ export const COLS = 7,
   PAINT_RANGE = 2,
   HEARTS = 3,
   HEART_BONUS = 3,
-  BAG = 6,
+  BAG = 9,
   ON_SHEET = 3,
   CREST_MAX = 9,
   ROLL_N = 3;
@@ -74,6 +74,8 @@ export type Unit = {
   shield: number;
   moved: boolean;
   acted: boolean;
+  /** Deck: in diesem Durchgang schon geworfen (liegt auf der Ablage, bis neu gemischt wird) */
+  used: boolean;
   pattern: P[];
   net: P[];
   lv: number;
@@ -88,7 +90,7 @@ export type Rolled = { u: Unit; fi: number; face: Face };
 /* ---------- Ereignisse für die Darstellung ---------- */
 export type CellSnap = { i: number; c: Cell };
 export type StampRes = 'take' | 'refresh' | 'mud' | 'held' | 'none';
-export type UnitSnap = { id: number; x: number; y: number; hp: number; max: number; state: Unit['state']; stain: number; rooted: number; shield: number; acted: boolean };
+export type UnitSnap = { id: number; x: number; y: number; hp: number; max: number; state: Unit['state']; stain: number; rooted: number; shield: number; acted: boolean; used: boolean };
 export type TeamSnap = { crests: Record<Crest, number>; hearts: number };
 export type Ev =
   | { k: 'roll'; side: Side; dice: { id: number; fi: number }[]; crests: Record<Crest, number> }
@@ -106,6 +108,8 @@ export type Ev =
   | { k: 'heart'; side: Side; hearts: number; from: number }
   | { k: 'eraser'; row: number; cells: CellSnap[] }
   | { k: 'round'; round: number }
+  /** Das Deck einer Seite wird neu gemischt */
+  | { k: 'shuffle'; side: Side }
   | { k: 'turn'; side: Side }
   | { k: 'log'; t: string; c: string }
   | { k: 'sync'; cells: Cell[]; units: UnitSnap[]; teams: TeamSnap[]; round: number };
@@ -262,6 +266,7 @@ function unitOf(m: Monster, side: Side): Unit {
     shield: 0,
     moved: false,
     acted: false,
+    used: false,
     pattern: PATTERNS[m.bp],
     net: NETS[NET_OF[m.bp]]!,
     lv: 1,
@@ -410,7 +415,7 @@ export function drain(): Ev[] {
   return e;
 }
 export function snapUnit(u: Unit): UnitSnap {
-  return { id: u.id, x: u.x, y: u.y, hp: u.hp, max: u.max, state: u.state, stain: u.stain, rooted: u.rooted, shield: u.shield, acted: u.acted };
+  return { id: u.id, x: u.x, y: u.y, hp: u.hp, max: u.max, state: u.state, stain: u.stain, rooted: u.rooted, shield: u.shield, acted: u.acted, used: u.used };
 }
 /** Der ganze Zustand für die Darstellung */
 export function sync(): void {
@@ -446,6 +451,18 @@ function rand01(): number {
 const d20 = () => 1 + Math.floor(rand01() * 20);
 const emptyCell = (): Cell => ({ owner: 0, rgb: PAPER, hue: null, wet: 0, atk: 0, def: 0, lf: 0, stamp: 0, home: 0 });
 export const living = (t: Team) => t.units.filter((u) => u.state !== 'gone');
+/**
+ * Deck: geworfen werden nur Würfel im Beutel, die in diesem Durchgang noch nicht dran waren.
+ * Beschworene Würfel liegen auf dem Blatt und werden nicht geworfen, solange ihr Klecks lebt.
+ */
+export const rollable = (t: Team) => t.units.filter((u) => u.state === 'bag' && !u.used);
+/** Liegen weniger als drei Würfel bereit, wird die Ablage zurück ins Deck gemischt */
+export function refillDeck(t: Team): void {
+  if (rollable(t).length >= ROLL_N || !t.units.some((u) => u.state === 'bag' && u.used)) return;
+  for (const u of t.units) if (u.state === 'bag') u.used = false;
+  emit({ k: 'shuffle', side: t.side });
+  logAdd(`${t.side === 2 ? 'The rival shuffles' : 'You shuffle'} the used dice back into the deck.`, t.side === 2 ? 'rival' : 'you');
+}
 export function logAdd(t: string, c: string): void {
   if (S.headless) return;
   S.log.unshift({ t, c });
@@ -533,6 +550,8 @@ function mudCell(c: Cell): void {
 export function rollDice(t: Team, us: Unit[]): Rolled[] {
   const out = us.map((u) => {
     const fi = Math.floor(rand01() * 6);
+    // Geworfen heißt verbraucht, bis neu gemischt wird
+    u.used = true;
     return { u, fi, face: u.faces[fi]! };
   });
   for (const r of out) {
@@ -1224,6 +1243,7 @@ export function startTurn(side: Side): void {
   S.turn = side;
   S.heartsTurn = 0;
   const t = S.teams[side - 1]!;
+  refillDeck(t);
   for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (TURN_GIFT[c.k] ?? 0));
   for (const u of S.teams[side - 1]!.units) {
     u.moved = u.rooted > 0;
@@ -1458,7 +1478,7 @@ function pickBest<T extends { v: number }>(cands: T[], look: number, r: Rand, ke
 /** Würfelwahl: Chance auf eine Beschwörung und erwartete Symbole */
 const FACE_VALUE: Record<Crest, number> = { step: 0.6, splash: 0.6, guard: 0.5, glow: 0.7 };
 export function aiChooseDice(t: Team, look: number, r: Rand): Unit[] {
-  const pool = living(t);
+  const pool = rollable(t);
   if (pool.length <= ROLL_N) return pool;
   const room = onSheet(t).length < ON_SHEET;
   const combos: { v: number; us: Unit[] }[] = [];
@@ -1701,7 +1721,8 @@ export function aiTurnSteps(side: Side, look: number): () => boolean {
   return () => {
     if (S.over) return false;
     if (stage === 0) {
-      const rolled = rollDice(team, aiChooseDice(team, look, r));
+      const pick = aiChooseDice(team, look, r);
+      const rolled = pick.length ? rollDice(team, pick) : [];
       stage = 1;
       const s = aiSummon(side, rolled, look, r);
       if (s) logAdd(`${side === 2 ? 'Rival' : 'You'} ${s}.`, side === 2 ? 'rival' : 'you');

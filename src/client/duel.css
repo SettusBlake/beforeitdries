@@ -308,3 +308,19 @@ button { font: inherit; color: inherit; }
 .bslot.empty.swap { cursor: pointer; }
 .bslot .plus { font: 300 22px var(--f-body); color: var(--line); }
 #inspect .trow .inbag-lbl { margin: auto 0; }
+
+/* ---------- Deck: neun Würfel, verbrauchte blass ---------- */
+#ctx.chips { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; }
+#ctx.chips .chip { padding: 4px 1px 3px; border-radius: 8px; }
+#ctx.chips .chip canvas { width: 26px; height: 26px; }
+#ctx.chips .chip .st { font-size: 8.5px; }
+#ctx.chips .chip .lvb { left: 1px; top: 1px; }
+#ctx.chips .chip .info { width: 13px; height: 13px; font-size: 8px; line-height: 11px; right: 1px; top: 1px; }
+.chip.used { opacity: .45; background: repeating-linear-gradient(135deg, #f3f1ea 0 4px, #fbfaf6 4px 8px); }
+.rd.used { opacity: .4; }
+.pool .deck { font: 11px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.pool .deck b { color: var(--ink); }
+.pool .deck span { margin-left: 4px; }
+#bag { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+.bslot { border-radius: 9px; padding: 2px; }
+.bslot .lvb { transform: scale(.85); transform-origin: 0 0; }

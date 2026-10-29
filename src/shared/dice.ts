@@ -35,7 +35,7 @@ export function dieMonster(d: { sheet: string; idx: number; paper?: PaperId }): 
 
 export const PULL_COST = 100;
 export const TEN_COST = 1000;
-export const STARTER_PULLS = 6;
+export const STARTER_PULLS = 9;
 export const GLAZE_COST = 3;
 /** Spätestens nach so vielen Zügen kommt diese Seltenheit oder besser */
 export const PITY: Record<'rare' | 'epic' | 'legendary', number> = { rare: 10, epic: 40, legendary: 90 };

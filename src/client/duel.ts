@@ -11,7 +11,7 @@ import { rarityDef } from '../shared/dice';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
-import { tutorialAction, tutorialActive } from '../shared/duel/tutorial';
+import { bestRoll, tutorialAction, tutorialActive } from '../shared/duel/tutorial';
 import * as R from '../shared/duel/rules';
 import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, S, type Ev, type Face, type Level, type Plan, type Side, type Unit } from '../shared/duel/rules';
 import { renderMonster } from './renderer/watercolor';
@@ -260,7 +260,7 @@ function showTicker(text: string, cls: string): void {
 /* ---------- Hinweise von Meisterin Sepia ---------- */
 const TIPS: Record<string, string> = {
   opening: 'Every blot is a die. I put your best one by your palette already. Tap the net to unfold it, or tap a blue dot to move it first.',
-  roll: 'Roll three dice. Symbols go to your pool and keep. Stars bring new blots onto the sheet.',
+  roll: 'Pick three dice from your deck and roll. Rolled dice are used up until the deck is shuffled. Symbols go to your pool and keep, stars bring new blots onto the sheet.',
   summon: 'The stars add up. The net is placed where I would put it. Tap it to unfold.',
   act: 'Drag a blot onto paper to stamp there, onto a rival to splash it. One drag per blot. When all of them are done, your turn ends by itself.',
   palette: 'You can reach their palette. One Splash symbol, one heart, one per turn. It is safe while one of their blots stands within two cells.',
@@ -279,10 +279,11 @@ const tutGo = () => {
 };
 const LESSONS: [string, () => boolean, string][] = [
   ['welcome', () => phase() === 'opening', 'This is the sheet, and I am Master Sepia. Today you duel my apprentice. I will tell you exactly what to do: always the gold ring.'],
-  ['bag', () => phase() === 'opening', 'Down there is your bag: six dice. Every blot is a die, its sides come from the blot itself. Tap ⓘ on a die to read it.'],
+  ['bag', () => phase() === 'opening', 'Down there is your deck. Every blot is a die, its sides come from the blot itself. Tap ⓘ on a die to read it.'],
   ['net', () => phase() === 'opening' && !!summonU, 'I put the net where I would. A net must touch your own paint. Tap it to unfold.'],
   ['rival', () => phase() === 'roll' && S.round === 1, 'The apprentice unfolded first, up there by its palette. Each palette has three hearts. Break theirs, or cover more paper than them when it dries after six rounds.'],
-  ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice. I picked three for you. Roll them.'],
+  ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice from your deck. I picked three for you. Roll them.'],
+  ['deck', () => phase() === 'roll' && me().units.some((u) => u.used), 'Rolled dice are used up, like cards: grey in your deck. When fewer than three are ready, I shuffle the used ones back in. Plan which dice you spend.'],
   ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Splash hits a palette, Guard halves a hit by itself, two Glow buy an ability. I lent you two Glow.'],
   ['summon', () => phase() === 'summon', 'Stars bring blots out. A die may unfold if the other dice show stars worth at least its level. This one qualifies, and the net is already placed.'],
   ['drag', () => phase() === 'act' && !!tutGo() && (tutGo()!.a === 'stamp' || tutGo()!.a === 'splash'), 'Now the fun part. Drag a blot along the gold arrow and let go. Paper means stamp, a rival means splash. One drag per blot, the turn ends by itself.'],
@@ -362,7 +363,7 @@ function renderTop(): void {
   for (const u of S.teams[1].units) {
     const v = V.units.get(u.id);
     const st = v?.state ?? 'bag';
-    const b2 = el('button', `rd st-${st} r-${u.rarity}`) as HTMLButtonElement;
+    const b2 = el('button', `rd st-${st} r-${u.rarity}` + (st === 'bag' && (v?.used ?? u.used) ? ' used' : '')) as HTMLButtonElement;
     b2.type = 'button';
     b2.style.setProperty('--c', rarityDef(u.rarity).col);
     b2.title = u.name;
@@ -382,11 +383,15 @@ function renderPool(): void {
   if (!V.teams.length) return;
   hearts($('hearts'), V.teams[0]!.hearts);
   crestRow($('crests'), 1, false);
+  // Deck: bereit und verbraucht (aus der Anzeige, damit es zur Animation passt)
+  const us = me().units.map((u) => V.units.get(u.id) ?? u).filter((u) => u.state === 'bag');
+  const ready = us.filter((u) => !u.used).length;
+  $('deck').innerHTML = `<b>${ready}</b> ready <span>${us.length - ready} used</span>`;
 }
-const need = () => Math.min(R.ROLL_N, R.living(me()).length);
+const need = () => Math.min(R.ROLL_N, R.rollable(me()).length);
+/** Vorschlag: die drei Würfel, die Sepia werfen würde */
 function defaultPick(): Set<number> {
-  const l = R.living(me());
-  return new Set([...l.filter((u) => u.state === 'bag'), ...l.filter((u) => u.state === 'sheet')].slice(0, R.ROLL_N).map((u) => u.id));
+  return new Set(bestRoll());
 }
 function dieChip(u: Unit): HTMLElement {
   const v = V.units.get(u.id);
@@ -394,11 +399,13 @@ function dieChip(u: Unit): HTMLElement {
   const p = phase();
   const b = el('button', `chip st-${st}` + (chosen.has(u.id) && p === 'roll' ? ' chosen' : '') + (summonU === u ? ' sel' : '')) as HTMLButtonElement;
   b.type = 'button';
-  const pickable = myTurn() && ((p === 'roll' && st !== 'gone') || (p === 'opening' && st === 'bag'));
+  const used = st === 'bag' && (v?.used ?? u.used);
+  const pickable = myTurn() && ((p === 'roll' && st === 'bag' && !used) || (p === 'opening' && st === 'bag'));
+  if (used) b.classList.add('used');
   b.dataset.id = String(u.id);
   b.classList.add(`r-${u.rarity}`);
   b.style.setProperty('--c', rarityDef(u.rarity).col);
-  b.append(portraitEl(u.id, 30, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('span', 'st', st === 'bag' ? 'bag' : st === 'sheet' ? 'sheet' : 'lost'), el('span', 'info', 'i'));
+  b.append(portraitEl(u.id, 30, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('span', 'st', used ? 'used' : st === 'bag' ? 'ready' : st === 'sheet' ? 'sheet' : 'lost'), el('span', 'info', 'i'));
   b.addEventListener('click', (ev) => {
     if ((ev.target as HTMLElement).closest('.info') || !pickable) return openInspect(u);
     if (!allowedEl(b)) return;
@@ -576,7 +583,7 @@ function renderHint(): void {
   if (busy) return setHint('');
   if (S.turn !== 1) return setHint('');
   if (p === 'opening') return setHint(summonU ? `Tap the net to unfold ${summonU.name}. Tap a blue dot to move it, Turn to rotate it.` : 'Opening: pick one of your dice below to unfold first.');
-  if (p === 'roll') return setHint(`Roll ${need()} dice. Tap a die to swap it, ⓘ to read it.`);
+  if (p === 'roll') return setHint(`Roll ${need()} dice from your deck. Tap a die to swap it, ⓘ to read it. Rolled dice are used until the deck is shuffled.`);
   if (p === 'summon') return setHint(summonU ? `Tap the net to unfold ${summonU.name}, or skip. Blue dots move it.` : 'Tap a glowing die to unfold it, or skip.');
   if (drag) return setHint(drag.pv?.text ?? 'Out of reach. Let go to cancel.');
   if (aiming) {
@@ -830,7 +837,7 @@ function computeGuide(): Guide {
     }
     return { cell: anchor };
   }
-  if (p === 'roll') return chosen.size === need() ? { el: '#go' } : { el: '#ctx .chip:not(.chosen):not(.st-gone)' };
+  if (p === 'roll') return chosen.size === need() ? { el: '#go' } : { el: '#ctx .chip:not(.chosen):not(.st-gone):not(.used):not(.st-sheet)' };
   if (p !== 'act' || drag) return {};
   if (S.joker > 0) return { el: `#joker [data-crest="${R.aiJokerCrest(me())}"]` };
   const sug = R.suggest(1, aiming ?? armed ?? undefined, false, R.byGesture);

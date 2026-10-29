@@ -72,7 +72,7 @@ function render(): void {
     b.addEventListener('click', () => void pull(kind));
     btns.append(b);
   };
-  if (s.starter > 0) btn(`Dip ${s.starter} free dice`, 'fills your bag', 'starter', true, true);
+  if (s.starter > 0) btn(`Dip ${s.starter} free dice`, 'fills your deck', 'starter', true, true);
   else {
     btn('Free dip', freeReady ? 'once a day' : 'back tomorrow', 'free', freeReady, freeReady);
     btn('Dip', `${PULL_COST} pigment`, 'one', s.pigment >= PULL_COST);
@@ -101,7 +101,7 @@ function render(): void {
     bag.append(b);
   }
   const free = BAG - s.bag.length;
-  $('bag-hint').textContent = swapIn ? 'Tap the die it should replace.' : free > 0 ? `${free} empty: a duel fills ${free > 1 ? 'them' : 'it'} with your other dice.` : 'The six dice you duel with. Tap one to take it out.';
+  $('bag-hint').textContent = swapIn ? 'Tap the die it should replace.' : free > 0 ? `${free} empty: a duel fills ${free > 1 ? 'them' : 'it'} with your other dice.` : `The ${BAG} dice you duel with. Tap one to take it out.`;
   // Sammlung
   const coll = $('coll');
   coll.replaceChildren();
@@ -116,7 +116,7 @@ function render(): void {
     c.style.setProperty('--c', r.col);
     const g = s.glaze[dieSpecies(d)] ?? 0;
     c.append(art(d, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', shortName(u)), el('small', '', r.label + (g ? ` · ${g} glaze` : '')));
-    if (s.bag.includes(d.id)) c.append(el('span', 'bagmark', 'bag'));
+    if (s.bag.includes(d.id)) c.append(el('span', 'bagmark', 'deck'));
     c.addEventListener('click', () => openDie(d));
     coll.append(c);
   }
@@ -218,16 +218,16 @@ function openDie(d: DieRec): void {
   const row = el('div', 'trow');
   if (s.bag.includes(d.id)) {
     // Im Beutel: herausnehmen
-    const b = el('button', 'ghost', 'Take out of bag') as HTMLButtonElement;
+    const b = el('button', 'ghost', 'Take out of deck') as HTMLButtonElement;
     b.type = 'button';
     b.id = 'take-bag';
     b.addEventListener('click', () => {
       $('inspect').hidden = true;
       void packBag(s.bag.filter((x) => x !== d.id));
     });
-    row.append(el('span', 'inbag-lbl', 'In your bag'), b);
+    row.append(el('span', 'inbag-lbl', 'In your deck'), b);
   } else {
-    const b = el('button', 'primary', s.bag.length < BAG ? 'Put in bag' : 'Swap into bag') as HTMLButtonElement;
+    const b = el('button', 'primary', s.bag.length < BAG ? 'Put in deck' : 'Swap into deck') as HTMLButtonElement;
     b.type = 'button';
     b.id = 'put-bag';
     b.addEventListener('click', () => {

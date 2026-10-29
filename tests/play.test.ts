@@ -4,6 +4,7 @@ import type { Deps } from '../src/server/core';
 import { dicePull } from '../src/server/dice';
 import { duelStart } from '../src/server/duel';
 import { ensurePlayPost, playInfo } from '../src/server/play';
+import { STARTER_PULLS } from '../src/shared/dice';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -31,7 +32,7 @@ describe('Spiel-Post', () => {
   it('Startbild kennt laufendes Duell, Startzüge und freien Zug', async () => {
     const d = setup();
     expect((await playInfo(d, undefined)).user).toBe(false);
-    expect(await playInfo(d, 't2_x')).toMatchObject({ user: true, running: false, starter: 6, freeReady: true });
+    expect(await playInfo(d, 't2_x')).toMatchObject({ user: true, running: false, starter: STARTER_PULLS, freeReady: true });
     await dicePull(d, 't2_x', 'starter');
     await duelStart(d, 't2_x', 'apprentice');
     expect(await playInfo(d, 't2_x')).toMatchObject({ running: true, starter: 0 });
