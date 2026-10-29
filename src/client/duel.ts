@@ -13,7 +13,7 @@ import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
 import { bestRoll, tutorialAction, tutorialActive } from '../shared/duel/tutorial';
 import * as R from '../shared/duel/rules';
-import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, S, type Ev, type Face, type Level, type Plan, type Side, type Unit } from '../shared/duel/rules';
+import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, ROWS, S, type Ev, type Face, type Level, type Plan, type Side, type Unit } from '../shared/duel/rules';
 import { renderMonster } from './renderer/watercolor';
 import { api, ApiError } from './lib/api';
 import { makeCube, tumble } from './duel/dice3d';
@@ -60,6 +60,8 @@ let level: Level = (['apprentice', 'journeyman', 'master'] as Level[]).find((l) 
 let chosen = new Set<number>();
 /** Nach dem Wurf: Würfel, die beim Neuwurf liegen bleiben */
 let held = new Set<number>();
+/** Deck über dem Brett aufgeklappt (zum Nachsehen außerhalb der Würfelwahl) */
+let deckOpen = false;
 /** Die 3D-Würfel auf der Bühne, vom Wurf bis der Wurf gilt */
 const stageDice = new Map<number, { cube: HTMLElement; box: HTMLElement; fi: number }>();
 let summonU: Unit | null = null,
@@ -101,6 +103,7 @@ async function playEvents(evs: Ev[]): Promise<void> {
 /** Eine Anfrage an den Server, danach die Ereignisse abspielen */
 async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<boolean> {
   busy = true;
+  deckOpen = false;
   renderAll();
   let res: DuelResponse;
   try {
@@ -297,7 +300,21 @@ function ensureKeepStage(): void {
 function renderKeep(): void {
   const keep = phase() === 'keep' && myTurn();
   ensureKeepStage();
-  $('stage').classList.toggle('pick', keep);
+  const stage = $('stage');
+  stage.classList.toggle('pick', keep);
+  // Die Kombi-Tafel steht unter den Würfeln, solange man hält
+  let legend = stage.querySelector('.stage-legend');
+  if (keep && !legend) {
+    legend = el('div', 'stage-legend');
+    for (const [k, t] of [
+      ['Pair', '+1 of that symbol'],
+      ['Triple', '+2 and a Joker'],
+      ['Rainbow', '3 different symbols: a Joker'],
+      ['3 stars', 'same level: a Joker'],
+    ])
+      legend.append(html('div', 'cmb', `<b>${k}</b><span>${t}</span>`));
+    stage.append(legend);
+  } else if (!keep && legend) legend.remove();
   for (const [id, x] of stageDice) x.box.classList.toggle('held', keep && held.has(id));
   if (keep) comboPreview();
 }
@@ -383,7 +400,7 @@ const tutGo = () => {
 };
 const LESSONS: [string, () => boolean, string][] = [
   ['welcome', () => phase() === 'opening', 'This is the sheet, and I am Master Sepia. Today you duel my apprentice. I will tell you exactly what to do: always the gold ring.'],
-  ['bag', () => phase() === 'opening', 'Down there is your deck. Every blot is a die, its sides come from the blot itself. Hold a die to read it.'],
+  ['bag', () => phase() === 'opening', 'This is your deck, nine dice. Every blot is a die, its sides come from the blot itself. Hold a die to read it.'],
   ['net', () => phase() === 'opening' && !!summonU, 'I put the net where I would. A net must touch your own paint. Tap it to unfold.'],
   ['rival', () => phase() === 'roll' && S.round === 1, 'The apprentice unfolded first, up there by its palette. Each palette has three hearts. Break theirs, or cover more paper than them when it dries after six rounds.'],
   ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice from your deck. I picked three for you. Roll them.'],
@@ -540,21 +557,15 @@ function dieChip(u: Unit): HTMLElement {
 }
 function renderCtx(): void {
   const box = $('ctx');
+  const tray = $('tray');
   box.replaceChildren();
   box.className = '';
   const p = phase();
+  let where: 'top' | 'bottom' | null = null;
   if (S.turn === 1 && !S.over && (p === 'opening' || p === 'roll')) {
     box.className = 'chips';
     for (const u of me().units) box.append(dieChip(u));
-  } else if (S.turn === 1 && p === 'keep' && !S.over) {
-    box.className = 'combos';
-    for (const [k, t] of [
-      ['Pair', '+1 of that symbol'],
-      ['Triple', '+2 and a Joker'],
-      ['Rainbow', '3 different symbols: a Joker'],
-      ['3 stars', 'same level: a Joker'],
-    ])
-      box.append(html('div', 'cmb', `<b>${k}</b><span>${t}</span>`));
+    where = 'top';
   } else if (S.turn === 1 && p === 'summon') {
     box.className = 'rolled';
     const can = R.summonable(me(), lastRolled());
@@ -573,13 +584,18 @@ function renderCtx(): void {
       });
       box.append(b);
     }
-  } else if (S.turn === 1 && p === 'act' && !S.over) {
+    // Liegt das Netz oben, kommt die Leiste nach unten
+    const row = anchor !== null ? Math.floor(anchor / COLS) : ROWS - 1;
+    where = row < ROWS / 2 ? 'bottom' : 'top';
+  } else if (deckOpen && !S.over && p !== 'keep') {
+    // Deck zum Nachsehen (Knopf neben den Symbolen)
     box.className = 'chips';
     for (const u of me().units) box.append(dieChip(u));
-  } else {
-    box.className = 'waiting';
-    box.append(el('p', '', S.turn === 2 && !S.over ? 'The rival is rolling and painting…' : ''));
+    where = 'top';
   }
+  tray.hidden = !where;
+  tray.className = where ?? '';
+  $('deck').setAttribute('aria-pressed', String(deckOpen));
 }
 /** Joker aus dem Wurf: als Symbol nach Wahl nehmen (statt als Stern zu beschwören) */
 function renderJoker(): void {
@@ -587,6 +603,7 @@ function renderJoker(): void {
   const p = phase();
   const show = S.turn === 1 && !S.over && S.joker > 0 && (p === 'summon' || p === 'act');
   box.hidden = !show;
+  $('hint').hidden = show;
   if (!show) return;
   box.replaceChildren(html('span', 'jlbl', `${iconSvg({ k: 'joker', n: 3 }, 18)} Joker${S.joker > 1 ? ` ×${S.joker}` : ''}${p === 'summon' ? ': summon with it, or take' : ': take'}`));
   for (const c of CRESTS) {
@@ -1247,6 +1264,12 @@ async function skipSummon(): Promise<void> {
   if (await request(api.duelAct({ k: 'skip' }))) afterAction();
 }
 
+$('deck').addEventListener('click', () => {
+  if (busy || tut()) return;
+  sfx.tap();
+  deckOpen = !deckOpen;
+  renderAll();
+});
 $('go').addEventListener('click', () => {
   if (busy) return;
   if (S.over) return void startDuel();

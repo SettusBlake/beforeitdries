@@ -6,7 +6,7 @@ import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
 import { tutorialAction, tutorialActive } from '../src/shared/duel/tutorial';
-import { canMove, comboOf, CRESTS, idx, placements, reach, rollable, ROLL_N, S, summonable, unitById, type Face, type Rolled } from '../src/shared/duel/rules';
+import { canMove, COLS, comboOf, CRESTS, idx, placements, reach, rollable, ROLL_N, ROWS, S, summonable, unitById, type Face, type Rolled } from '../src/shared/duel/rules';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -162,7 +162,7 @@ describe('Duell am Server', () => {
     if (S.joker > 0) view(await duelAct(d, USER, { k: 'joker', crest: 'step' }));
     const u = S.teams[0].units.find((x) => x.state === 'sheet')!;
     const here = idx(u.x, u.y);
-    const far = [...Array(49).keys()].find((i) => !reach(u).has(i) && Math.max(Math.abs((i % 7) - u.x), Math.abs(Math.floor(i / 7) - u.y)) > 4)!;
+    const far = [...Array(COLS * ROWS).keys()].find((i) => !reach(u).has(i) && Math.max(Math.abs((i % COLS) - u.x), Math.abs(Math.floor(i / COLS) - u.y)) > 4)!;
     // Ziel außer Reichweite, Stempel außer Reichweite, unbekannte Aktion
     expect(await code(duelAct(d, USER, { k: 'go', id: u.id, to: far, a: 'stamp', at: far }))).toBe('bad_request');
     expect(await code(duelAct(d, USER, { k: 'go', id: u.id, to: here, a: 'stamp', at: far }))).toBe('bad_request');

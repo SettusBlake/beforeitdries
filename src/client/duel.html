@@ -44,15 +44,18 @@
   <div id="boardwrap">
     <canvas id="board" aria-label="The sheet with both palettes and blots"></canvas>
     <div id="abil"></div>
+    <!-- Würfelwahl als Leiste über dem Brett, nur wenn man wählen muss -->
+    <div id="tray" hidden><div id="ctx"></div></div>
     <div id="stage" hidden></div>
     <div id="banner"></div>
     <div id="ticker"></div>
   </div>
   <section class="panel">
-    <div class="pool"><span class="hearts" id="hearts" aria-label="Your palette"></span><span class="crests" id="crests" aria-label="Your crests"></span><span class="deck" id="deck" aria-label="Your deck"></span></div>
-    <div id="hint" aria-live="polite"></div>
-    <div id="joker" hidden></div>
-    <div id="ctx"></div>
+    <div class="pool"><span class="hearts" id="hearts" aria-label="Your palette"></span><span class="crests" id="crests" aria-label="Your crests"></span><button type="button" class="deck" id="deck" aria-label="Show your deck"></button></div>
+    <div class="info">
+      <div id="hint" aria-live="polite"></div>
+      <div id="joker" hidden></div>
+    </div>
     <div class="gorow">
       <button type="button" id="aux" hidden>Turn net</button>
       <button type="button" id="go" disabled>Wait</button>

@@ -293,8 +293,8 @@ function draw(): void {
     }
   });
   ctx.globalCompositeOperation = 'source-over';
-  // Gebiete mit kräftigem Rand in der Farbe der Seite (wie Länder auf einer Karte), auch am Rand des Blatts geschlossen
-  const lw = Math.max(2.5, cell * 0.06);
+  // Gebiete mit feinem, durchgehendem Rand in der Farbe der Seite (wie Länder auf einer Karte), auch am Rand des Blatts geschlossen
+  const lw = Math.max(1.6, cell * 0.034);
   const edges: [number, number, number, number][][] = [[], []];
   V.cells.forEach((c, i) => {
     if (c.owner !== 1 && c.owner !== 2) return;
@@ -327,11 +327,11 @@ function draw(): void {
     };
     // Heller Saum darunter, damit der Rand auf jeder Farbe steht
     path();
-    ctx.strokeStyle = 'rgba(255,253,248,.7)';
-    ctx.lineWidth = lw + 2.5;
+    ctx.strokeStyle = 'rgba(255,253,248,.4)';
+    ctx.lineWidth = lw + 1.5;
     ctx.stroke();
     path();
-    ctx.strokeStyle = s === 0 ? 'rgba(43,63,163,.92)' : 'rgba(163,58,58,.92)';
+    ctx.strokeStyle = s === 0 ? 'rgba(43,63,163,.62)' : 'rgba(163,58,58,.62)';
     ctx.lineWidth = lw;
     ctx.stroke();
   });

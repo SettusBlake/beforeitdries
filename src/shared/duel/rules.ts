@@ -11,8 +11,9 @@ import { RNG, type Rand } from '../rng';
 import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
 
 /* ---------- Regeln (alle Zahlen hier) ---------- */
-export const COLS = 7,
-  ROWS = 7,
+/** Blatt 6 breit, 8 hoch: auf dem Handy größere Felder als 7 × 7 bei fast gleicher Fläche (festgelegt am 29.10.2026) */
+export const COLS = 6,
+  ROWS = 8,
   ROUNDS = 6,
   WET_TURNS = 1,
   ERASER_ROUNDS = [2, 4],

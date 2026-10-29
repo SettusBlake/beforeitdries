@@ -21,7 +21,7 @@ function needUser(userId: string | undefined): string {
 function parseSave(raw: string | undefined): DuelSave | null {
   if (!raw) return null;
   const s = JSON.parse(raw) as DuelSave;
-  return s.v === 2 ? s : null;
+  return s.v === 3 ? s : null;
 }
 /** Kopie, damit spätere Anfragen nichts mehr daran ändern */
 const freeze = (r: DuelResponse): DuelResponse => JSON.parse(JSON.stringify(r)) as DuelResponse;
