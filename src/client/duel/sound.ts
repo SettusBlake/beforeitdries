@@ -132,6 +132,51 @@ export const sfx = {
     notes.slice(0, 2 + rank).forEach((f, k) => tone(k * 0.08, f, f, 0.5 + rank * 0.1, rank >= 3 ? 'triangle' : 'sine', 0.06));
     if (rank >= 3) for (let k = 0; k < 6; k++) tone(0.35 + k * 0.07, 2200 + k * 180, 2600 + k * 180, 0.08, 'sine', 0.03);
   },
+  /* ---------- Ziehen (Gacha) ---------- */
+  /** Pinsel taucht ins Glas: Blubbern */
+  dip(): void {
+    hiss(0, 0.35, 'lowpass', 600, 200, 0.12);
+    [0, 0.07, 0.15, 0.24].forEach((t, k) => tone(t, 260 + k * 40, 520 + k * 60, 0.07, 'sine', 0.05));
+  },
+  /** Pinsel hebt sich, ein Tropfen hängt an der Spitze */
+  lift: () => tone(0, 520, 980, 0.35, 'sine', 0.05),
+  /** Der Tropfen fällt in Zeitlupe */
+  fall(): void {
+    tone(0, 1700, 600, 0.9, 'sine', 0.035);
+    hiss(0.1, 0.8, 'bandpass', 3000, 900, 0.03, 6);
+  },
+  /** Aufschlag aufs nasse Blatt */
+  splash(): void {
+    hiss(0, 0.5, 'lowpass', 2200, 300, 0.32);
+    tone(0, 110, 40, 0.45, 'sine', 0.35);
+    hiss(0.03, 0.18, 'highpass', 4000, 2500, 0.08);
+  },
+  /** Die Tinte blüht auf: ein Rauschen, das anschwillt, und ein weicher Akkord */
+  swell(rank = 0): void {
+    hiss(0, 1.3, 'bandpass', 300, 1800 + rank * 400, 0.06, 1.2);
+    [262, 330, 392].forEach((f, k) => tone(0.15 + k * 0.05, f * (1 + rank * 0.06), f * (1 + rank * 0.06), 1.2, 'triangle', 0.025));
+  },
+  /** Der W100 schlägt auf */
+  land: () => {
+    tone(0, 160, 60, 0.25, 'sine', 0.3);
+    hiss(0, 0.12, 'lowpass', 1200, 400, 0.15);
+  },
+  /** Die Farbe im Glas springt eine Seltenheit höher */
+  upgrade(): void {
+    [784, 988, 1319, 1568].forEach((f, k) => tone(k * 0.05, f, f * 1.01, 0.4, 'sine', 0.06));
+    hiss(0, 0.3, 'highpass', 5000, 3000, 0.06);
+  },
+  /** Karte dreht sich */
+  cardFlip: () => hiss(0, 0.28, 'bandpass', 900, 3200, 0.1, 2),
+  /** Stempel auf die Karte */
+  stamp(): void {
+    tone(0, 140, 70, 0.18, 'sine', 0.32);
+    hiss(0, 0.09, 'lowpass', 2500, 800, 0.2);
+  },
+  /** Funkeln für Epic und Legendary */
+  shimmer(): void {
+    for (let k = 0; k < 9; k++) tone(k * 0.06, 1800 + Math.random() * 1600, 2400 + Math.random() * 1400, 0.25, 'sine', 0.025);
+  },
   lose(): void {
     [440, 392, 349, 294, 262].forEach((f, k) => tone(k * 0.12, f, f * 0.98, 0.5, 'triangle', 0.06));
   },

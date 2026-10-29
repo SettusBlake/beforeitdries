@@ -1,0 +1,112 @@
+<title>Dip the Brush</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700;800&family=Young+Serif&display=swap">
+<style>
+/* Ein dunkler Arbeitstisch bei Nacht. Bewusst nur ein Thema: das Leuchten der Seltenheiten braucht Dunkelheit. */
+:root {
+  --table: #0d0b12; --panel: rgba(24, 20, 28, .82); --line: rgba(255, 244, 230, .16); --text: #f4ece0; --muted: #a99d90;
+  --accent: #ffcc4d; --ink: #1d2130;
+  --f-display: "Young Serif", Georgia, serif; --f-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --gx: max(16px, env(safe-area-inset-left)); --gr: max(16px, env(safe-area-inset-right));
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--table); color: var(--text); }
+body { font-family: var(--f-body); font-size: 15px; line-height: 1.4; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+#stage { position: fixed; inset: 0; touch-action: manipulation; }
+#stage canvas { display: block; }
+
+.top { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
+  padding: max(10px, env(safe-area-inset-top)) var(--gr) 0 var(--gx); pointer-events: none; }
+.top > * { pointer-events: auto; }
+.eyebrow { margin: 0 auto 0 0; font: 700 11px/1 var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.pill { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 12px; min-height: 36px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.pill[aria-pressed="true"] { color: var(--ink); background: var(--text); border-color: var(--text); }
+
+#intro { position: fixed; left: var(--gx); right: var(--gr); top: 22%; text-align: center; pointer-events: none; opacity: 0; transition: opacity .6s; }
+.ready #intro { opacity: 1; }
+#intro h1 { margin: 0 0 10px; font: 400 clamp(2.2rem, 10vw, 3.2rem)/1 var(--f-display); text-shadow: 0 0 28px rgba(255, 204, 77, .35); }
+#intro p { margin: 0 auto; max-width: 30ch; color: var(--muted); }
+#intro .odds { margin-top: 18px; display: flex; justify-content: center; gap: 4px; font: 700 11px var(--f-mono); }
+#intro .odds span { padding: 4px 7px; border-radius: 6px; background: color-mix(in srgb, var(--c) 28%, transparent); color: color-mix(in srgb, var(--c) 45%, white); }
+
+#panel { position: fixed; left: 0; right: 0; bottom: 0; display: grid; gap: 10px; margin: 0 auto; max-width: 520px;
+  padding: 14px var(--gr) max(16px, env(safe-area-inset-bottom)) var(--gx);
+  background: linear-gradient(to top, rgba(13, 11, 18, .95) 60%, rgba(13, 11, 18, 0)); transition: opacity .3s, transform .3s; }
+.busy #panel { opacity: 0; transform: translateY(24px); pointer-events: none; }
+.label { margin: 0; font: 700 10px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.chips { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.chips button { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; min-height: 40px; padding: 4px 2px;
+  font-size: 12px; font-weight: 700; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chips button[style] { border-bottom: 3px solid var(--c); }
+.chips button[aria-pressed="true"] { color: var(--ink); background: var(--text); }
+.row { display: flex; gap: 8px; }
+.primary { flex: 2; border: 0; border-radius: 14px; min-height: 54px; font-size: 18px; font-weight: 900; color: #2a1d05;
+  background: linear-gradient(#ffd977, #e6a92e); box-shadow: 0 0 24px -4px rgba(255, 204, 77, .55); }
+.ghost { flex: 1.2; border: 1px solid rgba(255, 204, 77, .5); background: var(--panel); border-radius: 14px; min-height: 54px; font-size: 16px; font-weight: 800; color: var(--accent); }
+
+#skip { position: fixed; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); margin: 0; text-align: center;
+  font: 700 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); pointer-events: none; animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .35; } }
+
+#summary { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px;
+  padding: max(56px, env(safe-area-inset-top)) var(--gr) max(16px, env(safe-area-inset-bottom)) var(--gx);
+  background: rgba(13, 11, 18, .86); backdrop-filter: blur(4px); animation: fade .35s ease-out; }
+@keyframes fade { from { opacity: 0; } }
+#summary h2 { margin: 0; text-align: center; font: 400 1.8rem/1 var(--f-display); }
+#grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; max-width: 520px; width: 100%; margin: 0 auto; }
+.mini { position: relative; display: grid; gap: 2px; padding: 4px 4px 6px; border-radius: 10px; background: #fbf8f1; color: var(--ink);
+  border: 2px solid var(--c); box-shadow: 0 0 14px -4px var(--c); text-align: center; animation: pop .4s ease-out backwards; }
+.mini:nth-child(n) { animation-delay: calc(var(--i, 0) * 40ms); }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } }
+.mini canvas { width: 100%; aspect-ratio: 1; height: auto; border-radius: 6px; }
+.mini b { font-size: 11px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini small { font: 700 9px var(--f-mono); color: var(--c); }
+.tag { position: absolute; top: 2px; right: 2px; padding: 1px 5px; border-radius: 6px; font: 800 9px var(--f-body); text-transform: uppercase; background: #c0392b; color: #fff; }
+.tag.dup { background: #2b6fa3; }
+#close { align-self: center; min-width: 180px; flex: none; }
+@media (prefers-reduced-motion: reduce) { #skip { animation: none; } .mini { animation: none; } }
+</style>
+
+<div id="stage" aria-label="Pull animation"></div>
+
+<header class="top">
+  <p class="eyebrow">Before It Dries</p>
+  <button id="shield" class="pill" type="button" aria-pressed="false">Pity seal</button>
+  <button id="sound" class="pill" type="button" aria-pressed="true">Sound on</button>
+</header>
+
+<section id="intro">
+  <h1>Dip the brush</h1>
+  <p>Every die is a blot. A drop falls, the ink blooms, and an open d100 decides its paper.</p>
+  <div class="odds">
+    <span style="--c:#7d8291">1–50</span><span style="--c:#2e7a57">51–80</span><span style="--c:#2b6fa3">81–95</span><span style="--c:#7a3fa3">96–99</span><span style="--c:#b8860b">100</span>
+  </div>
+</section>
+
+<footer id="panel">
+  <p class="label">Rarity for this demo</p>
+  <div id="chips" class="chips" role="group" aria-label="Rarity for this demo"></div>
+  <div class="row">
+    <button id="dip" class="primary" type="button">Dip</button>
+    <button id="ten" class="ghost" type="button">Dip ×10</button>
+  </div>
+</footer>
+
+<p id="skip" hidden>Tap to speed up</p>
+
+<section id="summary" hidden aria-label="Ten dips">
+  <h2>Ten dips</h2>
+  <div id="grid"></div>
+  <button id="close" class="ghost" type="button">Done</button>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8.22.0/dist/pixi.min.js"></script>
+<script>/*SCRIPT*/</script>
