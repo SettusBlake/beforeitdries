@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import type { CatchResponse, CollectionResponse, DiceResponse, DuelResponse, ErrorCode, ErrorResponse, GlazeResponse, InitResponse, PlayInfo } from '../../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GlazeResponse, type InitResponse, type PlayInfo } from '../../shared/api';
 import type { PullKind } from '../../shared/dice';
 import type { DuelAction } from '../../shared/duel/play';
 import type { Level } from '../../shared/duel/rules';
@@ -19,7 +19,8 @@ export class ApiError extends Error {
 async function call<T>(path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(path, body === undefined ? undefined : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const headers = { [PROTO_HEADER]: String(DUEL_PROTOCOL) };
+    res = await fetch(path, body === undefined ? { headers } : { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body) });
   } catch {
     throw new ApiError('server', 'No connection. The paint will wait.', 0);
   }

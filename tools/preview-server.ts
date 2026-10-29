@@ -9,6 +9,7 @@ import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
 import { diceBag, diceGet, diceGlaze, dicePull, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
+import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
 import { K } from '../src/server/keys';
 import { ensurePlayPost, playInfo } from '../src/server/play';
 import { dayKey } from '../src/shared/day';
@@ -58,6 +59,8 @@ createServer(async (req, res) => {
     if (url.pathname === '/api/collection') return send(200, { ...(await loadCollection(d, USER.id)), serverNow: d.now, dryMs: d.dryMs });
     if (url.pathname === '/api/catch') return send(200, await catchBlot(d, asUser, USER.name, await resolveDay(d, postId, undefined)));
     if (url.pathname.startsWith('/api/duel')) {
+      // Wie am echten Server: alte Oberflächen werden abgelehnt
+      if (req.headers[PROTO_HEADER] !== String(DUEL_PROTOCOL)) return send(409, { code: 'outdated', error: 'Before It Dries was updated. Close this post and open it again.' });
       let raw = '';
       for await (const c of req) raw += c;
       const b = JSON.parse(raw || '{}');

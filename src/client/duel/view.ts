@@ -130,8 +130,9 @@ export function reset(): void {
 function paperBg(): HTMLCanvasElement {
   if (bg) return bg;
   bg = document.createElement('canvas');
-  bg.width = canvas.width;
-  bg.height = canvas.height;
+  // Nur das Blatt, ohne den Rand oben für die Kleckse
+  bg.width = Math.round(cell * COLS * dpr);
+  bg.height = Math.round(cell * ROWS * dpr);
   const b = bg.getContext('2d')!;
   b.setTransform(dpr, 0, 0, dpr, 0, 0);
   const W = cell * COLS,

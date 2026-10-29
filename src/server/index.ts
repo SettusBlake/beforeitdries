@@ -2,7 +2,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { context, createServer, getServerPort, reddit, redis, settings } from '@devvit/web/server';
 import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
-import type { CollectionResponse, ErrorResponse, GlazeRequest, InitResponse } from '../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type CollectionResponse, type ErrorResponse, type GlazeRequest, type InitResponse } from '../shared/api';
 import { dayKey, isDayKey, shiftDay } from '../shared/day';
 import { adoptTopName, catchBlot, dayInfo, dryMsFromHours, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps, type RedditLike } from './core';
 import { diceBag, diceGet, diceGlaze, dicePull, payCatch } from './dice';
@@ -100,9 +100,15 @@ app.post(
 
 /* ---------- Farbschlacht ---------- */
 
+/** Alte Oberfläche nach einem Update: Regeln und Anzeige passen nicht mehr zusammen, also lieber neu öffnen lassen */
+function sameProtocol(req: { get: (h: string) => string | undefined }): void {
+  if (req.get(PROTO_HEADER) !== String(DUEL_PROTOCOL)) throw new GameError('outdated', 'Before It Dries was updated. Close this post and open it again.', 409);
+}
+
 app.get(
   '/api/duel',
-  wrap(async (_req, res) => {
+  wrap(async (req, res) => {
+    sameProtocol(req);
     res.json(await duelGet(await deps(), context.userId));
   }),
 );
@@ -110,6 +116,7 @@ app.get(
 app.post(
   '/api/duel/start',
   wrap(async (req, res) => {
+    sameProtocol(req);
     const body = (req.body ?? {}) as { level?: unknown; tutorial?: unknown };
     res.json(await duelStart(await deps(), context.userId, body.level, body.tutorial === true));
   }),
@@ -118,6 +125,7 @@ app.post(
 app.post(
   '/api/duel/act',
   wrap(async (req, res) => {
+    sameProtocol(req);
     res.json(await duelAct(await deps(), context.userId, (req.body as { action?: unknown } | undefined)?.action));
   }),
 );

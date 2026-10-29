@@ -100,7 +100,13 @@ export interface GlazeResponse {
   dryMs: number;
 }
 
-export type ErrorCode = 'login' | 'no_day' | 'dried' | 'not_found' | 'forbidden' | 'drying' | 'full' | 'busy' | 'bad_request' | 'server';
+export type ErrorCode = 'login' | 'no_day' | 'dried' | 'not_found' | 'forbidden' | 'drying' | 'full' | 'busy' | 'bad_request' | 'server' | 'outdated';
+/**
+ * Stand des Duell-Ablaufs (Aktionen, Phasen, Ereignisse). Bei jeder Änderung erhöhen: Der Client schickt ihn mit,
+ * der Server lehnt alte Oberflächen ab und bittet, den Post neu zu öffnen (sonst passen Anzeige und Regeln nicht zusammen)
+ */
+export const DUEL_PROTOCOL = 3;
+export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {
   error: string;

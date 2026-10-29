@@ -134,6 +134,11 @@ function onError(e: unknown): void {
     showLogin();
     return;
   }
+  // Oberfläche älter als der Server: nicht weiterspielen, sonst passen Anzeige und Regeln nicht zusammen
+  if (e instanceof ApiError && e.code === 'outdated') {
+    $('outdated').hidden = false;
+    return;
+  }
   const msg = e instanceof Error ? e.message : 'Something went wrong.';
   try {
     showToast(msg);
@@ -1566,6 +1571,7 @@ api
   })
   .catch((e) => {
     if (e instanceof ApiError && e.code === 'login') showLogin();
+    if (e instanceof ApiError && e.code === 'outdated') $('outdated').hidden = false;
   });
 
 /* Nur für automatische Probeläufe */
