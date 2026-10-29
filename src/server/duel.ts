@@ -8,7 +8,8 @@ import { dieMonster } from '../shared/dice';
 import { BAG, drain, mk, newGame, S, type Level } from '../shared/duel/rules';
 import { startTutorial, TUTORIAL_SEED, tutorialBags } from '../shared/duel/tutorial';
 import { GameError, withLock, type Deps } from './core';
-import { bagForDuel, payDuel, playerLock } from './dice';
+import { bagForDuel, loadDice, payDuel, playerLock } from './dice';
+import { START_MEDIA } from '../shared/duel/media';
 import { K } from './keys';
 
 const LEVELS: Level[] = ['apprentice', 'journeyman', 'master'];
@@ -40,6 +41,7 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
   return withLock(d, playerLock(uid), async () => {
     // Der Beutel kommt aus der Würfelsammlung (vor newGame, weil danach kein await mehr kommen darf)
     const bag = tutorial ? [] : await bagForDuel(d, uid);
+    const unlocked = tutorial ? START_MEDIA : ((await loadDice(d, uid)).media ?? START_MEDIA);
     if (tutorial) {
       // Lern-Duell: fester Seed und feste Beutel, Sepia gibt die ersten Runden vor
       const [mine, theirs] = tutorialBags();
@@ -56,6 +58,8 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
         bag.map((b) => b.mods),
       );
     }
+    // Malmittel zur Wahl kommen aus den freigeschalteten (vorher geladen, nach newGame kein await mehr)
+    S.unlocked = [...unlocked];
     const events = [...drain(), ...openDuel()];
     const out = freeze({ state: publicState(), events });
     const blob = saveState();

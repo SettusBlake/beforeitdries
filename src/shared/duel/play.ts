@@ -4,6 +4,7 @@
  * Fassung 6: Ein Klecks zieht mit einer Aktion „go“ (hinlaufen und handeln). Haben alle gehandelt, endet der Zug von selbst.
  */
 import { sameAction, tutorialAction, tutorialActive } from './tutorial';
+import { isMedium, START_MEDIA, type MediumId } from './media';
 import {
   ABILITY,
   aiHold,
@@ -48,6 +49,9 @@ import {
   COLS,
   ROWS,
   type Action,
+  offerRound,
+  startOffer,
+  takeMedium,
   type Cell,
   type Combo,
   type Crest,
@@ -67,6 +71,8 @@ export type DuelAction =
   | { k: 'reroll'; hold: number[] }
   /** Den Wurf nehmen, wie er liegt */
   | { k: 'keep' }
+  /** Ein Malmittel aus dem Angebot nehmen */
+  | { k: 'medium'; id: MediumId }
   | { k: 'summon'; id: number; o: number; at: number }
   | { k: 'skip' }
   | { k: 'joker'; crest: Crest }
@@ -96,6 +102,11 @@ export type DuelState = {
   starBonus: number;
   rerolls: number;
   combo: Combo | null;
+  /** Malmittel zur Wahl (Phase medium), danach weiter mit resume */
+  offer: MediumId[];
+  resume: Phase;
+  /** Freigeschaltete Malmittel des Spielers */
+  unlocked: MediumId[];
   heartsTurn: number;
   paintSeed: number;
   stamp: number;
@@ -130,6 +141,9 @@ export function publicState(): DuelState {
     starBonus: S.starBonus,
     rerolls: S.rerolls,
     combo: S.combo,
+    offer: S.offer,
+    resume: S.resume,
+    unlocked: S.unlocked,
     heartsTurn: S.heartsTurn,
     paintSeed: S.paintSeed,
     stamp: S.stamp,
@@ -158,6 +172,9 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSee
   S.starBonus = s.starBonus ?? 0;
   S.rerolls = s.rerolls ?? 0;
   S.combo = s.combo ?? null;
+  S.offer = s.offer ?? [];
+  S.resume = s.resume ?? 'roll';
+  S.unlocked = s.unlocked ?? [...START_MEDIA];
   S.heartsTurn = s.heartsTurn ?? 0;
   S.paintSeed = s.paintSeed;
   S.stamp = s.stamp;
@@ -180,6 +197,8 @@ function settle(me: Team): void {
 export function openDuel(): Ev[] {
   aiOpening(2, S.level);
   S.phase = 'opening';
+  // Vor dem Duell: ein Malmittel wählen (der Rivale wählt gleich mit)
+  startOffer('opening');
   return drain();
 }
 
@@ -229,6 +248,15 @@ export function perform(a: DuelAction): Ev[] {
       // Ein Drilling lässt sich nicht verbessern: gilt sofort
       if (!rolled.length || S.rerolls < 1 || comboOf(rolled.map((r) => r.face))?.kind === 'triple') settle(me);
       else S.phase = 'keep';
+      break;
+    }
+    case 'medium': {
+      if (S.phase !== 'medium') bad('Nothing to pick.');
+      if (!isMedium(a.id) || !S.offer.includes(a.id)) bad('That medium is not on offer.');
+      takeMedium(1, a.id);
+      S.offer = [];
+      S.phase = S.resume;
+      sync();
       break;
     }
     case 'reroll': {
@@ -388,5 +416,7 @@ function endTurn(): void {
     S.starBonus = 0;
     // Kein Würfel mehr im Deck (alle auf dem Blatt oder verloren): gleich handeln
     S.phase = rollable(S.teams[0]).length ? 'roll' : 'act';
+    // Nach Runde 2 und 4: neues Malmittel
+    if (offerRound(S.round)) startOffer(S.phase);
   }
 }

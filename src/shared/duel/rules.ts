@@ -9,6 +9,7 @@ import { relation } from '../glaze';
 import { humidityFor, makeMonster, statRows, type Monster } from '../monster';
 import { RNG, type Rand } from '../rng';
 import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
+import { MEDIA, MEDIA_MAX, MEDIA_PREF, MEDIA_ROUNDS, START_MEDIA, mediumDef, type MediumId } from './media';
 
 /* ---------- Regeln (alle Zahlen hier) ---------- */
 /** Blatt 6 breit, 8 hoch: auf dem Handy größere Felder als 7 × 7 bei fast gleicher Fläche (festgelegt am 29.10.2026) */
@@ -42,8 +43,64 @@ export const HIT = { base: 4, satDiv: 4, hpBase: 10, hpDiv: 3, toHit: 3, range: 
  */
 export const REACT = { def: 2, bleedMax: 2 };
 
+/* ---------- Malmittel und Set-Boni ---------- */
+export const hasMedium = (side: Side, id: MediumId): boolean => S.teams[side - 1]?.media?.includes(id) ?? false;
+/** Farbfamilien für Set-Boni (festgelegt am 29.10.2026) */
+export type Family = 'warm' | 'cool' | 'earth';
+export const FAMILY: Record<PigmentId, Family> = { karmin: 'warm', opera: 'warm', kadmium: 'warm', ultra: 'cool', indigo: 'cool', phthalo: 'cool', siena: 'earth', sepia: 'earth' };
+export const FAMILY_TEXT: Record<Family, [string, string]> = {
+  warm: ['Splash +1 damage', 'Splash +2 damage, more crits'],
+  cool: ['+1 walking reach', '+1 reach, a Guard every turn'],
+  earth: ['+1 opacity each round', '+2 opacity each round, mud does not stop them'],
+};
+/** Set-Bonus einer Seite: zwei oder drei Kleckse derselben Farbfamilie auf dem Blatt */
+export function setBonus(side: Side): { fam: Family; n: number } | null {
+  const t = S.teams[side - 1];
+  if (!t) return null;
+  const n: Record<Family, number> = { warm: 0, cool: 0, earth: 0 };
+  for (const u of t.units) if (u.state === 'sheet') n[FAMILY[u.m.main]]++;
+  for (const fam of ['warm', 'cool', 'earth'] as Family[]) if (n[fam] >= 2) return { fam, n: n[fam] };
+  return null;
+}
+const setN = (side: Side, fam: Family): number => {
+  const b = setBonus(side);
+  return b && b.fam === fam ? b.n : 0;
+};
+/** Drei Malmittel zur Wahl: aus dem Vorrat, ohne die schon gewählten */
+export function makeOffer(side: Side, pool: MediumId[]): MediumId[] {
+  const own = S.teams[side - 1]!.media ?? [];
+  const left = pool.filter((m) => !own.includes(m));
+  const out: MediumId[] = [];
+  while (out.length < 3 && left.length) out.push(left.splice(Math.floor(rand01() * left.length), 1)[0]!);
+  return out;
+}
+export const aiMedium = (offer: MediumId[]): MediumId => MEDIA_PREF.find((m) => offer.includes(m)) ?? offer[0]!;
+export function takeMedium(side: Side, id: MediumId): void {
+  const t = S.teams[side - 1]!;
+  t.media = [...(t.media ?? []), id];
+  count(`${side}medium-${id}`);
+  emit({ k: 'medium', side, id });
+  logAdd(`${side === 2 ? 'The rival takes' : 'You take'} ${mediumDef(id).name}: ${mediumDef(id).text}`, side === 2 ? 'rival' : 'you');
+}
+/**
+ * Malmittel-Wahl: der Rivale wählt gleich, der Spieler bekommt drei zur Wahl (Phase medium), danach geht es mit resume weiter.
+ * Nicht im Lern-Duell. Gibt false zurück, wenn es nichts zu wählen gibt
+ */
+export function startOffer(resume: Phase): boolean {
+  if (S.tutorial > 0 || S.over) return false;
+  const ro = (S.teams[1].media?.length ?? 0) < MEDIA_MAX ? makeOffer(2, MEDIA.map((m) => m.id)) : [];
+  if (ro.length) takeMedium(2, aiMedium(ro));
+  const offer = (S.teams[0].media?.length ?? 0) < MEDIA_MAX ? makeOffer(1, S.unlocked) : [];
+  if (!offer.length) return false;
+  S.offer = offer;
+  S.resume = resume;
+  S.phase = 'medium';
+  return true;
+}
+export const offerRound = (round: number): boolean => MEDIA_ROUNDS.includes(round);
+
 export type Side = 1 | 2;
-export type Phase = 'opening' | 'roll' | 'keep' | 'summon' | 'act' | 'over';
+export type Phase = 'opening' | 'medium' | 'roll' | 'keep' | 'summon' | 'act' | 'over';
 export type Level = 'apprentice' | 'journeyman' | 'master';
 export type Action = 'stamp' | 'splash' | 'soak' | 'ability' | 'none';
 export type Crest = 'step' | 'splash' | 'guard' | 'glow';
@@ -91,7 +148,8 @@ export type Unit = {
   sec: PigmentId | null;
   traits: Trait[];
 };
-export type Team = { side: Side; units: Unit[]; crests: Record<Crest, number>; hearts: number; home: number };
+/** media: gewählte Malmittel */
+export type Team = { side: Side; units: Unit[]; crests: Record<Crest, number>; hearts: number; home: number; media?: MediumId[] };
 export type Rolled = { u: Unit; fi: number; face: Face };
 
 /* ---------- Ereignisse für die Darstellung ---------- */
@@ -106,6 +164,8 @@ export type Ev =
   | { k: 'reroll'; side: Side; dice: { id: number; fi: number }[] }
   /** Der Wurf gilt: Symbole und Kombi kommen in den Vorrat */
   | { k: 'apply'; side: Side; crests: Record<Crest, number>; combo: Combo | null; joker: number }
+  /** Eine Seite hat ein Malmittel gewählt */
+  | { k: 'medium'; side: Side; id: MediumId }
   | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[] }
   | { k: 'move'; id: number; path: number[]; trail: CellSnap[] }
   | { k: 'stamp'; id: number; wet: boolean; cells: (CellSnap & { r: StampRes })[] }
@@ -147,6 +207,8 @@ export const TUNE = {
   /** Neuwürfe pro Zug und ob Kombis zählen (zum Vergleichen in der Simulation) */
   rerolls: 1,
   combos: true,
+  /** Malmittel in der Simulation */
+  media: true,
 };
 
 const PATTERNS: Record<BlueprintId, P[]> = {
@@ -418,6 +480,11 @@ export const S = {
   rerolls: 0,
   /** Die Kombi des letzten Wurfs */
   combo: null as Combo | null,
+  /** Malmittel zur Wahl für den Spieler (Phase medium), danach geht es mit resume weiter */
+  offer: [] as MediumId[],
+  resume: 'opening' as Phase,
+  /** Malmittel, die der Spieler freigeschaltet hat (daraus kommt das Angebot) */
+  unlocked: [...START_MEDIA] as MediumId[],
   /** Herzen, die die Seite am Zug in diesem Zug schon getroffen hat */
   heartsTurn: 0,
   /** Lern-Duell: bis zu dieser Runde gibt Sepia jeden Schritt vor (0 = aus) */
@@ -512,6 +579,9 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.starBonus = 0;
   S.rerolls = 0;
   S.combo = null;
+  S.offer = [];
+  S.resume = 'opening';
+  S.unlocked = [...START_MEDIA];
   S.heartsTurn = 0;
   S.tutorial = 0;
   uid = 0;
@@ -526,8 +596,8 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.events = [];
   const homeOf = (side: Side) => idx(Math.floor(COLS / 2), side === 1 ? ROWS - 1 : 0);
   S.teams = [
-    { side: 1, units: mine.map((m) => unitOf(m, 1)), crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(1) },
-    { side: 2, units: theirs.map((m) => unitOf(m, 2)), crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(2) },
+    { side: 1, units: mine.map((m) => unitOf(m, 1)), crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(1), media: [] },
+    { side: 2, units: theirs.map((m) => unitOf(m, 2)), crests: { ...START_CRESTS }, hearts: HEARTS, home: homeOf(2), media: [] },
   ];
   for (const t of S.teams) {
     // Stufe aus der Stärke, Seiten aus Werten, Seltenheit und Lasuren
@@ -559,7 +629,7 @@ function paintCell(c: Cell, u: Unit, pig: PigmentId, wet: boolean): void {
   c.owner = u.side;
   c.rgb = PIG[pig].rgb;
   c.hue = pig;
-  c.wet = wet ? WET_TURNS : 0;
+  c.wet = wet ? WET_TURNS + (hasMedium(u.side, 'retarder') ? 1 : 0) : 0;
   c.atk = bonus(u.sat) - (pig !== u.m.main ? 1 : 0);
   c.def = bonus(u.grn) + (has(u, 'granulating') ? 2 : 0);
   c.lf = u.lf;
@@ -575,6 +645,14 @@ export function reactionOf(side: Side, pig: PigmentId, c: Cell): Reaction {
   if (c.hue !== pig && relation(pig, c.hue) === 'harmonisch') return 'bleed';
   return null;
 }
+/** Masking Fluid: eigene Farbe direkt neben der eigenen Palette lässt sich nicht übermalen */
+export function masked(i: number, painter: Side): boolean {
+  const c = S.cells[i]!;
+  if (c.owner !== 1 && c.owner !== 2) return false;
+  if (c.owner === painter || !hasMedium(c.owner, 'mask')) return false;
+  const h = S.teams[c.owner - 1]!.home;
+  return cheb(i % COLS, Math.floor(i / COLS), h % COLS, Math.floor(h / COLS)) <= 1;
+}
 /** Freie Nachbarfelder, auf die Farbe verlaufen kann */
 function freeAround(i: number, skip: number[]): number[] {
   const x = i % COLS,
@@ -587,6 +665,7 @@ function freeAround(i: number, skip: number[]): number[] {
 /** Nasse Farbe auf ein Feld, mit Farbreaktion. flows sammelt die Felder, auf die Farbe verlaufen ist */
 function paintReact(i: number, u: Unit, pig: PigmentId, flows: number[], skip: number[]): Reaction {
   const c = S.cells[i]!;
+  if (masked(i, u.side)) return null;
   const re = reactionOf(u.side, pig, c);
   const layer = c.layer ?? 0;
   paintCell(c, u, pig, true);
@@ -595,13 +674,17 @@ function paintReact(i: number, u: Unit, pig: PigmentId, flows: number[], skip: n
     c.atk += REACT.def;
     c.def += REACT.def;
     count(`${u.side}glaze`);
-  } else if (re === 'bleed' && flows.length < REACT.bleedMax) {
-    const free = freeAround(i, [...skip, ...flows]);
-    if (free.length) {
+  } else if (re === 'bleed' && flows.length < REACT.bleedMax * (hasMedium(u.side, 'oxgall') ? 2 : 1)) {
+    // Ox Gall: die Farbe läuft noch ein Feld weiter
+    let from = i;
+    for (let k = 0; k < (hasMedium(u.side, 'oxgall') ? 2 : 1); k++) {
+      const free = freeAround(from, [...skip, ...flows]);
+      if (!free.length) break;
       const j = free[Math.floor(rand01() * free.length)]!;
       paintCell(S.cells[j]!, u, pig, true);
       flows.push(j);
       count(`${u.side}bleed`);
+      from = j;
     }
   }
   return re;
@@ -698,6 +781,11 @@ export function applyRoll(t: Team): Rolled[] {
     else if (isCrest(f)) t.crests[f.k] = Math.min(CREST_MAX, t.crests[f.k] + f.n);
   }
   const combo = comboOf(out.map((r) => r.face));
+  if (combo && hasMedium(t.side, 'irid')) {
+    if (combo.sym && combo.sym !== 'star' && combo.sym !== 'gold') combo.gain[combo.sym] = (combo.gain[combo.sym] ?? 0) + 1;
+    else combo.gain.glow = (combo.gain.glow ?? 0) + 1;
+    combo.text += ' (+1)';
+  }
   if (combo) {
     for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (combo.gain[c.k] ?? 0));
     count(`${t.side}combo-${combo.kind}`);
@@ -827,7 +915,7 @@ export function doSummon(u: Unit, o: number, at: number): string {
 export const STEP_BONUS = 2;
 export function moveRange(u: Unit): number {
   if (u.rooted > 0 || GAIT[u.m.bp].key === 'tower') return 0;
-  return Math.min(5, 2 + Math.floor(u.flo / 15) + (GAIT[u.m.bp].key === 'fast' ? 1 : 0));
+  return Math.min(6, Math.min(5, 2 + Math.floor(u.flo / 15) + (GAIT[u.m.bp].key === 'fast' ? 1 : 0)) + (setN(u.side, 'cool') ? 1 : 0));
 }
 /**
  * Erreichbare Felder mit Vorgänger und Kosten. Eigene Farbe kostet 1, blankes Papier, fremde Farbe
@@ -872,7 +960,7 @@ export function reachCost(u: Unit): { prev: Map<number, number>; cost: Map<numbe
     const c0 = cost.get(cur)!;
     const cx = cur % COLS,
       cy = Math.floor(cur / COLS);
-    if (cur !== start && S.cells[cur]!.owner === 3 && gait !== 'fly' && gait !== 'float') continue;
+    if (cur !== start && S.cells[cur]!.owner === 3 && gait !== 'fly' && gait !== 'float' && setN(u.side, 'earth') < 3) continue;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as P[]) {
       const nx = cx + dx,
         ny = cy + dy;
@@ -938,6 +1026,7 @@ export function outcome(u: Unit, pig: PigmentId, c: Cell): Out {
   const foe = u.side === 1 ? 2 : 1;
   const sec = pig !== u.m.main ? 1 : 0;
   if (c.home) return { kind: 'none', p: 0 };
+  if (c.owner === foe && masked(S.cells.indexOf(c), u.side)) return { kind: 'none', p: 0 };
   if (c.owner === 0) return { kind: 'take', p: 1 };
   if (c.owner === u.side) return { kind: 'refresh', p: 1 };
   if (c.owner === 3) return { kind: 'over', p: pWin(bonus(u.opa) - sec + stampBonus(u, false), 6) };
@@ -1032,11 +1121,14 @@ export function splashCells(u: Unit): number[] {
 }
 const grainOf = (t: Unit) => t.grn + (t.shield > 0 ? 25 : 0);
 const dodgeOf = (t: Unit) => Math.min(0.4, t.flo / 400 + (has(t, 'alcohol') ? 0.06 : 0) + (has(t, 'bloom4') ? 0.05 : 0));
-const critOf = (u: Unit) => 0.05 + (has(u, 'salt') ? 0.08 : 0);
+const critOf = (u: Unit) => 0.05 + (has(u, 'salt') ? 0.08 : 0) + (hasMedium(u.side, 'salt') ? 0.1 : 0) + (setN(u.side, 'warm') >= 3 ? 0.08 : 0);
 export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean): number {
   let dmg = (HIT.base + u.sat / HIT.satDiv - (pig !== u.m.main ? 1 : 0)) * typeMult(pig, t.m.main);
   if (GAIT[u.m.bp].key === 'pinch' && near) dmg += 3;
   if (has(u, 'fugitive')) dmg += 2;
+  // Warme Familie: zwei Kleckse +1, drei +2
+  const warm = setN(u.side, 'warm');
+  if (warm) dmg += warm >= 3 ? 2 : 1;
   if (GAIT[u.m.bp].key === 'twin') dmg *= 0.6;
   if (has(t, 'bloom3')) dmg *= 0.85;
   return Math.max(1, Math.round(dmg));
@@ -1079,6 +1171,15 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
   }
   shot(crit ? 'crit' : 'hit', dmg, guard, roll);
   setHp(t, t.hp - dmg, crit ? 'crit' : 'hit');
+  // Salt: ein Krit färbt auch ein freies Feld neben dem Ziel
+  if (crit && hasMedium(u.side, 'salt')) {
+    const free = freeAround(at, []);
+    if (free.length) {
+      const j = free[Math.floor(rand01() * free.length)]!;
+      paintCell(S.cells[j]!, u, pig, true);
+      emit({ k: 'cells', how: 'splat', cells: [snap(j)] });
+    }
+  }
   if (relation(pig, t.m.main) === 'komplementaer' || has(u, 'staining')) t.stain = 2;
   return [`${roll}: ${crit ? 'crit' : 'hit'}${guard ? ', guarded' : ''}, -${dmg}`, dmg];
 }
@@ -1128,8 +1229,9 @@ function washOut(t: Unit, by?: Unit): string {
   mudCell(S.cells[i]!);
   emit({ k: 'wash', id: t.id, cell: snap(i), by: by?.id ?? null });
   const burst: number[] = [];
-  for (let y = t.y - 1; y <= t.y + 1; y++)
-    for (let x = t.x - 1; x <= t.x + 1; x++) {
+  const rr = by && hasMedium(by.side, 'waterbrush') ? 2 : 1;
+  for (let y = t.y - rr; y <= t.y + rr; y++)
+    for (let x = t.x - rr; x <= t.x + rr; x++) {
       if (!by || !inside(x, y) || unitAt(x, y)) continue;
       const c = S.cells[idx(x, y)]!;
       if (c.owner !== 0 || c.home) continue;
@@ -1406,13 +1508,14 @@ export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): stri
 export function startTurn(side: Side): void {
   S.turn = side;
   S.heartsTurn = 0;
-  S.rerolls = TUNE.rerolls;
+  S.rerolls = TUNE.rerolls + (hasMedium(side, 'sponge') ? 1 : 0);
   S.combo = null;
   S.starBonus = 0;
   S.freeJoker = 0;
   const t = S.teams[side - 1]!;
   refillDeck(t);
   for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (TURN_GIFT[c.k] ?? 0));
+  if (setN(side, 'cool') >= 3) t.crests.guard = Math.min(CREST_MAX, t.crests.guard + 1);
   for (const u of S.teams[side - 1]!.units) {
     u.moved = u.rooted > 0;
     u.rooted = 0;
@@ -1473,6 +1576,8 @@ export function endRound(): void {
     }
     if (has(u, 'fugitive')) hp -= 1;
     if (has(u, 'bloom0')) hp = Math.min(u.max, hp + 1);
+    const earth = setN(u.side, 'earth');
+    if (earth) hp = Math.min(u.max, hp + (earth >= 3 ? 2 : 1));
     if (c.owner === u.side && c.wet > 0) hp = Math.min(u.max, hp + 1);
     if (c.owner !== 0 && c.owner !== u.side && c.owner !== 3 && c.wet > 0 && c.hue && relation(u.m.main, c.hue) === 'komplementaer') {
       hp -= 2;
@@ -1497,7 +1602,7 @@ export function endRound(): void {
     }
     emit({ k: 'eraser', row, cells: gone.map(snap) });
     for (const u of allUnits())
-      if (u.y === row && d20() + bonus(u.lf) < 18) {
+      if (u.y === row && !hasMedium(u.side, 'tape') && d20() + bonus(u.lf) < 18) {
         setHp(u, u.hp - 4, 'eraser');
         notes.push(`the Eraser grazed ${u.name} (-4)`);
         if (u.hp <= 0) notes.push(washOut(u).slice(2));
@@ -1517,9 +1622,14 @@ export function counts(cells: Cell[] = S.cells): [number, number, number] {
     m = 0;
   for (const c of cells) {
     if (c.home) continue;
-    if (c.owner === 1) a += 1 + (c.layer ?? 0);
-    else if (c.owner === 2) b += 1 + (c.layer ?? 0);
-    else if (c.owner === 3) m++;
+    if (c.owner === 1) a += 1 + (c.layer ?? 0) * (hasMedium(1, 'gum') ? 2 : 1);
+    else if (c.owner === 2) b += 1 + (c.layer ?? 0) * (hasMedium(2, 'gum') ? 2 : 1);
+    else if (c.owner === 3) {
+      m++;
+      // Granulation Medium: Schlamm zählt für die Seite, die es hat
+      if (hasMedium(1, 'gran')) a++;
+      if (hasMedium(2, 'gran')) b++;
+    }
   }
   return [a, b, m];
 }
@@ -1550,9 +1660,9 @@ function evalPaint(u: Unit, pig: PigmentId, at: number): number {
     // Farbreaktionen: Lasur ist ein Punkt mehr und hält besser, Verlaufen nimmt freies Papier dazu
     const p = o.kind === 'take' || o.kind === 'refresh' ? 1 : o.kind === 'contest' || o.kind === 'over' ? o.p : 0;
     const re = p > 0 ? reactionOf(u.side, pig, c) : null;
-    if (re === 'glaze') v += 1.1 * p;
+    if (re === 'glaze') v += (hasMedium(u.side, 'gum') ? 2 : 1.1) * p;
     else if (re === 'bleed' && bleeds < REACT.bleedMax && freeAround(i, list).length) {
-      v += 0.9 * p;
+      v += (hasMedium(u.side, 'oxgall') ? 1.6 : 0.9) * p;
       bleeds++;
     }
   }
@@ -1902,8 +2012,11 @@ export function aiTurnSteps(side: Side, look: number): () => boolean {
       let rolled = pick.length ? rollDice(team, pick) : [];
       if (rolled.length) {
         // Halten und einmal neu werfen, dann gilt der Wurf
-        const hold = aiHold(team, rolled);
-        if (S.rerolls > 0 && hold.length < rolled.length) rolled = rerollDice(team, hold);
+        for (let k = 0; k < 2 && S.rerolls > 0; k++) {
+          const hold = aiHold(team, rolled);
+          if (hold.length >= rolled.length) break;
+          rolled = rerollDice(team, hold);
+        }
         rolled = applyRoll(team);
       }
       stage = 1;
@@ -1940,8 +2053,17 @@ export function simulate(p1: number, p2: Level, n: number): Record<string, unkno
     newGame(seed, p2, randomBag(r, 'Y'), randomBag(r, 'R'), seed);
     aiOpening(2, p2);
     aiOpening(1, 'master');
+    const pick = () => {
+      if (!TUNE.media) return;
+      for (const side of [1, 2] as Side[]) {
+        const o = (S.teams[side - 1]!.media?.length ?? 0) < MEDIA_MAX ? makeOffer(side, side === 1 ? START_MEDIA : MEDIA.map((m) => m.id)) : [];
+        if (o.length) takeMedium(side, aiMedium(o));
+      }
+    };
+    pick();
     let guard = 0;
     while (!S.over && guard++ < 40) {
+      if (offerRound(S.round) && S.teams[0].media!.length < S.round) pick();
       for (const side of [1, 2] as Side[]) {
         const step = aiTurnSteps(side, side === 1 ? p1 : TUNE.look[p2]);
         while (step()) {

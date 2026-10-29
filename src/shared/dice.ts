@@ -3,6 +3,7 @@
  * Legendary sind seltene Papiere, die nur hier vergeben werden. Chancen, Schutz vor Pech und Preise stehen hier.
  */
 import type { PaperId } from './data';
+import type { MediumId } from './duel/media';
 import { humidityFor, makeMonster, speciesKey, type Monster } from './monster';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
@@ -63,6 +64,8 @@ export type DiceSave = {
   tutorialPaid: boolean;
   pulls: number;
   next: number;
+  /** Freigeschaltete Malmittel (fehlt: die Startauswahl) */
+  media?: MediumId[];
 };
 export function emptyDice(): DiceSave {
   return { v: 1, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };

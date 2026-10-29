@@ -24,6 +24,16 @@ function view(res: DuelResponse): void {
 function rolled(): Rolled[] {
   return S.lastRoll.map((r) => ({ u: unitById(r.id)!, fi: r.fi, face: unitById(r.id)!.faces[r.fi]! }));
 }
+/** Duell starten und das erste angebotene Malmittel nehmen */
+async function start(d: Deps, level = 'apprentice'): Promise<DuelResponse> {
+  let res = await duelStart(d, USER, level);
+  view(res);
+  if (S.phase === 'medium') {
+    res = await duelAct(d, USER, { k: 'medium', id: S.offer[0]! });
+    view(res);
+  }
+  return res;
+}
 async function code(p: Promise<unknown>): Promise<string> {
   try {
     await p;
@@ -41,8 +51,17 @@ describe('Duell am Server', () => {
   it('startet mit Eröffnung des Rivalen und behält den Würfelzufall für sich', async () => {
     const d = setup();
     const res = await duelStart(d, USER, 'apprentice');
-    expect(res.state?.phase).toBe('opening');
+    // Vor dem Duell: drei Malmittel zur Wahl, der Rivale hat schon gewählt
+    expect(res.state?.phase).toBe('medium');
+    expect(res.state?.offer).toHaveLength(3);
+    expect(res.state?.teams[1]?.media).toHaveLength(1);
     expect(res.events.some((e) => e.k === 'summon' && e.side === 2)).toBe(true);
+    view(res);
+    expect(await code(duelAct(d, USER, { k: 'medium', id: 'nope' }))).toBe('bad_request');
+    const id = S.offer[1]!;
+    const picked = await duelAct(d, USER, { k: 'medium', id });
+    expect(picked.state?.phase).toBe('opening');
+    expect(picked.state?.teams[0]?.media).toEqual([id]);
     expect(JSON.stringify(res)).not.toContain('"rng"');
     expect(JSON.stringify(res)).not.toContain('gameSeed');
     const again = await duelGet(d, USER);
@@ -51,8 +70,7 @@ describe('Duell am Server', () => {
 
   it('lehnt falsche Aktionen ab', async () => {
     const d = setup();
-    const res = await duelStart(d, USER, 'apprentice');
-    view(res);
+    await start(d);
     expect(await code(duelAct(d, USER, { k: 'roll', ids: [1, 2, 3] }))).toBe('bad_request');
     expect(await code(duelAct(d, USER, { k: 'open', id: 1, o: 0, at: 0 }))).toBe('bad_request');
     expect(await code(duelAct(d, USER, { k: 'open', id: 99, o: 0, at: 0 }))).toBe('bad_request');
@@ -61,8 +79,7 @@ describe('Duell am Server', () => {
 
   it('spielt ein ganzes Duell bis zum Ende', async () => {
     const d = setup(11);
-    let res = await duelStart(d, USER, 'apprentice');
-    view(res);
+    let res = await start(d);
     const u0 = S.teams[0].units[0]!;
     const p0 = placements(u0)[0]!;
     res = await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at });
@@ -75,6 +92,8 @@ describe('Duell am Server', () => {
       if (S.phase === 'roll') {
         const l = rollable(S.teams[0]);
         a = { k: 'roll', ids: l.slice(0, Math.min(ROLL_N, l.length)).map((u) => u.id) };
+      } else if (S.phase === 'medium') {
+        a = { k: 'medium', id: S.offer[0]! };
       } else if (S.phase === 'keep') {
         // Abwechselnd behalten und den ersten Würfel neu werfen
         a = guard % 2 ? { k: 'keep' } : { k: 'reroll', hold: S.lastRoll.slice(1).map((r) => r.id) };
@@ -102,6 +121,9 @@ describe('Duell am Server', () => {
     expect(await code(duelAct(d, USER, { k: 'end' }))).toBe('bad_request');
     // Pigment genau einmal, je nach Ausgang
     expect(reward?.pigment).toBe(S.winner === 1 ? 60 : S.winner === 2 ? 25 : 40);
+    // Jedes fertige Duell schaltet ein Malmittel frei
+    expect(reward?.unlocked).toBe('mask');
+    expect((await diceGet(d, USER)).dice.media).toContain('mask');
     expect((await diceGet(d, USER)).dice.pigment).toBe(reward?.pigment);
     // Antworten bleiben klein genug für das Handy
     expect(biggest).toBeLessThan(400_000);
@@ -109,7 +131,7 @@ describe('Duell am Server', () => {
 
   it('Deck: geworfene Würfel sind verbraucht, bis neu gemischt wird', async () => {
     const d = setup(31);
-    view(await duelStart(d, USER, 'apprentice'));
+    await start(d);
     const u0 = S.teams[0].units[0]!;
     const p0 = placements(u0)[0]!;
     view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
@@ -130,7 +152,7 @@ describe('Duell am Server', () => {
 
   it('Joker wird zum Symbol nach Wahl, danach kein Beschwören mehr', async () => {
     const d = setup(12);
-    view(await duelStart(d, USER, 'apprentice'));
+    await start(d);
     const u0 = S.teams[0].units[0]!;
     const p0 = placements(u0)[0]!;
     view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
@@ -151,7 +173,7 @@ describe('Duell am Server', () => {
 
   it('ein Wisch: hinlaufen und handeln in einer Aktion, prüft vom Ziel aus, Zug endet von selbst', async () => {
     const d = setup(21);
-    view(await duelStart(d, USER, 'apprentice'));
+    await start(d);
     const u0 = S.teams[0].units[0]!;
     const p0 = placements(u0)[0]!;
     view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
@@ -180,7 +202,7 @@ describe('Duell am Server', () => {
 
   it('Sepia paints: spielt den Rest des Zuges', async () => {
     const d = setup(22);
-    view(await duelStart(d, USER, 'apprentice'));
+    await start(d);
     const u0 = S.teams[0].units[0]!;
     const p0 = placements(u0)[0]!;
     view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));
@@ -200,7 +222,7 @@ describe('Duell am Server', () => {
       res: DuelResponse | null = null;
     for (let seed = 41; seed < 60; seed++) {
       d = setup(seed);
-      view(await duelStart(d, USER, 'apprentice'));
+      await start(d);
       const u0 = S.teams[0].units[0]!;
       const p0 = placements(u0)[0]!;
       view(await duelAct(d, USER, { k: 'open', id: u0.id, o: p0.o, at: p0.at }));

@@ -8,6 +8,7 @@ import { RNG, hashStr } from '../../shared/rng';
 import { iconImage } from './icons';
 import { COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type UnitSnap } from '../../shared/duel/rules';
 import { sfx } from './sound';
+import { mediumDef } from '../../shared/duel/media';
 
 /** sqx, sqy: Stauchen und Strecken. ox, oy: Ausholen, Ausfallschritt, Rückstoß (in Feldern). rot: Kippen */
 export type VUnit = UnitSnap & { side: Side; dx: number; dy: number; lift: number; scale: number; alpha: number; flash: number; hpShown: number; busy: boolean; sqx: number; sqy: number; ox: number; oy: number; rot: number };
@@ -789,6 +790,14 @@ export async function playEvent(e: Ev): Promise<void> {
     case 'reroll':
       await hooks.reroll(e);
       return;
+    case 'medium': {
+      // Malmittel gewählt: kurzer Banner, beim Rivalen mit Namen
+      const m = mediumDef(e.id);
+      hooks.banner(e.side === 1 ? m.name : `Rival: ${m.name}`, 'ability');
+      sfx.ability();
+      await wait(e.side === 1 ? 700 : 1100);
+      return;
+    }
     case 'apply':
       await hooks.apply(e);
       return;

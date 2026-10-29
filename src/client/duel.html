@@ -43,6 +43,7 @@
   </div>
   <div id="boardwrap">
     <canvas id="board" aria-label="The sheet with both palettes and blots"></canvas>
+    <div id="status"></div>
     <div id="abil"></div>
     <!-- Würfelwahl als Leiste über dem Brett, nur wenn man wählen muss -->
     <div id="tray" hidden><div id="ctx"></div></div>
@@ -129,6 +130,8 @@
       <li><b>Stars summon:</b> a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint. At most three blots stand on the sheet.</li>
       <li><b>One drag per blot:</b> drag it onto paper to walk there and stamp its shape, onto a rival to splash it, onto their palette to hit it. Or tap a blot, then tap the target. Tap it twice to soak (heal, rinse stains). When every blot has acted, the turn ends by itself.</li>
       <li><b>Moving:</b> your own paint costs 1, bare paper, rival paint and mud cost 2, mud stops you. A Step in your pool lets one blot go 2 further.</li>
+      <li><b>Mediums:</b> pick one of three before the duel, and again after rounds two and four. Each bends one rule for you: Gum Arabic, Ox Gall, Salt, Retarder, Sponge, Iridescent Medium, and four more that unlock as you finish duels. Tap a bottle above the sheet to read it.</li>
+      <li><b>Colour families:</b> two blots of one family on the sheet work together. Warm (Carmine, Opera Rose, Cadmium) splash for +1, cool (Ultramarine, Indigo, Phthalo) walk one further, earth (Sienna, Sepia) heal one each round. Three of a family do more.</li>
       <li><b>Colour reactions:</b> the same pigment over your own dried paint glazes it, a second layer that counts double and holds better. A neighbouring colour on the colour wheel bleeds into a free cell next to it. A complementary colour turns wet rival paint into mud.</li>
       <li><b>Stamps</b> are wet paint and free. Over dried rival paint they need a roll: Opacity against Grain. Wet paint bleeds into free paper when the round ends, then dries.</li>
       <li><b>Splash</b> is free: Saturation plus a d20 against Grain plus a d20, the roll shows at the target. A hit paints the cell under the target. Complementary colours hit for 1.5 times and stain. A Guard in your pool halves a hit by itself. Two or three hits and a blot bursts, its die is lost for good.</li>

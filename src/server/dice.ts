@@ -2,6 +2,7 @@
  * Würfelsammlung und Ziehen („Dip the brush“). Jeder Wurf passiert hier: der offene W100 für die Seltenheit,
  * das Monster dazu, der Schutz vor Pech. Pigment gibt es nur durchs Spielen.
  */
+import { START_MEDIA, UNLOCK_ORDER } from '../shared/duel/media';
 import type { DiceResponse, DuelReward } from '../shared/api';
 import { dayKey } from '../shared/day';
 import {
@@ -226,6 +227,15 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
   }
   s.pigment += reward.pigment;
   reward.total = s.pigment;
+  // Jedes fertige Duell schaltet das nächste Malmittel frei
+  if (!tutorial) {
+    const have = s.media ?? [...START_MEDIA];
+    const next = UNLOCK_ORDER.find((m) => !have.includes(m));
+    if (next) {
+      s.media = [...have, next];
+      reward.unlocked = next;
+    }
+  }
   await saveDice(d, uid, s);
   return reward;
 }

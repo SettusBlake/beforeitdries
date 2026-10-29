@@ -11,6 +11,7 @@ import { rarityDef } from '../shared/dice';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
+import { mediumDef, type MediumId } from '../shared/duel/media';
 import { bestRoll, tutorialAction, tutorialActive } from '../shared/duel/tutorial';
 import * as R from '../shared/duel/rules';
 import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, ROWS, S, type Ev, type Face, type Level, type Plan, type Side, type Unit } from '../shared/duel/rules';
@@ -384,6 +385,8 @@ const TIPS: Record<string, string> = {
   keep: 'Your roll lies open. Tap dice to hold them and reroll the rest, once per turn. A pair gives one more of its symbol, a triple two more and a Joker, three different symbols a Joker.',
   summon: 'The stars add up. The net is placed where I would put it. Tap it to unfold.',
   act: 'Drag a blot onto paper to stamp there, onto a rival to splash it. One drag per blot. When all of them are done, your turn ends by itself.',
+  medium: 'Mediums bend the rules, one for each of you. Pick one now, another after rounds two and four. More unlock as you play.',
+  set: 'Two blots of one colour family work together: warm hits harder, cool walks further, earth heals each round. Three of them even more.',
   glaze: 'Paint reacts. The same pigment over your own dried paint glazes it: a second layer, worth double, harder to paint over. A neighbouring colour bleeds into free paper. A complementary colour turns wet rival paint into mud.',
   palette: 'You can reach their palette. One Splash symbol, one heart, one per turn. It is safe while one of their blots stands within two cells.',
 };
@@ -434,7 +437,8 @@ function lessonCheck(): void {
 }
 function tipForPhase(): void {
   const p = phase();
-  if (p === 'opening' || p === 'roll' || p === 'keep' || p === 'summon' || p === 'act') tip(p);
+  if (p === 'opening' || p === 'medium' || p === 'roll' || p === 'keep' || p === 'summon' || p === 'act') tip(p);
+  if (p === 'act' && R.setBonus(1)) tip('set');
 }
 
 /* ---------- Oberfläche ---------- */
@@ -468,6 +472,45 @@ function portraitEl(id: number, px: number, alpha = 1): HTMLCanvasElement {
   c.getContext('2d')!.drawImage(src, 0, 0, px * 2, px * 2);
   c.style.opacity = String(alpha);
   return c;
+}
+/** Fläschchen für ein Malmittel */
+function bottleSvg(col: string, s: number): string {
+  return `<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true"><path d="M9.5 2.5h5v3l-.8.9V9c2.9 1.1 4.8 3.6 4.8 6.6a6.5 6.5 0 0 1-13 0c0-3 1.9-5.5 4.8-6.6V6.4l-.8-.9z" fill="#fffdf8" stroke="#3a3330" stroke-width="1.2"/><path d="M5.6 14.2h12.8a6.4 6.4 0 0 1-12.8.8z" fill="${col}"/><path d="M8.2 11.6c.8-.6 1.6-.9 2.4-1.1" stroke="#fff" stroke-width="1.1" fill="none" stroke-linecap="round"/></svg>`;
+}
+/** Über dem Blatt: deine Malmittel und dein Set-Bonus links, die des Rivalen rechts. Antippen erklärt */
+function renderStatus(): void {
+  const box = $('status');
+  if (!S.teams.length || screen !== 'game') return;
+  const cell = View.cellSize();
+  box.style.left = `${board.offsetLeft}px`;
+  box.style.top = `${board.offsetTop}px`;
+  box.style.width = `${board.offsetWidth}px`;
+  box.style.height = `${Math.max(20, View.padTop() - 2)}px`;
+  const key = JSON.stringify([S.teams.map((t) => t.media ?? []), R.setBonus(1), R.setBonus(2), cell]);
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.replaceChildren();
+  const side = (sd: Side) => {
+    const g = el('div', `st-side s${sd}`);
+    for (const id of S.teams[sd - 1]!.media ?? []) {
+      const m = mediumDef(id as MediumId);
+      const b = html('button', 'st-med', bottleSvg(m.col, 20)) as HTMLButtonElement;
+      b.type = 'button';
+      b.title = m.name;
+      b.addEventListener('click', () => showTicker(`${sd === 2 ? 'Rival: ' : ''}${m.name}. ${m.text}`, sd === 1 ? 'you' : 'rival'));
+      g.append(b);
+    }
+    const sb = R.setBonus(sd);
+    if (sb) {
+      const t = R.FAMILY_TEXT[sb.fam][sb.n >= 3 ? 1 : 0];
+      const b = html('button', `st-set f-${sb.fam}`, `${sb.fam} ×${sb.n}`) as HTMLButtonElement;
+      b.type = 'button';
+      b.addEventListener('click', () => showTicker(`${sd === 2 ? 'Rival ' : ''}${sb.fam} ×${sb.n}: ${t}.`, sd === 1 ? 'you' : 'rival'));
+      g.append(b);
+    }
+    return g;
+  };
+  box.append(side(1), side(2));
 }
 function renderTop(): void {
   if (!V.teams.length || !S.teams.length) return;
@@ -564,7 +607,23 @@ function renderCtx(): void {
   box.className = '';
   const p = phase();
   let where: 'top' | 'bottom' | null = null;
-  if (S.turn === 1 && !S.over && (p === 'opening' || p === 'roll')) {
+  if (S.turn === 1 && !S.over && p === 'medium') {
+    // Malmittel: drei Karten, eine antippen
+    box.className = 'media';
+    for (const id of S.offer) {
+      const m = mediumDef(id);
+      const b = html('button', 'mcard', `${bottleSvg(m.col, 30)}<b>${m.name}</b><small>${m.text}</small>`) as HTMLButtonElement;
+      b.type = 'button';
+      b.dataset.id = id;
+      b.addEventListener('click', () => {
+        if (!allowedEl(b) || busy) return;
+        sfx.ability();
+        void request(api.duelAct({ k: 'medium', id })).then((ok) => ok && afterAction());
+      });
+      box.append(b);
+    }
+    where = 'top';
+  } else if (S.turn === 1 && !S.over && (p === 'opening' || p === 'roll')) {
     box.className = 'chips';
     for (const u of me().units) box.append(dieChip(u));
     where = 'top';
@@ -665,6 +724,10 @@ function renderGo(): void {
     } else go.textContent = 'Pick a die';
     return;
   }
+  if (p === 'medium') {
+    go.textContent = 'Pick a medium';
+    return;
+  }
   if (p === 'roll') {
     go.textContent = `Roll ${need()} dice`;
     go.disabled = chosen.size !== need();
@@ -752,6 +815,7 @@ function renderHint(): void {
   if (p === 'opening') return setHint(summonU ? `Tap the net to unfold ${summonU.name}. Tap a blue dot to move it, Turn to rotate it.` : 'Opening: pick one of your dice below to unfold first.');
   if (p === 'roll') return setHint(`Roll ${need()} dice. Tap to swap, hold to read. Rolled dice stay used until you reshuffle.`);
   if (p === 'keep') return setHint('Tap dice to hold them, then reroll the rest once. Or keep the roll as it is.');
+  if (p === 'medium') return setHint('Pick a medium. It bends one rule for you until the paper dries.');
   if (p === 'summon') return setHint(summonU ? `Tap the net to unfold ${summonU.name}, or skip. Blue dots move it.` : 'Tap a glowing die to unfold it, or skip.');
   if (drag) return setHint(drag.pv?.text ?? 'Out of reach. Let go to cancel.');
   if (aiming) {
@@ -791,6 +855,7 @@ function renderAll(): void {
   if (screen !== 'game' || !S.teams.length) return;
   renderTop();
   renderPool();
+  renderStatus();
   renderKeep();
   renderCtx();
   renderJoker();
@@ -1017,6 +1082,7 @@ function computeGuide(): Guide {
     return { cell: anchor };
   }
   if (p === 'roll') return chosen.size === need() ? { el: '#go' } : { el: '#ctx .chip:not(.chosen):not(.st-gone):not(.used):not(.st-sheet)' };
+  if (p === 'medium') return S.offer.length ? { el: `#ctx .mcard[data-id="${R.aiMedium(S.offer)}"]` } : {};
   if (p === 'keep') {
     const hold = R.aiHold(me(), lastRolled());
     return keepGuide(S.rerolls > 0 && hold.length < S.lastRoll.length ? hold : null);
@@ -1382,7 +1448,7 @@ async function finishDuel(): Promise<void> {
   $('result-sepia').textContent = sepiaEnd();
   const rw = $('result-reward');
   rw.hidden = !reward;
-  if (reward) rw.innerHTML = reward.pigment ? `<span class="pigi"></span> +${reward.pigment} pigment <small>(${reward.total} in total)</small>` : reward.why === 'capped' ? 'No pigment: five rewarded duels a day.' : '';
+  if (reward) rw.innerHTML = (reward.pigment ? `<span class="pigi"></span> +${reward.pigment} pigment <small>(${reward.total} in total)</small>` : reward.why === 'capped' ? 'No pigment: five rewarded duels a day.' : '') + (reward.unlocked ? `<br>New medium: <b>${mediumDef(reward.unlocked).name}</b>` : '');
   reward = null;
   $('result').hidden = false;
   $('result').className = S.winner === 1 ? 'overlay win' : 'overlay';

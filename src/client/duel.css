@@ -128,6 +128,21 @@ button { font: inherit; color: inherit; }
 .pool { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 /* Feste Höhe von zwei Zeilen, damit das Blatt nicht springt, wenn der Hinweis wechselt */
 #hint { font: 500 13.5px/1.35 var(--f-body); color: var(--muted); max-height: 2.7em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* Über dem Blatt: Malmittel und Set-Bonus */
+#status { position: absolute; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 6px; pointer-events: none; padding: 0 2px; }
+.st-side { display: flex; align-items: center; gap: 3px; pointer-events: auto; }
+.st-side.s2 { flex-direction: row-reverse; }
+.st-med { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1.5px solid var(--you); background: var(--sheet); display: grid; place-items: center; cursor: pointer; }
+.s2 .st-med { border-color: var(--rival); }
+.st-set { border: 1px solid var(--line); background: var(--sheet); border-radius: 999px; padding: 2px 8px; min-height: 24px; font: 700 11px var(--f-mono); text-transform: capitalize; cursor: pointer; }
+.st-set.f-warm { color: #b1462a; border-color: #e3b3a4; }
+.st-set.f-cool { color: #2b5ea3; border-color: #a9c0e3; }
+.st-set.f-earth { color: #74512f; border-color: #d4bfa6; }
+/* Malmittel-Wahl: drei Karten in der Leiste */
+#ctx.media { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.mcard { display: grid; justify-items: center; align-content: start; gap: 3px; padding: 8px 4px 9px; border: 1px solid var(--line); border-radius: 12px; background: #fffdf8; cursor: pointer; text-align: center; }
+.mcard b { font: 800 12.5px/1.15 var(--f-body); }
+.mcard small { font: 11.5px/1.25 var(--f-body); color: var(--muted); }
 /* Leiste über dem Brett für die Würfelwahl: oben, beim Beschwören unten, wenn das Netz oben liegt */
 #tray { position: absolute; left: 6px; right: 6px; z-index: 3; margin: 0 auto; max-width: 520px; padding: 8px; border-radius: 14px;
   background: rgba(251,250,246,.97); box-shadow: 0 10px 26px -12px rgba(30,25,20,.5), 0 0 0 1px var(--line); animation: trayIn .22s ease; }
