@@ -4,7 +4,7 @@
  */
 import type { DiceResponse } from '../../shared/api';
 import { PAPER } from '../../shared/data';
-import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, serialText, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult } from '../../shared/dice';
+import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, serialText, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { speciesLabel } from '../../shared/monster';
 import { looseNow, painted, paintedNow } from '../lib/painter';
@@ -42,6 +42,8 @@ let tester = false;
 let swapIn: string | null = null;
 /** Würfel, dessen Auswaschen schon einmal angetippt wurde (zweiter Tipp wäscht) */
 let washArmed: string | null = null;
+/** Shiny: nach dem zweiten Tipp noch eine Rückfrage, erst der dritte wäscht */
+let washShiny: string | null = null;
 
 /* ---------- Bilder der Würfel: nebenbei gemalt, fertige sofort ---------- */
 function art(d: DieRec, px: number, prio = 0): HTMLCanvasElement {
@@ -272,29 +274,43 @@ function openDie(d: DieRec): void {
   const wash = el('div', 'trow wash');
   if (!s.bag.includes(d.id)) {
     const n = washGlaze(u.rarity);
-    const wb = el('button', 'ghost danger', washArmed === d.id ? `Tap again: wash out for +${n} glaze` : `Wash out · +${n} glaze`) as HTMLButtonElement;
+    const label =
+      washShiny === d.id && d.style
+        ? `It is shiny (${styleDef(d.style).label}). Tap once more to wash it out`
+        : washArmed === d.id
+          ? `Tap again: wash out for +${n} glaze`
+          : `Wash out · +${n} glaze`;
+    const wb = el('button', 'ghost danger', label) as HTMLButtonElement;
     wb.type = 'button';
     wb.id = 'wash';
     wb.disabled = busy || s.dice.length <= KEEP_MIN;
     wb.addEventListener('click', () => {
       if (washArmed !== d.id) {
         washArmed = d.id;
+        washShiny = null;
+        sfx.tap();
+        return openDie(d);
+      }
+      // Ein Shiny nur nach Rückfrage: ein dritter Tipp
+      if (d.style && washShiny !== d.id) {
+        washShiny = d.id;
         sfx.tap();
         return openDie(d);
       }
       washArmed = null;
-      void washOut(d);
+      washShiny = null;
+      void washOut(d, !!d.style);
     });
     wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It leaves your collection, ${speciesLabel(u.m)} gains ${n} glaze. Blots that drift to the margins sometimes come back.`));
   }
   box.append(top, net, faces, gl, row, stats, lines, wash);
   $('inspect').hidden = false;
 }
-async function washOut(d: DieRec): Promise<void> {
+async function washOut(d: DieRec, confirm = false): Promise<void> {
   if (busy) return;
   busy = true;
   try {
-    apply(await api.diceWash(d.id));
+    apply(await api.diceWash(d.id, confirm));
     sfx.ability();
     $('inspect').hidden = true;
   } catch (e) {
@@ -520,6 +536,7 @@ export function initDice(h: Hooks): void {
 export function openDice(): void {
   swapIn = null;
   washArmed = null;
+  washShiny = null;
   render();
   void load();
   // PixiJS schon laden, während man die Würfel ansieht

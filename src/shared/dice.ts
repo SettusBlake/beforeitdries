@@ -29,17 +29,42 @@ export type FaceMod = { i: number; to: 'x2' };
  * Ein Würfel in der Sammlung: Bogen-Seed und Nummer des Monsters, seltenes Papier, Lasuren auf Seiten.
  * no ist die Seriennummer über alle Spieler, der Seed des Monsters gehört nur diesem Würfel (Register am Server).
  */
-export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2; draw?: string };
+export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2; draw?: string; style?: StyleId };
+
+/** Shiny: ein anderer Malstil statt Aquarell, nur Aussehen */
+export type StyleId = 'pencil' | 'comic' | 'plate' | 'anime' | 'oil';
+/** Stil aus dem zweiten W10 (festgelegt am 30.10.2026: Pencil 3, Comic 2, Bestiary Plate 2, Anime 2, Oil 1) */
+export const STYLES: { k: StyleId; label: string; from: number; to: number; odds: string }[] = [
+  { k: 'pencil', label: 'Pencil', from: 1, to: 3, odds: '1 in 3333' },
+  { k: 'comic', label: 'Comic', from: 4, to: 5, odds: '1 in 5000' },
+  { k: 'plate', label: 'Bestiary Plate', from: 6, to: 7, odds: '1 in 5000' },
+  { k: 'anime', label: 'Anime', from: 8, to: 9, odds: '1 in 5000' },
+  { k: 'oil', label: 'Oil', from: 10, to: 10, odds: '1 in 10 000' },
+];
+export const styleFromRoll = (d10: number): StyleId => (STYLES.find((s) => d10 >= s.from && d10 <= s.to) ?? STYLES[0]!).k;
+export const styleDef = (k: StyleId) => STYLES.find((s) => s.k === k)!;
+export type ShinyRoll = { hand: number; d10?: number; styleD10?: number; style?: StyleId };
+/** Die Hand: W100, bei 100 ein W10, bei 10 Shiny (1 zu 1000), dann ein W10 für den Stil. Würfe offen */
+export function rollShiny(rand: () => number): ShinyRoll {
+  const hand = 1 + (rand() % 100);
+  if (hand !== 100) return { hand };
+  const d10 = 1 + (rand() % 10);
+  if (d10 !== 10) return { hand, d10 };
+  const styleD10 = 1 + (rand() % 10);
+  return { hand, d10, styleD10, style: styleFromRoll(styleD10) };
+}
 /** Seriennummer zum Zeigen: #00427 */
 export const serialText = (no: number | undefined): string => (no ? '#' + String(no).padStart(5, '0') : '');
 
-export function dieMonster(d: { sheet: string; idx: number; paper?: PaperId; gen?: 2; draw?: string }): Monster {
+export function dieMonster(d: { sheet: string; idx: number; paper?: PaperId; gen?: 2; draw?: string; style?: StyleId }): Monster {
   const m = makeMonster(d.sheet, d.idx, humidityFor(d.sheet));
   if (d.paper) m.paper = d.paper;
   // Neue Würfel haben die neuen Formen, ältere bleiben, wie sie waren
   if (d.gen) m.gen = d.gen;
   // Selbst gemalt: die Zeichnung ist die Form
   if (d.draw) m.draw = d.draw;
+  // Shiny: anderer Malstil
+  if (d.style) m.style = d.style;
   return m;
 }
 
@@ -94,6 +119,10 @@ export type PullResult = {
   dup: string | null;
   /** Der W100 zeigte 1: dazu ein leerer Würfel zum Selbstmalen */
   blank?: true;
+  /** Die Hand (W100), bei 100 der W10 für Shiny, bei Shiny der W10 für den Stil (steht dann im Würfel) */
+  hand: number;
+  shinyD10?: number;
+  styleD10?: number;
 };
 /**
  * Leere Würfel (festgelegt am 30.10.2026): jede Woche einer, der freie füllt höchstens bis BLANK.max auf.

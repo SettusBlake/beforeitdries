@@ -21,6 +21,7 @@ import {
   rarityFromRoll,
   rarityIndex,
   REWARD,
+  rollShiny,
   TEN_COST,
   washGlaze,
   type DiceSave,
@@ -133,7 +134,14 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
   s.dice.push(die);
   // Startzüge füllen den Beutel, spätere Würfel packt man selbst ein
   if (starter && s.bag.length < BAG) s.bag.push(die.id);
-  const out: PullResult = { d100, rarity, pity, die, dup: owned.has(key) ? key : null };
+  // Die Hand: Shiny 1 zu 1000, nur Aussehen
+  const sh = rollShiny(d.rand);
+  const out: PullResult = { d100, rarity, pity, die, dup: owned.has(key) ? key : null, hand: sh.hand };
+  if (sh.d10) out.shinyD10 = sh.d10;
+  if (sh.style) {
+    die.style = sh.style;
+    out.styleD10 = sh.styleD10;
+  }
   // Der schlechteste Wurf tröstet: dazu ein leerer Würfel zum Selbstmalen
   if (d100 === BLANK.find) {
     s.blank = (s.blank ?? 0) + 1;
@@ -287,7 +295,7 @@ export type Recycled = { die: DieRec; from: string; at: number; rarity: Rarity }
  * Nicht im Deck, und es bleiben immer genug Würfel für ein volles Deck. Gelöscht wird er nicht (festgelegt am 30.10.2026):
  * er kommt ins Archiv, später für Gegner und Marktplatz. Das Register zeigt recycled, als neuer Zug kommt er nie wieder.
  */
-export async function diceWash(d: Deps, userId: string | undefined, id: unknown): Promise<DiceResponse> {
+export async function diceWash(d: Deps, userId: string | undefined, id: unknown, confirm?: unknown): Promise<DiceResponse> {
   const uid = needUser(userId);
   if (typeof id !== 'string') throw new GameError('bad_request', 'Unknown die.');
   return withLock(d, playerLock(uid), async () => {
@@ -296,6 +304,8 @@ export async function diceWash(d: Deps, userId: string | undefined, id: unknown)
     if (!die) throw new GameError('not_found', 'That die is not yours.', 404);
     if (s.bag.includes(id)) throw new GameError('bad_request', 'This die is in your deck. Take it out first.');
     if (s.dice.length <= KEEP_MIN) throw new GameError('bad_request', `Keep at least ${KEEP_MIN} dice for your deck.`);
+    // Ein Shiny nur nach Rückfrage (festgelegt am 30.10.2026)
+    if (die.style && confirm !== true) throw new GameError('bad_request', 'This one is shiny. Confirm to wash it out.');
     const key = dieSpecies(die);
     const rarity = rarityOfDie(die);
     s.dice = s.dice.filter((x) => x !== die);

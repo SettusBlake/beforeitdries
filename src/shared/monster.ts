@@ -1,4 +1,5 @@
 /* Ein Monster würfeln und seine Werte berechnen. Logik wörtlich aus dem Prototyp. */
+import type { StyleId } from './dice';
 import {
   BAUPLAENE,
   BLOOM_TRAITS,
@@ -64,6 +65,8 @@ export interface Monster {
   gen?: 2;
   /** Selbst gemalt: die Striche als Text (src/shared/drawn.ts), ersetzen die Form */
   draw?: string;
+  /** Shiny: anderer Malstil statt Aquarell */
+  style?: StyleId;
 }
 
 export function makeName(r: Rand): string {

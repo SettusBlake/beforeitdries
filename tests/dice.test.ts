@@ -5,7 +5,7 @@ import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceWas
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
-import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, rarityDef, rarityFromRoll, rarityIndex, STARTER_PULLS, type DiceSave } from '../src/shared/dice';
+import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, rarityDef, rarityFromRoll, rarityIndex, rollShiny, STARTER_PULLS, styleFromRoll, type DiceSave } from '../src/shared/dice';
 import { monsterSeed } from '../src/shared/monster';
 import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
 import { loadState } from '../src/shared/duel/play';
@@ -305,5 +305,45 @@ describe('Würfelsammlung', () => {
     const res = await diceTestBlank(play, USER, 'Vegavild');
     expect(res.dice.blank).toBe(before + 2);
     expect(res.tester).toBe(true);
+  });
+
+  it('Shiny: Hand-W100 zeigt 100, dann W10 zeigt 10 (1 zu 1000), ein W10 wählt den Stil', () => {
+    const seq = (xs: number[]) => {
+      let i = 0;
+      return () => xs[i++]!;
+    };
+    expect(rollShiny(seq([42]))).toEqual({ hand: 43 });
+    expect(rollShiny(seq([99, 3]))).toEqual({ hand: 100, d10: 4 });
+    expect(rollShiny(seq([99, 9, 0]))).toEqual({ hand: 100, d10: 10, styleD10: 1, style: 'pencil' });
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(styleFromRoll)).toEqual(['pencil', 'pencil', 'pencil', 'comic', 'comic', 'plate', 'plate', 'anime', 'anime', 'oil']);
+    const r = RNG(77);
+    const rand = () => (r() * 4294967296) >>> 0;
+    let shiny = 0;
+    for (let i = 0; i < 200000; i++) if (rollShiny(rand).style) shiny++;
+    // Erwartet 200, deutlich daneben wäre ein Fehler
+    expect(shiny).toBeGreaterThan(130);
+    expect(shiny).toBeLessThan(280);
+  });
+
+  it('jeder Zug zeigt die Hand, Shiny steht im Würfel, Auswaschen eines Shiny nur mit Bestätigung', async () => {
+    const d = setup(88);
+    const res = await dicePull(d, USER, 'starter');
+    for (const p of res.pulls) {
+      expect(p.hand).toBeGreaterThanOrEqual(1);
+      expect(p.hand).toBeLessThanOrEqual(100);
+      expect(!!p.die.style).toBe(p.hand === 100 && p.shinyD10 === 10);
+    }
+    await addPigment(d, 2000);
+    await dicePull(d, USER, 'ten');
+    const s = await loadDice(d, USER);
+    const die = s.dice.find((x) => !s.bag.includes(x.id))!;
+    die.style = 'oil';
+    await saveDice(d, USER, s);
+    expect(dieMonster(die).style).toBe('oil');
+    expect(await code(diceWash(d, USER, die.id))).toBe('bad_request');
+    const w = await diceWash(d, USER, die.id, true);
+    expect(w.dice.dice.some((x) => x.id === die.id)).toBe(false);
+    const rec = JSON.parse((await d.redis.hGet(K.recycled, String(monsterSeed(die.sheet, die.idx))))!) as { die: { style?: string } };
+    expect(rec.die.style).toBe('oil');
   });
 });

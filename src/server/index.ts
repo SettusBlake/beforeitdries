@@ -126,7 +126,8 @@ app.post(
 app.post(
   '/api/dice/wash',
   wrap(async (req, res) => {
-    res.json(await diceWash(await deps(), context.userId, (req.body as { id?: unknown } | undefined)?.id));
+    const body = (req.body ?? {}) as { id?: unknown; confirm?: unknown };
+    res.json(await diceWash(await deps(), context.userId, body.id, body.confirm));
   }),
 );
 app.post(

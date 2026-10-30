@@ -80,7 +80,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
       if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));
-      if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id));
+      if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id, b.confirm));
       if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing));
     }
     // Nur in der Vorschau: Pigment und Lasur zum Ausprobieren
