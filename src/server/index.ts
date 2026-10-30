@@ -223,9 +223,11 @@ app.post('/internal/scheduler/daily-blot', (_req, res) => {
 
 /* ---------- Fehler ---------- */
 
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   void _next;
   if (err instanceof GameError) {
+    // Abgelehnte Anfragen ins Log (devvit logs), damit man sieht, was am Handy schiefgeht
+    console.log(`${req.method} ${req.path} → ${err.code}: ${err.message}`);
     const body: ErrorResponse = { error: err.message, code: err.code, ...(err.dryUntil ? { dryUntil: err.dryUntil } : {}) };
     res.status(err.status).json(body);
     return;

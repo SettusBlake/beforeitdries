@@ -7,8 +7,9 @@ import { decodeDrawing, DRAW, encodeDrawing, hasShape, parts, simplify, type Dra
 import { sfx } from './sound';
 
 const $ = (id: string) => document.getElementById(id)!;
-type Hooks = { paint: (code: string) => Promise<boolean>; back: () => void };
-let hooks: Hooks = { paint: async () => false, back: () => undefined };
+/** paint: true, wenn gemalt, sonst der Grund */
+type Hooks = { paint: (code: string) => Promise<true | string>; back: () => void };
+let hooks: Hooks = { paint: async () => 'Not ready yet.', back: () => undefined };
 
 /* Die Zeichnung bleibt, bis sie gemalt ist: zurück und wieder hinein zeichnet weiter */
 const d: Drawing = { strokes: [], mirror: true, face: null };
@@ -24,9 +25,19 @@ let rect: DOMRect | null = null;
 let frame = 0;
 /** So viele Punkte nimmt ein Strich höchstens auf, vereinfacht wird er ohnehin */
 const MAX_PTS = 600;
+/** Nach einem vergeblichen „Paint it“: offene Enden rot zeigen, bis sich etwas ändert */
+let ends = false;
 const changed = () => {
   base = null;
+  ends = false;
+  why(null);
 };
+/** Grund direkt über dem Knopf, warum nichts gemalt wurde (Sepias Satz oben übersieht man leicht) */
+function why(t: string | null): void {
+  const w = $('draw-why');
+  w.hidden = !t;
+  w.textContent = t ?? '';
+}
 
 const SAY = ['Draw whatever you like. The dice decide what it is good for.', 'A blank canvas. The paint has opinions, but it listens.', 'Draw me something. I have seen worse. Probably.'];
 let greet = SAY[0]!;
@@ -58,8 +69,8 @@ function line(x: CanvasRenderingContext2D, pts: Pt[], close = false): void {
   pts.forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])));
   if (close) x.closePath();
 }
-/** Blatt mit den Strichen einer Zeichnung (size: Breite in CSS-Pixeln, für die Strichstärke) */
-function paintBase(w: number, h: number, dr: Drawing, size: number): HTMLCanvasElement {
+/** Blatt mit den Strichen einer Zeichnung (size: Breite in CSS-Pixeln, für die Strichstärke, marks: offene Enden rot) */
+function paintBase(w: number, h: number, dr: Drawing, size: number, marks = false): HTMLCanvasElement {
   const b = document.createElement('canvas');
   b.width = w;
   b.height = h;
@@ -81,14 +92,28 @@ function paintBase(w: number, h: number, dr: Drawing, size: number): HTMLCanvasE
   }
   x.lineCap = x.lineJoin = 'round';
   x.lineWidth = 3 * u;
-  for (const p of parts(dr)) {
+  const ps = parts(dr);
+  for (const p of ps) {
     line(x, p.pts, p.closed);
+    // Geschlossen heißt: wird Farbfläche. Gut sichtbar gefüllt, damit man sieht, was zählt
     if (p.closed) {
-      x.fillStyle = 'rgba(43,63,163,.08)';
+      x.fillStyle = 'rgba(43,63,163,.16)';
       x.fill();
     }
     x.strokeStyle = 'rgba(40,40,46,.85)';
     x.stroke();
+  }
+  if (marks) {
+    x.strokeStyle = '#c0392b';
+    x.lineWidth = 2.5 * u;
+    for (const p of ps) {
+      if (p.closed) continue;
+      for (const q of [p.pts[0]!, p.pts[p.pts.length - 1]!]) {
+        x.beginPath();
+        x.arc(q[0], q[1], 0.025, 0, 7);
+        x.stroke();
+      }
+    }
   }
   if (dr.face) {
     const [fx, fy] = dr.face;
@@ -113,7 +138,7 @@ function redraw(withUi = true): void {
   }
   const c = $('pad') as HTMLCanvasElement;
   const x = c.getContext('2d')!;
-  base ??= paintBase(c.width, c.height, d, px);
+  base ??= paintBase(c.width, c.height, d, px, ends);
   x.setTransform(1, 0, 0, 1, 0, 0);
   x.drawImage(base, 0, 0);
   // Der Strich, der gerade entsteht (gespiegelt heller)
@@ -163,6 +188,8 @@ function at(e: PointerEvent): Pt {
 function down(e: PointerEvent): void {
   if (busy || (e.pointerType === 'mouse' && e.button !== 0)) return;
   e.preventDefault();
+  // Kam das Ende des letzten Strichs nie an: jetzt ablegen statt verlieren
+  if (cur) up();
   rect = $('pad').getBoundingClientRect();
   if (eyes) {
     d.face = at(e);
@@ -207,24 +234,37 @@ function up(): void {
 
 /* ---------- Knöpfe ---------- */
 async function paint(): Promise<void> {
-  if (busy || !d.strokes.length) return;
+  if (busy) return;
+  if (!d.strokes.length) return nope('Draw something first.');
   if (!hasShape(d)) {
     say('Close a shape. Paint needs somewhere to pool.');
-    sfx.tap();
-    return;
+    nope(d.mirror ? 'No closed shape yet. End a line where it started, or start and end it on the dashed middle line.' : 'No closed shape yet. End a line where it started.');
+    ends = true;
+    base = null;
+    return redraw();
   }
   busy = true;
+  why(null);
   ui();
-  const ok = await hooks.paint(encodeDrawing(d));
+  const res = await hooks.paint(encodeDrawing(d));
   busy = false;
-  if (ok) {
+  if (res === true) {
     d.strokes = [];
     d.face = null;
     d.mirror = true;
     eyes = false;
     changed();
-  }
+  } else nope(res);
   redraw();
+}
+/** Nicht gemalt: Grund über dem Knopf, der Knopf schüttelt sich */
+function nope(t: string): void {
+  why(t);
+  sfx.tap();
+  const go = $('draw-go');
+  go.classList.remove('nope');
+  void go.offsetWidth;
+  go.classList.add('nope');
 }
 
 export function initDraw(h: Hooks): void {
@@ -234,6 +274,7 @@ export function initDraw(h: Hooks): void {
   pad.addEventListener('pointermove', move);
   pad.addEventListener('pointerup', up);
   pad.addEventListener('pointercancel', up);
+  pad.addEventListener('lostpointercapture', up);
   $('draw-back').addEventListener('click', () => {
     sfx.tap();
     hooks.back();

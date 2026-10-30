@@ -606,8 +606,8 @@ async function testBlank(): Promise<void> {
   render();
 }
 /** Zeichnung an den Server, dann das Ritual wie bei einem Zug. false: Fehler, man zeichnet weiter */
-async function paintDrawing(code: string): Promise<boolean> {
-  if (busy) return false;
+async function paintDrawing(code: string): Promise<true | string> {
+  if (busy) return 'Still busy. Try again in a moment.';
   busy = true;
   let res: DiceResponse;
   try {
@@ -615,7 +615,7 @@ async function paintDrawing(code: string): Promise<boolean> {
   } catch (e) {
     busy = false;
     hooks.error(e);
-    return false;
+    return e instanceof Error ? e.message : 'That did not work. Try again.';
   }
   const before = save;
   save = res.dice;

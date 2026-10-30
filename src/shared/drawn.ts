@@ -18,10 +18,11 @@ export const DRAW = {
   maxStrokes: 24,
   /** Punkte je Strich nach dem Vereinfachen */
   maxPts: 48,
-  /** Ende so nah am Anfang: der Strich gilt als geschlossen */
-  close: 0.08,
-  /** So nah an der Mitte: der Strich schließt sich beim Spiegeln mit seinem Spiegelbild */
-  axis: 0.04,
+  /** Ende so nah am Anfang (oder closeK der Strichlänge): der Strich gilt als geschlossen */
+  close: 0.1,
+  closeK: 0.15,
+  /** So nah an der Mitte: der Strich schließt sich beim Spiegeln mit seinem Spiegelbild (großzügig, mit dem Finger trifft man die Linie selten) */
+  axis: 0.1,
   /** Pinselbreite der offenen Striche */
   line: 0.016,
   /** So groß wird die Zeichnung auf der Karte */
@@ -125,7 +126,7 @@ export function parts(d: Drawing): Part[] {
       out.push({ pts: [...s, ...s.slice(1, -1).reverse().map(mirrorPt)], closed: true });
       continue;
     }
-    const closed = L > 0.12 && dist(a, b) < Math.max(DRAW.close, L * 0.1);
+    const closed = L > 0.12 && dist(a, b) < Math.max(DRAW.close, L * DRAW.closeK);
     out.push({ pts: closed ? s.slice(0, -1) : s, closed });
     // Teile, die über der Mitte liegen, haben ihr Spiegelbild schon in sich
     const [x0, , x1] = box(s);
