@@ -135,6 +135,106 @@ export function parts(d: Drawing): Part[] {
   return out;
 }
 
+/**
+ * Entwurf (30.10.2026, wartet auf Wahl): wie eine Zeichnung ganz ohne geschlossene Form gemalt wird.
+ * close: der längste Strich wird zur Fläche (bisher), brush: jeder Strich ein breiter Pinselstrich, wash: Linien mit Lavierung dahinter
+ */
+export type OpenMode = 'close' | 'brush' | 'wash';
+export const OPEN: { mode: OpenMode } = { mode: 'close' };
+const blobOf = (pts: Pt[], crisp: number, ink: boolean, bare = false): BlobShape => {
+  const [x0, y0, x1, y1] = box(pts);
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, rx: Math.max((x1 - x0) / 2, 0.01), ry: Math.max((y1 - y0) / 2, 0.01), rot: 0, pts, crisp, ink, ...(bare ? { bare } : {}) };
+};
+
+/** Breiter Pinselstrich um eine Linie: in der Mitte voll, zu den Enden schmaler, runde Enden */
+function brushPoly(line: Pt[], w: number): Pt[] {
+  const s = resample(line, 32);
+  const n = s.length;
+  const L: Pt[] = [],
+    R: Pt[] = [];
+  const nor = (i: number): Pt => {
+    const a = s[Math.max(0, i - 1)]!,
+      b = s[Math.min(n - 1, i + 1)]!;
+    const l = dist(a, b) || 1e-9;
+    return [-(b[1] - a[1]) / l, (b[0] - a[0]) / l];
+  };
+  const half = (i: number) => (w / 2) * (0.55 + 0.45 * Math.sin((Math.PI * i) / Math.max(1, n - 1)));
+  for (let i = 0; i < n; i++) {
+    const [nx, ny] = nor(i),
+      h = half(i),
+      p = s[i]!;
+    L.push([p[0] + nx * h, p[1] + ny * h]);
+    R.push([p[0] - nx * h, p[1] - ny * h]);
+  }
+  // Runde Enden: Halbkreis von links nach rechts um den Endpunkt
+  const cap = (i: number, dir: 1 | -1): Pt[] => {
+    const [nx, ny] = nor(i),
+      h = half(i),
+      p = s[i]!,
+      a0 = Math.atan2(ny, nx);
+    return [1, 2, 3, 4].map((k) => {
+      const a = a0 - dir * (Math.PI * k) / 5;
+      return [p[0] + Math.cos(a) * h, p[1] + Math.sin(a) * h];
+    });
+  };
+  return [...L, ...cap(n - 1, 1), ...R.reverse(), ...cap(0, -1)];
+}
+/** Lavierung: weiche Fläche um alle Linien (konvexe Hülle, etwas größer, gerundet) */
+function washPoly(all: Pt[], pad: number): Pt[] {
+  const p = [...all].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo: Pt[] = [],
+    hi: Pt[] = [];
+  for (const q of p) {
+    while (lo.length >= 2 && cross(lo[lo.length - 2]!, lo[lo.length - 1]!, q) <= 0) lo.pop();
+    lo.push(q);
+  }
+  for (const q of [...p].reverse()) {
+    while (hi.length >= 2 && cross(hi[hi.length - 2]!, hi[hi.length - 1]!, q) <= 0) hi.pop();
+    hi.push(q);
+  }
+  let h = [...lo.slice(0, -1), ...hi.slice(0, -1)];
+  const cx = h.reduce((a, q) => a + q[0], 0) / h.length,
+    cy = h.reduce((a, q) => a + q[1], 0) / h.length;
+  h = h.map((q) => {
+    const l = Math.hypot(q[0] - cx, q[1] - cy) || 1e-9;
+    return [q[0] + ((q[0] - cx) / l) * pad, q[1] + ((q[1] - cy) / l) * pad];
+  });
+  // Ecken abrunden (Chaikin)
+  for (let k = 0; k < 3; k++)
+    h = h.flatMap((a, i) => {
+      const b = h[(i + 1) % h.length]!;
+      return [
+        [a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25],
+        [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75],
+      ] as Pt[];
+    });
+  return resample([...h, h[0]!], 40).slice(0, -1);
+}
+/** Nur offene Striche (Entwurf brush und wash): erst auf die Karte bringen, dann die Flächen bauen */
+function openGeometry(d: Drawing, limbs: Limb[], mode: Exclude<OpenMode, 'close'>): Geometry {
+  const [x0, y0, x1, y1] = box(limbs.flatMap((l) => l.pts));
+  const k = DRAW.size / Math.max(x1 - x0, y1 - y0, 0.05),
+    mx = (x0 + x1) / 2,
+    my = (y0 + y1) / 2;
+  const f = (p: Pt): Pt => [0.5 + (p[0] - mx) * k, 0.53 + (p[1] - my) * k];
+  const ls = limbs.map((l) => ({ ...l, pts: l.pts.map(f) }));
+  let blobs: BlobShape[],
+    rest: Limb[];
+  if (mode === 'brush') {
+    const long = ls.filter((l) => strokeLen(l.pts) >= 0.06);
+    const use = long.length ? long : ls;
+    blobs = use.map((l) => blobOf(brushPoly(l.pts, 0.075), 0.7, false, true));
+    rest = ls.filter((l) => !use.includes(l));
+  } else {
+    blobs = [blobOf(washPoly(ls.flatMap((l) => l.pts), 0.045), 1, false, true)];
+    rest = ls;
+  }
+  const big = Math.max(...blobs.map((b) => b.rx * b.ry));
+  for (const b of blobs) if (b.rx * b.ry < big * 0.12) b.few = true;
+  return { blobs, limbs: rest, faces: [faceFor(blobs, d.face ? f(d.face) : null)], top: [] };
+}
+
 /** Geometrie für den Renderer: Flächen als Vielecke mit Tuschekontur, offene Striche als Pinsellinien */
 export function drawnGeometry(d: Drawing): Geometry {
   const ps = parts(d);
@@ -146,6 +246,7 @@ export function drawnGeometry(d: Drawing): Geometry {
       blobs.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, rx: Math.max((x1 - x0) / 2, 0.01), ry: Math.max((y1 - y0) / 2, 0.01), rot: 0, pts: p.pts, crisp: 0.55, ink: true });
     } else limbs.push({ pts: p.pts, w: DRAW.line });
   }
+  if (!blobs.length && limbs.length && OPEN.mode !== 'close') return openGeometry(d, limbs, OPEN.mode);
   // Ohne Fläche kein Aquarell: der längste Strich wird zur Fläche
   if (!blobs.length && limbs.length) {
     const i = limbs.reduce((k, l, j) => (strokeLen(l.pts) > strokeLen(limbs[k]!.pts) ? j : k), 0);

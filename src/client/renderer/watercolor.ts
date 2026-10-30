@@ -810,7 +810,7 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     ir = RNG(m.seed + 777);
   const big = core.b.rx * core.b.ry;
   bases.forEach((o) => {
-    if ((o.b.rx * o.b.ry >= big * 0.3 || o.b.ink) && !o.b.leaf) contour(ctx, o.base, lw * 0.9, ir);
+    if ((o.b.rx * o.b.ry >= big * 0.3 || o.b.ink) && !o.b.leaf && !o.b.bare) contour(ctx, o.base, lw * 0.9, ir);
   });
   geo.limbs.forEach((l) => inkPath(ctx, l.pts.map((p) => [p[0] * S, p[1] * S]), lw * 0.85, ir, 0.7));
   if (look) drawFace2(ctx, look, geo, S, RNG(look.seed + 31337), paper, mainRgb);

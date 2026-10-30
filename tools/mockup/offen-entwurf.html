@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/young-serif/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-700.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-400.css" />
+    <style>
+      :root { --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --line: #cfcabd; }
+      body { margin: 0; padding: 26px; background: var(--table); font-family: Figtree, sans-serif; color: var(--ink); width: 900px; }
+      .eyebrow { margin: 0; font: 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+      h1 { margin: 6px 0 4px; font: 400 1.9rem 'Young Serif', serif; }
+      .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+      .row { display: grid; grid-template-columns: repeat(4, 210px); gap: 12px; margin-bottom: 12px; }
+      .head div { font: 700 13px Figtree; line-height: 1.25; align-self: end; }
+      .cell { background: var(--sheet); border: 1px solid var(--line); border-radius: 12px; padding: 5px; display: flex; flex-direction: column; align-items: center; }
+      .cell canvas { border-radius: 8px; }
+      .cap { margin: 4px 2px 2px; font: 11px 'JetBrains Mono', monospace; color: var(--muted); text-align: center; }
+    </style>
+  </head>
+  <body>
+    <p class="eyebrow">Before It Dries · draft 30.10.2026</p>
+    <h1>No closed shape needed</h1>
+    <p class="sub">Five drawings made only of open lines. Same monster per row, three ways to paint them.</p>
+    <div id="grid"></div>
+    <script src="offen-entwurf.js"></script>
+  </body>
+</html>

@@ -100,6 +100,8 @@ export interface BlobShape {
   ink?: boolean;
   /** Neue Formen: kleines Teil, weniger und dafür kräftigere Lasurschichten (spart Malzeit) */
   few?: boolean;
+  /** Gemalte Monster: Fläche ohne Tuschekontur (Pinselstrich, Lavierung) */
+  bare?: boolean;
 }
 export type Pt = [number, number];
 export interface Limb {
