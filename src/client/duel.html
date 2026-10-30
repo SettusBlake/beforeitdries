@@ -72,6 +72,7 @@
     <span class="pig" title="Pigment, earned by playing"><i></i><b id="pigment">0</b></span>
   </header>
   <div class="dscroll">
+    <div class="sepia-say note" id="painted-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="painted-say"></p><button type="button" class="tool" id="painted-ok">OK</button></div>
     <section class="dbox dip">
       <p class="eyebrow">Dip the brush</p>
       <div id="dip-btns"></div>
@@ -80,6 +81,7 @@
       <button type="button" class="blankbtn" id="blank-b"><b>Blank canvas</b><small id="blank-sub"></small><span id="blank-n">0</span></button>
       <button type="button" class="testbtn" id="blank-test" hidden>Playtest · mods only: +1 blank canvas</button>
       <div class="testrow" id="shiny-test" hidden></div>
+      <button type="button" class="modbtn" id="review-b" hidden><b>Review drawings</b><small>mods only</small><span id="review-b-n">0</span></button>
     </section>
     <section class="dbox">
       <div class="bagrow"><span class="eyebrow">Deck</span><small id="bag-hint"></small></div>
@@ -106,8 +108,24 @@
     <button type="button" class="tool" id="t-undo">Undo</button>
     <button type="button" class="tool" id="t-clear">Clear</button>
   </div>
-  <p class="dhint">Closed shapes fill with paint. Open lines stay lines. Colour, paper, rarity and the die are rolled as usual.</p>
+  <p class="dhint">Closed shapes fill with paint. Open lines stay lines. Colour, paper, rarity and the die are rolled as usual. The moderators see every drawing and paint over anything against the rules.</p>
   <button type="button" class="primary" id="draw-go">Paint it</button>
+</section>
+
+<section id="review" class="screen" hidden>
+  <header class="dtop">
+    <button type="button" id="review-back" aria-label="Back">←</button>
+    <h2>Review drawings</h2>
+    <span class="blankn" id="review-n">…</span>
+  </header>
+  <div class="dscroll">
+    <p class="dhint">New drawings, oldest first. OK lets it stay. Paint over takes the drawing away: the monster gets a random shape, everything else stays. Twice in 30 days locks painting for 14 days, three times until a mod unlocks.</p>
+    <div id="review-list"></div>
+    <section class="dbox" id="review-locked-box" hidden>
+      <span class="eyebrow">Locked</span>
+      <div id="review-locked"></div>
+    </section>
+  </div>
 </section>
 
 <div class="overlay" id="dip" hidden>

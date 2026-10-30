@@ -4,12 +4,13 @@
  */
 import type { DiceResponse } from '../../shared/api';
 import { PAPER } from '../../shared/data';
-import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { dieMonster, dieSpecies, drawLocked, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { speciesLabel } from '../../shared/monster';
-import { looseNow, painted, paintedNow } from '../lib/painter';
+import { looseKey, looseNow, painted, paintedNow } from '../lib/painter';
 import { api } from '../lib/api';
 import { initDraw, openDraw } from './draw';
+import { initReview, openReview } from './review';
 import { iconSvg, netSvg } from './icons';
 import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
@@ -38,6 +39,9 @@ let freeReady = false;
 let busy = false;
 /** Playtest und Mod: Test-Knopf für leere Würfel */
 let tester = false;
+/** Mod des Subreddits: Prüfliste der Zeichnungen, review = so viele warten */
+let mod = false;
+let review = 0;
 /** Würfel, der in den Beutel soll: nächster Tipp auf einen Beutelplatz tauscht */
 let swapIn: string | null = null;
 /** Würfel, dessen Auswaschen schon einmal angetippt wurde (zweiter Tipp wäscht) */
@@ -47,7 +51,7 @@ let washShiny: string | null = null;
 
 /* ---------- Bilder der Würfel: nebenbei gemalt, fertige sofort ---------- */
 function art(d: DieRec, px: number, prio = 0, deco = false): HTMLCanvasElement {
-  const key = `${d.id}:${d.paper ?? ''}:${d.gen ?? 1}:${d.style ?? ''}:${deco ? 'deco' : ''}:${px}`;
+  const key = `${d.id}:${d.paper ?? ''}:${d.gen ?? 1}:${d.style ?? ''}:${d.draw ? 'draw' : ''}:${deco ? 'deco' : ''}:${px}`;
   const out = document.createElement('canvas');
   out.width = out.height = Math.max(200, Math.round(px * dpr()));
   const draw = (c: HTMLCanvasElement) => {
@@ -58,7 +62,7 @@ function art(d: DieRec, px: number, prio = 0, deco = false): HTMLCanvasElement {
     out.classList.remove('wet');
   };
   // Bilder vom Ziehen gibt es nur in Aquarell, ein Shiny malt sich selbst
-  const now = paintedNow(key) ?? (d.style ? null : looseNow(d.id, out.width));
+  const now = paintedNow(key) ?? (d.style ? null : looseNow(looseKey(d.id, d), out.width));
   if (now) draw(now);
   else {
     out.classList.add('wet');
@@ -97,9 +101,30 @@ function render(): void {
   // Selbst malen: ein leerer Würfel pro Woche, dazu ein Fund bei W100 = 1
   const blank = s.blank ?? 0;
   const bb = $('blank-b') as HTMLButtonElement;
-  bb.disabled = !blank || busy || s.starter > 0;
+  // Gesperrt nach übermalten Zeichnungen
+  const locked = drawLocked(s, Date.now());
+  bb.disabled = !blank || busy || s.starter > 0 || locked;
   $('blank-n').textContent = String(blank);
-  $('blank-sub').textContent = s.starter > 0 ? 'after your free dice' : blank ? 'paint your own monster' : 'a new one every Monday · or roll a 1';
+  $('blank-sub').textContent = locked
+    ? s.drawLock === 'mod'
+      ? 'locked until a moderator lifts it'
+      : `locked for ${Math.max(1, Math.ceil((Number(s.drawLock) - Date.now()) / 86_400_000))} more days`
+    : s.starter > 0
+      ? 'after your free dice'
+      : blank
+        ? 'paint your own monster'
+        : 'a new one every Monday · or roll a 1';
+  // Mods: Prüfliste der Zeichnungen
+  $('review-b').hidden = !mod;
+  $('review-b-n').textContent = String(review);
+  // Sepia sagt einmal, welche Zeichnungen übermalt wurden
+  const over = s.paintedOver ?? [];
+  $('painted-note').hidden = !over.length;
+  if (over.length) {
+    const nos = over.map(serialText);
+    $('painted-say').textContent = `I painted over ${nos.length > 1 ? nos.slice(0, -1).join(', ') + ' and ' + nos[nos.length - 1] : nos[0]}. Some things do not belong on my sheet.`;
+  }
+  ($('painted-ok') as HTMLButtonElement).disabled = busy;
   $('blank-test').hidden = !tester;
   ($('blank-test') as HTMLButtonElement).disabled = busy;
   // Test-Knopf: der nächste Zug ist Shiny im gewählten Stil
@@ -164,7 +189,10 @@ function render(): void {
 
 async function load(): Promise<void> {
   try {
-    apply(await api.dice());
+    const r = await api.dice();
+    mod = !!r.mod;
+    review = r.review ?? 0;
+    apply(r);
   } catch (e) {
     hooks.error(e);
   }
@@ -515,7 +543,7 @@ function summary(pulls: PullResult[]): Promise<void> {
 /* ---------- Einstieg ---------- */
 /* ---------- Selbst malen ---------- */
 function openBlank(): void {
-  if (!save || busy || !(save.blank ?? 0)) return;
+  if (!save || busy || !(save.blank ?? 0) || drawLocked(save, Date.now())) return;
   sfx.tap();
   initAudio();
   $('dice').hidden = true;
@@ -524,6 +552,31 @@ function openBlank(): void {
 function closeBlank(): void {
   $('draw').hidden = true;
   $('dice').hidden = false;
+  render();
+}
+/** Prüfliste der Mods */
+function openReviewScreen(): void {
+  if (!mod) return;
+  sfx.tap();
+  $('dice').hidden = true;
+  openReview();
+}
+function closeReview(): void {
+  $('review').hidden = true;
+  $('dice').hidden = false;
+  void load();
+}
+/** Sepias Hinweis zu übermalten Zeichnungen gelesen */
+async function seen(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  try {
+    apply(await api.diceSeen());
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
   render();
 }
 /** Test-Knopf (Playtest, nur Mods): der nächste Zug ist Shiny (nochmal tippen nimmt es zurück) */
@@ -571,12 +624,17 @@ async function paintDrawing(code: string): Promise<boolean> {
   await reveal(res.pulls, before);
   busy = false;
   render();
+  // Mods: die neue Zeichnung steht jetzt in der Prüfliste
+  if (mod) void load();
   return true;
 }
 
 export function initDice(h: Hooks): void {
   hooks = h;
   initDraw({ paint: paintDrawing, back: closeBlank });
+  initReview({ back: closeReview, error: (e) => hooks.error(e) });
+  $('review-b').addEventListener('click', openReviewScreen);
+  $('painted-ok').addEventListener('click', () => void seen());
   $('blank-b').addEventListener('click', openBlank);
   $('blank-test').addEventListener('click', () => void testBlank());
   $('dice-back').addEventListener('click', () => {
@@ -601,6 +659,8 @@ export async function diceBadge(): Promise<string> {
     save = r.dice;
     freeReady = r.freeReady;
     tester = !!r.tester;
+    mod = !!r.mod;
+    review = r.review ?? 0;
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.freeReady) return 'free dip';
     if (r.dice.blank) return 'blank canvas';

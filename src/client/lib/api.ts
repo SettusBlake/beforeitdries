@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GlazeResponse, type InitResponse, type PlayInfo } from '../../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GlazeResponse, type InitResponse, type PlayInfo, type ReviewResponse } from '../../shared/api';
 import type { PullKind, StyleId } from '../../shared/dice';
 import type { DuelAction } from '../../shared/duel/play';
 import type { Level } from '../../shared/duel/rules';
@@ -46,6 +46,11 @@ export const api = {
   diceDraw: (drawing: string) => call<DiceResponse>('/api/dice/draw', { drawing }),
   diceTestBlank: () => call<DiceResponse>('/api/dice/test-blank', {}),
   diceTestShiny: (style: StyleId | null) => call<DiceResponse>('/api/dice/test-shiny', { style }),
+  diceSeen: () => call<DiceResponse>('/api/dice/seen', {}),
+  review: () => call<ReviewResponse>('/api/review'),
+  reviewOk: (key: string) => call<ReviewResponse>('/api/review/ok', { key }),
+  reviewOver: (key: string) => call<ReviewResponse>('/api/review/over', { key }),
+  reviewUnlock: (uid: string) => call<ReviewResponse>('/api/review/unlock', { uid }),
 };
 
 /** Abstand zwischen Server- und Geräteuhr, für Trockenzeit und Tagesende */

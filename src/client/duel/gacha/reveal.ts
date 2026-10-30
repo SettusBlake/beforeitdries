@@ -8,7 +8,7 @@ import { PAPER, PIG, type PaperId } from '../../../shared/data';
 import { RARITIES, rarityDef, rarityIndex, serialText, STYLES, styleDef, type Rarity, type StyleId } from '../../../shared/dice';
 import type { Face } from '../../../shared/duel/rules';
 import type { Monster } from '../../../shared/monster';
-import { keepLoose, paintLater } from '../../lib/painter';
+import { keepLoose, looseKey, paintLater } from '../../lib/painter';
 import { iconSvg } from '../icons';
 import { sfx } from '../sound';
 import { Particles, backdropCanvas, dropTex, edgeGlowCanvas, flakeTex, glowTex, noiseTex, paperCanvas, raysTex, ringTex, sparkTex } from './fx';
@@ -409,7 +409,7 @@ export class Reveal {
     // Ein Shiny ist bis zur Hand ein Aquarell wie jedes andere, sein Stilbild malt sich nebenbei mit
     const { style, ...water } = p.monster;
     const plainP = this.monsterTex({ ...water, paper: PLAIN }, 512, 4);
-    const realP = this.monsterTex(water, 512, 3, style ? undefined : p.id);
+    const realP = this.monsterTex(water, 512, 3, style || !p.id ? undefined : looseKey(p.id, water));
     const styleP = style ? this.monsterTex(p.monster, 512, 2.5, undefined, true) : null;
 
     // Hinten: Strahlen und Hof (erst bei der Seltenheit sichtbar)
@@ -1003,7 +1003,7 @@ export class Reveal {
       mon.anchor.set(0.5);
       const { style, ...water } = p.monster;
       const plainSet = this.monsterTex({ ...water, paper: PLAIN }, 180, 4 - k * 0.01).then((t) => Reveal.fit(mon, t, s));
-      const realP = this.monsterTex(water, 180, 2 - k * 0.01, style ? undefined : p.id);
+      const realP = this.monsterTex(water, 180, 2 - k * 0.01, style || !p.id ? undefined : looseKey(p.id, water));
       const mask = this.makePaintMask(s);
       mon.mask = mask.s;
       const wet = new Sprite(mask.tex);

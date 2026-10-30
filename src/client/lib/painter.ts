@@ -77,6 +77,8 @@ export const paintedNow = (key: string): HTMLCanvasElement | null => ready.get(k
 
 /** Fertige Bilder je Würfel in beliebiger Größe (z. B. vom Ziehen): Sammlung und Übersicht nehmen sie, statt neu zu malen */
 const loose = new Map<string, HTMLCanvasElement>();
+/** Schlüssel dafür: gemalte Monster eigens, damit ein übermaltes nicht mit dem alten Bild erscheint */
+export const looseKey = (id: string, m: { draw?: string }): string => (m.draw ? id + ':draw' : id);
 export function keepLoose(id: string, c: HTMLCanvasElement): void {
   const old = loose.get(id);
   if (!old || old.width <= c.width) loose.set(id, c);

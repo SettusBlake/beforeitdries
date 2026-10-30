@@ -1,6 +1,6 @@
 # Plan: Anstößige Zeichnungen (Übermalen, Melden, Sperre)
 
-Stand 30.10.2026, Fassung 1, wartet auf Freigabe.
+Stand 30.10.2026, Fassung 2. Freigegeben am 30.10.2026 mit allen Empfehlungen (Prüfliste, Übermalen und Sperre jetzt, Melden später, Freigabe vor Sichtbarkeit, Sperre wie vorgeschlagen, keine automatische Erkennung). Schritte 1 bis 3 gebaut, Playtest v0.0.1.61. Bild: docs/entwuerfe/zeichnungen-pruefen.png.
 
 Wunsch vom 30.10.2026: Wenn jemand obszöne Dinge oder verbotene Symbole malt, muss etwas passieren.
 
@@ -47,14 +47,11 @@ Wunsch vom 30.10.2026: Wenn jemand obszöne Dinge oder verbotene Symbole malt, m
 
 ## Umfang und Reihenfolge
 
-1. Server: Prüfliste, Übermalen (Würfel verliert `draw`, Protokoll), Sperre, Endpunkte nur für Mods. Tests.
-2. Bildschirm für Mods (Prüfliste mit OK und Paint over), Hinweis von Sepia an den Besitzer, gesperrter Knopf.
-3. Upload und Handy-Test.
+1. Server: Prüfliste, Übermalen (Würfel verliert `draw`, Protokoll), Sperre, Endpunkte nur für Mods. Tests. Gebaut: src/server/drawings.ts, Endpunkte /api/review, /api/review/ok, /api/review/over, /api/review/unlock, /api/dice/seen, Redis drawn:queue, drawn:ok, drawn:washed, drawn:strikes, im Stand `paintedOver` und `drawLock`, Tests tests/drawings.test.ts.
+2. Bildschirm für Mods (Prüfliste mit OK und Paint over), Hinweis von Sepia an den Besitzer, gesperrter Knopf. Gebaut: src/client/duel/review.ts, Knopf „Review drawings“ im Würfelbildschirm nur für Mods (auch in veröffentlichten Versionen), Paint over erst beim zweiten Tipp, Liste der gesperrten Spieler mit Unlock. Dazu ein Satz im Zeichenbildschirm: „The moderators see every drawing and paint over anything against the rules.“
+3. Upload und Handy-Test. Hochgeladen als Playtest v0.0.1.61.
 4. Später mit der ersten fremden Ansicht: Report, Verhüllen ab 2 Meldungen, Freigabe-Regel.
 
 ## Offene Fragen
 
-1. Prüfliste, Übermalen und Sperre jetzt bauen, Melden später? (Empfehlung: ja)
-2. Andere sehen Zeichnungen anfangs erst nach Freigabe durch Mods? (Empfehlung: ja, später umstellbar)
-3. Sperre: 2-mal in 30 Tagen gibt 14 Tage Pause, 3-mal bis ein Mod aufhebt? (Empfehlung: ja)
-4. Keine automatische Erkennung? (Empfehlung: ja, keine)
+Keine. Melden und die Freigabe-Regel kommen mit der ersten Stelle, an der fremde Monster zu sehen sind.

@@ -1469,6 +1469,7 @@ function showScreen(id: 'title' | 'game' | 'dice'): void {
   $('game').hidden = id !== 'game';
   $('dice').hidden = id !== 'dice';
   $('draw').hidden = true;
+  $('review').hidden = true;
   View.show(id === 'game');
   if (id === 'game') layout();
   if (id === 'title') {

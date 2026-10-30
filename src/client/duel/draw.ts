@@ -3,7 +3,7 @@
  * offene bleiben Linien, Mirror spiegelt an der Mitte (Rorschach). Gewürfelt wird erst am Server nach „Paint it“.
  */
 import type { Pt } from '../../shared/data';
-import { DRAW, encodeDrawing, hasShape, parts, simplify, type Drawing } from '../../shared/drawn';
+import { decodeDrawing, DRAW, encodeDrawing, hasShape, parts, simplify, type Drawing } from '../../shared/drawn';
 import { sfx } from './sound';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -58,7 +58,8 @@ function line(x: CanvasRenderingContext2D, pts: Pt[], close = false): void {
   pts.forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])));
   if (close) x.closePath();
 }
-function paintBase(w: number, h: number): HTMLCanvasElement {
+/** Blatt mit den Strichen einer Zeichnung (size: Breite in CSS-Pixeln, für die Strichstärke) */
+function paintBase(w: number, h: number, dr: Drawing, size: number): HTMLCanvasElement {
   const b = document.createElement('canvas');
   b.width = w;
   b.height = h;
@@ -66,8 +67,8 @@ function paintBase(w: number, h: number): HTMLCanvasElement {
   x.setTransform(w, 0, 0, h, 0, 0);
   x.fillStyle = '#fbfaf6';
   x.fillRect(0, 0, 1, 1);
-  const u = 1 / px;
-  if (d.mirror) {
+  const u = 1 / size;
+  if (dr.mirror) {
     x.strokeStyle = 'rgba(43,63,163,.35)';
     x.lineWidth = 1.2 * u;
     x.setLineDash([5 * u, 5 * u]);
@@ -80,7 +81,7 @@ function paintBase(w: number, h: number): HTMLCanvasElement {
   }
   x.lineCap = x.lineJoin = 'round';
   x.lineWidth = 3 * u;
-  for (const p of parts(d)) {
+  for (const p of parts(dr)) {
     line(x, p.pts, p.closed);
     if (p.closed) {
       x.fillStyle = 'rgba(43,63,163,.08)';
@@ -89,8 +90,8 @@ function paintBase(w: number, h: number): HTMLCanvasElement {
     x.strokeStyle = 'rgba(40,40,46,.85)';
     x.stroke();
   }
-  if (d.face) {
-    const [fx, fy] = d.face;
+  if (dr.face) {
+    const [fx, fy] = dr.face;
     x.strokeStyle = '#c9961e';
     x.lineWidth = 2.5 * u;
     x.beginPath();
@@ -112,7 +113,7 @@ function redraw(withUi = true): void {
   }
   const c = $('pad') as HTMLCanvasElement;
   const x = c.getContext('2d')!;
-  base ??= paintBase(c.width, c.height);
+  base ??= paintBase(c.width, c.height, d, px);
   x.setTransform(1, 0, 0, 1, 0, 0);
   x.drawImage(base, 0, 0);
   // Der Strich, der gerade entsteht (gespiegelt heller)
@@ -133,6 +134,15 @@ function redraw(withUi = true): void {
     }
   }
   if (withUi) ui();
+}
+/** Eine gespeicherte Zeichnung als schlichte Striche, so wie sie gemalt wurde (Prüfliste der Mods) */
+export function sketch(code: string, size: number): HTMLCanvasElement | null {
+  const dr = decodeDrawing(code);
+  if (!dr) return null;
+  const k = Math.min(2, window.devicePixelRatio || 1);
+  const c = paintBase(Math.round(size * k), Math.round(size * k), dr, size);
+  c.style.width = c.style.height = size + 'px';
+  return c;
 }
 function ui(): void {
   $('t-mirror').setAttribute('aria-pressed', String(d.mirror));
