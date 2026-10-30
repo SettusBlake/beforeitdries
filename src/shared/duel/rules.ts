@@ -143,6 +143,8 @@ export type Unit = {
   acted: boolean;
   /** Deck: in diesem Durchgang schon geworfen (liegt auf der Ablage, bis neu gemischt wird) */
   used: boolean;
+  /** Sättigung (Brim): füllt sich durch Tun, voll wird der nächste Wisch ein Meisterzug (festgelegt am 30.10.2026) */
+  brim: number;
   pattern: P[];
   net: P[];
   lv: number;
@@ -158,7 +160,7 @@ export type Rolled = { u: Unit; fi: number; face: Face };
 /* ---------- Ereignisse für die Darstellung ---------- */
 export type CellSnap = { i: number; c: Cell };
 export type StampRes = 'take' | 'refresh' | 'glaze' | 'mud' | 'held' | 'none';
-export type UnitSnap = { id: number; x: number; y: number; hp: number; max: number; state: Unit['state']; stain: number; rooted: number; shield: number; acted: boolean; used: boolean };
+export type UnitSnap = { id: number; x: number; y: number; hp: number; max: number; state: Unit['state']; stain: number; rooted: number; shield: number; acted: boolean; used: boolean; brim: number };
 export type TeamSnap = { crests: Record<Crest, number>; hearts: number };
 export type Ev =
   /** Würfe liegen offen, Symbole zählen erst bei apply */
@@ -178,7 +180,8 @@ export type Ev =
   /** Der Rivale zeigt, was er gleich tut: wer, wohin, welches Ziel */
   | { k: 'focus'; id: number; to: number; at: number | null; a: Action }
   | { k: 'pos'; id: number; x: number; y: number; how: 'push' | 'dash' | 'leap' | 'drift' }
-  | { k: 'ability'; id: number; name: string; bp: BlueprintId; at: number; area: number[] }
+  /** Meisterzug (master) oder Abgang beim Platzen (spill) */
+  | { k: 'ability'; id: number; name: string; bp: BlueprintId; at: number; area: number[]; how?: 'master' | 'spill' }
   /** flow: Farbreaktion, eine Nachbarfarbe ist auf freies Papier verlaufen */
   | { k: 'cells'; how: 'bleed' | 'seep' | 'rain' | 'wet' | 'splat' | 'burst' | 'flow'; cells: CellSnap[] }
   | { k: 'heart'; side: Side; hearts: number; from: number }
@@ -194,7 +197,7 @@ export const CRESTS: { k: Crest; label: string; stat: StatK; col: string; use: s
   { k: 'step', label: 'Step', stat: 'flo', col: '#2e7a57', use: '+2 reach for one move' },
   { k: 'splash', label: 'Splash', stat: 'sat', col: '#c0482a', use: 'one splash' },
   { k: 'guard', label: 'Guard', stat: 'grn', col: '#5f6474', use: 'halves a hit by itself' },
-  { k: 'glow', label: 'Glow', stat: 'glw', col: '#b8860b', use: 'two for an ability' },
+  { k: 'glow', label: 'Glow', stat: 'glw', col: '#b8860b', use: 'pours into your blots and fills their brim' },
 ];
 /** Wert hinter einem Symbol. Guard kommt aus Körnung oder Deckkraft, je nachdem, was größer ist */
 const crestStat = (u: Unit, c: Crest): number => (c === 'guard' ? Math.max(u.grn, u.opa) : u[crestDef(c).stat]);
@@ -279,16 +282,16 @@ type AbilityTarget = 'self' | 'cell' | 'unit';
 export const ABILITY: Record<BlueprintId, { name: string; text: string; target: AbilityTarget }> = {
   kriecher: { name: 'Seep', text: 'Your paint nearby turns wet and bleeds into all free paper around it.', target: 'self' },
   flatterer: { name: 'Gust', text: 'Rivals within 2 are blown back a cell and lose 3 opacity.', target: 'self' },
-  schwebeblase: { name: 'Rain', text: 'Rain on a 3×3 patch within 3: your paint turns wet, rival dry paint turns wet and soft.', target: 'cell' },
-  vierbeiner: { name: 'Charge', text: 'Dash along a row or column at a rival within 4 and splash it for 1.5×, +4 to hit.', target: 'unit' },
-  schlange: { name: 'Coil', text: 'Wrap an adjacent rival: -4, stained, and it cannot move next turn.', target: 'unit' },
+  schwebeblase: { name: 'Rain', text: 'Rain on a 3×3 patch around its target: your paint turns wet, rival dry paint turns wet and soft.', target: 'cell' },
+  vierbeiner: { name: 'Charge', text: 'Its splash hits harder: 1.5× and +4 to hit.', target: 'unit' },
+  schlange: { name: 'Coil', text: 'The rival it splashes is wrapped: -4, stained, and it cannot move next turn.', target: 'unit' },
   turm: { name: 'Bastion', text: 'All your blots get +5 on defence rolls for two rounds.', target: 'self' },
-  krabbe: { name: 'Crush', text: 'Crush an adjacent rival: ignores Grain, double damage.', target: 'unit' },
-  qualle: { name: 'Drift', text: 'Drift to any of your wet cells and stain every rival next to it.', target: 'cell' },
-  huepfer: { name: 'Bound', text: 'Leap to a free cell within 4 and stamp where you land.', target: 'cell' },
+  krabbe: { name: 'Crush', text: 'Its splash ignores Grain and does double damage.', target: 'unit' },
+  qualle: { name: 'Drift', text: 'Every rival next to it is stained and loses 2 opacity.', target: 'cell' },
+  huepfer: { name: 'Bound', text: 'It leaps once more to the best free cell within 4 and stamps where it lands.', target: 'cell' },
   knolle: { name: 'Sprout', text: 'All your blots heal 6 and the paint under them turns wet.', target: 'self' },
   strahler: { name: 'Flare', text: 'Burst wet paint into all 8 cells around and splash every adjacent rival for 0.6×.', target: 'self' },
-  doppelkopf: { name: 'Howl', text: 'The rival loses 1 Splash and 1 Glow. Rivals within 2 lose 3 opacity.', target: 'self' },
+  doppelkopf: { name: 'Howl', text: 'The rival loses 1 Splash. Rivals within 2 lose 3 opacity and 2 brim.', target: 'self' },
 };
 const MUD: RGB = [116, 100, 82];
 export const PAPER: RGB = [247, 245, 239];
@@ -304,7 +307,7 @@ function traitsOf(m: Monster): Trait[] {
     const fx = ['heals 1 each round', 'stamps +2 against wet paint', 'stamps +2 against dry paint', 'takes 15% less', 'dodge +5%'][m.bloomTrait]!;
     t.push({ key: 'bloom' + m.bloomTrait, label: n, text: fx });
   }
-  if (m.events.print) t.push({ key: 'print', label: 'Fingerprint', text: 'abilities cost 1 Glow' });
+  if (m.events.print) t.push({ key: 'print', label: 'Fingerprint', text: 'brims 1 faster' });
   if (pigs.includes('phthalo')) t.push({ key: 'staining', label: 'Staining', text: 'splashes always stain' });
   if (pigs.includes('opera')) t.push({ key: 'fugitive', label: 'Fugitive', text: 'fades 1 each round, +2 damage' });
   if (PIG[m.main].gran >= 0.5) t.push({ key: 'granulating', label: 'Granulating', text: 'its dry paint is +2 harder to cover' });
@@ -348,6 +351,7 @@ function unitOf(m: Monster, side: Side): Unit {
     moved: false,
     acted: false,
     used: false,
+    brim: 0,
     pattern: PATTERNS[m.bp],
     net: NETS[NET_OF[m.bp]]!,
     lv: 1,
@@ -520,7 +524,7 @@ export function drain(): Ev[] {
   return e;
 }
 export function snapUnit(u: Unit): UnitSnap {
-  return { id: u.id, x: u.x, y: u.y, hp: u.hp, max: u.max, state: u.state, stain: u.stain, rooted: u.rooted, shield: u.shield, acted: u.acted, used: u.used };
+  return { id: u.id, x: u.x, y: u.y, hp: u.hp, max: u.max, state: u.state, stain: u.stain, rooted: u.rooted, shield: u.shield, acted: u.acted, used: u.used, brim: u.brim };
 }
 /** Der ganze Zustand für die Darstellung */
 export function sync(): void {
@@ -819,6 +823,7 @@ export function applyRoll(t: Team): Rolled[] {
   S.joker = out.filter((r) => r.face.k === 'joker').length + S.freeJoker;
   S.rerolls = 0;
   emit({ k: 'apply', side: t.side, crests: { ...t.crests }, combo, joker: S.joker });
+  pourGlow(t);
   logAdd(`${t.side === 2 ? 'Rival' : 'You'} rolled ${out.map((x) => faceText(x.face)).join(', ')}${combo ? `. ${combo.text}` : ''}.`, t.side === 2 ? 'rival' : 'you');
   return out;
 }
@@ -841,6 +846,7 @@ export function takeJoker(t: Team, c: Crest): void {
   S.joker = Math.max(0, S.joker - 1);
   S.freeJoker = Math.min(S.freeJoker, S.joker);
   t.crests[c] = Math.min(CREST_MAX, t.crests[c] + 1);
+  pourGlow(t);
   logAdd(`${t.side === 2 ? 'Rival' : 'You'} turned a Joker into ${crestDef(c).label}.`, t.side === 2 ? 'rival' : 'you');
 }
 /** Sterne der anderen Würfel müssen zusammen mindestens die Stufe des Kleckses ergeben */
@@ -930,6 +936,7 @@ export function doSummon(u: Unit, o: number, at: number): string {
   // Die Seite des Würfels zu jedem Feld (gleiche Reihenfolge wie das Netz)
   emit({ k: 'summon', side: u.side, id: u.id, x: u.x, y: u.y, cells: order.map(snap), faces: order.map((i) => u.faces[list.indexOf(i)]!) });
   const s = `unfolded ${u.name} (★${u.lv}): six cells of wet ${PIG[u.m.main].n}`;
+  pourGlow(teamOf(u));
   return s;
 }
 
@@ -1194,6 +1201,8 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
   }
   shot(crit ? 'crit' : 'hit', dmg, guard, roll);
   setHp(t, t.hp - dmg, crit ? 'crit' : 'hit');
+  // Getroffen saugt sich voll
+  if (t.hp > 0) fillBrim(t, BRIM.hit);
   // Salt: ein Krit färbt auch ein freies Feld neben dem Ziel
   if (crit && hasMedium(u.side, 'salt')) {
     const free = freeAround(at, []);
@@ -1226,7 +1235,7 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
   const parts: string[] = [];
   let total = 0;
   for (let h = 0; h < hits && t.state === 'sheet'; h++) {
-    const [s, dmg] = strike(u, t, pig, 1);
+    const [s, dmg] = masterHit ? strike(u, t, pig, masterHit.mult, masterHit.plus, masterHit.ignoreGrain) : strike(u, t, pig, 1);
     parts.push(s);
     total += dmg;
   }
@@ -1262,7 +1271,46 @@ function washOut(t: Unit, by?: Unit): string {
       burst.push(idx(x, y));
     }
   if (burst.length) emit({ k: 'cells', how: 'burst', cells: burst.map(snap) });
-  return `. ${t.name} burst and washed out, its die is lost`;
+  // Abgang: wer mindestens halb voll platzt, läuft über und tut noch einmal, was er kann
+  const sp = t.brim >= BRIM.spill ? spill(t, by) : '';
+  return `. ${t.name} burst and washed out, its die is lost${sp ? `. It spilled: ${sp}` : ''}`;
+}
+/** Abgang beim Platzen (festgelegt am 30.10.2026): Ziel-Fähigkeiten treffen den, der ihn zum Platzen brachte */
+function spill(t: Unit, by?: Unit): string {
+  t.brim = 0;
+  count(`${t.side}spill`);
+  const here = idx(t.x, t.y);
+  switch (t.m.bp) {
+    case 'vierbeiner':
+    case 'krabbe': {
+      if (!by || by.state !== 'sheet') return '';
+      emit({ k: 'ability', id: t.id, name: ABILITY[t.m.bp].name, bp: t.m.bp, at: idx(by.x, by.y), area: [idx(by.x, by.y)], how: 'spill' });
+      const [r, dmg] = t.m.bp === 'vierbeiner' ? strike(t, by, t.m.main, 1.5, 4) : strike(t, by, t.m.main, 2, 0, true);
+      return `${ABILITY[t.m.bp].name} on ${by.name} (${r})${dmg && by.hp <= 0 ? washOut(by, t) : ''}`;
+    }
+    case 'schlange':
+      if (!by || by.state !== 'sheet') return '';
+      return doAbility(t, idx(by.x, by.y), 'spill');
+    case 'huepfer': {
+      // Ein letzter Sprung geht nicht mehr: die Farbe spritzt ringsum
+      const ring: number[] = [];
+      for (let y = t.y - 1; y <= t.y + 1; y++) for (let x = t.x - 1; x <= t.x + 1; x++) if (inside(x, y) && (x !== t.x || y !== t.y) && !unitAt(x, y)) ring.push(idx(x, y));
+      emit({ k: 'ability', id: t.id, name: ABILITY[t.m.bp].name, bp: t.m.bp, at: here, area: ring, how: 'spill' });
+      return `${applyPaint(t, t.m.main, ring).took} cells splashed`;
+    }
+    case 'qualle': {
+      emit({ k: 'ability', id: t.id, name: ABILITY[t.m.bp].name, bp: t.m.bp, at: here, area: [here], how: 'spill' });
+      const hit = onSheet(foeTeam(t)).filter((e) => cheb(t.x, t.y, e.x, e.y) <= 1);
+      for (const e of hit) {
+        e.stain = 2;
+        setHp(e, e.hp - 2, 'drift');
+        if (e.hp <= 0) washOut(e, t);
+      }
+      return `stained ${hit.length}`;
+    }
+    default:
+      return doAbility(t, here, 'spill');
+  }
 }
 export function soakAmount(u: Unit): number {
   const c = S.cells[idx(u.x, u.y)]!;
@@ -1277,8 +1325,33 @@ function doSoak(u: Unit): string {
   return `soaked: +${heal} opacity, stains rinsed`;
 }
 
-/* ---------- Fähigkeiten ---------- */
-export const abilityCost = (u: Unit) => (has(u, 'print') ? 1 : 2);
+/* ---------- Fähigkeiten als Meisterzug (festgelegt am 30.10.2026, docs/entwuerfe/wuerfel-vorschlag.md) ---------- */
+/**
+ * Brim: Jeder Klecks füllt sich, wenn er stempelt, spritzt (act), einweicht (soak) oder getroffen wird (hit). Glow aus dem Wurf
+ * gießt sich in alle eigenen Kleckse auf dem Blatt (glow je Symbol). Voll (max) wird sein nächster Wisch ein Meisterzug: die
+ * Fähigkeit passiert dabei von selbst. Platzt ein Klecks, der mindestens halb voll ist (spill), läuft er über: Abgang
+ */
+export const BRIM = { max: 6, act: 2, soak: 1, hit: 1, glow: 1, spill: 3 };
+export const brimFull = (u: Unit): boolean => u.brim >= BRIM.max;
+export function fillBrim(u: Unit, n: number): void {
+  if (u.state !== 'sheet' || n <= 0) return;
+  u.brim = Math.min(BRIM.max, u.brim + n);
+}
+/** Glow im Vorrat gießt sich in alle eigenen Kleckse auf dem Blatt. Steht keiner, wartet es */
+export function pourGlow(t: Team): void {
+  const on = onSheet(t);
+  if (!on.length || t.crests.glow <= 0) return;
+  for (const u of on) fillBrim(u, t.crests.glow * BRIM.glow);
+  t.crests.glow = 0;
+}
+/** Charge und Crush machen den Spritzer selbst stärker */
+let masterHit: { mult: number; plus: number; ignoreGrain: boolean } | null = null;
+/** Wirkt der Meisterzug bei dieser Aktion? Ziel-Fähigkeiten nur, wenn der Klecks einen Rivalen bespritzt */
+export function masterApplies(u: Unit, a: Action, at: number | null): boolean {
+  if (a === 'none') return false;
+  if (ABILITY[u.m.bp].target !== 'unit') return true;
+  return a === 'splash' && at !== null && at !== foeTeam(u).home && !!unitAt(at % COLS, Math.floor(at / COLS));
+}
 export function abilityTargets(u: Unit): number[] {
   const ab = ABILITY[u.m.bp];
   const out: number[] = [];
@@ -1318,7 +1391,25 @@ function chargeLanding(u: Unit, t: Unit): number | null {
   }
   return idx(t.x - sx, t.y - sy);
 }
-export const abilityReady = (u: Unit) => teamOf(u).crests.glow >= abilityCost(u) && abilityTargets(u).length > 0;
+/** Wohin der Meisterzug zielt, nachdem der Klecks gehandelt hat (null: keiner möglich) */
+function masterAt(u: Unit, a: Action, at: number | null): number | null {
+  const here = idx(u.x, u.y);
+  if (u.m.bp === 'schwebeblase') return a === 'soak' || at === null ? here : at;
+  if (u.m.bp === 'huepfer') {
+    let best: number | null = null,
+      bv = -Infinity;
+    for (const i of abilityTargets(u)) {
+      const v = evalAbility(u, i);
+      if (v > bv) {
+        bv = v;
+        best = i;
+      }
+    }
+    return best;
+  }
+  if (ABILITY[u.m.bp].target === 'unit') return at;
+  return here;
+}
 /** Felder, die eine Fähigkeit betrifft (für den Effekt) */
 function abilityArea(u: Unit, at: number): number[] {
   const out: number[] = [];
@@ -1329,10 +1420,9 @@ function abilityArea(u: Unit, at: number): number[] {
   return out;
 }
 
-function doAbility(u: Unit, at: number): string {
+function doAbility(u: Unit, at: number, how: 'master' | 'spill' = 'master'): string {
   const ab = ABILITY[u.m.bp];
-  teamOf(u).crests.glow -= abilityCost(u);
-  emit({ k: 'ability', id: u.id, name: ab.name, bp: u.m.bp, at, area: abilityArea(u, at) });
+  emit({ k: 'ability', id: u.id, name: ab.name, bp: u.m.bp, at, area: abilityArea(u, at), how });
   const foes = onSheet(foeTeam(u));
   const tAt = unitAt(at % COLS, Math.floor(at / COLS));
   const near = (r: number) => foes.filter((t) => cheb(u.x, u.y, t.x, t.y) <= r);
@@ -1491,14 +1581,14 @@ function doAbility(u: Unit, at: number): string {
     case 'doppelkopf': {
       const ft = foeTeam(u);
       ft.crests.splash = Math.max(0, ft.crests.splash - 1);
-      ft.crests.glow = Math.max(0, ft.crests.glow - 1);
       const parts: string[] = [];
       for (const t of near(2)) {
+        t.brim = Math.max(0, t.brim - 2);
         setHp(t, t.hp - 3, 'howl');
         parts.push(`${t.name} -3`);
         if (t.hp <= 0) parts.push(washOut(t, u).slice(2));
       }
-      s += `: rival Splash -1, Glow -1${parts.length ? `, ${parts.join(', ')}` : ''}`;
+      s += `: rival Splash -1${parts.length ? `, ${parts.join(', ')}` : ''}`;
       break;
     }
   }
@@ -1510,20 +1600,37 @@ export function canAct(u: Unit, a: Action): boolean {
   const t = teamOf(u);
   if (u.acted || u.state !== 'sheet') return false;
   if (a === 'splash') return HIT.freeSplash || t.crests.splash > 0;
-  if (a === 'ability') return t.crests.glow >= abilityCost(u);
+  if (a === 'ability') return false;
   return true;
 }
 export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): string {
   const t = teamOf(u);
+  // Voll vor der Aktion: diesmal ein Meisterzug. Charge und Crush stärken den Spritzer selbst
+  const master = brimFull(u) && masterApplies(u, a, at);
+  if (master && a === 'splash' && (u.m.bp === 'vierbeiner' || u.m.bp === 'krabbe')) {
+    emit({ k: 'ability', id: u.id, name: ABILITY[u.m.bp].name, bp: u.m.bp, at: at!, area: [at!], how: 'master' });
+    masterHit = u.m.bp === 'vierbeiner' ? { mult: 1.5, plus: 4, ignoreGrain: false } : { mult: 2, plus: 0, ignoreGrain: true };
+  }
   let s = '';
   if (a === 'stamp') s = doStamp(u, pig, at!);
   else if (a === 'splash') {
     if (!HIT.freeSplash || at === foeTeam(u).home) t.crests.splash--;
     s = doSplash(u, pig, at!);
   } else if (a === 'soak') s = doSoak(u);
-  else if (a === 'ability') s = doAbility(u, at ?? idx(u.x, u.y));
+  masterHit = null;
   count(`${u.side}${a}`);
   u.acted = true;
+  if (master && u.state === 'sheet' && !S.over) {
+    u.brim = 0;
+    count(`${u.side}master`);
+    if (u.m.bp === 'vierbeiner' || u.m.bp === 'krabbe') s += `, a master stroke (${ABILITY[u.m.bp].name})`;
+    else {
+      const mt = masterAt(u, a, at);
+      const target = mt === null ? null : unitAt(mt % COLS, Math.floor(mt / COLS));
+      // Coil braucht einen Rivalen, der noch steht
+      if (mt !== null && (u.m.bp !== 'schlange' || (target && target.state === 'sheet' && target.side !== u.side))) s += `. Master stroke: ${doAbility(u, mt)}`;
+    }
+  } else if (a !== 'none') fillBrim(u, (a === 'soak' ? BRIM.soak : BRIM.act) + (has(u, 'print') ? 1 : 0));
   checkWipe();
   sync();
   return s;
@@ -1539,6 +1646,12 @@ export function startTurn(side: Side): void {
   refillDeck(t);
   for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (TURN_GIFT[c.k] ?? 0));
   if (setN(side, 'cool') >= 3) t.crests.guard = Math.min(CREST_MAX, t.crests.guard + 1);
+  pourGlow(t);
+  // Lern-Duell: in der letzten geführten Runde gießt Sepia nach, damit man einen Meisterzug sieht
+  if (S.tutorial > 0 && side === 1 && S.round === S.tutorial) {
+    const u = [...onSheet(t)].sort((a, b) => b.brim - a.brim)[0];
+    if (u) u.brim = BRIM.max;
+  }
   for (const u of S.teams[side - 1]!.units) {
     u.moved = u.rooted > 0;
     u.rooted = 0;
@@ -1920,7 +2033,16 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
       }
       const gait = GAIT[u.m.bp].key;
       if (moving && (gait === 'trail-dry' || gait === 'trail-wet')) pos += 0.3 * pathTo(prev, to).filter((i) => S.cells[i]!.owner === 0).length;
-      const add = (v: number, a: Action, pig: PigmentId, at: number | null) => cands.push({ v: v + pos, u, to, a, pig, at });
+      // Voller Klecks: der Meisterzug zählt bei jeder Aktion mit, bei der er auslöst
+      const full = brimFull(u);
+      const mSelf = full && ABILITY[u.m.bp].target !== 'unit' && u.m.bp !== 'schwebeblase' ? (masterAt(u, 'stamp', null) === null ? 0 : evalAbility(u, masterAt(u, 'stamp', null)!)) : 0;
+      const mBonus = (a: Action, at: number | null): number => {
+        if (!full || !masterApplies(u, a, at)) return 0;
+        if (ABILITY[u.m.bp].target === 'unit') return u.m.bp === 'schlange' ? 4 : 3;
+        if (u.m.bp === 'schwebeblase') return evalAbility(u, a === 'soak' || at === null ? idx(u.x, u.y) : at);
+        return mSelf;
+      };
+      const add = (v: number, a: Action, pig: PigmentId, at: number | null) => cands.push({ v: v + pos + mBonus(a, at), u, to, a, pig, at });
       for (let at = 0; at < COLS * ROWS; at++) {
         if (!canPaintAt(u, at)) continue;
         const pig = bestPig(u, 'stamp', at);
@@ -1935,7 +2057,6 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
         }
       if (paletteOpen(u)) add(foeTeam(u).hearts <= 1 ? 100 : 8, 'splash', u.m.main, foeTeam(u).home);
       if (u.hp < u.max) add(soakAmount(u) * 0.35 + (u.hp < u.max * 0.35 ? 2 : 0), 'soak', u.m.main, null);
-      if (team.crests.glow >= abilityCost(u)) for (const at of abilityTargets(u)) add(evalAbility(u, at) - CREST_COST.glow * abilityCost(u), 'ability', u.m.main, at);
       if (moving) add(0, 'none', u.m.main, null);
     }
     u.x = ox;

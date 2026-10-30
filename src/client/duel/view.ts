@@ -7,7 +7,7 @@ import { painted, paintedNow } from '../lib/painter';
 import { PIG } from '../../shared/data';
 import { RNG, hashStr } from '../../shared/rng';
 import { iconImage } from './icons';
-import { COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type UnitSnap } from '../../shared/duel/rules';
+import { BRIM, COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type UnitSnap } from '../../shared/duel/rules';
 import { sfx } from './sound';
 import { mediumDef } from '../../shared/duel/media';
 
@@ -203,6 +203,33 @@ export function prewarm(): void {
   for (const u of [...S.teams[0].units, ...S.teams[1].units]) void painted(bareKey(u, size), u.m, size, { dpr, paper: false }, 1);
 }
 /**
+ * Sehr nasse Kleckse verlaufen bis an den Bildrand. Auf Papier ist das Auslaufen, freigestellt würde ein Kasten daraus:
+ * dünnen Dunst ausblenden und zum Rand hin weich auslaufen lassen. Das Bild selbst bleibt, wie es gemalt wurde
+ */
+function clearHaze(src: HTMLCanvasElement): HTMLCanvasElement {
+  const S = src.width;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const x = c.getContext('2d')!;
+  x.drawImage(src, 0, 0);
+  const img = x.getImageData(0, 0, S, S),
+    d = img.data;
+  const lo = 90,
+    hi = 170,
+    rim = Math.max(4, S * 0.08);
+  for (let y = 0; y < S; y++)
+    for (let i = 0; i < S; i++) {
+      const k = (y * S + i) * 4 + 3,
+        a = d[k]!;
+      if (!a) continue;
+      const t = clamp01((a - lo) / (hi - lo)),
+        edge = clamp01(Math.min(i, y, S - 1 - i, S - 1 - y) / rim);
+      d[k] = Math.round(a * t * t * (3 - 2 * t) * edge);
+    }
+  x.putImageData(img, 0, 0);
+  return c;
+}
+/**
  * Ein Klecks frei stehend wie ein ausgeschnittener Aufkleber: ohne Papier, mit hellem Rand und leichtem Schatten,
  * damit er auf jeder Farbe lesbar bleibt. sil ist die helle Form allein (für Treffer-Blitze)
  */
@@ -213,11 +240,12 @@ function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLC
   const u = unitById(id);
   if (!u) return null;
   // Noch nicht fertig gemalt: nebenbei malen lassen, bis dahin zeigt das Blatt einen Farbfleck
-  const bare = paintedNow(bareKey(u, size));
-  if (!bare) {
+  const raw = paintedNow(bareKey(u, size));
+  if (!raw) {
     void painted(bareKey(u, size), u.m, size, { dpr, paper: false }, 2);
     return null;
   }
+  const bare = clearHaze(raw);
   const S = bare.width;
   const mk = () => {
     const c = document.createElement('canvas');
@@ -651,6 +679,38 @@ function drawUnit(u: VUnit, t: number): void {
     ctx.ellipse(x, baseY, rx + g, ry + g * 0.45, 0, 0, 7);
     ctx.stroke();
   }
+  // Brim: sechs Stücke um den Sockel, gefüllte golden, voll leuchtet der Ring
+  const bn = Math.min(BRIM.max, u.brim ?? 0);
+  if (u.state === 'sheet') {
+    const full = bn >= BRIM.max;
+    const seg = (Math.PI * 2) / BRIM.max,
+      gap = 0.16;
+    const erx = rx + 6,
+      ery = ry + 4;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < BRIM.max; i++) {
+      const a0 = Math.PI / 2 + i * seg + gap / 2,
+        a1 = a0 + seg - gap;
+      ctx.beginPath();
+      ctx.ellipse(x, baseY, erx, ery, 0, a0, a1);
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(29,33,48,.6)';
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = i < bn ? (full ? `rgba(255,214,80,${0.85 + 0.15 * Math.sin(t / 150)})` : 'rgba(255,200,60,1)') : 'rgba(255,255,255,.55)';
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+    if (full) {
+      const g = 3 + Math.sin(t / 180) * 2;
+      ctx.strokeStyle = `rgba(255,207,63,${0.45 + 0.2 * Math.sin(t / 180)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x, baseY, erx + 4 + g, ery + 2 + g * 0.45, 0, 0, 7);
+      ctx.stroke();
+      if (Math.random() < 0.15) V.parts.push({ x: x + (Math.random() - 0.5) * rx * 2, y: baseY - Math.random() * cell, vx: 0, vy: -40, g: 0, r: 2, t0: t, life: 700, col: 'rgba(255,214,90,.95)' });
+    }
+  }
   if (u.shield > 0) {
     ctx.strokeStyle = 'rgba(90,100,120,.85)';
     ctx.lineWidth = 1.8;
@@ -673,7 +733,16 @@ function drawUnit(u: VUnit, t: number): void {
     ctx.beginPath();
     ctx.ellipse(0, -size * 0.34, size * 0.32, size * 0.36, 0, 0, 7);
     ctx.fill();
-  } else ctx.drawImage(st.img, -size / 2, -size * 0.84, size, size);
+  } else {
+    // Voller Klecks: goldener Schein um das Bild
+    if ((u.brim ?? 0) >= BRIM.max) {
+      ctx.shadowColor = `rgba(255,190,40,${0.8 + 0.2 * Math.sin(t / 150)})`;
+      ctx.shadowBlur = 22;
+    }
+    ctx.drawImage(st.img, -size / 2, -size * 0.84, size, size);
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+  }
   if (st && u.flash > 0) {
     ctx.globalAlpha = u.flash * u.alpha;
     ctx.drawImage(st.sil, -size / 2, -size * 0.84, size, size);
@@ -879,7 +948,7 @@ export async function playEvent(e: Ev): Promise<void> {
       let v = V.units.get(e.id);
       const u = unitById(e.id)!;
       if (!v) {
-        v = vunitFrom({ id: e.id, x: e.x, y: e.y, hp: u.max, max: u.max, state: 'sheet', stain: 0, rooted: 0, shield: 0, acted: false, used: false });
+        v = vunitFrom({ id: e.id, x: e.x, y: e.y, hp: u.max, max: u.max, state: 'sheet', stain: 0, rooted: 0, shield: 0, acted: false, used: false, brim: u.brim });
         V.units.set(e.id, v);
       }
       Object.assign(v, { state: 'sheet', dx: e.x, dy: e.y, hp: u.max, max: u.max, hpShown: u.max, busy: true });
@@ -1138,7 +1207,7 @@ export async function playEvent(e: Ev): Promise<void> {
     }
     case 'ability': {
       const [x, y] = unitPos(e.id);
-      hooks.banner(e.name, 'ability');
+      hooks.banner(e.how === 'spill' ? `${e.name}: it spills` : `Master stroke: ${e.name}`, 'ability');
       sfx.ability();
       ring(x, y, cell * 0.3, cell * 0.8, 'rgba(201,150,30,.95)', 600, 4);
       for (let k = 0; k < 12; k++) {

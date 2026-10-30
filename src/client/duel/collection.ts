@@ -300,7 +300,7 @@ function openDie(d: DieRec): void {
   const lines = el('div', 'card-lines');
   lines.append(html('p', '', `<b>Die</b> ${u.faces.map(faceText).join(', ')}`));
   for (const k of ['joker', 'gold'] as const) if (u.faces.some((f) => f.k === k)) lines.append(html('p', 'special', FACE_HELP[k]));
-  lines.append(html('p', '', `<b>Moves</b> ${GAIT[u.m.bp].text}`), html('p', 'ab', `<b>${ab.name}</b> ${ab.text}`));
+  lines.append(html('p', '', `<b>Moves</b> ${GAIT[u.m.bp].text}`), html('p', 'ab', `<b>Master stroke · ${ab.name}</b> ${ab.text} When its brim is full, its next move does this on top.`));
   for (const t of u.traits) lines.append(html('p', 'trait', `<b>${t.label}</b> ${t.text}`));
   const row = el('div', 'trow');
   if (s.bag.includes(d.id)) {

@@ -450,13 +450,13 @@ const LESSONS: [string, () => boolean, string][] = [
   ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice from your deck. I picked three for you. Roll them.'],
   ['deck', () => phase() === 'roll' && me().units.some((u) => u.used), 'Rolled dice are used up, like cards: grey in your deck. When fewer than three are ready, I shuffle the used ones back in. Plan which dice you spend.'],
   ['keep', () => phase() === 'keep', 'The roll lies open. Hold what you like and reroll the rest, once per turn. Pairs, triples and three different symbols pay extra. I marked what I would hold.'],
-  ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Splash hits a palette, Guard halves a hit by itself, two Glow buy an ability. I lent you two Glow.'],
+  ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Splash hits a palette, Guard halves a hit by itself, Glow pours into your blots and fills their brim. I lent you two Glow.'],
   ['summon', () => phase() === 'summon', 'Stars bring blots out. A die may unfold if the other dice show stars worth at least its level. This one qualifies, and the net is already placed.'],
   ['drag', () => phase() === 'act' && !!tutGo() && (tutGo()!.a === 'stamp' || tutGo()!.a === 'splash'), 'Now the fun part. Drag a blot along the gold arrow and let go. Paper means stamp, a rival means splash. One drag per blot, the turn ends by itself.'],
   ['palette', () => { const a = tutGo(); return a?.a === 'splash' && a.at === S.teams[1].home; }, 'Their palette is unguarded. One Splash symbol, one heart, one per turn. A palette is safe while one of its own blots stands within two cells.'],
   ['stamp', () => tutGo()?.a === 'stamp', 'A stamp paints the blot’s shape in wet paint. Over dried paint it needs a roll: your Opacity against their Grain. Wet paint bleeds into free paper when the round ends.'],
   ['splash', () => tutGo()?.a === 'splash', 'Splash hits a rival in reach: Saturation and a d20 against Grain and a d20. A hit paints the cell under the target. Two or three hits and a blot bursts.'],
-  ['ability', () => tutGo()?.a === 'ability', 'Two Glow buy an ability. A gold button appears on a blot that can use one. Tap it.'],
+  ['brim', () => phase() === 'act' && onSheetFull(), 'Paint soaks in. Every stamp, splash and hit fills a blot’s brim, and Glow pours into all of them. I filled this one to the top. A full blot shines gold: its next move is a master stroke.'],
   ['soak', () => tutGo()?.a === 'soak', 'Tap a blot twice to soak: it heals and rinses stains.'],
   ['end', () => tutorialAction()?.k === 'end', 'Nothing worth doing. End your turn.'],
   ['react', () => S.round >= 2 && phase() === 'act', 'Paint reacts. The same pigment over your own dried paint glazes it: a second layer, worth double, harder to paint over. A neighbouring colour bleeds into free paper. A complementary colour turns wet rival paint into mud.'],
@@ -795,6 +795,12 @@ function renderGo(): void {
 }
 /** Vorschau eines Wischs: Weg, Stempelfelder mit Chancen oder Ziel mit Trefferchance, und ein Satz dazu */
 function previewOf(u: Unit, p: Plan | null): Preview | null {
+  const pv = previewBase(u, p);
+  // Voller Klecks: der Wisch wird ein Meisterzug
+  if (pv && p && R.brimFull(u) && R.masterApplies(u, p.a, p.at)) pv.text += ` Master stroke: ${ABILITY[u.m.bp].name}.`;
+  return pv;
+}
+function previewBase(u: Unit, p: Plan | null): Preview | null {
   if (!p) return null;
   const here = R.idx(u.x, u.y);
   const prev = p.to !== here ? R.reachCost(u).prev : null;
@@ -870,10 +876,15 @@ function renderHint(): void {
     const ab = ABILITY[aiming.m.bp];
     return setHint(ab.text);
   }
+  if (armed && R.brimFull(armed)) return setHint(`${armed.name} is brimming: its next move is a master stroke (${ABILITY[armed.m.bp].name}). Tap a target.`);
   if (armed) return setHint(`${armed.name}: tap a target. Paper: stamp. Rival: splash. Tap it again to soak.`);
   if (!R.onSheet(me()).some((u) => !u.acted)) return setHint('All blots are done. End your turn.');
   setHint('Drag a blot onto paper to stamp, onto a rival to splash. Tap it for its reach.');
 }
+/** Goldknöpfe der alten Fähigkeiten: aus, Fähigkeiten kommen als Meisterzug */
+const SHOW_ABIL = false;
+/** Ein eigener Klecks auf dem Blatt ist voll */
+const onSheetFull = (): boolean => R.onSheet(me()).some((u) => !u.acted && R.brimFull(u));
 /** Lern-Duell: der Hinweis sagt genau, was Sepia jetzt sehen will (nur dieser Schritt ist antippbar) */
 function tutHint(): string | null {
   const a = tutorialAction();
@@ -915,10 +926,11 @@ function tutHint(): string | null {
 function renderAbil(): void {
   const box = $('abil');
   box.replaceChildren();
-  if (!myTurn() || phase() !== 'act' || drag) return;
+  // Fähigkeiten gibt es nur noch als Meisterzug (festgelegt am 30.10.2026), keine Goldknöpfe mehr
+  if (!SHOW_ABIL || !myTurn() || phase() !== 'act' || drag) return;
   const cell = View.cellSize();
   for (const u of R.onSheet(me())) {
-    if (u.acted || !R.abilityReady(u)) continue;
+    if (u.acted) continue;
     const b = el('button', 'abil' + (aiming === u ? ' on' : ''), ABILITY[u.m.bp].name) as HTMLButtonElement;
     b.type = 'button';
     b.dataset.id = String(u.id);
@@ -1530,7 +1542,8 @@ function openInspect(u: Unit): void {
     html('p', '', `<b>Die</b> ${u.faces.map(R.faceText).join(', ')}`),
     ...(['joker', 'gold'] as const).filter((k) => u.faces.some((f) => f.k === k)).map((k) => html('p', 'special', R.FACE_HELP[k])),
     html('p', '', `<b>Moves</b> ${GAIT[u.m.bp].text}`),
-    html('p', 'ab', `<b>${ab.name}</b> <span>${R.abilityCost(u)} Glow</span> ${ab.text}`),
+    html('p', 'ab', `<b>Master stroke · ${ab.name}</b> <span>Brim ${u.brim}/${R.BRIM.max}</span> ${ab.text}`),
+    html('p', '', 'Stamps, splashes, soaks and hits fill the brim, Glow pours in. Full, its next move does this on top. Bursting at least half full, it spills once more.'),
   );
   for (const t of u.traits) lines.append(html('p', 'trait', `<b>${t.label}</b> ${t.text}`));
   box.append(top, net, stats, lines);
@@ -1814,7 +1827,7 @@ api
     crests: { ...S.teams[0]?.crests },
     hearts: S.teams.map((t) => t.hearts),
     summonable: phase() === 'summon' ? R.summonable(me(), lastRolled()).map((u) => u.id) : [],
-    units: R.allUnits().map((u) => ({ id: u.id, side: u.side, x: u.x, y: u.y, hp: u.hp, name: u.name, acted: u.acted, canAbility: R.abilityReady(u), abT: R.abilityTargets(u), abSelf: ABILITY[u.m.bp].target === 'self', splash: R.splashCells(u), canMove: R.canMove(u) })),
+    units: R.allUnits().map((u) => ({ id: u.id, side: u.side, x: u.x, y: u.y, hp: u.hp, name: u.name, acted: u.acted, brim: u.brim, abT: R.abilityTargets(u), abSelf: ABILITY[u.m.bp].target === 'self', splash: R.splashCells(u), canMove: R.canMove(u) })),
     place: summonU ? R.placements(summonU).slice(0, 1) : [],
     score: R.scores(),
     guide: guideNow,

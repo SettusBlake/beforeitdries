@@ -84,8 +84,8 @@ export type DuelAction =
 
 /** Was der Client sieht: alles außer Würfelzufall und Seed */
 export type DuelState = {
-  /** Stand der Regeln im Speicher: 3 = Blatt 6 × 8 mit Neuwurf. Ältere Duelle werden verworfen */
-  v: 3;
+  /** Stand der Regeln im Speicher: 4 = Brim und Meisterzug, zufällige Seiten. Ältere Duelle werden verworfen */
+  v: 4;
   cells: Cell[];
   teams: Team[];
   round: number;
@@ -125,7 +125,7 @@ const isInt = (v: unknown, lo: number, hi: number): v is number => Number.isInte
 
 export function publicState(): DuelState {
   return {
-    v: 3,
+    v: 4,
     cells: S.cells,
     teams: S.teams,
     round: S.round,
@@ -339,7 +339,8 @@ function goBlot(u: Unit, a: { to: unknown; a: unknown; at: unknown }): void {
   const to = a.to as number;
   const prev = to !== here ? (canMove(u) ? reach(u) : null) : null;
   if (to !== here && (!prev || !prev.has(to))) bad('It cannot get there.');
-  const acts: Action[] = ['stamp', 'splash', 'soak', 'ability'];
+  // Fähigkeiten gibt es nur noch als Meisterzug (voller Brim), keine eigene Aktion mehr
+  const acts: Action[] = ['stamp', 'splash', 'soak'];
   const kind = acts.find((x) => x === a.a);
   if (!kind) bad('Unknown action.');
   // Vom Zielfeld aus prüfen
@@ -356,10 +357,6 @@ function goBlot(u: Unit, a: { to: unknown; a: unknown; at: unknown }): void {
   } else if (kind === 'splash') {
     if (!isInt(a.at, 0, COLS * ROWS - 1) || !splashCells(u).includes(a.at as number)) err = 'Nothing to splash there.';
     else at = a.at as number;
-  } else if (kind === 'ability') {
-    const targets = abilityTargets(u);
-    at = ABILITY[u.m.bp].target === 'self' ? idx(u.x, u.y) : isInt(a.at, 0, COLS * ROWS - 1) ? (a.at as number) : null;
-    if (!targets.length || at === null || !targets.includes(at)) err = 'No target there.';
   }
   const pig = bestPig(u, kind!, at);
   u.x = ox;

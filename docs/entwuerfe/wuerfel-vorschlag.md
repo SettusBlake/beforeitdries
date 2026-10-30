@@ -1,6 +1,6 @@
 # Vorschlag: Würfel spannender, Fähigkeiten natürlicher
 
-Stand 30.10.2026, Fassung 3. Freigegeben am 30.10.2026 („make it so“) mit allen Empfehlungen: A und B neu, dann Fähigkeiten 1 (Sättigung) mit 5 (Abgang), dann F, dann E. Mischseite zählt für jedes ihrer Symbole, bisherige Würfel bekommen die neuen Seiten. Schritt A und B gebaut, Playtest v0.0.1.73, Bild docs/entwuerfe/wuerfelseiten-sichtbar.png.
+Stand 30.10.2026, Fassung 3. Freigegeben am 30.10.2026 („make it so“) mit allen Empfehlungen: A und B neu, dann Fähigkeiten 1 (Sättigung) mit 5 (Abgang), dann F, dann E. Mischseite zählt für jedes ihrer Symbole, bisherige Würfel bekommen die neuen Seiten. Schritt A und B gebaut, Playtest v0.0.1.73, Bild docs/entwuerfe/wuerfelseiten-sichtbar.png. Fähigkeiten (Sättigung mit Abgang) gebaut, Playtest v0.0.1.75, Bild docs/entwuerfe/meisterzug.png.
 
 Rückmeldung zu Fassung 1 (30.10.2026): A ist ok, E und F gefallen. B ist zu fix (gelesen als: feste Anzahl Doppelseiten je Seltenheit ist zu vorhersehbar). Die Fähigkeiten der Kleckse, die Glow brauchen, wirken fehl am Platz: Die Kleckse sollen etwas können, aber anders. Dazu Vorschläge.
 
@@ -87,6 +87,17 @@ Statt fester Anzahl würfelt jede Symbolseite beim Entstehen des Würfels (aus s
 **5. Abgang: beim Platzen**
 
 - Platzt ein Klecks, löst seine Fähigkeit aus (Flare platzt in alle Richtungen, Sprout heilt die Nachbarn). Ein Trost- und Rache-Moment. Gut als Ergänzung, allein zu wenig.
+
+### Gebaut (30.10.2026): Sättigung mit Meisterzug und Abgang
+
+- **Sättigung (Brim):** jeder Klecks hat 6 Stücke. Stempeln oder Spritzen +2, Aufsaugen +1, getroffen werden und überleben +1, Fingerabdruck-Klecks +1 bei jeder Aktion. Jede Glow-Seite im Wurf gießt zu Zugbeginn +1 in jeden eigenen Klecks auf dem Blatt (Glow wird dabei verbraucht).
+- **Sichtbar:** sechs Stücke als Ring um den Sockel, gefüllte golden. Voll: goldener Schein um den Klecks, pulsierender Ring, Funken. Beim Wischen sagt die Vorschau „Master stroke: Name“.
+- **Meisterzug:** ist der Klecks voll, passt seine Fähigkeit zum nächsten Wisch von selbst dazu, danach ist er leer. Charge und Crush machen den Spritzer stärker (1,5-fach und +4, oder doppelt und ohne Körnung). Coil wickelt den bespritzten Rivalen ein. Rain fällt, wo der Wisch hinzeigt. Bound springt zum besten Feld. Die anderen wirken um den Klecks selbst. Fähigkeiten, die einen Rivalen brauchen (Charge, Coil, Crush), warten auf einen Spritzer auf einen Rivalen.
+- **Abgang:** platzt ein Klecks mit mindestens 3 Sättigung, läuft er über: Charge und Crush treffen den Angreifer, Coil wickelt ihn ein, Bound färbt den Ring ums Feld, Drift färbt die Rivalen daneben, die anderen lösen ihre Fähigkeit am eigenen Feld aus.
+- **Weg:** Goldknopf, Glow-Kosten und die Aktion „ability“. Howl nimmt den Rivalen 2 Sättigung statt Glow.
+- **Rivale** bewertet Meisterzüge mit. **Lern-Duell:** Sepia füllt in Runde 3 einen Klecks, die Lektion zeigt den Meisterzug.
+- **Simulation:** 1,2 bis 2,8 Meisterzüge pro Seite und Duell, 0 bis 1,9 Abgänge, Siegquoten im bisherigen Rahmen (91/83/79/66/44/39 % gegen vorher 93/80/85/59/43/38 % über die sechs Stufen).
+- DUEL_PROTOCOL 8, laufende Duelle mit alter Oberfläche bekommen „close the post and open it again“.
 
 ### Empfehlung Teil 2
 

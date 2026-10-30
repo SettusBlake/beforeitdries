@@ -319,11 +319,14 @@ describe('Duell am Server', () => {
         const a = tutorialAction()!;
         seen.add(a.k === 'go' ? (a.a === 'splash' && a.at === S.teams[1].home ? 'palette' : a.a) : a.k);
         res = await duelAct(d, USER, a);
-        for (const e of res.events) if (e.k === 'apply' && e.side === 1 && e.combo) seen.add('combo');
+        for (const e of res.events) {
+          if (e.k === 'apply' && e.side === 1 && e.combo) seen.add('combo');
+          if (e.k === 'ability' && e.how === 'master' && S.teams[0].units.some((u) => u.id === e.id)) seen.add('master');
+        }
         view(res);
       }
       // Sepia zeigt auch Neuwurf und eine Kombi
-      for (const k of ['open', 'roll', 'reroll', 'combo', 'summon', 'stamp', 'splash', 'ability', 'palette']) expect([k, seen.has(k)]).toEqual([k, true]);
+      for (const k of ['open', 'roll', 'reroll', 'combo', 'summon', 'stamp', 'splash', 'master', 'palette']) expect([k, seen.has(k)]).toEqual([k, true]);
       expect(S.teams[1].hearts).toBeLessThan(3);
       runs.push(JSON.stringify(S.cells.map((c) => c.owner)));
     }

@@ -36,6 +36,6 @@ export async function playInfo(d: Deps, userId: string | undefined): Promise<Pla
   if (!userId) return { user: false, running: false, starter: 0, freeReady: false, pigment: 0 };
   const [s, raw] = await Promise.all([loadDice(d, userId), d.redis.get(K.duel(userId))]);
   const saved = raw ? (JSON.parse(raw) as { over?: boolean; v?: number }) : null;
-  const running = !!saved && saved.v === 3 && !saved.over;
+  const running = !!saved && saved.v === 4 && !saved.over;
   return { user: true, running, starter: s.starter, freeReady: s.freeDay !== dayKey(d.now), pigment: s.pigment };
 }
