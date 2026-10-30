@@ -628,7 +628,7 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
   LITE = opts.quality === 'lite';
   const dpr = opts.dpr ?? defaultDpr(),
     S = Math.max(200, Math.round(cssSize * dpr));
-  if (canvas.width !== S) {
+  if (canvas.width !== S || canvas.height !== S) {
     canvas.width = S;
     canvas.height = S;
   }

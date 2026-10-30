@@ -40,6 +40,8 @@ const renderCase = ({ c, size }) => {
   if (c.mutations) m.mutations = c.mutations;
   if (c.bp) m.bp = c.bp;
   const cv = document.createElement('canvas');
+  // Neue Canvas sind 300 × 150 groß. Der Prototyp setzt die Höhe nur, wenn die Breite nicht passt, deshalb klein anfangen
+  cv.width = cv.height = 1;
   document.body.append(cv);
   const t0 = performance.now();
   api.renderMonster(cv, m, size, c.quality ? { quality: c.quality } : undefined);
