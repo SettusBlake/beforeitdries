@@ -1,8 +1,10 @@
 # Plan: Monster selbst malen
 
-Stand 30.10.2026, Fassung 1. Gewählt: A (eigener Umriss). Leerer Würfel pro Woche oder seltener Fund beim Ziehen ist ok. Andere sollen die Zeichnungen später sehen können.
+Stand 30.10.2026, Fassung 2, gebaut. Gewählt: A (eigener Umriss). Leerer Würfel pro Woche oder seltener Fund beim Ziehen ist ok. Andere sollen die Zeichnungen später sehen können.
 
-Entwurf: docs/entwuerfe/selbst-malen-entwurf.png (links der Zeichenbildschirm, rechts sechs Zeichnungen, je als Striche und dreimal gemalt mit verschiedenen Würfen). Quelle tools/mockup/selbst-malen.ts, Kern src/shared/drawn.ts (noch nicht im Spiel).
+Freigegeben am 30.10.2026 mit diesen Antworten: Bauplan nicht vorher als Aufgabe zeigen, sondern erst nach dem Malen würfeln. Mirror beim Öffnen an. Vorrat wie vorgeschlagen. Malen jetzt bauen, danach 2b.
+
+Bilder: docs/entwuerfe/selbst-malen-entwurf.png (Entwurf mit sechs Zeichnungen, je dreimal gemalt) und docs/entwuerfe/selbst-malen-im-spiel.png (so sieht es im Spiel aus). Code: src/shared/drawn.ts (Striche zu Formen), src/server/dice.ts (diceDraw, Vorrat, Fund), src/client/duel/draw.ts (Zeichenbildschirm).
 
 ## Kurz
 
@@ -10,38 +12,40 @@ Ein **Blank canvas** ist ein leerer Würfel. Du zeichnest mit dem Finger, das Sp
 
 ## Woher
 
-- Jede Woche ein freier Blank canvas (Montag 0 Uhr UTC), höchstens 2 auf Vorrat.
-- Seltener Fund: Zeigt der W100 beim Ziehen eine 1, gibt es zusätzlich einen Blank canvas. Das ist 1 % je Zug, offen sichtbar, ohne zusätzlichen Würfel. Der schlechteste Wurf wird so zum Trost.
+- Jede Woche ein freier Blank canvas (Montag 0 Uhr UTC). Die freien füllen höchstens bis 2 auf, auch nach Wochen ohne Besuch.
+- Seltener Fund: Zeigt der W100 beim Ziehen eine 1, gibt es zusätzlich einen Blank canvas. Das ist 1 % je Zug, offen sichtbar, ohne zusätzlichen Würfel. Funde zählen immer, auch über 2.
+- Erst nach den freien Startzügen nutzbar, damit das Deck zuerst voll ist.
 - Nicht kaufbar, keine anderen Wege.
 
 ## Ablauf
 
-1. In „Your dice“ ein Knopf **Blank canvas** neben den Zügen, mit Vorrat.
-2. Der Server würfelt vorher den Bauplan, Sepia gibt ihn als Aufgabe: „Draw me something that flutters. Or don’t. It will flutter regardless.“ Du musst dich nicht daran halten.
+1. In „Your dice“ unter den Zügen ein Knopf **Blank canvas** mit Vorrat. Ohne Vorrat steht dort „a new one every Monday · or roll a 1“. Auf dem Startbild zeigt „Your dice“ den Hinweis „blank canvas“, wenn einer bereitliegt.
+2. Sepia begrüßt ohne Aufgabe, zum Beispiel: „Draw whatever you like. The dice decide what it is good for.“
 3. Zeichnen auf einem quadratischen Blatt:
-   - Ein Strich, dessen Ende nah am Anfang liegt, wird eine **Farbfläche**. Offene Striche bleiben **Linien** (Beine, Schwanz, Schnurrhaare, Fühler).
-   - **Mirror** (Rorschach): Alles wird an der Mitte gespiegelt. Ein Strich, der an der Mitte beginnt und endet, wird mit seinem Spiegelbild eine Fläche. Was über der Mitte liegt, wird nicht doppelt gemalt.
+   - Ein Strich, dessen Ende nah am Anfang liegt, wird eine **Farbfläche** (beim Zeichnen leicht getönt). Offene Striche bleiben **Linien** (Beine, Schwanz, Schnurrhaare, Fühler).
+   - **Mirror** (Rorschach, beim Öffnen an): Alles wird an der gestrichelten Mitte gespiegelt. Ein Strich, der an der Mitte beginnt und endet, wird mit seinem Spiegelbild eine Fläche. Was über der Mitte liegt, wird nicht doppelt gemalt.
    - **Eyes:** antippen, dann dorthin tippen, wo das Gesicht hin soll. Ohne Tippen sucht das Spiel die oberste große Fläche.
    - **Undo** und **Clear**. Höchstens 24 Striche.
    - Ohne geschlossene Fläche sagt Sepia: „Close a shape. Paint needs somewhere to pool.“
-4. **Paint it:** das gewohnte Ritual. Glas, der Pinsel malt deine Zeichnung, W100 mit Seltenheit, Stempel mit Seriennummer. Die Karte bekommt ein Pinsel-Zeichen („drawn by you“).
-5. Bis „Paint it“ ist alles änderbar. Zurück behält den Blank canvas. Danach ist die Zeichnung fest.
+4. **Paint it:** das gewohnte Ritual. Glas, der Pinsel malt deine Zeichnung, W100 mit Seltenheit, Stempel mit Seriennummer. Danach „Your drawing, painted as …“. Die Karte bekommt ein Pinsel-Zeichen, die Würfelkarte zeigt „drawn by you“.
+5. Bis „Paint it“ ist alles änderbar. Zurück behält den Blank canvas und die angefangene Zeichnung. Danach ist die Zeichnung fest.
 
 ## Was der Server würfelt
 
-- Wie ein Zug: W100 offen, Seltenheit, Papier, Pigment, Werte, Fähigkeit, später Shiny 1 zu 1000. Zählt beim Schutz vor Pech mit.
+- Wie ein Zug: W100 offen, Seltenheit, Papier, Pigment, Werte, Fähigkeit, später Shiny 1 zu 1000. Zählt beim Schutz vor Pech mit, ein W100 mit 1 bringt auch hier einen neuen Blank canvas.
 - Einzigartig wie jeder Zug: Seed ins Register, Seriennummer.
 - Aus der Zeichnung kommt nur die Form. Größe, Zahl der Striche und Mirror ändern keine Werte.
+- Die Zeichnung geht mit ins Duell, der Klecks auf dem Blatt ist deine Zeichnung.
 
 ## Wie es aussieht
 
 - Flächen verlaufen wie Aquarell, bleiben aber erkennbar (Rand etwa halb so weich wie bei Klecksen), mit Tuschekontur. Linien werden Pinselstriche.
 - Die Zeichnung wird mittig auf die Karte gesetzt und immer gleich groß gemacht, egal wie klein oder schief gezeichnet.
-- Malereignisse (Blüte, Salz, Alkohol, Fingerabdruck) kommen wie bei jedem Monster dazu. Die Blüte sieht wie im Prototyp splittrig aus, auch bei den bisherigen Monstern. Bei großen Flächen ist sie jetzt so groß wie bei Klecksen. Schöner machen kann ich sie mit 2b (Malereignisse der Generation 2), die alten Monster bleiben, wie sie sind.
+- Malereignisse (Blüte, Salz, Alkohol, Fingerabdruck) kommen wie bei jedem Monster dazu. Die Blüte sieht wie im Prototyp splittrig aus, auch bei den bisherigen Monstern. Bei großen Flächen ist sie so groß wie bei Klecksen. Schöner machen kann ich sie mit 2b (Malereignisse der Generation 2), die alten Monster bleiben, wie sie sind.
 
 ## Speichern
 
-- Nur die Striche, vereinfacht: im Entwurf 100 bis 450 Zeichen je Monster, höchstens etwa 4,6 KB. Nie ein Bild.
+- Nur die Striche, vereinfacht: meist 100 bis 450 Zeichen je Monster, höchstens etwa 4,6 KB. Nie ein Bild.
 - Der Server prüft die Striche (Anzahl, Punkte, im Blatt, mindestens eine Fläche) und würfelt erst dann.
 - Server und Handy rechnen aus denselben Strichen dieselbe Form (reine Rechnung ohne Zufall).
 
@@ -53,16 +57,13 @@ Ein **Blank canvas** ist ein leerer Würfel. Du zeichnest mit dem Finger, das Sp
 
 ## Umfang und Reihenfolge
 
-1. Striche zu Formen (src/shared/drawn.ts, mit Tests, gebaut als Entwurf).
-2. Server: Vorrat (Woche, Fund bei W100 = 1), Endpunkt zum Malen, Prüfung, Würfel mit Zeichnung, Seriennummer.
-3. Zeichenbildschirm (Canvas 2D, Finger, Mirror, Eyes, Undo, Clear), Ritual mit deiner Zeichnung, Karte mit Pinsel-Zeichen.
+1. Striche zu Formen (src/shared/drawn.ts, mit Tests). Gebaut.
+2. Server: Vorrat (Woche, Fund bei W100 = 1), Endpunkt /api/dice/draw, Prüfung, Würfel mit Zeichnung, Seriennummer. Gebaut.
+3. Zeichenbildschirm (Canvas 2D, Finger, Mirror, Eyes, Undo, Clear), Ritual mit deiner Zeichnung, Karte mit Pinsel-Zeichen. Gebaut.
 4. Upload und Handy-Test.
 
-Melden und Mod-Menü kommen mit der ersten Stelle, an der fremde Monster zu sehen sind.
+Danach 2b. Melden und Mod-Menü kommen mit der ersten Stelle, an der fremde Monster zu sehen sind.
 
-## Offene Fragen
+## Offen
 
-1. Bauplan vorher als Aufgabe zeigen (Empfehlung) oder erst nach dem Malen würfeln?
-2. Mirror beim Öffnen an (Empfehlung, passt zum Rorschach-Thema und sieht schnell gut aus) oder aus?
-3. Vorrat: 1 pro Woche, höchstens 2, plus Fund bei W100 = 1. Passt das?
-4. Reihenfolge: Malen jetzt, danach 2b (Empfehlung), oder erst 2b?
+- Zum Testen am Handy gibt es nur den einen Blank canvas dieser Woche (plus Funde bei W100 = 1). Soll ich für dich als Mod einen Test-Knopf bauen, der leere Würfel gibt (nur im Playtest-Subreddit)?

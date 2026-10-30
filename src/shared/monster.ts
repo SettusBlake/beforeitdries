@@ -62,6 +62,8 @@ export interface Monster {
   name: string;
   /** Generation der Form: 2 = neue Formen aus Vorlagen (src/shared/forms), fehlt = Bauplan wie im Prototyp */
   gen?: 2;
+  /** Selbst gemalt: die Striche als Text (src/shared/drawn.ts), ersetzen die Form */
+  draw?: string;
 }
 
 export function makeName(r: Rand): string {

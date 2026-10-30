@@ -5,6 +5,11 @@ export function dayKey(ms: number = Date.now()): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+/** Woche (UTC), beginnt Montag 0 Uhr. 1.1.1970 war ein Donnerstag */
+export function weekKey(ms: number = Date.now()): string {
+  return 'w' + Math.floor((Math.floor(ms / 86400000) + 3) / 7);
+}
+
 export function shiftDay(day: string, delta: number): string {
   return dayKey(Date.parse(day + 'T00:00:00Z') + delta * 86400000);
 }

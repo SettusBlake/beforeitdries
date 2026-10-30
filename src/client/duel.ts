@@ -1468,6 +1468,7 @@ function showScreen(id: 'title' | 'game' | 'dice'): void {
   $('title').hidden = id !== 'title';
   $('game').hidden = id !== 'game';
   $('dice').hidden = id !== 'dice';
+  $('draw').hidden = true;
   if (id === 'game') layout();
   if (id === 'title') {
     $('continue').hidden = !resumable;

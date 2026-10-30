@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
-import { diceBag, diceGet, diceGlaze, diceWash, dicePull, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, diceWash, dicePull, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
 import { K } from '../src/server/keys';
@@ -78,6 +78,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
       if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));
       if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id));
+      if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing));
     }
     // Nur in der Vorschau: Pigment und Lasur zum Ausprobieren
     if (url.pathname === '/dev/pigment') {
@@ -85,6 +86,7 @@ createServer(async (req, res) => {
       s.pigment += Number(url.searchParams.get('n') ?? 1000);
       for (const x of s.dice) s.glaze[dieSpecies(x)] = (s.glaze[dieSpecies(x)] ?? 0) + 6;
       if (url.searchParams.has('legendary')) s.pity.legendary = PITY.legendary - 1;
+      if (url.searchParams.has('blank')) s.blank = Number(url.searchParams.get('blank'));
       await saveDice(d, USER.id, s);
       return send(200, { pigment: s.pigment });
     }

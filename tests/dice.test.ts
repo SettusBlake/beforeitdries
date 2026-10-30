@@ -1,7 +1,8 @@
 /* Würfelsammlung: Startzüge, offener W100, Schutz vor Pech, einzigartige Monster, Auswaschen, Beutel, Lasur auf Seiten */
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
-import { diceBag, diceGet, diceGlaze, dicePull, diceWash, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceWash, loadDice, saveDice } from '../src/server/dice';
+import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
 import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, rarityDef, rarityFromRoll, rarityIndex, STARTER_PULLS, type DiceSave } from '../src/shared/dice';
@@ -234,5 +235,47 @@ describe('Würfelsammlung', () => {
     const s = await loadDice(d, USER);
     expect(s.starter).toBe(0);
     expect(s.bag).toHaveLength(BAG);
+  });
+
+  it('Blank canvas: einer pro Woche, höchstens 2 auf Vorrat, Malen würfelt wie ein Zug, die Zeichnung ist die Form', async () => {
+    const d = setup(55);
+    expect(await code(diceDraw(d, undefined, 'n.AAAA'))).toBe('login');
+    const early = encodeDrawing({ mirror: false, face: null, strokes: [[[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7], [0.31, 0.31]]] });
+    expect(await code(diceDraw(d, USER, early))).toBe('bad_request');
+    await dicePull(d, USER, 'starter');
+    const s0 = (await diceGet(d, USER)).dice;
+    expect(s0.blank).toBe(1);
+    // Halbe Form an der Mitte, gespiegelt eine Fläche
+    const pic = encodeDrawing({ mirror: true, face: [0.5, 0.4], strokes: [[[0.5, 0.2], [0.3, 0.3], [0.2, 0.5], [0.3, 0.7], [0.5, 0.8]]] });
+    expect(await code(diceDraw(d, USER, 'kaputt'))).toBe('bad_request');
+    expect(await code(diceDraw(d, USER, encodeDrawing({ mirror: false, face: null, strokes: [[[0.1, 0.1], [0.2, 0.4]]] })))).toBe('bad_request');
+    const res = await diceDraw(d, USER, pic);
+    const p = res.pulls[0]!;
+    expect(res.pulls).toHaveLength(1);
+    expect(p.die.draw).toBeTruthy();
+    expect(p.die.gen).toBe(2);
+    expect(p.die.no).toBeGreaterThan(0);
+    expect(dieMonster(p.die).draw).toBe(p.die.draw);
+    expect(dieUnit(dieMonster(p.die)).rarity).toBe(p.rarity);
+    expect(res.dice.pulls).toBe(s0.pulls + 1);
+    expect(res.dice.blank).toBe(p.blank ? 1 : 0);
+    if (!p.blank) expect(await code(diceDraw(d, USER, pic))).toBe('bad_request');
+    // Die Zeichnung bleibt beim Würfel und kommt mit ins Duell
+    await diceBag(d, USER, [p.die.id]);
+    loadState((await duelStart(d, USER, 'apprentice')).state!);
+    expect(S.teams[0].units.find((u) => u.m.seed === dieMonster(p.die).seed)?.m.draw).toBe(p.die.draw);
+    // Nächste Woche einer, nach langer Pause höchstens 2
+    const week = 7 * 86400000;
+    const base = (await loadDice(d, USER)).blank ?? 0;
+    expect((await diceGet({ ...d, now: d.now + week }, USER)).dice.blank).toBe(Math.max(base, Math.min(2, base + 1)));
+    expect((await diceGet({ ...d, now: d.now + 5 * week }, USER)).dice.blank).toBe(Math.max(base, 2));
+  });
+
+  it('ein W100 mit 1 bringt zusätzlich einen leeren Würfel', async () => {
+    let k = 1;
+    const d = setup(1, () => k++ * 100);
+    const res = await dicePull(d, USER, 'starter');
+    expect(res.pulls.every((p) => p.d100 === 1 && p.blank)).toBe(true);
+    expect(res.dice.blank).toBe(1 + STARTER_PULLS);
   });
 });

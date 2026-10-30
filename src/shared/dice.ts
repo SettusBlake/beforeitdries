@@ -29,15 +29,17 @@ export type FaceMod = { i: number; to: 'x2' };
  * Ein Würfel in der Sammlung: Bogen-Seed und Nummer des Monsters, seltenes Papier, Lasuren auf Seiten.
  * no ist die Seriennummer über alle Spieler, der Seed des Monsters gehört nur diesem Würfel (Register am Server).
  */
-export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2 };
+export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2; draw?: string };
 /** Seriennummer zum Zeigen: #00427 */
 export const serialText = (no: number | undefined): string => (no ? '#' + String(no).padStart(5, '0') : '');
 
-export function dieMonster(d: { sheet: string; idx: number; paper?: PaperId; gen?: 2 }): Monster {
+export function dieMonster(d: { sheet: string; idx: number; paper?: PaperId; gen?: 2; draw?: string }): Monster {
   const m = makeMonster(d.sheet, d.idx, humidityFor(d.sheet));
   if (d.paper) m.paper = d.paper;
   // Neue Würfel haben die neuen Formen, ältere bleiben, wie sie waren
   if (d.gen) m.gen = d.gen;
+  // Selbst gemalt: die Zeichnung ist die Form
+  if (d.draw) m.draw = d.draw;
   return m;
 }
 
@@ -73,6 +75,9 @@ export type DiceSave = {
   next: number;
   /** Freigeschaltete Malmittel (fehlt: die Startauswahl) */
   media?: MediumId[];
+  /** Leere Würfel zum Selbstmalen (Blank canvas) und die Woche, deren freier schon gutgeschrieben ist */
+  blank?: number;
+  blankWeek?: string;
 };
 export function emptyDice(): DiceSave {
   return { v: 1, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };
@@ -87,7 +92,14 @@ export type PullResult = {
   die: DieRec;
   /** Diese Art hatte man schon (Artschlüssel), sonst null. Der Würfel bleibt trotzdem */
   dup: string | null;
+  /** Der W100 zeigte 1: dazu ein leerer Würfel zum Selbstmalen */
+  blank?: true;
 };
+/**
+ * Leere Würfel (festgelegt am 30.10.2026): jede Woche einer, der freie füllt höchstens bis BLANK.max auf.
+ * Dazu ein Fund, wenn der W100 beim Ziehen BLANK.find zeigt (zählt immer, auch über max).
+ */
+export const BLANK = { max: 2, find: 1 };
 /** Ausgewaschen gibt ein Würfel so viel Lasur für seine Art */
 export const washGlaze = (r: Rarity): number => rarityDef(r).glaze;
 /** So viele Würfel bleiben mindestens, damit das Deck voll wird */

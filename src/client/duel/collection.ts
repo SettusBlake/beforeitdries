@@ -9,6 +9,7 @@ import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Uni
 import { speciesLabel } from '../../shared/monster';
 import { looseNow, painted, paintedNow } from '../lib/painter';
 import { api } from '../lib/api';
+import { initDraw, openDraw } from './draw';
 import { iconSvg, netSvg } from './icons';
 import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
@@ -26,6 +27,8 @@ function html(tag: string, cls: string, inner: string): HTMLElement {
   return e;
 }
 const dpr = () => Math.min(2, window.devicePixelRatio || 1);
+/** Pinsel-Zeichen für selbst gemalte Monster */
+const BRUSH = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M14.2 1.8c.6.6.6 1.5 0 2.1L8.6 9.5 6.5 7.4l5.6-5.6c.6-.6 1.5-.6 2.1 0zM5.8 8.1l2.1 2.1c-.4 1.9-1.8 3.6-5.6 4.1 1-1.3.9-2.9 1.6-3.9.5-.9 1-1.8 1.9-2.3z"/></svg>';
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
 type Hooks = { back: () => void; error: (e: unknown) => void };
@@ -86,6 +89,12 @@ function render(): void {
   }
   $('odds').innerHTML = RARITIES.map((r) => `<span style="--c:${r.col}"><i></i>${r.from === r.to ? r.from : `${r.from}–${r.to}`} ${r.label}</span>`).join('');
   $('pity').textContent = `Bad luck shield: Rare in ${PITY.rare - s.pity.rare} · Epic in ${PITY.epic - s.pity.epic} · Legendary in ${PITY.legendary - s.pity.legendary} dips at most.`;
+  // Selbst malen: ein leerer Würfel pro Woche, dazu ein Fund bei W100 = 1
+  const blank = s.blank ?? 0;
+  const bb = $('blank-b') as HTMLButtonElement;
+  bb.disabled = !blank || busy || s.starter > 0;
+  $('blank-n').textContent = String(blank);
+  $('blank-sub').textContent = s.starter > 0 ? 'after your free dice' : blank ? 'paint your own monster' : 'a new one every Monday · or roll a 1';
   // Beutel
   const bag = $('bag');
   bag.replaceChildren();
@@ -123,6 +132,7 @@ function render(): void {
     const g = s.glaze[dieSpecies(d)] ?? 0;
     c.append(art(d, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', shortName(u)), el('small', '', r.label + (g ? ` · ${g} glaze` : '')));
     if (d.no) c.append(el('span', 'serial', serialText(d.no)));
+    if (d.draw) c.append(html('span', 'drawn', BRUSH));
     if (s.bag.includes(d.id)) c.append(el('span', 'bagmark', 'deck'));
     c.addEventListener('click', () => openDie(d));
     coll.append(c);
@@ -188,7 +198,7 @@ function openDie(d: DieRec): void {
     el('b', '', u.name),
     html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b class="rlabel" style="color:${r.col}">${r.label}</b>`),
     el('small', '', `${PAPER[u.m.paper].n} · ${speciesLabel(u.m)}`),
-    el('small', 'serial-line', d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind'),
+    html('small', 'serial-line', (d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind') + (d.draw ? ` · <span class="drawn">${BRUSH} drawn by you</span>` : '')),
   );
   top.append(big, info);
   const net = html('div', 'card-net', netSvg(u.net, u.faces, 26));
@@ -398,7 +408,9 @@ function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
     void before;
     const lines: string[] = [];
     if (p.pity) lines.push(p.pity === 'ten' ? 'Ten dips: Rare or better guaranteed.' : `Bad luck shield: ${rarityDef(p.pity).label} guaranteed.`);
-    lines.push(p.dup ? `Another ${speciesLabel(u.m)}, but no other blot looks like this one (${serialText(p.die.no)}).` : `A new species for you: ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
+    if (p.die.draw) lines.push(`Your drawing, painted as ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
+    else lines.push(p.dup ? `Another ${speciesLabel(u.m)}, but no other blot looks like this one (${serialText(p.die.no)}).` : `A new species for you: ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
+    if (p.blank) lines.push('The die showed 1: you also found a blank canvas.');
     const ok = el('button', 'primary', 'Done') as HTMLButtonElement;
     ok.type = 'button';
     ok.id = 'dip-next';
@@ -420,7 +432,7 @@ function summary(pulls: PullResult[]): Promise<void> {
       const r = rarityDef(p.rarity);
       const c = el('div', `dcard r-${p.rarity}`);
       c.style.setProperty('--c', r.col);
-      c.append(art(p.die, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}`));
+      c.append(art(p.die, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}${p.blank ? ' · +canvas' : ''}`));
       if (!p.dup) c.append(el('span', 'bagmark new', 'new'));
       grid.append(c);
     }
@@ -433,13 +445,53 @@ function summary(pulls: PullResult[]): Promise<void> {
       sfx.tap();
       done();
     });
-    body.append(el('p', 'eyebrow', `${pulls.length} dips`), grid, ok);
+    const found = pulls.filter((p) => p.blank).length;
+    body.append(el('p', 'eyebrow', `${pulls.length} dips`), grid);
+    if (found) body.append(el('p', 'dnote', `A die showed 1: you found ${found > 1 ? `${found} blank canvases` : 'a blank canvas'}.`));
+    body.append(ok);
   });
 }
 
 /* ---------- Einstieg ---------- */
+/* ---------- Selbst malen ---------- */
+function openBlank(): void {
+  if (!save || busy || !(save.blank ?? 0)) return;
+  sfx.tap();
+  initAudio();
+  $('dice').hidden = true;
+  openDraw(save.blank ?? 0);
+}
+function closeBlank(): void {
+  $('draw').hidden = true;
+  $('dice').hidden = false;
+  render();
+}
+/** Zeichnung an den Server, dann das Ritual wie bei einem Zug. false: Fehler, man zeichnet weiter */
+async function paintDrawing(code: string): Promise<boolean> {
+  if (busy) return false;
+  busy = true;
+  let res: DiceResponse;
+  try {
+    res = await api.diceDraw(code);
+  } catch (e) {
+    busy = false;
+    hooks.error(e);
+    return false;
+  }
+  const before = save;
+  save = res.dice;
+  freeReady = res.freeReady;
+  closeBlank();
+  await reveal(res.pulls, before);
+  busy = false;
+  render();
+  return true;
+}
+
 export function initDice(h: Hooks): void {
   hooks = h;
+  initDraw({ paint: paintDrawing, back: closeBlank });
+  $('blank-b').addEventListener('click', openBlank);
   $('dice-back').addEventListener('click', () => {
     sfx.tap();
     swapIn = null;
@@ -462,6 +514,7 @@ export async function diceBadge(): Promise<string> {
     freeReady = r.freeReady;
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.freeReady) return 'free dip';
+    if (r.dice.blank) return 'blank canvas';
     return '';
   } catch {
     return '';

@@ -5,8 +5,10 @@
  */
 import { START_MEDIA, UNLOCK_ORDER } from '../shared/duel/media';
 import type { DiceResponse, DuelReward } from '../shared/api';
-import { dayKey } from '../shared/day';
+import { dayKey, weekKey } from '../shared/day';
+import { decodeDrawing, encodeDrawing, hasShape } from '../shared/drawn';
 import {
+  BLANK,
   dieMonster,
   dieSpecies,
   emptyDice,
@@ -39,9 +41,22 @@ export function needUser(userId: string | undefined): string {
 /** Gleiche Sperre wie das Duell, weil Duell-Belohnungen die Sammlung ändern */
 export const playerLock = (uid: string): string => `duel:${uid}`;
 
-export async function loadDice(d: Pick<Deps, 'redis'>, uid: string): Promise<DiceSave> {
+export async function loadDice(d: Pick<Deps, 'redis' | 'now'>, uid: string): Promise<DiceSave> {
   const raw = await d.redis.get(K.dice(uid));
-  return raw ? { ...emptyDice(), ...(JSON.parse(raw) as DiceSave) } : emptyDice();
+  const s = raw ? { ...emptyDice(), ...(JSON.parse(raw) as DiceSave) } : emptyDice();
+  weeklyBlank(s, d.now);
+  return s;
+}
+/**
+ * Jede Woche ein leerer Würfel, die freien füllen nur bis BLANK.max auf (auch nach Wochen ohne Besuch).
+ * Rechnet beim Laden, gespeichert wird mit der nächsten Änderung, bis dahin kommt dasselbe heraus.
+ */
+function weeklyBlank(s: DiceSave, now: number): void {
+  const w = weekKey(now);
+  if (s.blankWeek === w) return;
+  const weeks = s.blankWeek ? Number(w.slice(1)) - Number(s.blankWeek.slice(1)) : 1;
+  s.blankWeek = w;
+  if (weeks > 0) s.blank = Math.max(s.blank ?? 0, Math.min(BLANK.max, (s.blank ?? 0) + weeks));
 }
 export async function saveDice(d: Pick<Deps, 'redis' | 'now'>, uid: string, s: DiceSave): Promise<void> {
   // Ältere Würfel bekommen beim nächsten Speichern ihre Seriennummer und, wenn frei, ihren Platz im Register
@@ -118,7 +133,13 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
   s.dice.push(die);
   // Startzüge füllen den Beutel, spätere Würfel packt man selbst ein
   if (starter && s.bag.length < BAG) s.bag.push(die.id);
-  return { d100, rarity, pity, die, dup: owned.has(key) ? key : null };
+  const out: PullResult = { d100, rarity, pity, die, dup: owned.has(key) ? key : null };
+  // Der schlechteste Wurf tröstet: dazu ein leerer Würfel zum Selbstmalen
+  if (d100 === BLANK.find) {
+    s.blank = (s.blank ?? 0) + 1;
+    out.blank = true;
+  }
+  return out;
 }
 
 /** Die offenen Startzüge auf einmal (auch beim ersten Duell ohne Beutel) */
@@ -172,6 +193,29 @@ export async function dicePull(d: Deps, userId: string | undefined, kind: unknow
     await claimPulls(d, uid, pulls);
     await saveDice(d, uid, s);
     return respond(d, s, pulls);
+  });
+}
+
+/**
+ * Selbst malen (Blank canvas): die Striche bestimmen nur die Form. Alles andere würfelt der Server wie bei einem Zug
+ * (W100, Seltenheit, Papier, Pigment, Werte, Schutz vor Pech), danach ist die Zeichnung fest.
+ */
+export async function diceDraw(d: Deps, userId: string | undefined, code: unknown): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  const dr = typeof code === 'string' ? decodeDrawing(code) : null;
+  if (!dr) throw new GameError('bad_request', 'That drawing did not survive the trip. Try again.');
+  if (!hasShape(dr)) throw new GameError('bad_request', 'Close a shape. Paint needs somewhere to pool.');
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    if (s.starter > 0) throw new GameError('bad_request', 'Dip your free dice first, then paint.');
+    if ((s.blank ?? 0) < 1) throw new GameError('bad_request', 'No blank canvas left. A new one comes every Monday.');
+    s.blank! -= 1;
+    const p = pullOne(d, s, false, false);
+    // Gespeichert wird die geprüfte, vereinfachte Fassung, nie ein Bild
+    p.die.draw = encodeDrawing(dr);
+    await claimPulls(d, uid, [p]);
+    await saveDice(d, uid, s);
+    return respond(d, s, [p]);
   });
 }
 

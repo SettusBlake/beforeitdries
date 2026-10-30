@@ -77,6 +77,7 @@
       <div id="dip-btns"></div>
       <div class="odds" id="odds"></div>
       <p class="pity" id="pity"></p>
+      <button type="button" class="blankbtn" id="blank-b"><b>Blank canvas</b><small id="blank-sub"></small><span id="blank-n">0</span></button>
     </section>
     <section class="dbox">
       <div class="bagrow"><span class="eyebrow">Deck</span><small id="bag-hint"></small></div>
@@ -87,6 +88,24 @@
       <div id="coll"></div>
     </section>
   </div>
+</section>
+
+<section id="draw" class="screen" hidden>
+  <header class="dtop">
+    <button type="button" id="draw-back" aria-label="Back">←</button>
+    <h2>Blank canvas</h2>
+    <span class="blankn" id="draw-left">1 left</span>
+  </header>
+  <div class="sepia-say"><p class="eyebrow">Master Sepia</p><p class="hand" id="draw-say"></p></div>
+  <div id="padwrap"><canvas id="pad" aria-label="Drawing paper"></canvas></div>
+  <div class="tools">
+    <button type="button" class="tool" id="t-mirror" aria-pressed="true">Mirror</button>
+    <button type="button" class="tool" id="t-eyes" aria-pressed="false">Eyes</button>
+    <button type="button" class="tool" id="t-undo">Undo</button>
+    <button type="button" class="tool" id="t-clear">Clear</button>
+  </div>
+  <p class="dhint">Closed shapes fill with paint. Open lines stay lines. Colour, paper, rarity and the die are rolled as usual.</p>
+  <button type="button" class="primary" id="draw-go">Paint it</button>
 </section>
 
 <div class="overlay" id="dip" hidden>

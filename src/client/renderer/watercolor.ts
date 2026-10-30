@@ -7,6 +7,7 @@
 import { BP, PAPER, PIG, type BlobShape, type Geometry, type Limb, type Paper, type RGB } from '../../shared/data';
 import type { Monster } from '../../shared/monster';
 import { RNG, clamp, gauss, ri, rr, type Rand } from '../../shared/rng';
+import { decodeDrawing, drawnGeometry } from '../../shared/drawn';
 import { form } from '../../shared/forms';
 
 export type Quality = 'full' | 'lite';
@@ -19,7 +20,7 @@ export interface RenderOptions {
 }
 
 /** Was der Renderer vom Monster braucht */
-export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen'>;
+export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
 
 export type P3 = [number, number, number];
 export type P2 = [number, number] | P3;
@@ -658,6 +659,9 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
 
 /** Die Geometrie: Generation 2 aus den neuen Formen (eigener Zufall), sonst der Bauplan wie im Prototyp */
 export function geometryOf(m: Paintable): Geometry {
+  // Selbst gemalt: die Zeichnung ist die Form (rechnet ohne Zufall, die Würfe des Renderers bleiben gleich)
+  const dr = m.draw ? decodeDrawing(m.draw) : null;
+  if (dr) return drawnGeometry(dr);
   return m.gen === 2 ? form(m.bp, RNG((m.seed ^ 0x2f6b9d3) + 7919 * m.mutations)) : BP[m.bp].build(RNG(m.seed + 7919 * m.mutations + 13));
 }
 
