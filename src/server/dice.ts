@@ -22,6 +22,8 @@ import {
   rarityIndex,
   REWARD,
   rollShiny,
+  forcedShiny,
+  STYLES,
   TEN_COST,
   washGlaze,
   type DiceSave,
@@ -135,7 +137,8 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
   // Startzüge füllen den Beutel, spätere Würfel packt man selbst ein
   if (starter && s.bag.length < BAG) s.bag.push(die.id);
   // Die Hand: Shiny 1 zu 1000, nur Aussehen
-  const sh = rollShiny(d.rand);
+  const sh = s.forceShiny ? forcedShiny(s.forceShiny) : rollShiny(d.rand);
+  delete s.forceShiny;
   const out: PullResult = { d100, rarity, pity, die, dup: owned.has(key) ? key : null, hand: sh.hand };
   if (sh.d10) out.shinyD10 = sh.d10;
   if (sh.style) {
@@ -183,6 +186,21 @@ export async function diceGet(d: Deps, userId: string | undefined, username?: st
     const t = await loadDice(d, uid);
     await saveDice(d, uid, t);
     return { ...respond(d, t), tester };
+  });
+}
+
+/** Test-Knopf (Playtest, nur Mods): der nächste Zug ist Shiny in diesem Stil, null nimmt es zurück */
+export async function diceTestShiny(d: Deps, userId: string | undefined, username: string | undefined, style: unknown): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  const k = STYLES.find((x) => x.k === style)?.k ?? null;
+  if (style !== null && !k) throw new GameError('bad_request', 'Unknown style.');
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    if (k) s.forceShiny = k;
+    else delete s.forceShiny;
+    await saveDice(d, uid, s);
+    return { ...respond(d, s), tester: true };
   });
 }
 

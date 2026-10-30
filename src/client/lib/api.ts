@@ -1,6 +1,6 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
 import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GlazeResponse, type InitResponse, type PlayInfo } from '../../shared/api';
-import type { PullKind } from '../../shared/dice';
+import type { PullKind, StyleId } from '../../shared/dice';
 import type { DuelAction } from '../../shared/duel/play';
 import type { Level } from '../../shared/duel/rules';
 import type { PigmentId } from '../../shared/data';
@@ -45,6 +45,7 @@ export const api = {
   diceWash: (id: string, confirm = false) => call<DiceResponse>('/api/dice/wash', { id, confirm }),
   diceDraw: (drawing: string) => call<DiceResponse>('/api/dice/draw', { drawing }),
   diceTestBlank: () => call<DiceResponse>('/api/dice/test-blank', {}),
+  diceTestShiny: (style: StyleId | null) => call<DiceResponse>('/api/dice/test-shiny', { style }),
 };
 
 /** Abstand zwischen Server- und Geräteuhr, für Trockenzeit und Tagesende */

@@ -4,7 +4,7 @@ import { context, createServer, getServerPort, reddit, redis, settings } from '@
 import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
 import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
 import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
-import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceWash } from './dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTestShiny, diceWash } from './dice';
 import { duelAct, duelGet, duelStart } from './duel';
 import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
@@ -128,6 +128,12 @@ app.post(
   wrap(async (req, res) => {
     const body = (req.body ?? {}) as { id?: unknown; confirm?: unknown };
     res.json(await diceWash(await deps(), context.userId, body.id, body.confirm));
+  }),
+);
+app.post(
+  '/api/dice/test-shiny',
+  wrap(async (req, res) => {
+    res.json(await diceTestShiny(await deps(), context.userId, await username(), (req.body as { style?: unknown } | undefined)?.style ?? null));
   }),
 );
 app.post(

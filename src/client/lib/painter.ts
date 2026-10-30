@@ -2,8 +2,19 @@
  * Malt Monster nebenbei: das Bild entsteht in kleinen Schritten, ein paar Millisekunden pro Bildwechsel,
  * damit Animationen (Ziehen, Duell) flüssig bleiben. Fertige Bilder kommen in einen Zwischenspeicher.
  */
-import type { Paintable, RenderOptions } from '../renderer/watercolor';
+import type { Monster } from '../../shared/monster';
+import { renderStyled } from '../renderer/styles';
+import type { RenderOptions } from '../renderer/watercolor';
 import { paintSteps } from '../renderer/watercolor';
+
+/** deco: bei Shinys Rahmen, Texte und Schild (nur große Bilder) */
+export type PaintOptions = RenderOptions & { deco?: boolean };
+
+/** Shiny: in einem Stück im eigenen Stil. Ohne Papier freigestellt (Duell) */
+function* styledSteps(canvas: HTMLCanvasElement, m: Monster, cssSize: number, opts: PaintOptions): Generator<void, void> {
+  yield;
+  renderStyled(canvas, m, m.style!, cssSize, { dpr: opts.dpr, deco: opts.deco ?? false, cutout: opts.paper === false });
+}
 
 type Job = { it: Generator<void, void>; prio: number; done: () => void; fail: (e: unknown) => void };
 const jobs: Job[] = [];
@@ -30,9 +41,10 @@ function tick(): void {
 }
 
 /** In die Warteschlange: höhere prio zuerst. Das Canvas ist erst nach dem Versprechen fertig */
-export function paintLater(canvas: HTMLCanvasElement, m: Paintable, cssSize: number, opts: RenderOptions = {}, prio = 0): Promise<HTMLCanvasElement> {
+export function paintLater(canvas: HTMLCanvasElement, m: Monster, cssSize: number, opts: PaintOptions = {}, prio = 0): Promise<HTMLCanvasElement> {
   return new Promise((res, rej) => {
-    const job: Job = { it: paintSteps(canvas, m, cssSize, opts), prio, done: () => res(canvas), fail: rej };
+    const it = m.style ? styledSteps(canvas, m, cssSize, opts) : paintSteps(canvas, m, cssSize, opts);
+    const job: Job = { it, prio, done: () => res(canvas), fail: rej };
     const at = jobs.findIndex((x) => x.prio < prio);
     // Der laufende Auftrag bleibt vorn, sonst müsste er neu anfangen
     if (at < 0) jobs.push(job);
@@ -47,7 +59,7 @@ export function paintLater(canvas: HTMLCanvasElement, m: Paintable, cssSize: num
 /** Zwischenspeicher fertiger Bilder (auf eigenem Canvas, nie im Bild sichtbar, solange es entsteht) */
 const cache = new Map<string, Promise<HTMLCanvasElement>>();
 const ready = new Map<string, HTMLCanvasElement>();
-export function painted(key: string, m: Paintable, cssSize: number, opts: RenderOptions = {}, prio = 0): Promise<HTMLCanvasElement> {
+export function painted(key: string, m: Monster, cssSize: number, opts: PaintOptions = {}, prio = 0): Promise<HTMLCanvasElement> {
   let p = cache.get(key);
   if (!p) {
     const c = document.createElement('canvas');

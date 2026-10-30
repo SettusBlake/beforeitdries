@@ -53,6 +53,8 @@ export function rollShiny(rand: () => number): ShinyRoll {
   const styleD10 = 1 + (rand() % 10);
   return { hand, d10, styleD10, style: styleFromRoll(styleD10) };
 }
+/** Test-Knopf: der nächste Zug ist Shiny in diesem Stil (Würfe so, wie sie dafür fallen müssten) */
+export const forcedShiny = (k: StyleId): ShinyRoll => ({ hand: 100, d10: 10, styleD10: styleDef(k).from, style: k });
 /** Seriennummer zum Zeigen: #00427 */
 export const serialText = (no: number | undefined): string => (no ? '#' + String(no).padStart(5, '0') : '');
 
@@ -103,6 +105,8 @@ export type DiceSave = {
   /** Leere Würfel zum Selbstmalen (Blank canvas) und die Woche, deren freier schon gutgeschrieben ist */
   blank?: number;
   blankWeek?: string;
+  /** Test-Knopf (Playtest, nur Mods): der nächste Zug ist Shiny in diesem Stil */
+  forceShiny?: StyleId;
 };
 export function emptyDice(): DiceSave {
   return { v: 1, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };

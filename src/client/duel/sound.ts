@@ -172,6 +172,13 @@ export const sfx = {
     tone(0, 140, 70, 0.18, 'sine', 0.32);
     hiss(0, 0.09, 'lowpass', 2500, 800, 0.2);
   },
+  /** Shiny: tiefe Glocke, dann ein heller Lauf aufwärts und Funkeln */
+  shiny(): void {
+    tone(0, 196, 190, 1.6, 'sine', 0.14);
+    tone(0, 392, 388, 1.2, 'triangle', 0.05);
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, k) => tone(0.12 + k * 0.07, f, f, 0.6, 'triangle', 0.045));
+    for (let k = 0; k < 12; k++) tone(0.5 + k * 0.05, 2000 + Math.random() * 2000, 2600 + Math.random() * 1600, 0.3, 'sine', 0.022);
+  },
   /** Funkeln für Epic und Legendary */
   shimmer(): void {
     for (let k = 0; k < 9; k++) tone(k * 0.06, 1800 + Math.random() * 1600, 2400 + Math.random() * 1400, 0.25, 'sine', 0.025);

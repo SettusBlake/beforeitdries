@@ -1,7 +1,7 @@
 /* Würfelsammlung: Startzüge, offener W100, Schutz vor Pech, einzigartige Monster, Auswaschen, Beutel, Lasur auf Seiten */
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceWash, isPlaytest, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTestShiny, diceWash, isPlaytest, loadDice, saveDice } from '../src/server/dice';
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
@@ -345,5 +345,25 @@ describe('Würfelsammlung', () => {
     expect(w.dice.dice.some((x) => x.id === die.id)).toBe(false);
     const rec = JSON.parse((await d.redis.hGet(K.recycled, String(monsterSeed(die.sheet, die.idx))))!) as { die: { style?: string } };
     expect(rec.die.style).toBe('oil');
+  });
+
+  it('Test-Knopf: der nächste Zug ist Shiny im gewählten Stil, nur einmal, nur für Mods im Playtest', async () => {
+    const reddit = new FakeReddit();
+    reddit.mods.push('Vegavild');
+    const d = { ...setup(99), reddit, appVersion: '0.0.1.57' };
+    await dicePull(d, USER, 'starter');
+    expect(await code(diceTestShiny(d, USER, 'someone', 'oil'))).toBe('forbidden');
+    expect(await code(diceTestShiny({ ...d, appVersion: '0.0.2' }, USER, 'Vegavild', 'oil'))).toBe('forbidden');
+    expect(await code(diceTestShiny(d, USER, 'Vegavild', 'watercolour'))).toBe('bad_request');
+    expect((await diceTestShiny(d, USER, 'Vegavild', 'oil')).dice.forceShiny).toBe('oil');
+    const one = (await dicePull(d, USER, 'free')).pulls[0]!;
+    expect(one.hand).toBe(100);
+    expect(one.shinyD10).toBe(10);
+    expect(one.styleD10).toBe(10);
+    expect(one.die.style).toBe('oil');
+    expect((await loadDice(d, USER)).forceShiny).toBeUndefined();
+    // Zurücknehmen geht auch
+    await diceTestShiny(d, USER, 'Vegavild', 'comic');
+    expect((await diceTestShiny(d, USER, 'Vegavild', null)).dice.forceShiny).toBeUndefined();
   });
 });

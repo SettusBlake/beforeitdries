@@ -808,8 +808,11 @@ export function plate(ctx: Ctx, m: Monster, S: number): void {
 
   // Figur etwas kleiner, Platz für die Unterschrift
   ctx.save();
-  ctx.translate(S * 0.12, S * 0.07);
-  ctx.scale(0.76, 0.76);
+  // Groß mit Unterschrift: Figur kleiner. Klein ohne Text: volle Größe
+  if (DECO) {
+    ctx.translate(S * 0.12, S * 0.07);
+    ctx.scale(0.76, 0.76);
+  }
   const p = prep(m, S, 0.16, 3);
   const { cx, x0, x1 } = centerOf(p);
   const fy = feetY(p, S);
@@ -1672,7 +1675,7 @@ function goldFrame(ctx: Ctx, S: number, r: Rand): void {
  * Malt ein Shiny im Stil. deco: Rahmen, Texte und Schild (nur groß). Das Monster ist für jede Größe dasselbe.
  * Gibt die Malzeit in Millisekunden zurück.
  */
-export function renderStyled(canvas: HTMLCanvasElement, m: Monster, style: StyleId, cssSize: number, opts: { dpr?: number; deco?: boolean } = {}): number {
+export function renderStyled(canvas: HTMLCanvasElement, m: Monster, style: StyleId, cssSize: number, opts: { dpr?: number; deco?: boolean; cutout?: boolean } = {}): number {
   const t0 = performance.now();
   const dpr = opts.dpr ?? Math.min(2, window.devicePixelRatio || 1);
   const S = Math.max(200, Math.round(cssSize * dpr));
@@ -1683,15 +1686,41 @@ export function renderStyled(canvas: HTMLCanvasElement, m: Monster, style: Style
   // Generation 2: keine Extras aus dem Prototyp
   const mm: Monster = m.gen === 2 ? { ...m, face: { ...m.face, extra: 'keins' } } : m;
   const serial = '#' + String(m.seed % 100000).padStart(5, '0');
-  DECO = opts.deco ?? true;
+  // Freigestellt (Klecks im Duell): ohne Rahmen und Text, danach alles außer dem Monster weg
+  DECO = (opts.deco ?? true) && !opts.cutout;
   try {
     if (style === 'pencil') pencil(ctx, mm, S, `${m.name.toLowerCase()}, ${serial}`);
     else if (style === 'comic') comic(ctx, mm, S, `${m.name.toUpperCase()}!`);
     else if (style === 'plate') plate(ctx, mm, S);
     else if (style === 'anime') anime(ctx, mm, S);
     else oil(ctx, mm, S, `${m.name}  ${serial}`);
+    if (opts.cutout) cutout(ctx, mm, S);
   } finally {
     DECO = true;
   }
   return performance.now() - t0;
+}
+/** Nur das Monster behalten: Silhouette aus Flächen, Gliedern und Gesicht, etwas geweitet, alles andere durchsichtig */
+function cutout(ctx: Ctx, m: Monster, S: number): void {
+  const p = prep(m, S, 0.2, 3);
+  const sil = silhouette(S, p, '#000', null, 1.3);
+  const [mc, mx] = layer(S);
+  mx.fillStyle = '#000';
+  for (const f of p.geo.faces) {
+    mx.beginPath();
+    mx.arc(f.x * S, f.y * S, f.r * S * 1.15, 0, 7);
+    mx.fill();
+    if (f.stalks) {
+      mx.beginPath();
+      mx.arc(f.x * S, (f.y - f.r * 1.5) * S, f.r * S * 0.9, 0, 7);
+      mx.fill();
+    }
+  }
+  mx.drawImage(sil, 0, 0);
+  ring(mx, sil, S * 0.012);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(mc, 0, 0);
+  ctx.restore();
 }
