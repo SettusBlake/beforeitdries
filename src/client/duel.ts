@@ -15,7 +15,7 @@ import { mediumDef, type MediumId } from '../shared/duel/media';
 import { bestRoll, tutorialAction, tutorialActive } from '../shared/duel/tutorial';
 import * as R from '../shared/duel/rules';
 import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, ROWS, S, type Ev, type Face, type Level, type Plan, type Side, type Unit } from '../shared/duel/rules';
-import { renderMonster } from './renderer/watercolor';
+import { paintLater } from './lib/painter';
 import { api, ApiError } from './lib/api';
 import { makeCube, tumble } from './duel/dice3d';
 import { iconSvg, netSvg } from './duel/icons';
@@ -115,6 +115,7 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
     return false;
   }
   if (res.state) loadState(res.state);
+  View.prewarm();
   if (res.reward) reward = res.reward;
   armed = null;
   aiming = null;
@@ -466,11 +467,16 @@ function hearts(box: HTMLElement, n: number): void {
   for (let k = 0; k < HEARTS; k++) box.append(el('i', k < n ? 'on' : '', '♥'));
 }
 function portraitEl(id: number, px: number, alpha = 1): HTMLCanvasElement {
-  const src = View.portrait(id, px);
   const c = document.createElement('canvas');
   c.width = c.height = px * 2;
-  c.getContext('2d')!.drawImage(src, 0, 0, px * 2, px * 2);
   c.style.opacity = String(alpha);
+  c.classList.add('wet');
+  // Nebenbei gemalt: sobald fertig, ins Kärtchen
+  void View.portrait(id, px).then((src) => {
+    if (!src) return;
+    c.getContext('2d')!.drawImage(src, 0, 0, px * 2, px * 2);
+    c.classList.remove('wet');
+  });
   return c;
 }
 /** Fläschchen für ein Malmittel */
@@ -1477,6 +1483,8 @@ async function updateBadge(): Promise<void> {
 function layout(): void {
   const w = $('boardwrap');
   View.resize(w.clientWidth, w.clientHeight);
+  // Kleckse beider Seiten schon nebenbei malen, bevor sie aufs Blatt kommen
+  View.prewarm();
 }
 window.addEventListener('resize', () => {
   if (screen === 'game') layout();
@@ -1656,7 +1664,8 @@ function titleArt(): void {
     const c = document.createElement('canvas');
     c.className = 'tblot ' + cls;
     c.width = c.height = 1;
-    renderMonster(c, m, 140, { dpr: Math.min(2, window.devicePixelRatio || 1) });
+    // Malt sich vor den Augen auf (nebenbei, in kleinen Schritten)
+    void paintLater(c, { ...m, gen: 2 }, 140, { dpr: Math.min(2, window.devicePixelRatio || 1) }, 4);
     box.append(c);
   }
   box.append(el('span', 'vs', 'vs'));

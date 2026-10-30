@@ -8,7 +8,7 @@ import { PAPER, PIG, type PaperId } from '../../../shared/data';
 import { RARITIES, rarityDef, rarityIndex, serialText, type Rarity } from '../../../shared/dice';
 import type { Face } from '../../../shared/duel/rules';
 import type { Monster } from '../../../shared/monster';
-import { renderMonster } from '../../renderer/watercolor';
+import { keepLoose, paintLater } from '../../lib/painter';
 import { iconSvg } from '../icons';
 import { sfx } from '../sound';
 import { Particles, backdropCanvas, dropTex, edgeGlowCanvas, flakeTex, glowTex, noiseTex, paperCanvas, raysTex, ringTex, sparkTex } from './fx';
@@ -25,6 +25,8 @@ export type RevealPull = {
   /** Die Art hatte man schon: der Stempel zeigt dann die Seriennummer statt NEW */
   dup: boolean;
   no: number;
+  /** Würfel-ID: das fertige Bild geht danach in die Sammlung */
+  id?: string;
 };
 
 /** Leuchtfarbe je Seltenheit */
@@ -169,11 +171,20 @@ export class Reveal {
   }
 
   /* ---------- Bausteine ---------- */
-  private monsterTex(m: Monster, px: number): Texture {
+  /** Klecks nebenbei malen (in kleinen Schritten während der Animation), dann als Textur */
+  private monsterTex(m: Monster, px: number, prio = 0, keep?: string): Promise<Texture> {
     const c = document.createElement('canvas');
     c.width = c.height = 1;
-    renderMonster(c, m, px, { dpr: 1 });
-    return Texture.from(c);
+    return paintLater(c, m, px, { dpr: 1 }, prio).then((x) => {
+      if (keep) keepLoose(keep, x);
+      return Texture.from(x);
+    });
+  }
+  /** Textur nachreichen, Größe bleibt */
+  private static fit(sp: Sprite, t: Texture, size: number): void {
+    if (sp.destroyed) return;
+    sp.texture = t;
+    sp.width = sp.height = size;
   }
   private faceTex(f: Face): Promise<Texture> {
     const key = `${f.k}${f.n}`;
@@ -382,7 +393,9 @@ export class Reveal {
     const tint = GLOW[p.rarity];
     const pig = rgbNum(PIG[p.monster.main].rgb);
     const faceTexP = Promise.all(p.faces.map((f) => this.faceTex(f)));
-    const plainTex = this.monsterTex({ ...p.monster, paper: PLAIN }, 512);
+    // Beide Bilder malen nebenbei, während Glas und Pinsel kommen: erst das neutrale, dann das echte Papier
+    const plainP = this.monsterTex({ ...p.monster, paper: PLAIN }, 512, 4);
+    const realP = this.monsterTex(p.monster, 512, 3, p.id);
 
     // Hinten: Strahlen und Hof (erst bei der Seltenheit sichtbar)
     const rays = new Sprite(raysTex());
@@ -415,9 +428,9 @@ export class Reveal {
     const paper = new Sprite(Texture.from(paperCanvas(Math.round(g.S), Math.round(g.S), PAPER[PLAIN].tone, false)));
     paper.anchor.set(0.5);
     const ink = new Container();
-    const mon = new Sprite(plainTex);
+    const mon = new Sprite(Texture.EMPTY);
     mon.anchor.set(0.5);
-    mon.width = mon.height = g.S;
+    const plainSet = plainP.then((t) => Reveal.fit(mon, t, g.S));
     const mask = this.makePaintMask(g.S);
     ink.addChild(mon, mask.s);
     mon.mask = mask.s;
@@ -474,7 +487,8 @@ export class Reveal {
       brush.tip.tint = pig;
       void this.tween(300, (q) => (brush.tip.alpha = q));
       await this.tween(520, (q) => (jar.glow.alpha = 0.45 + 0.35 * Math.sin(q * Math.PI)));
-      // 2. Der Pinsel malt den Klecks in Bahnen aufs Blatt
+      // 2. Der Pinsel malt den Klecks in Bahnen aufs Blatt (das Bild ist inzwischen nebenbei fertig geworden)
+      await plainSet;
       sfx.lift();
       void this.tween(600, (q) => (jar.c.alpha = 1 - q * 0.8));
       wet.alpha = WET;
@@ -514,8 +528,9 @@ export class Reveal {
     mon.mask = null;
     mask.s.visible = false;
     wet.visible = false;
-    // Der echte Klecks auf seinem Papier, noch unsichtbar (einmal kurz rechnen, solange der Wurf noch nicht da ist)
-    const realTex = this.monsterTex(p.monster, 512);
+    await plainSet;
+    // Der echte Klecks auf seinem Papier, nebenbei gemalt, solange der Pinsel arbeitete
+    const realTex = await realP;
 
     // 6. Der Wurf: W100 rollt, die Leiste füllt sich
     const numY = g.cy + g.S / 2 + 62;
@@ -779,9 +794,10 @@ export class Reveal {
       frame.alpha = 0;
       const paper = new Sprite(Texture.from(paperCanvas(Math.round(s), Math.round(s), PAPER[PLAIN].tone, false)));
       paper.anchor.set(0.5);
-      const mon = new Sprite(this.monsterTex({ ...p.monster, paper: PLAIN }, 180));
+      const mon = new Sprite(Texture.EMPTY);
       mon.anchor.set(0.5);
-      mon.width = mon.height = s;
+      const plainSet = this.monsterTex({ ...p.monster, paper: PLAIN }, 180, 4 - k * 0.01).then((t) => Reveal.fit(mon, t, s));
+      const realP = this.monsterTex(p.monster, 180, 2 - k * 0.01, p.id);
       const mask = this.makePaintMask(s);
       mon.mask = mask.s;
       const wet = new Sprite(mask.tex);
@@ -800,7 +816,7 @@ export class Reveal {
       c.addChild(glow, frame, paper, mon, mask.s, wet, tag);
       c.alpha = 0;
       this.mid.addChild(c);
-      return { c, glow, frame, mask, wet, tag, num, p, landed: false };
+      return { c, glow, frame, mask, wet, tag, num, p, landed: false, plainSet, realP };
     });
     await this.tween(400, (q) => minis.forEach((m) => (m.c.alpha = 0.6 * q)));
 
@@ -814,6 +830,7 @@ export class Reveal {
       const cell = cells[k]!;
       const pig = rgbNum(PIG[m.p.monster.main].rgb);
       brush.tip.tint = pig;
+      await m.plainSet;
       void this.tween(200, (q) => (m.c.alpha = 0.6 + 0.4 * q));
       await this.paintStrokes({ cx: cell.x, cy: cell.y, S: s, mask: m.mask, brush, color: pig, rows: 2, ms: 170, scale: 0.5, sound: true });
       // Die Farbe läuft ineinander und trocknet, während der Pinsel weiterzieht
@@ -861,7 +878,7 @@ export class Reveal {
       const real = new Container();
       const rp = new Sprite(Texture.from(paperCanvas(Math.round(s), Math.round(s), PAPER[m.p.monster.paper].tone, PAPER[m.p.monster.paper].deckle)));
       rp.anchor.set(0.5);
-      const rm = new Sprite(this.monsterTex(m.p.monster, 180));
+      const rm = new Sprite(await m.realP);
       rm.anchor.set(0.5);
       rm.width = rm.height = s;
       real.addChild(rp, rm);

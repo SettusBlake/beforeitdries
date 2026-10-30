@@ -7,6 +7,7 @@
 import { BP, PAPER, PIG, type BlobShape, type Geometry, type Limb, type Paper, type RGB } from '../../shared/data';
 import type { Monster } from '../../shared/monster';
 import { RNG, clamp, gauss, ri, rr, type Rand } from '../../shared/rng';
+import { form } from '../../shared/forms';
 
 export type Quality = 'full' | 'lite';
 export interface RenderOptions {
@@ -18,7 +19,7 @@ export interface RenderOptions {
 }
 
 /** Was der Renderer vom Monster braucht */
-export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations'>;
+export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen'>;
 
 export type P3 = [number, number, number];
 export type P2 = [number, number] | P3;
@@ -648,7 +649,27 @@ export function defaultDpr(): number {
 /** Malt das Monster neu. Gibt die Malzeit in Millisekunden zurück. */
 export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: number, opts: RenderOptions = {}): number {
   const t0 = performance.now();
-  LITE = opts.quality === 'lite';
+  const it = paintSteps(canvas, m, cssSize, opts);
+  while (!it.next().done) {
+    /* alles am Stück */
+  }
+  return performance.now() - t0;
+}
+
+/** Die Geometrie: Generation 2 aus den neuen Formen (eigener Zufall), sonst der Bauplan wie im Prototyp */
+export function geometryOf(m: Paintable): Geometry {
+  return m.gen === 2 ? form(m.bp, RNG((m.seed ^ 0x2f6b9d3) + 7919 * m.mutations)) : BP[m.bp].build(RNG(m.seed + 7919 * m.mutations + 13));
+}
+
+/**
+ * Dasselbe Bild in Schritten: nach jedem teuren Schritt hält der Maler an, damit andere Dinge (Animationen) dazwischen passen.
+ * Reihenfolge und Zufall wie renderMonster, nur mit Pausen (lib/painter.ts verteilt die Schritte auf die Bilder).
+ */
+export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: number, opts: RenderOptions = {}): Generator<void, void> {
+  const lite = opts.quality === 'lite';
+  LITE = lite;
+  // Neue Formen bringen eigene Hörner, Ohren und Stacheln mit: die Extras der Generation 1 fallen weg
+  const m: Paintable = m0.gen === 2 ? { ...m0, face: { ...m0.face, extra: 'keins' } } : m0;
   const dpr = opts.dpr ?? defaultDpr(),
     S = Math.max(200, Math.round(cssSize * dpr));
   if (canvas.width !== S || canvas.height !== S) {
@@ -656,6 +677,17 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
     canvas.height = S;
   }
   const ctx = canvas.getContext('2d')!;
+  // Nach jeder Pause können andere Bilder dazwischen gemalt haben: eigene Einstellung wieder setzen
+  const pause = function* (): Generator<void, void> {
+    LITE = false;
+    yield;
+    LITE = lite;
+  };
+  // Pause mitten im Mischen: danach wieder multiplizieren
+  const wet = function* (): Generator<void, void> {
+    yield* pause();
+    ctx.globalCompositeOperation = 'multiply';
+  };
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = 'source-over';
   ctx.clearRect(0, 0, S, S);
@@ -665,7 +697,8 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
   const r = RNG(m.seed ^ 0x9e3779b9);
   ctx.save();
   if (opts.paper !== false) drawPaper(ctx, S, pa, r);
-  const geo = BP[m.bp].build(RNG(m.seed + 7919 * m.mutations + 13));
+  yield* pause();
+  const geo = geometryOf(m);
   const vf = 0.65 + clamp((m.humidity - 30) / 65, 0, 1) * 0.75;
   const gr = RNG(m.seed + 31 * m.mutations + 5);
   // crisp gibt es nur bei den neuen Formen, ohne bleibt jede Zahl wie im Prototyp
@@ -676,37 +709,55 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
   });
 
   ctx.globalCompositeOperation = 'multiply';
-  geo.limbs.forEach((l) => limbWash(ctx, l, main.rgb, gr, S));
+  for (const [i, l] of geo.limbs.entries()) {
+    limbWash(ctx, l, main.rgb, gr, S);
+    if (i % 8 === 7) yield* wet();
+  }
+  yield* wet();
   // few: kleine Teile der neuen Formen, 12 Schichten mit gleicher Gesamtdeckung wie 22
-  bases.forEach((o) => wash(ctx, o.base, main.rgb, gr, o.b.leaf ? 14 : o.b.few ? 12 : 22, o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05, 0.3 * vf * (o.b.crisp ?? 1)));
-  m.sec.forEach((id, i) => {
+  for (const o of bases) {
+    wash(ctx, o.base, main.rgb, gr, o.b.leaf ? 14 : o.b.few ? 12 : 22, o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05, 0.3 * vf * (o.b.crisp ?? 1));
+    yield* wet();
+  }
+  for (const [i, id] of m.sec.entries()) {
     const p = PIG[id];
     let list = bases.filter((o) => (i === 0 ? o !== core : o === core));
     if (!list.length) list = [core];
-    list.forEach((o) => {
+    for (const o of list) {
       const b = o.b,
         sub = { x: b.x + gauss(gr) * b.rx * 0.2, y: b.y + gauss(gr) * b.ry * 0.2 + (i ? b.ry * 0.3 : 0), rx: b.rx * rr(gr, 0.45, 0.8), ry: b.ry * rr(gr, 0.45, 0.8), rot: b.rot };
       wash(ctx, deformN(ellipsePts(sub, S, gr, 10), gr, 0.45 * vf, 3), p.rgb, gr, 16, 0.045, 0.45 * vf);
-    });
-  });
-  m.glazes.forEach((g) => {
+      yield* wet();
+    }
+  }
+  for (const g of m.glazes) {
     const p = PIG[g.p],
       r2 = RNG(g.seed);
-    bases.forEach((o) => wash(ctx, o.base, p.rgb, r2, 10, 0.032, 0.18 * (o.b.crisp ?? 1)));
+    for (const o of bases) {
+      wash(ctx, o.base, p.rgb, r2, 10, 0.032, 0.18 * (o.b.crisp ?? 1));
+      yield* wet();
+    }
     geo.limbs.forEach((l) => limbWash(ctx, l, p.rgb, r2, S, 0.045));
-  });
+    yield* wet();
+  }
   if (m.mud) {
     const r3 = RNG(m.seed + 99);
-    bases.forEach((o) => wash(ctx, o.base, [116, 100, 82], r3, 16, 0.055, 0.25 * (o.b.crisp ?? 1)));
+    for (const o of bases) {
+      wash(ctx, o.base, [116, 100, 82], r3, 16, 0.055, 0.25 * (o.b.crisp ?? 1));
+      yield* wet();
+    }
   }
   bases.forEach((o) => edges(ctx, o.base, main.rgb, gr, S));
+  yield* wet();
   const granAmt = Math.max(main.gran, ...m.sec.map((id) => PIG[id].gran * 0.6), ...m.glazes.map((g) => PIG[g.p].gran * 0.5), m.mud ? 0.8 : 0);
   if (granAmt > 0.15) granulate(ctx, bases.map((o) => o.base), m.mud ? [116, 100, 82] : main.rgb, gr, granAmt, S);
+  yield* wet();
 
   const er = RNG(m.seed + 4242);
   if (m.events.bloom) bloomFx(ctx, core.b, S, main.rgb, paper, er);
   if (m.events.salt) saltFx(ctx, core.b, S, paper, er);
   if (m.events.alcohol) alcoholFx(ctx, core.b, S, main.rgb, paper, er);
+  yield* pause();
 
   ctx.globalCompositeOperation = 'source-over';
   const lw = S / 300,
@@ -720,5 +771,4 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
   if (m.events.print) printFx(ctx, core.b, S, RNG(m.seed + 5));
   ctx.restore();
   LITE = false;
-  return performance.now() - t0;
 }

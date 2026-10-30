@@ -1,6 +1,6 @@
 # Plan: einzigartige Monster, mehr Zufall, seltene Stile
 
-Stand 30.10.2026, Fassung 3. Rückmeldung:
+Stand 30.10.2026, Fassung 3, mit Baustand. Rückmeldung:
 
 1. Die Tagesposts in dieser Form nicht. Jedes Monster muss für jeden einzigartig sein. Tauschen soll später gehen, aber nicht, dass viele über den Tagespost dasselbe bekommen.
 2. Die Monster sind noch nicht zufällig genug. Es fehlen andere Zeichenstile (Comic, Öl, Anime, Illustration, Bleistift schwarz-weiß), als super seltene oder Shiny-Varianten.
@@ -41,7 +41,7 @@ Entwürfe, alles aus Code gemalt, keine Bilder:
 - Generation 2 würfelt die Form aus einem eigenen Zufallsstrom. Die alten Zufallsaufrufe bleiben unberührt.
 - Bauplan, Pigment, Werte und Fähigkeit im Duell kommen weiter aus dem alten Wurf. Die Art bleibt Bauplan plus Hauptpigment.
 
-### 2a. Formen aus Vorlagen (Entwurf gebaut, src/shared/forms/)
+### 2a. Formen aus Vorlagen (gebaut, Playtest v0.0.1.43, src/shared/forms/)
 
 **200 Vorlagen,** jede einem Bauplan zugeordnet, der zu ihr passt:
 
@@ -76,6 +76,7 @@ Entwürfe, alles aus Code gemalt, keine Bilder:
 
   Ähnlich heißt: Die Umrisse decken sich zu mehr als 60 %, auch gespiegelt. Eine Katze kommt im Schnitt einmal in etwa 200 Zügen.
 - **Malzeit:** etwa 2,5- bis 3-mal so lang wie heute (höchstens 28 Kleckse und 60 Linien je Monster). Das Bild wird wie bisher einmal gemalt und zwischengespeichert.
+- **Malen nebenbei** (gewünscht und gebaut 30.10.2026): Der Renderer malt in kleinen Schritten (ein Klecks, eine Lasur, ein paar Linien), eine Warteschlange malt höchstens 6 ms pro Bildwechsel, Wichtiges zuerst. Beim Ziehen malt das Monster, während Glas und Pinsel kommen, die Bilder gehen danach direkt in Übersicht und Sammlung. In der Sammlung erscheinen Karten nacheinander (nasses Papier pulsiert bis dahin). Im Duell malen alle Kleckse beider Seiten beim Laden vor, bis dahin steht ein Farbfleck da. Gemessen: ein Schritt meist 1 ms, fast nie über 7 ms. Neue Züge sind Generation 2, alle bisherigen Würfel bleiben, wie sie sind. Bild docs/entwuerfe/neue-formen-im-spiel.png
 
 ### 2b. Farbe, Muster, Gesichter, Malereignisse (danach)
 
@@ -149,11 +150,11 @@ So bleibt der Rorschach-Kern, jeder Post zeigt ein einzigartiges Monster, und di
 Jeder Schritt endet mit Upload und Handy-Test.
 
 1. **Einzigartig** (gebaut).
-2. **Vielfalt:** 2a Formen nach deinem Blick auf den Entwurf einbauen, danach 2b.
+2. **Vielfalt:** 2a Formen (gebaut), danach 2b.
 3. **Seltene Stile:** Hand-Wurf, fünf Stile im Renderer, Stilwechsel beim Ziehen, Anzeige im Duell.
 4. **Benennen** mit „What do you see?“.
 
 ## Offen
 
-- Formen-Entwurf ansehen: Passt die Richtung? Welche Vorlagen gefallen nicht, was fehlt noch?
-- Malzeit: 2,5- bis 3-mal so lang wie heute. Am Handy prüfe ich das nach dem Einbau. Wird es zäh, male ich kleine Teile noch sparsamer.
+- Malzeit am Handy: Wird es trotz Malen nebenbei zäh, male ich kleine Teile noch sparsamer.
+- Neue Idee (30.10.2026): Spieler malen selbst Monster. Vorschlag dazu folgt, nichts gebaut.

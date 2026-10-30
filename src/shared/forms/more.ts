@@ -309,7 +309,8 @@ export const MORE: Arche[] = [
           y = 0.65 - sin(t * PI) * arch;
         k.ring(x, y, 0.025, h / 2, 0.008, 0, PI * 2, 10);
       }
-      faceAt(k, 0.5 - w / 2, 0.65, h * 0.35);
+      const hd = k.c(0.5 - w / 2 - 0.03, 0.65, h * 0.45, 1, { ink: true });
+      faceAt(k, hd.x, hd.y, h * 0.4);
     },
   },
   {

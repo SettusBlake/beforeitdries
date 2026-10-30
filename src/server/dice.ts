@@ -65,7 +65,8 @@ function rollMonster(d: Deps, rarity: Rarity, avoid: Set<string> | null): Pick<D
   return rarity === 'legendary' ? { sheet, idx, paper: LEGENDARY_PAPERS[d.rand() % LEGENDARY_PAPERS.length]! } : { sheet, idx };
 }
 function dieFor(d: Deps, s: DiceSave, rarity: Rarity, avoid: Set<string> | null): DieRec {
-  return { id: `d${s.next++}`, ...rollMonster(d, rarity, avoid), mods: [], at: d.now };
+  // Neue Würfel bekommen die Formen der Generation 2 (festgelegt am 30.10.2026)
+  return { id: `d${s.next++}`, ...rollMonster(d, rarity, avoid), mods: [], at: d.now, gen: 2 };
 }
 /** Seed ins Register eintragen und Seriennummer vergeben. false: den Seed hat schon ein anderes Monster */
 async function claim(d: Pick<Deps, 'redis'>, uid: string, die: DieRec): Promise<boolean> {

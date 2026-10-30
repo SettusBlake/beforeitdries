@@ -52,6 +52,11 @@ export function formOf(a: Arche, r: Rand): Form {
   const k = new Kit(r);
   a.make(k);
   const g = k.build();
+  // Der Renderer braucht mindestens einen Klecks: sonst einer unter dem Gesicht
+  if (!g.blobs.length) {
+    const f = g.faces[0] ?? { x: 0.5, y: 0.5, r: 0.06 };
+    g.blobs.push({ x: f.x, y: f.y, rx: f.r * 1.1, ry: f.r * 1.1, rot: 0 });
+  }
   // Jedes Monster braucht ein Gesicht: sonst auf den größten Klecks
   if (!g.faces.length) {
     const b = g.blobs.reduce((p, c) => (c.rx * c.ry > p.rx * p.ry ? c : p), g.blobs[0]!);

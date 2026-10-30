@@ -135,6 +135,18 @@ describe('Würfelsammlung', () => {
     expect(new Set([...a.dice.dice, ...b.dice.dice].map((x) => x.no)).size).toBe(2 * STARTER_PULLS);
   });
 
+  it('neue Würfel haben die neuen Formen (Generation 2), ältere bleiben, wie sie waren', async () => {
+    const d = setup(14);
+    const res = await dicePull(d, USER, 'starter');
+    expect(res.dice.dice.every((x) => x.gen === 2)).toBe(true);
+    for (const x of res.dice.dice) expect(dieMonster(x).gen).toBe(2);
+    const old = { ...res.dice.dice[0]! };
+    delete old.gen;
+    expect(dieMonster(old).gen).toBeUndefined();
+    // Die Form ändert nichts an Werten und Würfelseiten
+    expect(dieUnit(dieMonster(old)).faces).toEqual(dieUnit(dieMonster(res.dice.dice[0]!)).faces);
+  });
+
   it('ältere Würfel ohne Nummer bekommen beim Laden eine', async () => {
     const d = setup(12);
     await dicePull(d, USER, 'starter');

@@ -1,6 +1,7 @@
 /* Regeln müssen exakt dem Prototyp entsprechen */
 import { describe, expect, it } from 'vitest';
 import { BAUPLAENE, PIGMENTS } from '../src/shared/data';
+import { ARCHES, form, formOf } from '../src/shared/forms';
 import { applyGlaze, odds, SEPIA } from '../src/shared/glaze';
 import { humidityFor, makeMonster, statRows, type Monster } from '../src/shared/monster';
 import { RNG, gauss, hashStr } from '../src/shared/rng';
@@ -113,5 +114,31 @@ describe('Lasieren', () => {
       }
     }
     expect(checked).toBe(120 * 12 * 5);
+  });
+});
+
+/* Neue Formen (Generation 2): jede Vorlage baut gültige Geometrie, gleicher Zufall ergibt dieselbe Form */
+
+describe('neue Formen', () => {
+  it('jeder Bauplan hat mindestens zehn Vorlagen', () => {
+    for (const b of BAUPLAENE) expect(ARCHES.filter((a) => a.bp === b.id).length).toBeGreaterThanOrEqual(10);
+  });
+  it('jede Vorlage liefert endliche Geometrie mit Gesicht, im Blatt und unter den Grenzen', () => {
+    for (const a of ARCHES)
+      for (let i = 0; i < 25; i++) {
+        const g = formOf(a, RNG(i * 977 + 5));
+        expect(g.blobs.length).toBeGreaterThan(0);
+        expect(g.blobs.length).toBeLessThanOrEqual(28);
+        expect(g.limbs.length).toBeLessThanOrEqual(60);
+        expect(g.faces.length).toBeGreaterThan(0);
+        for (const b of g.blobs) {
+          expect([b.x, b.y, b.rx, b.ry, b.rot].every(Number.isFinite)).toBe(true);
+          expect(b.x).toBeGreaterThan(-0.1);
+          expect(b.x).toBeLessThan(1.1);
+        }
+      }
+  });
+  it('gleicher Zufall, gleiche Form', () => {
+    expect(JSON.stringify(form('vierbeiner', RNG(42)))).toBe(JSON.stringify(form('vierbeiner', RNG(42))));
   });
 });

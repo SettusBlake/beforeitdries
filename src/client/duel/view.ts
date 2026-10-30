@@ -2,7 +2,8 @@
  * Darstellung des Blatts mit Animationen. Hält einen eigenen Anzeigezustand (V), der den Regeln
  * hinterherläuft: jedes Ereignis wird erst sichtbar, wenn seine Animation dran ist.
  */
-import { deformN, ellipsePts, grainTex, renderMonster } from '../renderer/watercolor';
+import { deformN, ellipsePts, grainTex } from '../renderer/watercolor';
+import { painted, paintedNow } from '../lib/painter';
 import { PIG } from '../../shared/data';
 import { RNG, hashStr } from '../../shared/rng';
 import { iconImage } from './icons';
@@ -60,7 +61,6 @@ const BIG = 1.7;
 const dpr = Math.min(2, window.devicePixelRatio || 1);
 let bg: HTMLCanvasElement | null = null;
 const blobCache = new Map<string, HTMLCanvasElement>();
-const portraitCache = new Map<string, HTMLCanvasElement>();
 const stickerCache = new Map<string, { img: HTMLCanvasElement; sil: HTMLCanvasElement }>();
 
 const now = () => performance.now();
@@ -106,7 +106,6 @@ export function resize(w: number, h: number): void {
   canvas.style.height = c * ROWS + pad + 'px';
   bg = null;
   blobCache.clear();
-  portraitCache.clear();
   stickerCache.clear();
 }
 export const cellSize = () => cell;
@@ -190,29 +189,35 @@ function blob(i: number, c: Cell): HTMLCanvasElement {
   blobCache.set(key, b);
   return b;
 }
-export function portrait(id: number, size: number): HTMLCanvasElement {
-  const key = `${id}:${size}`;
-  let c = portraitCache.get(key);
-  if (c) return c;
-  c = document.createElement('canvas');
-  c.width = c.height = 1;
+/** Bildnis eines Kleckses auf Papier, nebenbei gemalt */
+export function portrait(id: number, size: number): Promise<HTMLCanvasElement | null> {
   const u = unitById(id);
-  if (u) renderMonster(c, u.m, size, { dpr });
-  portraitCache.set(key, c);
-  return c;
+  if (!u) return Promise.resolve(null);
+  return painted(`p:${u.m.seed}:${u.m.gen ?? 1}:${u.m.paper}:${size}:${dpr}`, u.m, size, { dpr }, 3);
+}
+const bareKey = (u: { m: { seed: number; gen?: number } }, size: number) => `b:${u.m.seed}:${u.m.gen ?? 1}:${size}:${dpr}`;
+/** Alle Kleckse des Duells schon nebenbei malen, bevor sie aufs Blatt kommen */
+export function prewarm(): void {
+  const size = Math.round(cell * BIG);
+  if (!size || !S.teams?.[0] || !S.teams[1]) return;
+  for (const u of [...S.teams[0].units, ...S.teams[1].units]) void painted(bareKey(u, size), u.m, size, { dpr, paper: false }, 1);
 }
 /**
  * Ein Klecks frei stehend wie ein ausgeschnittener Aufkleber: ohne Papier, mit hellem Rand und leichtem Schatten,
  * damit er auf jeder Farbe lesbar bleibt. sil ist die helle Form allein (für Treffer-Blitze)
  */
-function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLCanvasElement } {
+function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLCanvasElement } | null {
   const key = `${id}:${size}`;
   const hit = stickerCache.get(key);
   if (hit) return hit;
-  const bare = document.createElement('canvas');
-  bare.width = bare.height = 1;
   const u = unitById(id);
-  if (u) renderMonster(bare, u.m, size, { dpr, paper: false });
+  if (!u) return null;
+  // Noch nicht fertig gemalt: nebenbei malen lassen, bis dahin zeigt das Blatt einen Farbfleck
+  const bare = paintedNow(bareKey(u, size));
+  if (!bare) {
+    void painted(bareKey(u, size), u.m, size, { dpr, paper: false }, 2);
+    return null;
+  }
   const S = bare.width;
   const mk = () => {
     const c = document.createElement('canvas');
@@ -604,8 +609,14 @@ function drawUnit(u: VUnit, t: number): void {
   ctx.rotate(u.rot);
   ctx.scale(u.sqx * s, u.sqy * s);
   ctx.globalAlpha = u.alpha * (0.45 + 0.55 * clamp01(u.hpShown / u.max));
-  ctx.drawImage(st.img, -size / 2, -size * 0.84, size, size);
-  if (u.flash > 0) {
+  if (!st) {
+    const m = unitById(u.id)?.m;
+    ctx.fillStyle = `rgba(${m ? PIG[m.main].rgb.join(',') : '120,110,100'},.35)`;
+    ctx.beginPath();
+    ctx.ellipse(0, -size * 0.34, size * 0.32, size * 0.36, 0, 0, 7);
+    ctx.fill();
+  } else ctx.drawImage(st.img, -size / 2, -size * 0.84, size, size);
+  if (st && u.flash > 0) {
     ctx.globalAlpha = u.flash * u.alpha;
     ctx.drawImage(st.sil, -size / 2, -size * 0.84, size, size);
     u.flash = Math.max(0, u.flash - 0.06);

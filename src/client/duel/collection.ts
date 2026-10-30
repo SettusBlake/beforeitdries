@@ -7,7 +7,7 @@ import { PAPER } from '../../shared/data';
 import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, serialText, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { speciesLabel } from '../../shared/monster';
-import { renderMonster } from '../renderer/watercolor';
+import { looseNow, painted, paintedNow } from '../lib/painter';
 import { api } from '../lib/api';
 import { iconSvg, netSvg } from './icons';
 import type { Reveal, RevealPull } from './gacha/reveal';
@@ -38,21 +38,24 @@ let swapIn: string | null = null;
 /** Würfel, dessen Auswaschen schon einmal angetippt wurde (zweiter Tipp wäscht) */
 let washArmed: string | null = null;
 
-/* ---------- Bilder der Würfel ---------- */
-const arts = new Map<string, HTMLCanvasElement>();
-function art(d: DieRec, px: number): HTMLCanvasElement {
-  const key = `${d.id}:${d.paper ?? ''}:${px}`;
-  let c = arts.get(key);
-  if (!c) {
-    c = document.createElement('canvas');
-    c.width = c.height = 1;
-    renderMonster(c, dieMonster(d), px, px < 80 ? { dpr: dpr(), quality: 'lite' } : { dpr: dpr() });
-    arts.set(key, c);
-  }
+/* ---------- Bilder der Würfel: nebenbei gemalt, fertige sofort ---------- */
+function art(d: DieRec, px: number, prio = 0): HTMLCanvasElement {
+  const key = `${d.id}:${d.paper ?? ''}:${d.gen ?? 1}:${px}`;
   const out = document.createElement('canvas');
-  out.width = c.width;
-  out.height = c.height;
-  out.getContext('2d')!.drawImage(c, 0, 0);
+  out.width = out.height = Math.max(200, Math.round(px * dpr()));
+  const draw = (c: HTMLCanvasElement) => {
+    // Bilder vom Ziehen sind größer: verkleinert zeichnen
+    const w = Math.min(c.width, out.width);
+    out.width = out.height = w;
+    out.getContext('2d')!.drawImage(c, 0, 0, w, w);
+    out.classList.remove('wet');
+  };
+  const now = paintedNow(key) ?? looseNow(d.id, out.width);
+  if (now) draw(now);
+  else {
+    out.classList.add('wet');
+    void painted(key, dieMonster(d), px, px < 80 ? { dpr: dpr(), quality: 'lite' } : { dpr: dpr() }, prio).then(draw);
+  }
   return out;
 }
 const unitOfDie = (d: DieRec): Unit => dieUnit(dieMonster(d), d.mods);
@@ -94,7 +97,7 @@ function render(): void {
     if (d) {
       const u = unitOfDie(d);
       b.style.setProperty('--c', rarityDef(u.rarity).col);
-      b.append(art(d, 46), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 13)));
+      b.append(art(d, 46, 3), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 13)));
       b.title = u.name;
     } else b.append(el('span', 'plus', '+'));
     b.addEventListener('click', () => {
@@ -178,7 +181,7 @@ function openDie(d: DieRec): void {
   box.replaceChildren();
   const top = el('div', 'card-top');
   const info = el('div', 'card-id');
-  const big = art(d, 88);
+  const big = art(d, 88, 5);
   big.className = 'dieart';
   big.style.setProperty('--c', r.col);
   info.append(
@@ -331,7 +334,7 @@ async function stageReady(): Promise<Reveal> {
 function toReveal(p: PullResult): RevealPull {
   const m = dieMonster(p.die);
   const u = dieUnit(m, p.die.mods);
-  return { rarity: p.rarity, d100: p.d100, pity: p.pity, monster: m, name: u.name, lv: u.lv, faces: u.faces, dup: !!p.dup, no: p.die.no ?? 0 };
+  return { rarity: p.rarity, d100: p.d100, pity: p.pity, monster: m, name: u.name, lv: u.lv, faces: u.faces, dup: !!p.dup, no: p.die.no ?? 0, id: p.die.id };
 }
 
 async function pull(kind: PullKind): Promise<void> {

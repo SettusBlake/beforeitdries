@@ -29,13 +29,15 @@ export type FaceMod = { i: number; to: 'x2' };
  * Ein Würfel in der Sammlung: Bogen-Seed und Nummer des Monsters, seltenes Papier, Lasuren auf Seiten.
  * no ist die Seriennummer über alle Spieler, der Seed des Monsters gehört nur diesem Würfel (Register am Server).
  */
-export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number };
+export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2 };
 /** Seriennummer zum Zeigen: #00427 */
 export const serialText = (no: number | undefined): string => (no ? '#' + String(no).padStart(5, '0') : '');
 
-export function dieMonster(d: { sheet: string; idx: number; paper?: PaperId }): Monster {
+export function dieMonster(d: { sheet: string; idx: number; paper?: PaperId; gen?: 2 }): Monster {
   const m = makeMonster(d.sheet, d.idx, humidityFor(d.sheet));
   if (d.paper) m.paper = d.paper;
+  // Neue Würfel haben die neuen Formen, ältere bleiben, wie sie waren
+  if (d.gen) m.gen = d.gen;
   return m;
 }
 

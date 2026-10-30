@@ -44,11 +44,12 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
     const unlocked = tutorial ? START_MEDIA : ((await loadDice(d, uid)).media ?? START_MEDIA);
     if (tutorial) {
       // Lern-Duell: fester Seed und feste Beutel, Sepia gibt die ersten Runden vor
-      const [mine, theirs] = tutorialBags();
-      newGame(TUTORIAL_SEED, 'apprentice', mine, theirs, TUTORIAL_SEED);
+      // Die Formen sind nur Bild: auch das Lern-Duell zeigt die neuen (Generation 2), die Regeln bleiben gleich
+      const [mine, theirs] = tutorialBags().map((b) => b.map((m) => ({ ...m, gen: 2 as const })));
+      newGame(TUTORIAL_SEED, 'apprentice', mine!, theirs!, TUTORIAL_SEED);
       startTutorial();
     } else {
-      const rival = Array.from({ length: BAG }, () => mk(`rival-${d.rand().toString(36)}`, d.rand() % 12));
+      const rival = Array.from({ length: BAG }, () => ({ ...mk(`rival-${d.rand().toString(36)}`, d.rand() % 12), gen: 2 as const }));
       newGame(
         d.rand(),
         lv,

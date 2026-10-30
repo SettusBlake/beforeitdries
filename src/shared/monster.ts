@@ -60,6 +60,8 @@ export interface Monster {
   mud: boolean;
   mutations: number;
   name: string;
+  /** Generation der Form: 2 = neue Formen aus Vorlagen (src/shared/forms), fehlt = Bauplan wie im Prototyp */
+  gen?: 2;
 }
 
 export function makeName(r: Rand): string {

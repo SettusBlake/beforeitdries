@@ -290,6 +290,9 @@ button { font: inherit; color: inherit; }
 .dcard small { font: 10px var(--f-mono); color: var(--c); font-weight: 700; }
 .dcard .lvb { position: absolute; left: 4px; top: 6px; }
 .dcard .bagmark { position: absolute; right: 4px; top: 6px; font: 700 9px var(--f-mono); background: var(--ink); color: var(--sheet); border-radius: 999px; padding: 1px 5px; }
+canvas.wet { background: #ece6d8; animation: wetpulse 1.1s ease-in-out infinite; }
+@keyframes wetpulse { 50% { background: #f6f1e6; } }
+@media (prefers-reduced-motion: reduce) { canvas.wet { animation: none; } }
 .dcard .serial { font: 9px var(--f-mono); color: var(--muted, #6b7180); letter-spacing: .02em; }
 .dcard .bagmark.new { background: #c0392b; color: #fff; }
 .dcard.r-epic { background: linear-gradient(180deg, #fbf7ff, #fff 40%); }

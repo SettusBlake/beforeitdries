@@ -20,7 +20,7 @@ function art(): void {
     c.className = 'pblot ' + cls;
     c.width = c.height = 1;
     c.style.width = c.style.height = `${px}px`;
-    renderMonster(c, makeMonster(sheet, idx, humidityFor(sheet)), px, { dpr: Math.min(2, window.devicePixelRatio || 1) });
+    renderMonster(c, { ...makeMonster(sheet, idx, humidityFor(sheet)), gen: 2 }, px, { dpr: Math.min(2, window.devicePixelRatio || 1) });
     box.append(c);
   }
   const vs = document.createElement('span');
