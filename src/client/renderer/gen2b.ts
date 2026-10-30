@@ -382,7 +382,7 @@ function stroke(ctx: Ctx, pts: P2[], w: number, r: Rand, a = 0.88): void {
 
 /* ---------- Gesichter der Generation 2 ---------- */
 /** Lage vieler Augen (in Gesichtsradien vom Augenpunkt): eine oder zwei Reihen */
-const MANY: Record<number, [number, number][]> = {
+export const MANY: Record<number, [number, number][]> = {
   3: [
     [-0.38, 0.02],
     [0, -0.2],
