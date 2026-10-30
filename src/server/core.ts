@@ -18,6 +18,7 @@ export interface RedisLike {
   hGet(key: string, field: string): Promise<string | undefined>;
   hSet(key: string, fieldValues: Record<string, string>): Promise<number>;
   hSetNX(key: string, field: string, value: string): Promise<number>;
+  incrBy(key: string, value: number): Promise<number>;
   hGetAll(key: string): Promise<Record<string, string>>;
   hDel(key: string, fields: string[]): Promise<number>;
   hLen(key: string): Promise<number>;

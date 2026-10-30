@@ -2,12 +2,10 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { context, createServer, getServerPort, reddit, redis, settings } from '@devvit/web/server';
 import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
-import { DUEL_PROTOCOL, PROTO_HEADER, type CollectionResponse, type ErrorResponse, type GlazeRequest, type InitResponse } from '../shared/api';
-import { dayKey, isDayKey, shiftDay } from '../shared/day';
-import { adoptTopName, catchBlot, dayInfo, dryMsFromHours, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps, type RedditLike } from './core';
-import { diceBag, diceGet, diceGlaze, dicePull, payCatch } from './dice';
+import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
+import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
+import { diceBag, diceGet, diceGlaze, dicePull, diceWash } from './dice';
 import { duelAct, duelGet, duelStart } from './duel';
-import { K } from './keys';
 import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
 
@@ -41,62 +39,10 @@ app.use(express.json({ limit: '16kb' }));
 
 /* ---------- API für die Webviews ---------- */
 
-app.get(
-  '/api/init',
-  wrap(async (_req, res) => {
-    const d = await deps();
-    const { userId, username, postId, postData } = context;
-    const ref = await resolveDay(d, postId, postData);
-    const [day, todayPostId, collectionCount] = await Promise.all([
-      ref ? dayInfo(d, ref) : Promise.resolve(null),
-      d.redis.hGet(K.day(dayKey(d.now)), 'postId'),
-      userId ? d.redis.zCard(K.userMonsters(userId)) : Promise.resolve(0),
-    ]);
-    const caught = ref && userId ? await loadMonster(d, `${ref.day}:${userId}`) : null;
-    const body: InitResponse = {
-      user: userId ? { id: userId, name: username ?? '' } : null,
-      day,
-      caught,
-      todayPostId: todayPostId ?? null,
-      collectionCount,
-      serverNow: d.now,
-      dryMs: d.dryMs,
-    };
-    res.json(body);
-  }),
-);
-
-app.get(
-  '/api/collection',
-  wrap(async (_req, res) => {
-    const d = await deps();
-    if (!context.userId) throw new GameError('login', 'Log in to see your sheet.', 401);
-    const { monsters, species } = await loadCollection(d, context.userId);
-    const body: CollectionResponse = { monsters, species, serverNow: d.now, dryMs: d.dryMs };
-    res.json(body);
-  }),
-);
-
-app.post(
-  '/api/catch',
-  wrap(async (_req, res) => {
-    const d = await deps();
-    const ref = await resolveDay(d, context.postId, context.postData);
-    const out = await catchBlot(d, context.userId, context.username, ref);
-    // Pigment für den Fang. Scheitert das (Sperre), bleibt der Fang trotzdem gültig.
-    if (out.fresh && context.userId) await payCatch(d, context.userId).catch((e: unknown) => console.error('payCatch', e));
-    res.json(out);
-  }),
-);
-
-app.post(
-  '/api/glaze',
-  wrap(async (req, res) => {
-    const d = await deps();
-    const body = (req.body ?? {}) as Partial<GlazeRequest>;
-    res.json(await glazeMonster(d, context.userId, body.id, body.pigment));
-  }),
-);
+/*
+ * Tagesklecks, Fangen und das alte Malblatt sind seit dem 30.10.2026 aus dem Spiel: jedes Monster ist einzigartig
+ * und kommt nur aus einem eigenen Zug. Der Code dafür liegt noch in core.ts, ohne Wege dorthin.
+ */
 
 /* ---------- Farbschlacht ---------- */
 
@@ -170,19 +116,14 @@ app.post(
   }),
 );
 
-/* ---------- Menü, Trigger, Scheduler ---------- */
-
 app.post(
-  '/internal/menu/post-blot',
-  wrap(async (_req, res) => {
-    const d = await deps();
-    const r = await ensureDailyPost(d);
-    const body: UiResponse = r.created
-      ? { showToast: { text: 'Today’s blot is up.', appearance: 'success' }, ...(r.url ? { navigateTo: r.url } : {}) }
-      : { showToast: 'Today’s blot is already posted.' };
-    res.json(body);
+  '/api/dice/wash',
+  wrap(async (req, res) => {
+    res.json(await diceWash(await deps(), context.userId, (req.body as { id?: unknown } | undefined)?.id));
   }),
 );
+
+/* ---------- Menü, Trigger, Scheduler ---------- */
 
 app.post(
   '/internal/menu/post-play',
@@ -194,34 +135,9 @@ app.post(
 );
 
 app.post(
-  '/internal/menu/adopt-name',
-  wrap(async (req, res) => {
-    const d = await deps();
-    const target = (req.body as MenuItemRequest | undefined)?.targetId ?? '';
-    const day = target ? await d.redis.get(K.post(target)) : undefined;
-    if (!isDayKey(day)) {
-      res.json({ showToast: 'This is not a daily blot post.' } satisfies UiResponse);
-      return;
-    }
-    const r = await adoptTopName(d, day);
-    const text =
-      r.status === 'named'
-        ? `Named: ${r.name} (by u/${r.namedBy})`
-        : r.status === 'already_named'
-          ? `Already named: ${r.name}`
-          : r.status === 'no_suggestions'
-            ? 'No valid name suggestions yet.'
-            : 'No daily post found.';
-    res.json({ showToast: text } satisfies UiResponse);
-  }),
-);
-
-app.post(
   '/internal/triggers/on-app-install',
   wrap(async (_req, res) => {
-    const d = await deps();
-    await ensureDailyPost(d);
-    await ensurePlayPost(d);
+    await ensurePlayPost(await deps());
     res.json({});
   }),
 );
@@ -240,21 +156,10 @@ app.post(
   }),
 );
 
-app.post(
-  '/internal/scheduler/daily-blot',
-  wrap(async (_req, res) => {
-    const d = await deps();
-    const today = dayKey(d.now);
-    try {
-      const r = await adoptTopName(d, shiftDay(today, -1));
-      console.log('Naming', shiftDay(today, -1), JSON.stringify(r));
-    } catch (e) {
-      console.error('Naming failed', e);
-    }
-    await ensureDailyPost(d, today);
-    res.json({});
-  }),
-);
+/* Der tägliche Post ist abgeschafft. Falls ein alter Auftrag noch einmal feuert, passiert nichts */
+app.post('/internal/scheduler/daily-blot', (_req, res) => {
+  res.json({});
+});
 
 /* ---------- Fehler ---------- */
 

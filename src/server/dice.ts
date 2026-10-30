@@ -1,6 +1,7 @@
 /*
  * Würfelsammlung und Ziehen („Dip the brush“). Jeder Wurf passiert hier: der offene W100 für die Seltenheit,
  * das Monster dazu, der Schutz vor Pech. Pigment gibt es nur durchs Spielen.
+ * Jedes Monster gibt es nur einmal (festgelegt am 30.10.2026): sein Seed steht im Register, jeder Würfel hat eine Seriennummer.
  */
 import { START_MEDIA, UNLOCK_ORDER } from '../shared/duel/media';
 import type { DiceResponse, DuelReward } from '../shared/api';
@@ -10,6 +11,7 @@ import {
   dieSpecies,
   emptyDice,
   GLAZE_COST,
+  KEEP_MIN,
   LEGENDARY_PAPERS,
   PULL_COST,
   PITY,
@@ -18,6 +20,7 @@ import {
   rarityIndex,
   REWARD,
   TEN_COST,
+  washGlaze,
   type DiceSave,
   type DieRec,
   type PullKind,
@@ -25,7 +28,7 @@ import {
   type Rarity,
 } from '../shared/dice';
 import { BAG, dieUnit, isCrestFace } from '../shared/duel/rules';
-import { humidityFor, makeMonster, speciesKey } from '../shared/monster';
+import { humidityFor, makeMonster, monsterSeed, speciesKey } from '../shared/monster';
 import { GameError, withLock, type Deps } from './core';
 import { K } from './keys';
 
@@ -41,13 +44,15 @@ export async function loadDice(d: Pick<Deps, 'redis'>, uid: string): Promise<Dic
   return raw ? { ...emptyDice(), ...(JSON.parse(raw) as DiceSave) } : emptyDice();
 }
 export async function saveDice(d: Pick<Deps, 'redis' | 'now'>, uid: string, s: DiceSave): Promise<void> {
+  // Ältere Würfel bekommen beim nächsten Speichern ihre Seriennummer und, wenn frei, ihren Platz im Register
+  for (const die of s.dice) if (!die.no && !(await claim(d, uid, die))) die.no = await d.redis.incrBy(K.serial, 1);
   await d.redis.set(K.dice(uid), JSON.stringify(s));
   await d.redis.zAdd(K.dicePlayers, { member: uid, score: d.now });
 }
 const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] = []): DiceResponse => ({ dice: s, freeReady: s.freeDay !== dayKey(d.now), pulls });
 
 /** Ein Monster mit dem Papier dieser Seltenheit. Legendary: ein Monster auf Cotton Rag bekommt ein seltenes Papier. */
-function dieFor(d: Deps, s: DiceSave, rarity: Rarity, avoid: Set<string> | null): DieRec {
+function rollMonster(d: Deps, rarity: Rarity, avoid: Set<string> | null): Pick<DieRec, 'sheet' | 'idx' | 'paper'> {
   const want = rarityDef(rarity).paper ?? 'hadern';
   let sheet = '',
     idx = 0;
@@ -57,9 +62,23 @@ function dieFor(d: Deps, s: DiceSave, rarity: Rarity, avoid: Set<string> | null)
     const m = makeMonster(sheet, idx, humidityFor(sheet));
     if (m.paper === want && !avoid?.has(speciesKey(m))) break;
   }
-  const rec: DieRec = { id: `d${s.next++}`, sheet, idx, mods: [], at: d.now };
-  if (rarity === 'legendary') rec.paper = LEGENDARY_PAPERS[d.rand() % LEGENDARY_PAPERS.length]!;
-  return rec;
+  return rarity === 'legendary' ? { sheet, idx, paper: LEGENDARY_PAPERS[d.rand() % LEGENDARY_PAPERS.length]! } : { sheet, idx };
+}
+function dieFor(d: Deps, s: DiceSave, rarity: Rarity, avoid: Set<string> | null): DieRec {
+  return { id: `d${s.next++}`, ...rollMonster(d, rarity, avoid), mods: [], at: d.now };
+}
+/** Seed ins Register eintragen und Seriennummer vergeben. false: den Seed hat schon ein anderes Monster */
+async function claim(d: Pick<Deps, 'redis'>, uid: string, die: DieRec): Promise<boolean> {
+  const ok = (await d.redis.hSetNX(K.seeds, String(monsterSeed(die.sheet, die.idx)), `${uid}:${die.id}`)) === 1;
+  if (ok) die.no = await d.redis.incrBy(K.serial, 1);
+  return ok;
+}
+/** Neue Würfel eines Zugs eintragen. Ist ein Seed schon vergeben, wird das Monster mit derselben Seltenheit neu gewürfelt */
+async function claimPulls(d: Deps, uid: string, pulls: PullResult[]): Promise<void> {
+  for (const p of pulls) {
+    for (let k = 0; k < 20 && !(await claim(d, uid, p.die)); k++) Object.assign(p.die, rollMonster(d, p.rarity, null));
+    if (!p.die.no) throw new GameError('server', 'The brush slipped. Try again.', 500);
+  }
 }
 const rarityOfDie = (r: DieRec): Rarity => dieUnit(dieMonster(r)).rarity;
 
@@ -94,17 +113,11 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
   const owned = new Set(s.dice.map(dieSpecies));
   const die = dieFor(d, s, rarity, starter ? owned : null);
   const key = dieSpecies(die);
-  const best = s.dice.filter((x) => dieSpecies(x) === key).reduce((a, x) => Math.max(a, rarityIndex(rarityOfDie(x))), -1);
-  if (best >= fi) {
-    // Doppelte Art, nicht seltener als die eigene: wird Lasur für diese Art
-    const g = rarityDef(rarity).glaze;
-    s.glaze[key] = (s.glaze[key] ?? 0) + g;
-    return { d100, rarity, pity, die, dup: key, glaze: g };
-  }
+  // Jeder Zug bleibt als eigenes Monster, auch bei einer Art, die man schon hat
   s.dice.push(die);
   // Startzüge füllen den Beutel, spätere Würfel packt man selbst ein
   if (starter && s.bag.length < BAG) s.bag.push(die.id);
-  return { d100, rarity, pity, die, dup: null, glaze: 0 };
+  return { d100, rarity, pity, die, dup: owned.has(key) ? key : null };
 }
 
 /** Die offenen Startzüge auf einmal (auch beim ersten Duell ohne Beutel) */
@@ -119,7 +132,14 @@ function runStarter(d: Deps, s: DiceSave): PullResult[] {
 
 export async function diceGet(d: Deps, userId: string | undefined): Promise<DiceResponse> {
   const uid = needUser(userId);
-  return respond(d, await loadDice(d, uid));
+  const s = await loadDice(d, uid);
+  if (s.dice.every((x) => x.no)) return respond(d, s);
+  // Ältere Würfel ohne Seriennummer: einmal unter der Sperre nachtragen
+  return withLock(d, playerLock(uid), async () => {
+    const t = await loadDice(d, uid);
+    await saveDice(d, uid, t);
+    return respond(d, t);
+  });
 }
 
 export async function dicePull(d: Deps, userId: string | undefined, kind: unknown): Promise<DiceResponse> {
@@ -148,6 +168,7 @@ export async function dicePull(d: Deps, userId: string | undefined, kind: unknow
         pulls.push(pullOne(d, s, false, last));
       }
     }
+    await claimPulls(d, uid, pulls);
     await saveDice(d, uid, s);
     return respond(d, s, pulls);
   });
@@ -187,12 +208,33 @@ export async function diceGlaze(d: Deps, userId: string | undefined, id: unknown
   });
 }
 
+/**
+ * Würfel auswaschen: er verschwindet und gibt seiner Art Lasur (so viel wie ein Doppelter früher).
+ * Nicht im Deck, und es bleiben immer genug Würfel für ein volles Deck. Der Seed bleibt im Register, das Monster kommt nie wieder.
+ */
+export async function diceWash(d: Deps, userId: string | undefined, id: unknown): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (typeof id !== 'string') throw new GameError('bad_request', 'Unknown die.');
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    const die = s.dice.find((x) => x.id === id);
+    if (!die) throw new GameError('not_found', 'That die is not yours.', 404);
+    if (s.bag.includes(id)) throw new GameError('bad_request', 'This die is in your deck. Take it out first.');
+    if (s.dice.length <= KEEP_MIN) throw new GameError('bad_request', `Keep at least ${KEEP_MIN} dice for your deck.`);
+    const key = dieSpecies(die);
+    s.dice = s.dice.filter((x) => x !== die);
+    s.glaze[key] = (s.glaze[key] ?? 0) + washGlaze(rarityOfDie(die));
+    await saveDice(d, uid, s);
+    return respond(d, s);
+  });
+}
+
 /** Beutel fürs Duell. Ohne Würfel laufen zuerst die freien Startzüge. Nur innerhalb der Spielersperre aufrufen. */
 export async function bagForDuel(d: Deps, uid: string): Promise<DieRec[]> {
   const s = await loadDice(d, uid);
   let changed = false;
   if (s.dice.length < BAG && s.starter > 0) {
-    runStarter(d, s);
+    await claimPulls(d, uid, runStarter(d, s));
     changed = true;
   }
   const bag = s.bag.map((id) => s.dice.find((x) => x.id === id)).filter((x): x is DieRec => !!x);
@@ -240,11 +282,3 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
   return reward;
 }
 
-/** Pigment für den gefangenen Tagesklecks */
-export async function payCatch(d: Deps, uid: string): Promise<void> {
-  await withLock(d, playerLock(uid), async () => {
-    const s = await loadDice(d, uid);
-    s.pigment += REWARD.catch;
-    await saveDice(d, uid, s);
-  });
-}

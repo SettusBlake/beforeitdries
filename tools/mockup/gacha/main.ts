@@ -4,7 +4,7 @@
  */
 import { renderMonster } from '../../../src/client/renderer/watercolor';
 import { initAudio, isMuted, setMuted } from '../../../src/client/duel/sound';
-import { LEGENDARY_PAPERS, RARITIES, rarityDef, rarityFromRoll, rarityIndex, type Rarity } from '../../../src/shared/dice';
+import { LEGENDARY_PAPERS, RARITIES, rarityDef, rarityFromRoll, rarityIndex, serialText, type Rarity } from '../../../src/shared/dice';
 import { dieUnit } from '../../../src/shared/duel/rules';
 import { humidityFor, makeMonster } from '../../../src/shared/monster';
 import { Reveal, type RevealPull } from '../../../src/client/duel/gacha/reveal';
@@ -31,8 +31,7 @@ function d100For(r: Rarity): number {
 function pullOf(rarity: Rarity, d100: number, pity: RevealPull['pity']): RevealPull {
   const m = monsterFor(rarity);
   const u = dieUnit(m);
-  const dup = Math.random() < 0.3;
-  return { rarity, d100, pity, monster: m, name: u.name, lv: u.lv, faces: u.faces, dup, glaze: dup ? rarityDef(rarity).glaze : 0 };
+  return { rarity, d100, pity, monster: m, name: u.name, lv: u.lv, faces: u.faces, dup: Math.random() < 0.3, no: 1 + rand(99999) };
 }
 /** Ein Zug: echte Chancen, oder die gewählte Seltenheit. Mit Schild greift der Schutz vor Pech nach einem schwachen Wurf */
 function demoPull(force: Rarity | null, shield: boolean): RevealPull {
@@ -100,7 +99,7 @@ function card(p: RevealPull): HTMLElement {
   renderMonster(c, p.monster, 96, { dpr: Math.min(2, window.devicePixelRatio || 1), quality: 'lite' });
   const tag = document.createElement('span');
   tag.className = 'tag' + (p.dup ? ' dup' : '');
-  tag.textContent = p.dup ? `+${p.glaze} glaze` : 'New';
+  tag.textContent = p.dup ? serialText(p.no) : 'New';
   const n = document.createElement('b');
   n.textContent = p.name;
   const r = document.createElement('small');

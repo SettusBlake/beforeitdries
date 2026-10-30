@@ -1,25 +1,22 @@
 # Before It Dries
 
-Reddit-Spiel auf Devvit Web (Arbeitstitel war Wetbloom). Jeder Tag bringt einen zufälligen Aquarell-Klecks, die Community deutet ihn und gibt der Art ihren Namen, jeder Spieler malt sein Exemplar Schicht für Schicht stärker. Grafik komplett prozedural aus Code, keine Bilddateien, keine Libraries im Renderer.
+Reddit-Spiel auf Devvit Web (Arbeitstitel war Wetbloom). Jedes Monster ist ein zufälliger Aquarell-Klecks, den es nur einmal gibt. Man zieht sie als Würfel, duelliert sich damit, und die Community gibt den Arten ihre Namen. Grafik komplett prozedural aus Code, keine Bilddateien, keine Libraries im Renderer.
 
 Subreddit: [r/beforeitdries](https://www.reddit.com/r/beforeitdries/)
 
 ## Stand
 
-- Launch-Screen im Feed (`default`, inline): Tagesklecks groß, Luftfeuchte, Play
-- Spiel (`game`, ausgeklappt): Tagesklecks fangen, eigener Bogen als Kartenraster, Malblatt mit offener Werte-Tabelle, Lasieren über den Server, Trockenzeit
-- Namensvorschläge per Kommentar, um 00:01 UTC wird der bestbewertete gültige Vorschlag zum Artnamen
-- Täglicher Post per Scheduler, Mod-Menü zum Nachholen und zum sofortigen Benennen
-- Spiel-Post (`play`, inline): eigener, angepinnter Post fürs Duell. Wird bei Installation oder Update angelegt, falls es keinen gibt, Mod-Menü „post a new play post“ legt einen neuen an
-- Farbschlacht (`duel`, ausgeklappt, aus dem Spiel-Post oder Knopf „Duel“ im Tagespost): Würfelduell gegen einen Rivalen in drei Stufen, Lern-Duell mit Meisterin Sepia, der Server prüft und würfelt jede Aktion. Regeln: docs/entwuerfe/farbschlacht-vorschlag.md
-- Würfelsammlung: Ziehen mit offenem W100 und Schutz vor Pech, Seltenheit aus dem Papier, Beutel aus 6 Würfeln, Doppelte werden Lasur für Würfelseiten. Pigment nur durchs Spielen
+- Spiel-Post (`play` und `default`, inline): eigener, angepinnter Post fürs Duell. Wird bei Installation oder Update angelegt, falls es keinen gibt, Mod-Menü „post a new play post“ legt einen neuen an. Alte Tagesposts zeigen dasselbe Startbild
+- Farbschlacht (`duel`, ausgeklappt, aus dem Spiel-Post): Würfelduell gegen einen Rivalen in drei Stufen, Lern-Duell mit Meisterin Sepia, der Server prüft und würfelt jede Aktion. Regeln: docs/entwuerfe/farbschlacht-vorschlag.md
+- Würfelsammlung: Ziehen mit offenem W100 und Schutz vor Pech, Seltenheit aus dem Papier, Deck aus 9 Würfeln. Jedes Monster gibt es nur einmal (Seed-Register, Seriennummer), jeder Zug bleibt als eigener Würfel. Auswaschen gibt Lasur für Würfelseiten. Pigment nur durchs Spielen
+- Abgeschafft am 30.10.2026: Tagesklecks, Fangen, täglicher Post, altes Malblatt (`game`). Der Code liegt noch in `src/server/core.ts` und `src/client/game.ts`, ohne Wege dorthin
 
 Noch nicht drin: Falten, Käufe (kein Pay-to-win), Verblassen von Opera-Rosa (nur Hinweistext).
 
 ## Aufbau
 
 ```
-devvit.json              App-Konfiguration: Einstiegsseiten, Server, Menü, Scheduler, Einstellungen
+devvit.json              App-Konfiguration: Einstiegsseiten, Server, Menü, Trigger, Einstellungen
 src/shared/              Regeln und Daten, von Server und Client genutzt
   rng.ts                 mulberry32, FNV-1a, Box-Muller (wörtlich aus dem Prototyp)
   data.ts                Werte, Pigmente, Papiere, Baupläne, Gesichter
@@ -61,7 +58,7 @@ Abweichung von der Übergabe: dort steht, Gauss sei auf plus/minus 2 begrenzt. I
 
 ## Server und Speicher
 
-Der Client malt nur. Fangen, Würfe, Lasuren und Mutationen würfelt der Server mit kryptografischem Zufall.
+Der Client malt nur. Züge, Duellwürfe, Lasuren und Mutationen würfelt der Server mit kryptografischem Zufall. Die Schlüssel `day:*`, `post:*`, `user:*:monsters` und `monster:*` stammen vom abgeschafften Tagesklecks.
 
 | Schlüssel | Typ | Inhalt |
 |---|---|---|
@@ -78,12 +75,14 @@ Der Client malt nur. Fangen, Würfe, Lasuren und Mutationen würfelt der Server 
 | `play:post` | String | ID des Spiel-Posts |
 | `duel:{userId}` | String (JSON) | laufendes Duell mit Würfelzufall (bleibt am Server) |
 | `duel:players` | Sorted Set | Spieler mit Duell |
-| `dice:{userId}` | String (JSON) | Würfel (Bogen-Seed, Nummer, seltenes Papier, Lasuren), Beutel, Pigment, Schutz vor Pech, Lasur je Art, Startzüge, freier Tageszug, Belohnungen |
+| `dice:{userId}` | String (JSON) | Würfel (Bogen-Seed, Nummer, Seriennummer, seltenes Papier, Lasuren), Deck, Pigment, Schutz vor Pech, Lasur je Art, Startzüge, freier Tageszug, Belohnungen |
 | `dice:players` | Sorted Set | Spieler mit Würfelsammlung |
+| `seeds` | Hash | Monster-Seed → `{userId}:{Würfel-ID}`, jeder Seed nur einmal, auch nach dem Auswaschen |
+| `serial` | String | Zähler der Seriennummern |
 
-Das Bild wird nie gespeichert. Tagesklecks: Bogen-Seed ist das Datum (UTC), der Klecks ist Monster Nr. 1 dieses Bogens. Im Prototyp zeigt "Tagesbogen" also an Nr. 01 denselben Klecks (Prototyp nutzt die lokale Zeit).
+Das Bild wird nie gespeichert. Ein gezogenes Monster hat einen zufälligen Bogen-Seed (`dip-…`) und eine Nummer, daraus kommt der Monster-Seed.
 
-Endpunkte: `GET /api/init`, `GET /api/collection`, `POST /api/catch`, `POST /api/glaze`, `GET /api/play`, `GET /api/duel`, `POST /api/duel/start`, `POST /api/duel/act`, `GET /api/dice`, `POST /api/dice/pull`, `POST /api/dice/bag`, `POST /api/dice/glaze`. Intern: Scheduler `daily-blot` (00:01 UTC), Trigger bei Installation und Update, Mod-Menüs "post today's blot", "post a new play post" und "adopt top name now".
+Endpunkte: `GET /api/play`, `GET /api/duel`, `POST /api/duel/start`, `POST /api/duel/act`, `GET /api/dice`, `POST /api/dice/pull`, `POST /api/dice/bag`, `POST /api/dice/glaze`, `POST /api/dice/wash`. Intern: Trigger bei Installation und Update, Mod-Menü "post a new play post".
 
 Einstellung pro Subreddit: `dryHours` (Trockenzeit, Standard 8, für Playtests 0).
 

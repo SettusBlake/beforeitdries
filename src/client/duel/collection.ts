@@ -1,10 +1,10 @@
 /*
- * Würfelsammlung im Client: Ziehen mit offenem W100, Beutel packen, Lasur auf Würfelseiten.
- * Alle Würfe kommen vom Server, hier wird nur gezeigt und angetippt.
+ * Würfelsammlung im Client: Ziehen mit offenem W100, Beutel packen, Würfel auswaschen, Lasur auf Würfelseiten.
+ * Alle Würfe kommen vom Server, hier wird nur gezeigt und angetippt. Jedes Monster gibt es nur einmal (Seriennummer).
  */
 import type { DiceResponse } from '../../shared/api';
 import { PAPER } from '../../shared/data';
-import { dieMonster, dieSpecies, GLAZE_COST, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, TEN_COST, type DiceSave, type DieRec, type PullKind, type PullResult } from '../../shared/dice';
+import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, serialText, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { speciesLabel } from '../../shared/monster';
 import { renderMonster } from '../renderer/watercolor';
@@ -35,6 +35,8 @@ let freeReady = false;
 let busy = false;
 /** Würfel, der in den Beutel soll: nächster Tipp auf einen Beutelplatz tauscht */
 let swapIn: string | null = null;
+/** Würfel, dessen Auswaschen schon einmal angetippt wurde (zweiter Tipp wäscht) */
+let washArmed: string | null = null;
 
 /* ---------- Bilder der Würfel ---------- */
 const arts = new Map<string, HTMLCanvasElement>();
@@ -117,6 +119,7 @@ function render(): void {
     c.style.setProperty('--c', r.col);
     const g = s.glaze[dieSpecies(d)] ?? 0;
     c.append(art(d, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', shortName(u)), el('small', '', r.label + (g ? ` · ${g} glaze` : '')));
+    if (d.no) c.append(el('span', 'serial', serialText(d.no)));
     if (s.bag.includes(d.id)) c.append(el('span', 'bagmark', 'deck'));
     c.addEventListener('click', () => openDie(d));
     coll.append(c);
@@ -182,6 +185,7 @@ function openDie(d: DieRec): void {
     el('b', '', u.name),
     html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b class="rlabel" style="color:${r.col}">${r.label}</b>`),
     el('small', '', `${PAPER[u.m.paper].n} · ${speciesLabel(u.m)}`),
+    el('small', 'serial-line', d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind'),
   );
   top.append(big, info);
   const net = html('div', 'card-net', netSvg(u.net, u.faces, 26));
@@ -199,7 +203,12 @@ function openDie(d: DieRec): void {
     b.addEventListener('click', () => void glazeFace(d, i));
     faces.append(b);
   });
-  const gl = el('p', 'glazeline', canGlaze ? `Glaze ${glaze}: tap a single crest to double it (${GLAZE_COST} glaze).` : `Glaze ${glaze}/${GLAZE_COST}. Dip this species again to gain glaze.`);
+  const kin = s.dice.filter((x) => x !== d && dieSpecies(x) === key).length;
+  const gl = el(
+    'p',
+    'glazeline',
+    canGlaze ? `Glaze ${glaze}: tap a single crest to double it (${GLAZE_COST} glaze).` : `Glaze ${glaze}/${GLAZE_COST}. Wash out another ${speciesLabel(u.m)} to gain glaze${kin ? ` (you have ${kin})` : ''}.`,
+  );
   const stats = el('div', 'card-stats');
   for (const [k, n] of [
     ['SAT', u.sat],
@@ -241,8 +250,40 @@ function openDie(d: DieRec): void {
     });
     row.append(b);
   }
-  box.append(top, net, faces, gl, row, stats, lines);
+  // Auswaschen: der Würfel verschwindet und gibt seiner Art Lasur. Zweimal tippen, damit nichts aus Versehen verschwindet
+  const wash = el('div', 'trow wash');
+  if (!s.bag.includes(d.id)) {
+    const n = washGlaze(u.rarity);
+    const wb = el('button', 'ghost danger', washArmed === d.id ? `Tap again: wash out for +${n} glaze` : `Wash out · +${n} glaze`) as HTMLButtonElement;
+    wb.type = 'button';
+    wb.id = 'wash';
+    wb.disabled = busy || s.dice.length <= KEEP_MIN;
+    wb.addEventListener('click', () => {
+      if (washArmed !== d.id) {
+        washArmed = d.id;
+        sfx.tap();
+        return openDie(d);
+      }
+      washArmed = null;
+      void washOut(d);
+    });
+    wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It is gone for good. ${speciesLabel(u.m)} gains ${n} glaze.`));
+  }
+  box.append(top, net, faces, gl, row, stats, lines, wash);
   $('inspect').hidden = false;
+}
+async function washOut(d: DieRec): Promise<void> {
+  if (busy) return;
+  busy = true;
+  try {
+    apply(await api.diceWash(d.id));
+    sfx.ability();
+    $('inspect').hidden = true;
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
 }
 async function glazeFace(d: DieRec, i: number): Promise<void> {
   if (busy) return;
@@ -290,7 +331,7 @@ async function stageReady(): Promise<Reveal> {
 function toReveal(p: PullResult): RevealPull {
   const m = dieMonster(p.die);
   const u = dieUnit(m, p.die.mods);
-  return { rarity: p.rarity, d100: p.d100, pity: p.pity, monster: m, name: u.name, lv: u.lv, faces: u.faces, dup: !!p.dup, glaze: p.glaze };
+  return { rarity: p.rarity, d100: p.d100, pity: p.pity, monster: m, name: u.name, lv: u.lv, faces: u.faces, dup: !!p.dup, no: p.die.no ?? 0 };
 }
 
 async function pull(kind: PullKind): Promise<void> {
@@ -351,10 +392,10 @@ function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
     const body = $('dip-body');
     body.className = 'dipwrap bar';
     const u = unitOfDie(p.die);
-    const had = before?.dice.some((x) => dieSpecies(x) === dieSpecies(p.die));
+    void before;
     const lines: string[] = [];
     if (p.pity) lines.push(p.pity === 'ten' ? 'Ten dips: Rare or better guaranteed.' : `Bad luck shield: ${rarityDef(p.pity).label} guaranteed.`);
-    lines.push(p.dup ? `Already in your dice: +${p.glaze} glaze for ${speciesLabel(u.m)}.` : had ? 'A rarer copy of a species you have. New die.' : 'New die.');
+    lines.push(p.dup ? `Another ${speciesLabel(u.m)}, but no other blot looks like this one (${serialText(p.die.no)}).` : `A new species for you: ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
     const ok = el('button', 'primary', 'Done') as HTMLButtonElement;
     ok.type = 'button';
     ok.id = 'dip-next';
@@ -376,7 +417,8 @@ function summary(pulls: PullResult[]): Promise<void> {
       const r = rarityDef(p.rarity);
       const c = el('div', `dcard r-${p.rarity}`);
       c.style.setProperty('--c', r.col);
-      c.append(art(p.die, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', p.dup ? `+${p.glaze} glaze` : `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}`));
+      c.append(art(p.die, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}`));
+      if (!p.dup) c.append(el('span', 'bagmark new', 'new'));
       grid.append(c);
     }
     const best = pulls.reduce((a, p) => Math.max(a, rarityIndex(p.rarity)), 0);
@@ -403,6 +445,7 @@ export function initDice(h: Hooks): void {
 }
 export function openDice(): void {
   swapIn = null;
+  washArmed = null;
   render();
   void load();
   // PixiJS schon laden, während man die Würfel ansieht

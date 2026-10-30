@@ -5,11 +5,8 @@
     "dir": "dist/client",
     "entrypoints": {
       "default": {
-        "entry": "splash.html",
+        "entry": "play.html",
         "height": "tall"
-      },
-      "game": {
-        "entry": "game.html"
       },
       "duel": {
         "entry": "duel.html"
@@ -33,40 +30,17 @@
   "menu": {
     "items": [
       {
-        "label": "Before It Dries: post today's blot",
-        "description": "Creates today's daily blot post if it is missing",
-        "location": "subreddit",
-        "forUserType": "moderator",
-        "endpoint": "/internal/menu/post-blot"
-      },
-      {
         "label": "Before It Dries: post a new play post",
         "description": "Creates and pins a new post for the paint duel and the dice",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/post-play"
-      },
-      {
-        "label": "Before It Dries: adopt top name now",
-        "description": "Names the species from the top comment right away",
-        "location": "post",
-        "forUserType": "moderator",
-        "postFilter": "currentApp",
-        "endpoint": "/internal/menu/adopt-name"
       }
     ]
   },
   "triggers": {
     "onAppInstall": "/internal/triggers/on-app-install",
     "onAppUpgrade": "/internal/triggers/on-app-upgrade"
-  },
-  "scheduler": {
-    "tasks": {
-      "daily-blot": {
-        "endpoint": "/internal/scheduler/daily-blot",
-        "cron": "1 0 * * *"
-      }
-    }
   },
   "settings": {
     "subreddit": {

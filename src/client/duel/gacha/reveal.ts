@@ -5,7 +5,7 @@
  */
 import { Application, Container, DisplacementFilter, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { PAPER, PIG, type PaperId } from '../../../shared/data';
-import { RARITIES, rarityDef, rarityIndex, type Rarity } from '../../../shared/dice';
+import { RARITIES, rarityDef, rarityIndex, serialText, type Rarity } from '../../../shared/dice';
 import type { Face } from '../../../shared/duel/rules';
 import type { Monster } from '../../../shared/monster';
 import { renderMonster } from '../../renderer/watercolor';
@@ -22,8 +22,9 @@ export type RevealPull = {
   name: string;
   lv: number;
   faces: Face[];
+  /** Die Art hatte man schon: der Stempel zeigt dann die Seriennummer statt NEW */
   dup: boolean;
-  glaze: number;
+  no: number;
 };
 
 /** Leuchtfarbe je Seltenheit */
@@ -675,7 +676,7 @@ export class Reveal {
       await this.wait(90);
     }
     await this.wait(200);
-    const stamp = this.makeStamp(p.dup ? `+${p.glaze} glaze` : 'NEW!', p.dup ? 0x2b6fa3 : 0xc0392b);
+    const stamp = this.makeStamp(p.dup ? serialText(p.no) : 'NEW!', p.dup ? 0x2b6fa3 : 0xc0392b);
     stamp.position.set(g.cx + g.S * 0.28, g.cy - g.S * 0.32 + 40);
     stamp.scale.set(3);
     stamp.alpha = 0;

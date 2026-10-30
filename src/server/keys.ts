@@ -1,6 +1,6 @@
 /*
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
- * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players).
+ * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds).
  */
 export const K = {
   /** Hash: seed, humidity, postId, bp, main, createdAt, named */
@@ -33,4 +33,8 @@ export const K = {
   dice: (userId: string) => `dice:${userId}`,
   /** Sorted Set aller Spieler mit Würfelsammlung, Score = letzte Änderung */
   dicePlayers: 'dice:players',
+  /** Hash: Monster-Seed → {userId}:{Würfel-ID}. Jeder Seed nur einmal, auch nach dem Auswaschen */
+  seeds: 'seeds',
+  /** Zähler der Seriennummern aller Würfel */
+  serial: 'serial',
 } as const;

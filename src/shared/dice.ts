@@ -25,8 +25,13 @@ export const rarityFromRoll = (d100: number): Rarity => (RARITIES.find((r) => d1
 
 /** Lasur auf einer Würfelseite: ein einfaches Symbol wird doppelt */
 export type FaceMod = { i: number; to: 'x2' };
-/** Ein Würfel in der Sammlung: Bogen-Seed und Nummer des Monsters, seltenes Papier, Lasuren auf Seiten */
-export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number };
+/**
+ * Ein Würfel in der Sammlung: Bogen-Seed und Nummer des Monsters, seltenes Papier, Lasuren auf Seiten.
+ * no ist die Seriennummer über alle Spieler, der Seed des Monsters gehört nur diesem Würfel (Register am Server).
+ */
+export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number };
+/** Seriennummer zum Zeigen: #00427 */
+export const serialText = (no: number | undefined): string => (no ? '#' + String(no).padStart(5, '0') : '');
 
 export function dieMonster(d: { sheet: string; idx: number; paper?: PaperId }): Monster {
   const m = makeMonster(d.sheet, d.idx, humidityFor(d.sheet));
@@ -40,8 +45,8 @@ export const STARTER_PULLS = 9;
 export const GLAZE_COST = 3;
 /** Spätestens nach so vielen Zügen kommt diese Seltenheit oder besser */
 export const PITY: Record<'rare' | 'epic' | 'legendary', number> = { rare: 10, epic: 40, legendary: 90 };
-/** Pigment fürs Duell (höchstens perDay belohnte Duelle am Tag), fürs Lern-Duell einmal und fürs Fangen des Tagesklecks */
-export const REWARD = { win: 60, draw: 40, loss: 25, perDay: 5, tutorial: 200, catch: 50 };
+/** Pigment fürs Duell (höchstens perDay belohnte Duelle am Tag), fürs Lern-Duell einmal und später fürs Benennen einer Art */
+export const REWARD = { win: 60, draw: 40, loss: 25, perDay: 5, tutorial: 200, name: 50 };
 
 /** Sammlung eines Spielers. Liegt als JSON in Redis, hat keine Geheimnisse und geht so an den Client */
 export type DiceSave = {
@@ -52,7 +57,7 @@ export type DiceSave = {
   pigment: number;
   /** Züge seit dem letzten Rare (oder besser), Epic (oder besser) und Legendary */
   pity: Record<'rare' | 'epic' | 'legendary', number>;
-  /** Lasur je Art (Bauplan:Pigment), kommt aus Doppelten */
+  /** Lasur je Art (Bauplan:Pigment), kommt aus ausgewaschenen Würfeln */
   glaze: Record<string, number>;
   /** Freie Startzüge, die noch offen sind */
   starter: number;
@@ -71,15 +76,18 @@ export function emptyDice(): DiceSave {
   return { v: 1, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };
 }
 export type PullKind = 'starter' | 'free' | 'one' | 'ten';
-/** Ein Zug: der offene W100, die Seltenheit und was daraus wurde */
+/** Ein Zug: der offene W100, die Seltenheit und das neue Monster. Jeder Zug bleibt als eigener Würfel */
 export type PullResult = {
   d100: number;
   rarity: Rarity;
   /** Schutz vor Pech hat gegriffen: diese Seltenheit war garantiert */
   pity: 'rare' | 'epic' | 'legendary' | 'ten' | null;
   die: DieRec;
-  /** Doppelte Art: der Würfel wurde zu Lasur für diese Art */
+  /** Diese Art hatte man schon (Artschlüssel), sonst null. Der Würfel bleibt trotzdem */
   dup: string | null;
-  glaze: number;
 };
+/** Ausgewaschen gibt ein Würfel so viel Lasur für seine Art */
+export const washGlaze = (r: Rarity): number => rarityDef(r).glaze;
+/** So viele Würfel bleiben mindestens, damit das Deck voll wird */
+export const KEEP_MIN = 9;
 export const dieSpecies = (d: DieRec): string => speciesKey(dieMonster(d));

@@ -290,6 +290,8 @@ button { font: inherit; color: inherit; }
 .dcard small { font: 10px var(--f-mono); color: var(--c); font-weight: 700; }
 .dcard .lvb { position: absolute; left: 4px; top: 6px; }
 .dcard .bagmark { position: absolute; right: 4px; top: 6px; font: 700 9px var(--f-mono); background: var(--ink); color: var(--sheet); border-radius: 999px; padding: 1px 5px; }
+.dcard .serial { font: 9px var(--f-mono); color: var(--muted, #6b7180); letter-spacing: .02em; }
+.dcard .bagmark.new { background: #c0392b; color: #fff; }
 .dcard.r-epic { background: linear-gradient(180deg, #fbf7ff, #fff 40%); }
 .dcard.r-legendary { background: linear-gradient(160deg, #fff9e8, #fff 50%, #fbf1d6); box-shadow: 0 0 0 1px #e6cf8f, 0 6px 16px -8px rgba(184,134,11,.6); }
 .empty { margin: 4px; font: 12px var(--f-mono); color: var(--muted); }
@@ -334,6 +336,10 @@ button { font: inherit; color: inherit; }
 .bslot.empty.swap { cursor: pointer; }
 .bslot .plus { font: 300 22px var(--f-body); color: var(--line); }
 #inspect .trow .inbag-lbl { margin: auto 0; }
+#inspect .serial-line { font: 11px var(--f-mono); opacity: .75; }
+#inspect .trow.wash { flex-direction: column; align-items: stretch; gap: 4px; margin-top: 14px; }
+#inspect .trow.wash small { font-size: 12px; opacity: .7; text-align: center; }
+.ghost.danger { border-color: #a8452f; color: #a8452f; }
 
 /* ---------- Deck: neun Würfel, verbrauchte blass ---------- */
 /* Zwei Reihen mit großen Chips statt neun winziger: Antippen wählt, Halten zeigt die Seiten */

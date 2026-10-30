@@ -45,6 +45,11 @@ export class FakeRedis implements RedisLike {
     h.set(field, value);
     return 1;
   }
+  async incrBy(key: string, value: number) {
+    const n = Number(this.strings.get(key) ?? 0) + value;
+    this.strings.set(key, String(n));
+    return n;
+  }
   async hGetAll(key: string) {
     return Object.fromEntries(this.hashes.get(key) ?? []);
   }

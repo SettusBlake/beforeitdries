@@ -42,6 +42,7 @@ export const api = {
   dicePull: (kind: PullKind) => call<DiceResponse>('/api/dice/pull', { kind }),
   diceBag: (ids: string[]) => call<DiceResponse>('/api/dice/bag', { ids }),
   diceGlaze: (id: string, face: number) => call<DiceResponse>('/api/dice/glaze', { id, face }),
+  diceWash: (id: string) => call<DiceResponse>('/api/dice/wash', { id }),
 };
 
 /** Abstand zwischen Server- und Geräteuhr, für Trockenzeit und Tagesende */

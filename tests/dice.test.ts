@@ -1,9 +1,11 @@
-/* Würfelsammlung: Startzüge, offener W100, Schutz vor Pech, Doppelte als Lasur, Beutel, Lasur auf Seiten */
+/* Würfelsammlung: Startzüge, offener W100, Schutz vor Pech, einzigartige Monster, Auswaschen, Beutel, Lasur auf Seiten */
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
-import { diceBag, diceGet, diceGlaze, dicePull, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceGet, diceGlaze, dicePull, diceWash, loadDice, saveDice } from '../src/server/dice';
+import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
-import { dieMonster, dieSpecies, GLAZE_COST, PITY, rarityFromRoll, rarityIndex, STARTER_PULLS } from '../src/shared/dice';
+import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, rarityDef, rarityFromRoll, rarityIndex, STARTER_PULLS, type DiceSave } from '../src/shared/dice';
+import { monsterSeed } from '../src/shared/monster';
 import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
 import { loadState } from '../src/shared/duel/play';
 import { RNG } from '../src/shared/rng';
@@ -95,27 +97,93 @@ describe('Würfelsammlung', () => {
     expect(['washi', 'vellum']).toContain(l.pulls[0]!.die.paper);
   });
 
-  it('doppelte Art wird Lasur, Lasur macht ein Symbol doppelt', async () => {
+  it('jeder Zug bleibt als eigener Würfel, mit eigener Seriennummer und eigenem Seed im Register', async () => {
     const d = setup(21);
     await dicePull(d, USER, 'starter');
     await addPigment(d, 100000);
-    let s = await loadDice(d, USER);
-    let dups = 0;
-    for (let i = 0; i < 40 && !Object.values(s.glaze).some((g) => g >= GLAZE_COST); i++) {
+    let s: DiceSave = await loadDice(d, USER);
+    let pulls = 0,
+      dups = 0;
+    for (let i = 0; i < 6; i++) {
       const res = await dicePull(d, USER, 'ten');
+      pulls += res.pulls.length;
       dups += res.pulls.filter((p) => p.dup).length;
-      for (const p of res.pulls) if (p.dup) expect(res.dice.dice.some((x) => dieSpecies(x) === p.dup)).toBe(true);
+      for (const p of res.pulls) expect(res.dice.dice.some((x) => x.id === p.die.id)).toBe(true);
       s = res.dice;
     }
+    expect(s.dice).toHaveLength(STARTER_PULLS + pulls);
     expect(dups).toBeGreaterThan(0);
-    const key = Object.keys(s.glaze).find((k) => s.glaze[k]! >= GLAZE_COST)!;
-    const die = s.dice.find((x) => dieSpecies(x) === key)!;
+    expect(Object.keys(s.glaze)).toHaveLength(0);
+    const nos = s.dice.map((x) => x.no);
+    expect(nos.every((n) => typeof n === 'number' && n > 0)).toBe(true);
+    expect(new Set(nos).size).toBe(nos.length);
+    const seeds = s.dice.map((x) => String(monsterSeed(x.sheet, x.idx)));
+    expect(new Set(seeds).size).toBe(seeds.length);
+    for (const [k, x] of s.dice.entries()) expect(await d.redis.hGet(K.seeds, seeds[k]!)).toBe(`${USER}:${x.id}`);
+  });
+
+  it('ein schon vergebener Seed wird neu gewürfelt, ein anderer Spieler bekommt nie dasselbe Monster', async () => {
+    // Zwei Spieler mit demselben Zufall würden dieselben Monster ziehen
+    const d1 = setup(7),
+      d2 = { ...setup(7), redis: d1.redis };
+    const a = await dicePull(d1, USER, 'starter');
+    const b = await dicePull(d2, 't2_other', 'starter');
+    const sa = new Set(a.dice.dice.map((x) => monsterSeed(x.sheet, x.idx)));
+    expect(b.dice.dice.some((x) => sa.has(monsterSeed(x.sheet, x.idx)))).toBe(false);
+    // Seltenheit bleibt beim Neuwürfeln gleich
+    for (const p of b.pulls) expect(dieUnit(dieMonster(p.die)).rarity).toBe(p.rarity);
+    expect(new Set([...a.dice.dice, ...b.dice.dice].map((x) => x.no)).size).toBe(2 * STARTER_PULLS);
+  });
+
+  it('ältere Würfel ohne Nummer bekommen beim Laden eine', async () => {
+    const d = setup(12);
+    await dicePull(d, USER, 'starter');
+    const s = await loadDice(d, USER);
+    for (const x of s.dice) delete x.no;
+    await d.redis.set(K.dice(USER), JSON.stringify(s));
+    const res = await diceGet(d, USER);
+    expect(res.dice.dice.every((x) => (x.no ?? 0) > 0)).toBe(true);
+  });
+
+  it('Auswaschen gibt Lasur, nicht aus dem Deck, ein volles Deck bleibt, Lasur macht ein Symbol doppelt', async () => {
+    const d = setup(21);
+    await dicePull(d, USER, 'starter');
+    expect(await code(diceWash(d, USER, (await loadDice(d, USER)).dice[0]!.id))).toBe('bad_request');
+    await addPigment(d, 100000);
+    let s = (await dicePull(d, USER, 'ten')).dice;
+    for (let i = 0; i < 20 && !s.dice.some((x) => !s.bag.includes(x.id) && s.dice.some((y) => y !== x && dieSpecies(y) === dieSpecies(x))); i++) s = (await dicePull(d, USER, 'ten')).dice;
+    // Ein Würfel außerhalb des Decks, von dessen Art es noch einen gibt
+    const out = s.dice.find((x) => !s.bag.includes(x.id) && s.dice.some((y) => y !== x && dieSpecies(y) === dieSpecies(x)))!;
+    const key = dieSpecies(out);
+    const gain = rarityDef(dieUnit(dieMonster(out)).rarity).glaze;
+    expect(await code(diceWash(d, USER, s.bag[0]))).toBe('bad_request');
+    expect(await code(diceWash(d, USER, 'd999'))).toBe('not_found');
+    const w = await diceWash(d, USER, out.id);
+    expect(w.dice.dice.some((x) => x.id === out.id)).toBe(false);
+    expect(w.dice.glaze[key]).toBe(gain);
+    // Das Monster kommt nie wieder: der Seed bleibt im Register
+    expect(await d.redis.hGet(K.seeds, String(monsterSeed(out.sheet, out.idx)))).toBe(`${USER}:${out.id}`);
+    // Genug Lasur für eine Seite: weitere Würfel dieser Art auswaschen, solange es geht
+    let t = w.dice;
+    while ((t.glaze[key] ?? 0) < GLAZE_COST) {
+      const more = t.dice.find((x) => !t.bag.includes(x.id) && dieSpecies(x) !== key);
+      if (!more || t.dice.length <= KEEP_MIN) break;
+      const x = t.dice.find((y) => !t.bag.includes(y.id) && dieSpecies(y) === key && t.dice.filter((z) => dieSpecies(z) === key).length > 1);
+      if (!x) {
+        t.glaze[key] = GLAZE_COST;
+        await saveDice(d, USER, t);
+        break;
+      }
+      t = (await diceWash(d, USER, x.id)).dice;
+    }
+    t = await loadDice(d, USER);
+    const die = t.dice.find((x) => dieSpecies(x) === key)!;
     const faces = dieUnit(dieMonster(die), die.mods).faces;
     const fi = faces.findIndex((f) => isCrestFace(f) && f.n === 1);
     const star = faces.findIndex((f) => f.k === 'star');
     expect(await code(diceGlaze(d, USER, die.id, star))).toBe('bad_request');
     if (fi >= 0) {
-      const before = s.glaze[key]!;
+      const before = t.glaze[key]!;
       const res = await diceGlaze(d, USER, die.id, fi);
       const after = res.dice.dice.find((x) => x.id === die.id)!;
       expect(dieUnit(dieMonster(after), after.mods).faces[fi]!.n).toBe(2);
