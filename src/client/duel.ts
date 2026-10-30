@@ -80,7 +80,8 @@ let reachHl: { id: number; spots: number[]; hits: number[] } | null = null;
 let resumable = false;
 const seenTips = new Set((store.get('bid-duel-tips') ?? '').split(',').filter(Boolean));
 /** Sepias goldener Ring: am Anfang an, nach dem ersten fertigen Duell aus, außer man schaltet ihn selbst ein (festgelegt am 29.10.2026) */
-let hints = store.get('bid-duel-hints') !== '0';
+/** Sepias Ring im normalen Duell: aus, außer man schaltet ihn im Menü selbst ein (geführt wird nur im Lern-Duell) */
+let hints = store.get('bid-duel-hints') === '1';
 setMuted(store.get('bid-duel-muted') === '1');
 
 const board = $('board') as HTMLCanvasElement;
@@ -90,7 +91,25 @@ const myTurn = () => !busy && !S.over && S.turn === 1;
 const placing = () => (phase() === 'opening' || phase() === 'summon') && summonU !== null;
 /** Im Lern-Duell ist nur der markierte Schritt antippbar */
 const tut = () => tutorialActive() && myTurn();
-const allowedEl = (e: Element): boolean => !tut() || (!!guideNow.el && e.matches(guideNow.el));
+const allowedEl = (e: Element): boolean => {
+  if (!tut() || (!!guideNow.el && e.matches(guideNow.el))) return true;
+  nudge();
+  return false;
+};
+/** Im Lern-Duell etwas anderes angetippt: der Hinweis und die goldene Markierung zeigen noch einmal, was dran ist */
+function nudge(): void {
+  if (!tut()) return;
+  const h = $('hint');
+  h.classList.remove('nudge');
+  void h.offsetWidth;
+  h.classList.add('nudge');
+  const g = guideNow.el ? document.querySelector<HTMLElement>(guideNow.el) : null;
+  if (g) {
+    g.classList.remove('guide', 'nudge');
+    void g.offsetWidth;
+    g.classList.add('guide', 'nudge');
+  }
+}
 const rgb = (p: PigmentId) => `rgb(${PIG[p].rgb})`;
 
 /* ---------- Server ---------- */
@@ -380,6 +399,8 @@ function showTicker(text: string, cls: string): void {
 }
 
 /* ---------- Hinweise von Meisterin Sepia ---------- */
+/** Tipps im normalen Duell: aus, seit Sepia nur im Lern-Duell erklärt. Texte bleiben für später */
+const SHOW_TIPS = false;
 const TIPS: Record<string, string> = {
   opening: 'Every blot is a die. I put your best one by your palette already. Tap the net to unfold it, or tap a blue dot to move it first.',
   roll: 'Pick three dice from your deck and roll. Rolled dice are used up until the deck is shuffled. Symbols go to your pool and keep, stars bring new blots onto the sheet.',
@@ -392,7 +413,8 @@ const TIPS: Record<string, string> = {
   palette: 'You can reach their palette. One Splash symbol, one heart, one per turn. It is safe while one of their blots stands within two cells.',
 };
 function tip(key: string): void {
-  if (S.tutorial > 0 || seenTips.has(key) || !TIPS[key]) return;
+  // Erklärt wird nur im Lern-Duell (festgelegt am 30.10.2026), im normalen Duell erscheint kein Tipp
+  if (!SHOW_TIPS || S.tutorial > 0 || seenTips.has(key) || !TIPS[key]) return;
   seenTips.add(key);
   store.set('bid-duel-tips', [...seenTips].join(','));
   $('tip-text').textContent = TIPS[key]!;
@@ -818,6 +840,9 @@ function renderHint(): void {
   if (busy && S.turn === 2) return setHint('Rival turn. Tap the sheet to speed it up.');
   if (busy) return setHint('');
   if (S.turn !== 1) return setHint('');
+  const th = tut() ? tutHint() : null;
+  $('hint').classList.toggle('tut', !!th);
+  if (th) return setHint(th);
   if (p === 'opening') return setHint(summonU ? `Tap the net to unfold ${summonU.name}. Tap a blue dot to move it, Turn to rotate it.` : 'Opening: pick one of your dice below to unfold first.');
   if (p === 'roll') return setHint(`Roll ${need()} dice. Tap to swap, hold to read. Rolled dice stay used until you reshuffle.`);
   if (p === 'keep') return setHint('Tap dice to hold them, then reroll the rest once. Or keep the roll as it is.');
@@ -831,6 +856,43 @@ function renderHint(): void {
   if (armed) return setHint(`${armed.name}: tap a target. Paper: stamp. Rival: splash. Tap it again to soak.`);
   if (!R.onSheet(me()).some((u) => !u.acted)) return setHint('All blots are done. End your turn.');
   setHint('Drag a blot onto paper to stamp, onto a rival to splash. Tap it for its reach.');
+}
+/** Lern-Duell: der Hinweis sagt genau, was Sepia jetzt sehen will (nur dieser Schritt ist antippbar) */
+function tutHint(): string | null {
+  const a = tutorialAction();
+  if (!a) return null;
+  const name = (id: number) => R.unitById(id)?.name ?? 'the marked blot';
+  switch (a.k) {
+    case 'open':
+    case 'summon':
+      if (summonU?.id !== a.id) return `Tap ${name(a.id)}, the die with the gold glow.`;
+      if (orient !== a.o) return 'Tap Turn until the net matches the gold ring.';
+      return 'Tap the gold ring to unfold the net.';
+    case 'roll':
+      return 'Tap the dice with the gold glow, then Roll.';
+    case 'reroll':
+      return 'Tap the glowing dice to hold or free them, then Reroll the rest.';
+    case 'keep':
+      return 'Keep this roll: tap Keep.';
+    case 'skip':
+      return 'Nothing to unfold this time: tap Skip.';
+    case 'end':
+      return 'Nothing worth doing: tap End turn.';
+    case 'joker':
+      return 'Your Joker: tap the symbol with the gold glow.';
+    case 'go': {
+      const u = R.unitById(a.id);
+      if (!u) return null;
+      if (a.a === 'ability') {
+        const ab = ABILITY[u.m.bp].name;
+        return aiming?.id === u.id ? `Tap the gold ring: ${u.name} uses ${ab} there.` : `Not a drag this time: tap the gold “${ab}” button above ${u.name}.`;
+      }
+      if (a.a === 'soak') return `Tap ${u.name} twice: it soaks where it stands.`;
+      if (armed?.id === u.id) return `Now tap the gold ring.`;
+      return `Drag ${u.name} along the gold arrow. Or tap it, then the gold ring.`;
+    }
+  }
+  return null;
 }
 /** Goldknöpfe für Fähigkeiten über den Klecksen, die eine nutzen können */
 function renderAbil(): void {
@@ -1180,7 +1242,7 @@ board.addEventListener('pointerdown', (e) => {
   if (i === null) return;
   const u = R.unitAt(i % COLS, Math.floor(i / COLS));
   if (!u || u.side !== 1 || u.acted || (armed && armed !== u)) return;
-  if (tut() && guideNow.from !== i && guideNow.cell !== i) return;
+  if (tut() && guideNow.from !== i && guideNow.cell !== i) return nudge();
   // over: das Feld unter dem Finger (beim Griff am Kopf das Feld darüber), erst ein Wechsel zählt als Wisch
   drag = { u, start: i, over: cellAt(e) ?? i, moved: false, plan: null, pv: null };
   try {
@@ -1212,7 +1274,10 @@ board.addEventListener('pointerup', (e) => {
       sfx.tap();
       return renderAll();
     }
-    if (tut() && (guideNow.from !== d.start || guideNow.cell !== i)) return renderAll();
+    if (tut() && (guideNow.from !== d.start || guideNow.cell !== i)) {
+      renderAll();
+      return nudge();
+    }
     if (d.plan) return void sendGo(d.u, d.plan);
     return renderAll();
   }
@@ -1227,7 +1292,7 @@ function tapCell(i: number): void {
   if (!myTurn()) return;
   const u = R.unitAt(i % COLS, Math.floor(i / COLS));
   const p = phase();
-  if (tut() && guideNow.cell !== i && guideNow.from !== i) return;
+  if (tut() && guideNow.cell !== i && guideNow.from !== i) return nudge();
   if (placing()) {
     // Tipp aufs Netz klappt auf, Tipp auf einen anderen Punkt verschiebt es dorthin
     const list = anchor !== null ? R.netAt(summonU!, orient, anchor) : null;
@@ -1431,11 +1496,6 @@ function sepiaEnd(): string {
   return S.winner === 1 ? 'The paper remembers who painted it. Today, you.' : S.winner === 2 ? 'The rival covered more paper. Paper keeps score, not excuses.' : 'A draw. The paper cannot decide either.';
 }
 async function finishDuel(): Promise<void> {
-  // Nach dem ersten fertigen Duell entscheidet man selbst: Sepias Ring geht aus, außer man hat ihn selbst eingeschaltet
-  if (store.get('bid-duel-hints') === null) {
-    hints = false;
-    store.set('bid-duel-hints', '0');
-  }
   renderAll();
   await View.wait(700);
   const [a, b] = R.scores();
