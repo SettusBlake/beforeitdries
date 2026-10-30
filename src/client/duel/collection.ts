@@ -36,6 +36,8 @@ let hooks: Hooks = { back: () => undefined, error: () => undefined };
 let save: DiceSave | null = null;
 let freeReady = false;
 let busy = false;
+/** Playtest und Mod: Test-Knopf für leere Würfel */
+let tester = false;
 /** Würfel, der in den Beutel soll: nächster Tipp auf einen Beutelplatz tauscht */
 let swapIn: string | null = null;
 /** Würfel, dessen Auswaschen schon einmal angetippt wurde (zweiter Tipp wäscht) */
@@ -95,6 +97,8 @@ function render(): void {
   bb.disabled = !blank || busy || s.starter > 0;
   $('blank-n').textContent = String(blank);
   $('blank-sub').textContent = s.starter > 0 ? 'after your free dice' : blank ? 'paint your own monster' : 'a new one every Monday · or roll a 1';
+  $('blank-test').hidden = !tester;
+  ($('blank-test') as HTMLButtonElement).disabled = busy;
   // Beutel
   const bag = $('bag');
   bag.replaceChildren();
@@ -150,6 +154,7 @@ async function load(): Promise<void> {
 function apply(r: DiceResponse): void {
   save = r.dice;
   freeReady = r.freeReady;
+  if (r.tester !== undefined) tester = r.tester;
   render();
 }
 
@@ -466,6 +471,19 @@ function closeBlank(): void {
   $('dice').hidden = false;
   render();
 }
+/** Test-Knopf (Playtest, nur Mods): ein leerer Würfel mehr */
+async function testBlank(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  try {
+    apply(await api.diceTestBlank());
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
 /** Zeichnung an den Server, dann das Ritual wie bei einem Zug. false: Fehler, man zeichnet weiter */
 async function paintDrawing(code: string): Promise<boolean> {
   if (busy) return false;
@@ -492,6 +510,7 @@ export function initDice(h: Hooks): void {
   hooks = h;
   initDraw({ paint: paintDrawing, back: closeBlank });
   $('blank-b').addEventListener('click', openBlank);
+  $('blank-test').addEventListener('click', () => void testBlank());
   $('dice-back').addEventListener('click', () => {
     sfx.tap();
     swapIn = null;
@@ -512,6 +531,7 @@ export async function diceBadge(): Promise<string> {
     const r = await api.dice();
     save = r.dice;
     freeReady = r.freeReady;
+    tester = !!r.tester;
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.freeReady) return 'free dip';
     if (r.dice.blank) return 'blank canvas';

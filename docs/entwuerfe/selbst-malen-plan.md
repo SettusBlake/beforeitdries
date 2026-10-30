@@ -64,6 +64,6 @@ Ein **Blank canvas** ist ein leerer Würfel. Du zeichnest mit dem Finger, das Sp
 
 Danach 2b. Melden und Mod-Menü kommen mit der ersten Stelle, an der fremde Monster zu sehen sind.
 
-## Offen
+## Test-Knopf
 
-- Zum Testen am Handy gibt es nur den einen Blank canvas dieser Woche (plus Funde bei W100 = 1). Soll ich für dich als Mod einen Test-Knopf bauen, der leere Würfel gibt (nur im Playtest-Subreddit)?
+Gewünscht am 30.10.2026 und gebaut: Unter dem Knopf **Blank canvas** steht „Playtest · mods only: +1 blank canvas“. Jeder Tipp gibt einen leeren Würfel mehr, ohne Wochengrenze. Der Server zeigt und erlaubt ihn nur in Playtest-Versionen (vierte Stelle in der Versionsnummer) und nur für Mods des Subreddits. In einer veröffentlichten Version verschwindet er von selbst.

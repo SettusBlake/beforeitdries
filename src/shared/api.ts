@@ -127,6 +127,8 @@ export interface DiceResponse {
   dice: DiceSave;
   freeReady: boolean;
   pulls: PullResult[];
+  /** Nur im Playtest und nur für Mods: Test-Knopf für leere Würfel (kommt mit dem Laden der Sammlung) */
+  tester?: boolean;
 }
 /** Pigment nach einem Duell */
 export interface DuelReward {

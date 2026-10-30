@@ -27,6 +27,11 @@ export class FakeReddit implements RedditLike {
     this.appComments.push({ id: opts.id, text: opts.text });
     return {};
   }
+  mods: string[] = [];
+  getModerators(opts: { subredditName: string; username?: string }) {
+    const list = this.mods.filter((m) => !opts.username || m.toLowerCase() === opts.username.toLowerCase());
+    return { all: async () => list.map((username) => ({ username })) };
+  }
   addComment(postId: string, authorName: string, body: string, score: number, extra: Partial<CommentLike> = {}) {
     const list = this.comments.get(postId) ?? [];
     list.push({ id: `t1_c${++this.n}`, parentId: postId, body, score, authorName, removed: false, createdAt: new Date(1e12 + this.n * 1000), ...extra });

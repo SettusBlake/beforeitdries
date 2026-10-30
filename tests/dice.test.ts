@@ -1,7 +1,7 @@
 /* Würfelsammlung: Startzüge, offener W100, Schutz vor Pech, einzigartige Monster, Auswaschen, Beutel, Lasur auf Seiten */
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceWash, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceWash, isPlaytest, loadDice, saveDice } from '../src/server/dice';
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
@@ -277,5 +277,26 @@ describe('Würfelsammlung', () => {
     const res = await dicePull(d, USER, 'starter');
     expect(res.pulls.every((p) => p.d100 === 1 && p.blank)).toBe(true);
     expect(res.dice.blank).toBe(1 + STARTER_PULLS);
+  });
+
+  it('Test-Knopf für leere Würfel: nur im Playtest und nur für Mods', async () => {
+    expect(['0.0.1.47', '1.2.3.4', '0.0.2', '0.0.1.0', '', undefined].map(isPlaytest)).toEqual([true, true, false, false, false, false]);
+    const reddit = new FakeReddit();
+    reddit.mods.push('Vegavild');
+    const d = { ...setup(66), reddit };
+    // Veröffentlichte Version: kein Knopf, auch nicht für Mods
+    expect((await diceGet({ ...d, appVersion: '0.0.2' }, USER, 'Vegavild')).tester).toBe(false);
+    expect(await code(diceTestBlank({ ...d, appVersion: '0.0.2' }, USER, 'Vegavild'))).toBe('forbidden');
+    const play = { ...d, appVersion: '0.0.1.47' };
+    // Playtest, aber kein Mod
+    expect((await diceGet(play, USER, 'someone')).tester).toBe(false);
+    expect(await code(diceTestBlank(play, USER, 'someone'))).toBe('forbidden');
+    // Playtest und Mod: sichtbar, jeder Tipp ein leerer Würfel mehr
+    expect((await diceGet(play, USER, 'vegavild')).tester).toBe(true);
+    const before = (await loadDice(play, USER)).blank ?? 0;
+    await diceTestBlank(play, USER, 'Vegavild');
+    const res = await diceTestBlank(play, USER, 'Vegavild');
+    expect(res.dice.blank).toBe(before + 2);
+    expect(res.tester).toBe(true);
   });
 });

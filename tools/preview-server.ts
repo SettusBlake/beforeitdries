@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, diceWash, dicePull, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, diceTestBlank, diceWash, dicePull, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
 import { K } from '../src/server/keys';
@@ -25,7 +25,9 @@ const USER = { id: 't2_preview', name: 'preview_painter' };
 
 const redis = new FakeRedis();
 const reddit = new FakeReddit();
-const deps = (): Deps => ({ redis, reddit, now: Date.now(), rand: secureUint32, subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: DRY_MS });
+// Vorschau wie ein Playtest, der Vorschau-Spieler ist Mod (Test-Knopf sichtbar)
+reddit.mods.push('preview_painter');
+const deps = (): Deps => ({ redis, reddit, now: Date.now(), rand: secureUint32, subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: DRY_MS, appVersion: '0.0.1.99' });
 
 const { postId } = await ensureDailyPost(deps());
 // Ein älterer Tag, damit der Bogen mehr als ein Monster zeigt
@@ -73,7 +75,8 @@ createServer(async (req, res) => {
       let raw = '';
       for await (const c of req) raw += c;
       const b = JSON.parse(raw || '{}');
-      if (url.pathname === '/api/dice') return send(200, await diceGet(d, asUser));
+      if (url.pathname === '/api/dice') return send(200, await diceGet(d, asUser, USER.name));
+      if (url.pathname === '/api/dice/test-blank') return send(200, await diceTestBlank(d, asUser, USER.name));
       if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
       if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));

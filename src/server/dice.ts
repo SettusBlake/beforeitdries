@@ -152,15 +152,41 @@ function runStarter(d: Deps, s: DiceSave): PullResult[] {
   return out;
 }
 
-export async function diceGet(d: Deps, userId: string | undefined): Promise<DiceResponse> {
+/** Playtest-Version (vierte Stelle, z. B. 0.0.1.47). Veröffentlichte Versionen haben drei Stellen */
+export const isPlaytest = (v: string | undefined): boolean => !!v && /^\d+\.\d+\.\d+\.[1-9]\d*$/.test(v);
+/** Test-Werkzeuge nur im Playtest und nur für Mods des Subreddits */
+export async function isTester(d: Deps, username: string | undefined): Promise<boolean> {
+  if (!isPlaytest(d.appVersion) || !username) return false;
+  try {
+    const mods = await d.reddit.getModerators({ subredditName: d.subredditName, username }).all();
+    return mods.some((m) => m.username.toLowerCase() === username.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+export async function diceGet(d: Deps, userId: string | undefined, username?: string): Promise<DiceResponse> {
   const uid = needUser(userId);
+  const tester = await isTester(d, username);
   const s = await loadDice(d, uid);
-  if (s.dice.every((x) => x.no)) return respond(d, s);
+  if (s.dice.every((x) => x.no)) return { ...respond(d, s), tester };
   // Ältere Würfel ohne Seriennummer: einmal unter der Sperre nachtragen
   return withLock(d, playerLock(uid), async () => {
     const t = await loadDice(d, uid);
     await saveDice(d, uid, t);
-    return respond(d, t);
+    return { ...respond(d, t), tester };
+  });
+}
+
+/** Test-Knopf (Playtest, nur Mods): ein leerer Würfel mehr, ohne Wochengrenze */
+export async function diceTestBlank(d: Deps, userId: string | undefined, username: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    s.blank = (s.blank ?? 0) + 1;
+    await saveDice(d, uid, s);
+    return { ...respond(d, s), tester: true };
   });
 }
 

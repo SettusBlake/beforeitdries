@@ -4,7 +4,7 @@ import { context, createServer, getServerPort, reddit, redis, settings } from '@
 import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
 import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
 import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
-import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceWash } from './dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceWash } from './dice';
 import { duelAct, duelGet, duelStart } from './duel';
 import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
@@ -24,7 +24,14 @@ async function deps(): Promise<Deps> {
     subredditName: context.subredditName,
     appSlug: context.appSlug ?? context.appName ?? '',
     dryMs: dryMsFromHours(dryHours),
+    appVersion: context.appVersion,
   };
+}
+
+/** Name des Spielers für die Mod-Prüfung (Test-Knopf), nur wenn ein Login da ist */
+async function username(): Promise<string | undefined> {
+  if (!context.userId) return undefined;
+  return context.username ?? (await reddit.getCurrentUsername().catch(() => undefined));
 }
 
 type Handler = (req: Request, res: Response) => Promise<unknown>;
@@ -90,7 +97,7 @@ app.get(
 app.get(
   '/api/dice',
   wrap(async (_req, res) => {
-    res.json(await diceGet(await deps(), context.userId));
+    res.json(await diceGet(await deps(), context.userId, await username()));
   }),
 );
 
@@ -120,6 +127,12 @@ app.post(
   '/api/dice/wash',
   wrap(async (req, res) => {
     res.json(await diceWash(await deps(), context.userId, (req.body as { id?: unknown } | undefined)?.id));
+  }),
+);
+app.post(
+  '/api/dice/test-blank',
+  wrap(async (_req, res) => {
+    res.json(await diceTestBlank(await deps(), context.userId, await username()));
   }),
 );
 app.post(

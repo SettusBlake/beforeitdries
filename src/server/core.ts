@@ -49,6 +49,8 @@ export interface RedditLike {
   getPostById(id: `t3_${string}`): Promise<{ sticky(position?: 1 | 2): Promise<void> }>;
   getComments(opts: { postId: `t3_${string}`; sort?: 'top'; limit?: number; pageSize?: number; depth?: number }): { all(): Promise<CommentLike[]> };
   submitComment(opts: { id: `t3_${string}`; text: string }): Promise<unknown>;
+  /** Mit username: ist dieser Spieler Mod? (leere Liste, wenn nicht) */
+  getModerators(opts: { subredditName: string; username?: string }): { all(): Promise<{ username: string }[]> };
 }
 
 export interface Deps {
@@ -60,6 +62,8 @@ export interface Deps {
   subredditName: string;
   appSlug: string;
   dryMs: number;
+  /** Version der App: Playtest-Versionen haben eine vierte Stelle (0.0.1.47), veröffentlichte nicht */
+  appVersion?: string;
 }
 
 export class GameError extends Error {
