@@ -5,7 +5,7 @@ import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTes
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
-import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollShiny, STARTER_PULLS, styleFromRoll, type DiceSave } from '../src/shared/dice';
+import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollShiny, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
 import { PAPER } from '../src/shared/data';
 import { monsterSeed, statRows } from '../src/shared/monster';
 import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
@@ -307,15 +307,21 @@ describe('Würfelsammlung', () => {
     expect(res.tester).toBe(true);
   });
 
-  it('Shiny: Hand-W100 zeigt 100, dann W10 zeigt 10 (1 zu 1000), ein W10 wählt den Stil', () => {
+  it('Shiny: Hand-W100 zeigt 100, dann W10 zeigt 10 (1 zu 1000), ein W20 wählt den Stil', () => {
     const seq = (xs: number[]) => {
       let i = 0;
       return () => xs[i++]!;
     };
     expect(rollShiny(seq([42]))).toEqual({ hand: 43 });
     expect(rollShiny(seq([99, 3]))).toEqual({ hand: 100, d10: 4 });
-    expect(rollShiny(seq([99, 9, 0]))).toEqual({ hand: 100, d10: 10, styleD10: 1, style: 'pencil' });
-    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(styleFromRoll)).toEqual(['pencil', 'pencil', 'pencil', 'comic', 'comic', 'plate', 'plate', 'anime', 'anime', 'oil']);
+    expect(rollShiny(seq([99, 9, 0]))).toEqual({ hand: 100, d10: 10, styleRoll: 1, style: 'pencil' });
+    expect(rollShiny(seq([99, 9, 19]))).toEqual({ hand: 100, d10: 10, styleRoll: 20, style: 'mosaic' });
+    // Jede Seite des W20 gehört genau einem Stil, sieben Stile mit 2 Seiten, sechs mit 1
+    const faces = Array.from({ length: STYLE_DIE }, (_, i) => styleFromRoll(i + 1));
+    for (const st of STYLES) expect(faces.filter((k) => k === st.k)).toHaveLength(st.to - st.from + 1);
+    expect(STYLES.reduce((a, st) => a + st.to - st.from + 1, 0)).toBe(STYLE_DIE);
+    expect(STYLES.filter((st) => st.to > st.from)).toHaveLength(7);
+    for (const st of STYLES) expect(st.odds).toBe(st.to > st.from ? '1 in 10 000' : '1 in 20 000');
     const r = RNG(77);
     const rand = () => (r() * 4294967296) >>> 0;
     let shiny = 0;
@@ -359,7 +365,7 @@ describe('Würfelsammlung', () => {
     const one = (await dicePull(d, USER, 'free')).pulls[0]!;
     expect(one.hand).toBe(100);
     expect(one.shinyD10).toBe(10);
-    expect(one.styleD10).toBe(10);
+    expect(one.styleRoll).toBe(15);
     expect(one.die.style).toBe('oil');
     expect((await loadDice(d, USER)).forceShiny).toBeUndefined();
     // Zurücknehmen geht auch

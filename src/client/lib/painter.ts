@@ -3,7 +3,7 @@
  * damit Animationen (Ziehen, Duell) flüssig bleiben. Fertige Bilder kommen in einen Zwischenspeicher.
  */
 import type { Monster } from '../../shared/monster';
-import { renderStyled } from '../renderer/styles';
+import { renderStyled } from '../renderer/shiny';
 import type { RenderOptions } from '../renderer/watercolor';
 import { paintSteps } from '../renderer/watercolor';
 

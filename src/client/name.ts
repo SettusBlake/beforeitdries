@@ -10,7 +10,7 @@ import { NAME_MAX } from '../shared/day';
 import { dieMonster, rarityDef, rarityOf, serialText, styleDef } from '../shared/dice';
 import { speciesLabel } from '../shared/monster';
 import { api } from './lib/api';
-import { renderStyled } from './renderer/styles';
+import { renderStyled } from './renderer/shiny';
 import { renderMonster } from './renderer/watercolor';
 
 const $ = (id: string) => document.getElementById(id)!;

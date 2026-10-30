@@ -2,7 +2,7 @@
  * Entwurfsbogen Shiny (nur für docs/entwuerfe): die fünf Stile aus src/client/renderer/styles.ts
  * auf den neuen Formen, auf einem gemalten Monster, klein wie im Deck, mit Malzeit.
  */
-import { renderStyled } from '../../src/client/renderer/styles';
+import { renderStyled } from '../../src/client/renderer/shiny';
 import { renderMonster } from '../../src/client/renderer/watercolor';
 import type { Pt } from '../../src/shared/data';
 import { STYLES, type StyleId } from '../../src/shared/dice';

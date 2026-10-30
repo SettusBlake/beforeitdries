@@ -35,29 +35,42 @@ export const PATINA = [10, 30, 60];
 export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2; draw?: string; style?: StyleId; rolls?: number; patina?: number };
 
 /** Shiny: ein anderer Malstil statt Aquarell, nur Aussehen */
-export type StyleId = 'pencil' | 'comic' | 'plate' | 'anime' | 'oil';
-/** Stil aus dem zweiten W10 (festgelegt am 30.10.2026: Pencil 3, Comic 2, Bestiary Plate 2, Anime 2, Oil 1) */
+export type StyleId = 'pencil' | 'comic' | 'plate' | 'anime' | 'oil' | 'pixel' | 'ukiyoe' | 'stained' | 'neon' | 'blueprint' | 'crayon' | 'papercut' | 'mosaic';
+/** Seiten des Stilwurfs */
+export const STYLE_DIE = 20;
+/**
+ * Stil aus dem W20 (festgelegt am 30.10.2026, docs/entwuerfe/stile-mehr-plan.md): sieben Stile mit je 2 Seiten (1 zu 10 000 je Zug),
+ * sechs mit je 1 Seite (1 zu 20 000). Bis dahin W10 mit Pencil 3, Comic 2, Bestiary Plate 2, Anime 2, Oil 1
+ */
 export const STYLES: { k: StyleId; label: string; from: number; to: number; odds: string }[] = [
-  { k: 'pencil', label: 'Pencil', from: 1, to: 3, odds: '1 in 3333' },
-  { k: 'comic', label: 'Comic', from: 4, to: 5, odds: '1 in 5000' },
-  { k: 'plate', label: 'Bestiary Plate', from: 6, to: 7, odds: '1 in 5000' },
-  { k: 'anime', label: 'Anime', from: 8, to: 9, odds: '1 in 5000' },
-  { k: 'oil', label: 'Oil', from: 10, to: 10, odds: '1 in 10 000' },
+  { k: 'pencil', label: 'Pencil', from: 1, to: 2, odds: '1 in 10 000' },
+  { k: 'comic', label: 'Comic', from: 3, to: 4, odds: '1 in 10 000' },
+  { k: 'plate', label: 'Bestiary Plate', from: 5, to: 6, odds: '1 in 10 000' },
+  { k: 'anime', label: 'Anime', from: 7, to: 8, odds: '1 in 10 000' },
+  { k: 'pixel', label: 'Pixel', from: 9, to: 10, odds: '1 in 10 000' },
+  { k: 'neon', label: 'Neon', from: 11, to: 12, odds: '1 in 10 000' },
+  { k: 'crayon', label: 'Crayon', from: 13, to: 14, odds: '1 in 10 000' },
+  { k: 'oil', label: 'Oil', from: 15, to: 15, odds: '1 in 20 000' },
+  { k: 'ukiyoe', label: 'Ukiyo-e', from: 16, to: 16, odds: '1 in 20 000' },
+  { k: 'stained', label: 'Stained Glass', from: 17, to: 17, odds: '1 in 20 000' },
+  { k: 'blueprint', label: 'Blueprint', from: 18, to: 18, odds: '1 in 20 000' },
+  { k: 'papercut', label: 'Papercut', from: 19, to: 19, odds: '1 in 20 000' },
+  { k: 'mosaic', label: 'Mosaic', from: 20, to: 20, odds: '1 in 20 000' },
 ];
-export const styleFromRoll = (d10: number): StyleId => (STYLES.find((s) => d10 >= s.from && d10 <= s.to) ?? STYLES[0]!).k;
+export const styleFromRoll = (roll: number): StyleId => (STYLES.find((s) => roll >= s.from && roll <= s.to) ?? STYLES[0]!).k;
 export const styleDef = (k: StyleId) => STYLES.find((s) => s.k === k)!;
-export type ShinyRoll = { hand: number; d10?: number; styleD10?: number; style?: StyleId };
-/** Die Hand: W100, bei 100 ein W10, bei 10 Shiny (1 zu 1000), dann ein W10 für den Stil. Würfe offen */
+export type ShinyRoll = { hand: number; d10?: number; styleRoll?: number; style?: StyleId };
+/** Die Hand: W100, bei 100 ein W10, bei 10 Shiny (1 zu 1000), dann ein W20 für den Stil. Würfe offen */
 export function rollShiny(rand: () => number): ShinyRoll {
   const hand = 1 + (rand() % 100);
   if (hand !== 100) return { hand };
   const d10 = 1 + (rand() % 10);
   if (d10 !== 10) return { hand, d10 };
-  const styleD10 = 1 + (rand() % 10);
-  return { hand, d10, styleD10, style: styleFromRoll(styleD10) };
+  const styleRoll = 1 + (rand() % STYLE_DIE);
+  return { hand, d10, styleRoll, style: styleFromRoll(styleRoll) };
 }
 /** Test-Knopf: der nächste Zug ist Shiny in diesem Stil (Würfe so, wie sie dafür fallen müssten) */
-export const forcedShiny = (k: StyleId): ShinyRoll => ({ hand: 100, d10: 10, styleD10: styleDef(k).from, style: k });
+export const forcedShiny = (k: StyleId): ShinyRoll => ({ hand: 100, d10: 10, styleRoll: styleDef(k).from, style: k });
 /** Seriennummer zum Zeigen: #00427 */
 export const serialText = (no: number | undefined): string => (no ? '#' + String(no).padStart(5, '0') : '');
 
@@ -132,10 +145,10 @@ export type PullResult = {
   dup: string | null;
   /** Der W100 zeigte 1: dazu ein leerer Würfel zum Selbstmalen */
   blank?: true;
-  /** Die Hand (W100), bei 100 der W10 für Shiny, bei Shiny der W10 für den Stil (steht dann im Würfel) */
+  /** Die Hand (W100), bei 100 der W10 für Shiny, bei Shiny der W20 für den Stil (steht dann im Würfel) */
   hand: number;
   shinyD10?: number;
-  styleD10?: number;
+  styleRoll?: number;
   /** Shiny hebt Papier und Seltenheit eine Stufe (festgelegt am 30.10.2026): die Seltenheit danach. rarity bleibt der W100 */
   lifted?: Rarity;
 };

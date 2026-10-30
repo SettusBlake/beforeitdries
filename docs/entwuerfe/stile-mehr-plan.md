@@ -1,6 +1,6 @@
 # Plan: Anime neu und weitere Stilrichtungen für Shinys
 
-Stand 30.10.2026, Fassung 1. Wartet auf Freigabe.
+Stand 30.10.2026, Fassung 2. Freigegeben am 30.10.2026 („und ja“) mit den Empfehlungen: Anime mit beiden Szenen je nach Monster, alle acht neuen Stile, W20 wie in der Tabelle. Gebaut, Playtest v0.0.1.81, Bild docs/entwuerfe/stile-mehr-im-spiel.png. Frage 4 (weitere Ideen) ist noch offen.
 
 Wunsch 30.10.2026: Mit dem Anime-Stil noch nicht zufrieden, dazu fehlen noch andere Stilrichtungen.
 
@@ -81,6 +81,16 @@ Werden es weniger, verteile ich die Seiten neu, immer mit 1 oder 2 Seiten je Sti
 1. Anime neu einbauen (gewählte Szene).
 2. Gewählte neue Stile in den Renderer, W20 am Server, Anzeige auf Karte und in der Sammlung, Tests.
 3. Werkzeuge beim Ziehen, Test-Knopf, Upload und Bild.
+
+## Gebaut (30.10.2026)
+
+- Alle 13 Stile in src/shared/dice.ts (`STYLES`, `STYLE_DIE` = 20), Wurf `styleRoll` statt `styleD10` im Ergebnis des Zugs.
+- Einstieg src/client/renderer/shiny.ts (`renderStyled`): Pencil, Comic, Bestiary Plate und Oil aus styles.ts, Anime neu und die acht neuen aus styles-more.ts. Der alte Anime ist entfernt.
+- Anime-Szene fest aus dem Seed (`animeScene`): etwa die Hälfte Himmel, die Hälfte Speedlines.
+- Im Duell freigestellt wie bisher, bei Pixel, Neon, Stained glass und Mosaic mit etwas mehr Rand.
+- Beim Ziehen: W20 statt W10, Namen aller Stile laufen durch, acht neue Werkzeuge (Pixelstift, Schnitzmesser, Lötkolben, Brenner mit Flamme, Tuschefüller, Kreide, Schere, Pinzette mit Steinchen).
+- Test-Knopf „next dip shiny“ zeigt alle 13 Stile.
+- Tests: jede Seite des W20 gehört genau einem Stil, sieben mit 2 Seiten, sechs mit 1.
 
 ## Fragen
 

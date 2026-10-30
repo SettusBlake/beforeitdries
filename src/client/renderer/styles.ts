@@ -939,221 +939,6 @@ export function plate(ctx: Ctx, m: Monster, S: number): void {
   ctx.fillText('1 in.', sx + S * 0.06, sy + S * 0.025);
 }
 
-/* =====================================================================
- * Anime: weiche Pastellfarben, harte Schatten, große glänzende Augen
- * ===================================================================== */
-export function anime(ctx: Ctx, m: Monster, S: number): void {
-  const p = prep(m, S, 0.09, 2);
-  const r = RNG(m.seed + 8080);
-  const { cx, cy } = centerOf(p);
-  // Himmel, Lichtflecken, Strahlen
-  const bg = ctx.createLinearGradient(0, 0, 0, S);
-  bg.addColorStop(0, '#ffd6e7');
-  bg.addColorStop(0.55, '#e7dcff');
-  bg.addColorStop(1, '#cbe7ff');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, S, S);
-  ctx.save();
-  ctx.globalAlpha = 0.18;
-  ctx.fillStyle = '#ffffff';
-  for (let i = 0; i < 4; i++) {
-    const x = S * (0.05 + i * 0.22);
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x + S * 0.08, 0);
-    ctx.lineTo(x + S * 0.5, S);
-    ctx.lineTo(x + S * 0.35, S);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-  for (let i = 0; i < 16; i++) {
-    const x = r() * S,
-      y = r() * S,
-      rad = rr(r, 0.015, 0.06) * S;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    g.addColorStop(0, `rgba(255,255,255,${rr(r, 0.25, 0.55)})`);
-    g.addColorStop(0.7, `rgba(255,255,255,${rr(r, 0.1, 0.2)})`);
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-  }
-
-  const [h, s0, l0] = toHsl(PIG[m.main].rgb);
-  const B = fromHsl(h, clamp(s0 * 0.75 + 0.15, 0.35, 0.78), clamp(l0 * 0.45 + 0.5, 0.62, 0.8));
-  const LC = rgb(fromHsl((h + 0.96) % 1, clamp(s0 * 0.6 + 0.2, 0.3, 0.7), clamp(l0 * 0.5, 0.16, 0.3)));
-  const SH = [206, 186, 238],
-    DEEP = [160, 136, 214];
-
-  // weicher Bodenschatten
-  const fy = feetY(p, S);
-  const gsh = ctx.createRadialGradient(cx, fy, 0, cx, fy, S * 0.25);
-  gsh.addColorStop(0, 'rgba(120,90,190,.35)');
-  gsh.addColorStop(1, 'rgba(120,90,190,0)');
-  ctx.fillStyle = gsh;
-  ctx.save();
-  ctx.translate(0, fy * (1 - 0.18));
-  ctx.scale(1, 0.18);
-  ctx.fillRect(cx - S * 0.3, fy - S * 0.3, S * 0.6, S * 0.6);
-  ctx.restore();
-
-  const faces = faceLayout(m, p, S);
-  const ex = extrasOf(m, p, S, faces);
-  ring(ctx, silhouette(S, p, LC, ex), S * 0.0055);
-  for (const t of ex.tris) {
-    ctx.fillStyle = ex.horns ? '#fff3dc' : rgb(B);
-    triPath(ctx, t);
-    ctx.fill();
-    ctx.save();
-    ctx.clip();
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = rgb(SH);
-    ctx.beginPath();
-    ctx.moveTo(t[1]![0], t[1]![1]);
-    ctx.lineTo(t[2]![0], t[2]![1]);
-    ctx.lineTo((t[0]![0] + t[2]![0]) / 2, (t[0]![1] + t[2]![1]) / 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-    ctx.strokeStyle = LC;
-    ctx.lineWidth = S * 0.0035;
-    triPath(ctx, t);
-    ctx.stroke();
-  }
-  for (const a of ex.antennae) {
-    ctx.strokeStyle = LC;
-    ctx.lineWidth = a.w * 0.8;
-    limbPath(ctx, a.path);
-    ctx.stroke();
-    ctx.fillStyle = '#ffd36b';
-    ctx.beginPath();
-    star(ctx, a.tip[0], a.tip[1], a.r * 1.7, a.r * 0.75, 5);
-    ctx.fill();
-    ctx.strokeStyle = LC;
-    ctx.lineWidth = S * 0.003;
-    ctx.stroke();
-  }
-  for (const lm of p.geo.limbs) {
-    ctx.strokeStyle = rgb(B);
-    strokeLimb(ctx, lm, S, lm.w * S);
-    ctx.save();
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = rgb(SH);
-    strokeLimb(ctx, lm, S, lm.w * S * 0.45, lm.w * S * 0.24, lm.w * S * 0.24);
-    ctx.restore();
-  }
-  const big = p.core.b.rx * p.core.b.ry;
-  for (const o of p.bases) {
-    ctx.fillStyle = o.b.leaf ? '#9fe0a8' : rgb(B);
-    smoothClosed(ctx, o.base);
-    ctx.fill();
-    if (o === p.core && m.sec.length) {
-      const sc = fromHsl(toHsl(PIG[m.sec[0]!].rgb)[0], 0.55, 0.86);
-      ctx.save();
-      smoothClosed(ctx, o.base);
-      ctx.clip();
-      ctx.fillStyle = rgb(sc);
-      ctx.beginPath();
-      ctx.ellipse(o.b.x * S, (o.b.y + o.b.ry * 0.38) * S, o.b.rx * S * 0.55, o.b.ry * S * 0.5, o.b.rot || 0, 0, 7);
-      ctx.fill();
-      ctx.strokeStyle = LC;
-      ctx.lineWidth = S * 0.0025;
-      ctx.stroke();
-      ctx.restore();
-    }
-    // Zellschatten: eine harte Kante, dazu ein schmaler tiefer Rand
-    ctx.save();
-    ctx.globalCompositeOperation = 'multiply';
-    clipShadow(ctx, o, S, 0.22);
-    ctx.fillStyle = rgb(SH);
-    ctx.fillRect(0, 0, S, S);
-    ctx.restore();
-    ctx.save();
-    ctx.globalCompositeOperation = 'multiply';
-    clipShadow(ctx, o, S, 0.06);
-    ctx.fillStyle = rgb(DEEP);
-    ctx.fillRect(0, 0, S, S);
-    ctx.restore();
-    if (o.b.rx * o.b.ry > big * 0.2 && !o.b.leaf) {
-      const gx = (o.b.x - o.b.rx * 0.32) * S,
-        gy = (o.b.y - o.b.ry * 0.4) * S;
-      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, o.b.rx * S * 0.55);
-      g.addColorStop(0, 'rgba(255,255,255,.55)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.save();
-      smoothClosed(ctx, o.base);
-      ctx.clip();
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, S, S);
-      ctx.restore();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.ellipse(gx - o.b.rx * S * 0.05, gy, o.b.rx * S * 0.13, o.b.ry * S * 0.06, (o.b.rot || 0) - 0.6, 0, 7);
-      ctx.fill();
-    }
-    ctx.strokeStyle = LC;
-    ctx.lineWidth = S * 0.0032;
-    smoothClosed(ctx, o.base);
-    ctx.stroke();
-  }
-  // Gesicht
-  const iris = m.sec[0] ? toHsl(PIG[m.sec[0]].rgb)[0] : (h + 0.5) % 1;
-  for (const f of faces) {
-    for (const st of f.stalks) {
-      ctx.strokeStyle = LC;
-      ctx.lineWidth = f.R * 0.09;
-      limbPath(ctx, st);
-      ctx.stroke();
-      ctx.strokeStyle = rgb(B);
-      ctx.lineWidth = f.R * 0.05;
-      ctx.stroke();
-    }
-    // Wangen
-    if (!f.stalks.length) {
-      for (const s of [-1, 1]) {
-        const bx = f.X + s * f.R * 0.62,
-          by = f.Y + f.R * 0.22;
-        ctx.fillStyle = 'rgba(255,120,150,.42)';
-        ctx.beginPath();
-        ctx.ellipse(bx, by, f.R * 0.17, f.R * 0.08, 0, 0, 7);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,.8)';
-        ctx.lineWidth = f.R * 0.018;
-        for (let k = -1; k <= 1; k++) {
-          ctx.beginPath();
-          ctx.moveTo(bx + k * f.R * 0.07 + f.R * 0.02, by - f.R * 0.04);
-          ctx.lineTo(bx + k * f.R * 0.07 - f.R * 0.02, by + f.R * 0.04);
-          ctx.stroke();
-        }
-      }
-    }
-    for (const e of f.eyes) {
-      const side = Math.sign(e.x - f.X);
-      const er = e.kind === 'punkt' ? e.r * 2.6 : e.kind === 'zyklop' ? e.r * 0.95 : e.kind === 'rund' && f.eyes.length > 2 ? e.r * 1.35 : e.r * 1.5;
-      animeEye(ctx, e.x, e.y, er, e.kind, iris, LC, side, B);
-    }
-    animeMouth(ctx, f, LC);
-  }
-  for (const q of ex.freckles) {
-    ctx.fillStyle = 'rgba(200,110,120,.6)';
-    ctx.beginPath();
-    ctx.arc(q[0], q[1], S * 0.0035, 0, 7);
-    ctx.fill();
-  }
-  // Funkeln
-  for (let i = 0; i < 9; i++) {
-    const a = r() * Math.PI * 2,
-      d = rr(r, 0.3, 0.44) * S;
-    const x = cx + Math.cos(a) * d,
-      y = cy + Math.sin(a) * d * 0.9;
-    if (x < S * 0.05 || x > S * 0.95 || y < S * 0.05 || y > S * 0.95) continue;
-    const s = rr(r, 0.012, 0.03) * S;
-    ctx.fillStyle = i % 3 ? '#ffffff' : '#fff1a8';
-    ctx.beginPath();
-    star(ctx, x, y, s, s * 0.22, 4);
-    ctx.fill();
-  }
-}
 export function star(ctx: Ctx, x: number, y: number, R: number, r: number, n: number): void {
   for (let i = 0; i < n * 2; i++) {
     const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2,
@@ -1162,80 +947,7 @@ export function star(ctx: Ctx, x: number, y: number, R: number, r: number, n: nu
   }
   ctx.closePath();
 }
-function animeEye(ctx: Ctx, x: number, y: number, r: number, kind: string, irisHue: number, LC: string, side: number, skin: C3): void {
-  const w = r * 0.92,
-    h = r * 1.28;
-  const IR = fromHsl(irisHue, 0.75, 0.5);
-  ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(x, y, w, h, 0, 0, 7);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.clip();
-  const ix = x + side * w * 0.06,
-    iy = y + h * 0.1;
-  const g = ctx.createLinearGradient(0, iy - h * 0.8, 0, iy + h * 0.8);
-  g.addColorStop(0, rgb(shade(IR, 0.35)));
-  g.addColorStop(0.55, rgb(IR));
-  g.addColorStop(1, rgb(mixRGB(IR, [255, 255, 255], 0.45)));
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.ellipse(ix, iy, w * 0.8, h * 0.8, 0, 0, 7);
-  ctx.fill();
-  ctx.fillStyle = rgb(shade(IR, 0.22));
-  ctx.beginPath();
-  ctx.ellipse(ix, iy + h * 0.02, w * 0.36, h * 0.42, 0, 0, 7);
-  ctx.fill();
-  ctx.strokeStyle = rgb(shade(IR, 0.3), 0.8);
-  ctx.lineWidth = w * 0.06;
-  ctx.beginPath();
-  ctx.ellipse(ix, iy, w * 0.8, h * 0.8, 0, 0, 7);
-  ctx.stroke();
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.ellipse(ix - w * 0.3, iy - h * 0.34, w * 0.3, h * 0.26, -0.4, 0, 7);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(ix + w * 0.3, iy + h * 0.32, w * 0.12, 0, 7);
-  ctx.fill();
-  // Lid bei müden und schmalen Augen
-  if (kind === 'muede' || kind === 'schlitz') {
-    ctx.fillStyle = rgb(skin);
-    ctx.beginPath();
-    const lid = kind === 'muede' ? 0.1 : -0.3;
-    ctx.moveTo(x - w * 1.2, y - h * 1.2);
-    ctx.lineTo(x + w * 1.2, y - h * 1.2);
-    ctx.lineTo(x + w * 1.2, y + h * (lid - side * 0.25));
-    ctx.lineTo(x - w * 1.2, y + h * (lid + side * 0.25));
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-  // Wimpernbogen oben, kleiner Schwung außen
-  ctx.strokeStyle = LC;
-  ctx.fillStyle = LC;
-  ctx.lineCap = 'round';
-  ctx.lineWidth = w * 0.26;
-  ctx.beginPath();
-  if (kind === 'muede' || kind === 'schlitz') {
-    const lid = kind === 'muede' ? 0.1 : -0.3;
-    ctx.moveTo(x - w * 0.95, y + h * (lid + side * 0.25 * 0.8));
-    ctx.lineTo(x + w * 0.95, y + h * (lid - side * 0.25 * 0.8));
-  } else ctx.ellipse(x, y, w * 1.02, h * 1.02, 0, Math.PI * 1.08, Math.PI * 1.92);
-  ctx.stroke();
-  if (side !== 0 && kind !== 'zyklop') {
-    ctx.beginPath();
-    ctx.moveTo(x + side * w * 0.85, y - h * 0.6);
-    ctx.lineTo(x + side * w * 1.35, y - h * 0.82);
-    ctx.lineTo(x + side * w * 1.0, y - h * 0.35);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.lineWidth = w * 0.08;
-  ctx.beginPath();
-  ctx.ellipse(x, y, w * 1.0, h * 1.0, 0, Math.PI * 0.32, Math.PI * 0.68);
-  ctx.stroke();
-}
+/** Anime-Mund (auch für den neuen Anime in styles-more.ts) */
 export function animeMouth(ctx: Ctx, f: FaceL, LC: string): void {
   const { x, y, kind } = f.mouth,
     R = f.R;
@@ -1671,37 +1383,21 @@ function goldFrame(ctx: Ctx, S: number, r: Rand): void {
 }
 
 /* ---------- Einstieg ---------- */
-/**
- * Malt ein Shiny im Stil. deco: Rahmen, Texte und Schild (nur groß). Das Monster ist für jede Größe dasselbe.
- * Gibt die Malzeit in Millisekunden zurück.
- */
-export function renderStyled(canvas: HTMLCanvasElement, m: Monster, style: StyleId, cssSize: number, opts: { dpr?: number; deco?: boolean; cutout?: boolean } = {}): number {
-  const t0 = performance.now();
-  const dpr = opts.dpr ?? Math.min(2, window.devicePixelRatio || 1);
-  const S = Math.max(200, Math.round(cssSize * dpr));
-  canvas.width = canvas.height = S;
-  const ctx = canvas.getContext('2d')!;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalCompositeOperation = 'source-over';
-  // Generation 2: keine Extras aus dem Prototyp
-  const mm: Monster = m.gen === 2 ? { ...m, face: { ...m.face, extra: 'keins' } } : m;
-  const serial = '#' + String(m.seed % 100000).padStart(5, '0');
-  // Freigestellt (Klecks im Duell): ohne Rahmen und Text, danach alles außer dem Monster weg
-  DECO = (opts.deco ?? true) && !opts.cutout;
+/** Die ersten Stile Pencil, Comic, Bestiary Plate und Oil (die übrigen in styles-more.ts, alle zusammen in shiny.ts) */
+export function paintClassic(ctx: Ctx, mm: Monster, style: 'pencil' | 'comic' | 'plate' | 'oil', S: number, deco: boolean): void {
+  const serial = '#' + String(mm.seed % 100000).padStart(5, '0');
+  DECO = deco;
   try {
-    if (style === 'pencil') pencil(ctx, mm, S, `${m.name.toLowerCase()}, ${serial}`);
-    else if (style === 'comic') comic(ctx, mm, S, `${m.name.toUpperCase()}!`);
+    if (style === 'pencil') pencil(ctx, mm, S, `${mm.name.toLowerCase()}, ${serial}`);
+    else if (style === 'comic') comic(ctx, mm, S, `${mm.name.toUpperCase()}!`);
     else if (style === 'plate') plate(ctx, mm, S);
-    else if (style === 'anime') anime(ctx, mm, S);
-    else oil(ctx, mm, S, `${m.name}  ${serial}`);
-    if (opts.cutout) cutout(ctx, mm, S);
+    else oil(ctx, mm, S, `${mm.name}  ${serial}`);
   } finally {
     DECO = true;
   }
-  return performance.now() - t0;
 }
-/** Nur das Monster behalten: Silhouette aus Flächen, Gliedern und Gesicht, etwas geweitet, alles andere durchsichtig */
-function cutout(ctx: Ctx, m: Monster, S: number): void {
+/** Nur das Monster behalten: Silhouette aus Flächen, Gliedern und Gesicht, etwas geweitet, alles andere durchsichtig. rim: Rand um die Form */
+export function cutout(ctx: Ctx, m: Monster, S: number, rim = 0.012): void {
   const p = prep(m, S, 0.2, 3);
   const sil = silhouette(S, p, '#000', null, 1.3);
   const [mc, mx] = layer(S);
@@ -1717,7 +1413,7 @@ function cutout(ctx: Ctx, m: Monster, S: number): void {
     }
   }
   mx.drawImage(sil, 0, 0);
-  ring(mx, sil, S * 0.012);
+  ring(mx, sil, S * rim);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = 'destination-in';

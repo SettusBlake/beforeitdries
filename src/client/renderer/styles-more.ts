@@ -1,7 +1,7 @@
 /*
- * Entwurf (30.10.2026, noch nicht im Spiel): Anime neu in zwei Szenen und acht weitere Stilrichtungen für Shinys.
+ * Anime neu in zwei Szenen und acht weitere Stilrichtungen für Shinys (freigegeben am 30.10.2026, docs/entwuerfe/stile-mehr-plan.md).
  * Gleiche Formen und Gesichter wie die Stile in styles.ts, alles prozedural, Licht von oben links.
- * Quelle des Entwurfsbogens: tools/mockup/stile-mehr.ts, Plan docs/entwuerfe/stile-mehr-plan.md
+ * Im Spiel über shiny.ts, renderMore unten nur für den Entwurfsbogen tools/mockup/stile-mehr.ts
  */
 import { PIG } from '../../shared/data';
 import { lookOf, tinted } from '../../shared/look';

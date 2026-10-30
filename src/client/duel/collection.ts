@@ -493,7 +493,7 @@ function toReveal(p: PullResult): RevealPull {
     id: p.die.id,
     hand: p.hand,
     ...(p.shinyD10 ? { shinyD10: p.shinyD10 } : {}),
-    ...(p.styleD10 ? { styleD10: p.styleD10 } : {}),
+    ...(p.styleRoll ? { styleRoll: p.styleRoll } : {}),
     ...(p.lifted ? { lifted: p.lifted } : {}),
   };
 }

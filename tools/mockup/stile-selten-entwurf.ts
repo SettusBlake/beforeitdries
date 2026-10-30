@@ -2,7 +2,8 @@
 import { renderMonster } from '../../src/client/renderer/watercolor';
 import { BP, PIG } from '../../src/shared/data';
 import { humidityFor, makeMonster, type Monster } from '../../src/shared/monster';
-import { anime, comic, oil, pencil, plate } from './stile-selten';
+import { comic, oil, pencil, plate } from './stile-selten';
+import { anime2 } from '../../src/client/renderer/styles-more';
 
 type Tile = { style: string; tag: string; odds: string; draw: (c: HTMLCanvasElement, m: Monster, size: number) => void };
 
@@ -17,7 +18,7 @@ const tiles: Tile[] = [
   { style: 'Pencil', tag: 'shiny', odds: '1 in 333 dips', draw: (c, m, s) => pencil(canvasOf(c, s), m, s * 2, `${m.name.toLowerCase()}, ${serial(m)}`) },
   { style: 'Comic', tag: 'shiny', odds: '1 in 500 dips', draw: (c, m, s) => comic(canvasOf(c, s), m, s * 2, `${m.name.toUpperCase()}!`) },
   { style: 'Bestiary Plate', tag: 'shiny', odds: '1 in 500 dips', draw: (c, m, s) => plate(canvasOf(c, s), m, s * 2) },
-  { style: 'Anime', tag: 'shiny', odds: '1 in 500 dips', draw: (c, m, s) => anime(canvasOf(c, s), m, s * 2) },
+  { style: 'Anime', tag: 'shiny', odds: '1 in 500 dips', draw: (c, m, s) => anime2(canvasOf(c, s), m, s * 2, 'sky', false) },
   { style: 'Oil', tag: 'shiny', odds: '1 in 1000 dips', draw: (c, m, s) => oil(canvasOf(c, s), m, s * 2, `${m.name}  ${serial(m)}`) },
 ];
 

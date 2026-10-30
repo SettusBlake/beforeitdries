@@ -3,7 +3,7 @@
  * dazu acht Kandidaten für weitere Shiny-Stile aus src/client/renderer/styles-more.ts, groß, klein und wie im Deck, mit Malzeit.
  */
 import { renderMore, type MoreStyle } from '../../src/client/renderer/styles-more';
-import { renderStyled } from '../../src/client/renderer/styles';
+import { renderStyled } from '../../src/client/renderer/shiny';
 import { renderMonster } from '../../src/client/renderer/watercolor';
 import { humidityFor, makeMonster, type Monster } from '../../src/shared/monster';
 

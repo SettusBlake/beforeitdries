@@ -5,7 +5,7 @@
  */
 import { Application, Container, DisplacementFilter, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { PAPER, PIG, type PaperId } from '../../../shared/data';
-import { RARITIES, rarityDef, rarityIndex, serialText, STYLES, styleDef, type Rarity, type StyleId } from '../../../shared/dice';
+import { RARITIES, rarityDef, rarityIndex, serialText, STYLE_DIE, STYLES, styleDef, type Rarity, type StyleId } from '../../../shared/dice';
 import { faceKey, type Face } from '../../../shared/duel/rules';
 import type { Monster } from '../../../shared/monster';
 import { keepLoose, looseKey, paintLater } from '../../lib/painter';
@@ -27,10 +27,10 @@ export type RevealPull = {
   no: number;
   /** Würfel-ID: das fertige Bild geht danach in die Sammlung */
   id?: string;
-  /** Die Hand (W100), bei 100 der W10 für Shiny, bei Shiny der W10 für den Stil. Fehlt im Artifact */
+  /** Die Hand (W100), bei 100 der W10 für Shiny, bei Shiny der W20 für den Stil. Fehlt im Artifact */
   hand?: number;
   shinyD10?: number;
-  styleD10?: number;
+  styleRoll?: number;
   /** Shiny hebt die Seltenheit eine Stufe: die Seltenheit danach (rarity bleibt der W100, monster hat schon das neue Papier) */
   lifted?: Rarity;
 };
@@ -872,16 +872,16 @@ export class Reveal {
     over.addChild(say, who);
     await this.tween(500, (q) => (say.alpha = who.alpha = q));
     await this.wait(1400);
-    // Der W10 für den Stil: die Namen wechseln, dann steht er
-    cap.text = 'd10 · style';
-    for (let k = 0; k < 14; k++) {
-      const s = STYLES[k % STYLES.length]!;
+    // Der W20 für den Stil: die Namen wechseln, dann steht er
+    cap.text = `d${STYLE_DIE} · style`;
+    for (let k = 0; k < 16; k++) {
+      const s = STYLES[(k * 5) % STYLES.length]!;
       big.text = String(s.from);
       title.text = s.label;
       sfx.tick(k);
-      await this.tween(55 + k * k * 2.2, (q) => big.scale.set(1.15 - 0.15 * q));
+      await this.tween(50 + k * k * 1.8, (q) => big.scale.set(1.15 - 0.15 * q));
     }
-    big.text = String(p.styleD10 ?? styleDef(st).from);
+    big.text = String(p.styleRoll ?? styleDef(st).from);
     title.text = styleDef(st).label;
     sfx.land();
     this.burstRing(g.cx, g.cy, 0xffd66b, 1.6, 600);
@@ -952,6 +952,48 @@ export class Reveal {
     } else if (st === 'anime') {
       c.addChild(new Graphics().roundRect(-4, -186, 8, 150, 4).fill({ color: 0xf5a8c8 }), new Graphics().roundRect(-5, -38, 10, 16, 2).fill({ color: 0xd8d6dc }));
       tip = new Graphics().moveTo(-5, -22).bezierCurveTo(-6, -4, -2, 12, 0, 26).bezierCurveTo(2, 12, 6, -4, 5, -22).closePath().fill({ color: 0xffffff });
+    } else if (st === 'pixel') {
+      // Stift aus Bildpunkten
+      const g = new Graphics();
+      for (let y = -176; y < -8; y += 8) g.rect(-8, y, 16, 8).fill({ color: y < -160 ? 0xe88b9a : (y / 8) % 2 ? 0xf2c230 : 0xe0ad1c });
+      c.addChild(g, new Graphics().rect(-8, -8, 16, 8).fill({ color: 0xe8c08a }).rect(-4, 0, 8, 8).fill({ color: 0xe8c08a }));
+      tip = new Graphics().rect(-4, 8, 8, 8).fill({ color: 0x34343a }).rect(-2, 16, 4, 10).fill({ color: 0x34343a });
+    } else if (st === 'ukiyoe') {
+      // Schnitzmesser: Griff mit Schnur, schräge Klinge
+      const g = new Graphics().roundRect(-6, -186, 12, 150, 4).fill({ color: 0x9a6a3a });
+      for (let y = -170; y < -50; y += 12) g.rect(-6.5, y, 13, 4).fill({ color: 0x3a3f6b });
+      c.addChild(g, new Graphics().rect(-5, -36, 10, 40).fill({ color: 0xc8ccd4 }));
+      tip = new Graphics().moveTo(-5, 4).lineTo(5, 4).lineTo(5, 10).lineTo(0, 26).lineTo(-5, 12).closePath().fill({ color: 0xe6e9ef });
+    } else if (st === 'stained') {
+      // Lötkolben
+      c.addChild(new Graphics().roundRect(-8, -186, 16, 96, 7).fill({ color: 0x3b2a2a }).rect(-8.5, -110, 17, 6).fill({ color: 0x8a2f2f }), new Graphics().rect(-3, -90, 6, 84).fill({ color: 0xb8bcc6 }));
+      tip = new Graphics().moveTo(-3, -6).lineTo(3, -6).lineTo(1, 26).lineTo(-1, 26).closePath().fill({ color: 0x8a8f9a });
+    } else if (st === 'neon') {
+      // Brenner, der die Röhre biegt: blaue Flamme an der Spitze
+      c.addChild(new Graphics().roundRect(-9, -186, 18, 110, 6).fill({ color: 0xc23b3b }).rect(-9.5, -100, 19, 6).fill({ color: 0xe6c64a }), new Graphics().rect(-4, -76, 8, 70).fill({ color: 0xaeb3bd }));
+      tip = new Graphics().moveTo(-4, -6).bezierCurveTo(-8, 8, -2, 18, 0, 26).bezierCurveTo(2, 18, 8, 8, 4, -6).closePath().fill({ color: 0x6fd3ff, alpha: 0.9 }).moveTo(-2, -4).bezierCurveTo(-3, 8, 0, 16, 0, 20).bezierCurveTo(0, 16, 3, 8, 2, -4).closePath().fill({ color: 0xffffff });
+    } else if (st === 'blueprint') {
+      // Tuschefüller mit Nadelspitze
+      c.addChild(new Graphics().roundRect(-6, -186, 12, 150, 5).fill({ color: 0x1d1d22 }).rect(-6.5, -60, 13, 4).fill({ color: 0xd6dae2 }), new Graphics().moveTo(-6, -36).lineTo(6, -36).lineTo(2, 0).lineTo(-2, 0).closePath().fill({ color: 0xc8ccd4 }));
+      tip = new Graphics().rect(-0.8, 0, 1.6, 26).fill({ color: 0x8a8f9a });
+    } else if (st === 'crayon') {
+      // Wachsmalkreide im Papiermantel
+      const g = new Graphics().roundRect(-8, -176, 16, 160, 3).fill({ color: 0xd8423a });
+      g.rect(-8.5, -150, 17, 110).fill({ color: 0xf3ead6 }).rect(-8.5, -140, 17, 3).fill({ color: 0xd8423a }).rect(-8.5, -52, 17, 3).fill({ color: 0xd8423a });
+      c.addChild(g);
+      tip = new Graphics().moveTo(-8, -16).lineTo(8, -16).lineTo(3, 22).lineTo(0, 26).lineTo(-3, 22).closePath().fill({ color: 0xd8423a });
+    } else if (st === 'papercut') {
+      // Schere: zwei Klingen, Griffe oben
+      c.addChild(
+        new Graphics().circle(-14, -170, 13).stroke({ width: 6, color: 0x3a6fd6 }).circle(14, -170, 13).stroke({ width: 6, color: 0x3a6fd6 }),
+        new Graphics().moveTo(-10, -158).lineTo(2, -60).lineTo(-2, -60).closePath().fill({ color: 0x3a6fd6 }).moveTo(10, -158).lineTo(-2, -60).lineTo(2, -60).closePath().fill({ color: 0x3a6fd6 }),
+        new Graphics().circle(0, -60, 3).fill({ color: 0x8a8f9a }),
+      );
+      tip = new Graphics().moveTo(-4, -60).lineTo(-1, 26).lineTo(1, -40).closePath().fill({ color: 0xd6dae2 }).moveTo(4, -60).lineTo(1, 26).lineTo(-1, -40).closePath().fill({ color: 0xc0c4cc });
+    } else if (st === 'mosaic') {
+      // Pinzette mit einem Steinchen
+      c.addChild(new Graphics().moveTo(-3, -186).lineTo(3, -186).lineTo(-1, 14).lineTo(-6, 14).closePath().fill({ color: 0xb8bcc6 }).moveTo(-3, -186).lineTo(3, -186).lineTo(6, 14).lineTo(1, 14).closePath().fill({ color: 0x9aa0ab }));
+      tip = new Graphics().rect(-6, 14, 12, 12).fill({ color: 0xc4432f }).rect(-6, 14, 12, 3).fill({ color: 0xe0705e });
     } else {
       c.addChild(new Graphics().roundRect(-7, -196, 14, 96, 6).fill({ color: 0x8b5a2b }), new Graphics().rect(-7.5, -102, 15, 10).fill({ color: 0xc8c6cc }), new Graphics().rect(-1.5, -92, 3, 52).fill({ color: 0xaeb3bd }));
       tip = new Graphics().moveTo(-11, -40).lineTo(11, -40).lineTo(3, 20).lineTo(0, 26).lineTo(-3, 20).closePath().fill({ color: 0xd6dae2 });

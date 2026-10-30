@@ -146,7 +146,7 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
   if (sh.d10) out.shinyD10 = sh.d10;
   if (sh.style) {
     die.style = sh.style;
-    out.styleD10 = sh.styleD10;
+    out.styleRoll = sh.styleRoll;
     // Shiny hebt das Papier eine Stufe, damit Seltenheit, Werte und Seiten (festgelegt am 30.10.2026). Legendary bleibt.
     // Der Schutz vor Pech hat oben schon nach dem W100 gezählt
     const up = RARITIES[rarityIndex(rarity) + 1];
