@@ -36,6 +36,8 @@ export const V = {
   units: new Map<number, VUnit>(),
   teams: [] as TeamSnap[],
   round: 1,
+  /** Seite, deren Zug gerade abgespielt wird (0: noch keiner, dann gilt der Stand) */
+  turn: 0 as 0 | Side,
   anims: new Map<number, CellAnim>(),
   parts: [] as Particle[],
   texts: [] as FText[],
@@ -115,6 +117,7 @@ export function reset(): void {
   V.cells = [];
   V.units.clear();
   V.teams = [];
+  V.turn = 0;
   V.anims.clear();
   V.parts = [];
   V.texts = [];
@@ -898,6 +901,7 @@ export async function playEvent(e: Ev): Promise<void> {
       hooks.ticker(e.t, e.c);
       return;
     case 'turn':
+      V.turn = e.side;
       V.focus = null;
       hooks.banner(e.side === 1 ? 'Your turn' : 'Rival turn', 'turn');
       sfx.turn();

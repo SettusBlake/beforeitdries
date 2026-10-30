@@ -168,7 +168,7 @@ export type Ev =
   /** Neuwurf: nur die nicht gehaltenen Würfel */
   | { k: 'reroll'; side: Side; dice: { id: number; fi: number }[] }
   /** Der Wurf gilt: Symbole und Kombi kommen in den Vorrat */
-  | { k: 'apply'; side: Side; crests: Record<Crest, number>; combo: Combo | null; joker: number }
+  | { k: 'apply'; side: Side; crests: Record<Crest, number>; combo: Combo | null; joker: number; task?: Task | null }
   /** Eine Seite hat ein Malmittel gewählt */
   | { k: 'medium'; side: Side; id: MediumId }
   | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[] }
@@ -215,6 +215,8 @@ export const TUNE = {
   combos: true,
   /** Malmittel in der Simulation */
   media: true,
+  /** Sepias Auftrag pro Runde (Wurfziel, erfüllt gibt einen Joker) */
+  tasks: true,
 };
 
 const PATTERNS: Record<BlueprintId, P[]> = {
@@ -796,6 +798,70 @@ export function comboOf(faces: Face[]): Combo | null {
   if (faces.length >= 3 && faces.every(isCrest) && n.size >= 3 && bc === 1) return { kind: 'rainbow', sym: null, gain: {}, joker: 1, star: 0, text: 'Rainbow: a Joker' };
   return null;
 }
+/* ---------- Sepias Auftrag: ein Wurfziel pro Runde und Seite, erfüllt gibt einen Joker ---------- */
+export type TaskK = 'two' | 'double' | 'colours' | 'stars' | 'four';
+export type Task = { k: TaskK; c?: Crest; text: string };
+const TASK_KINDS: TaskK[] = ['two', 'two', 'double', 'colours', 'stars', 'four'];
+/**
+ * Der Auftrag dieser Runde. Eigener Zufall aus dem öffentlichen Seed (der Würfelzufall bleibt unberührt),
+ * damit der Client ihn ohne Server zeigen kann. Nicht im Lern-Duell
+ */
+export function taskOf(side: Side, round = S.round): Task | null {
+  if (!TUNE.tasks || S.tutorial > 0) return null;
+  const r = RNG((S.paintSeed ^ 0x5e9a7) + round * 131 + side * 17);
+  const k = TASK_KINDS[Math.floor(r() * TASK_KINDS.length)]!;
+  if (k === 'two') {
+    const c = CRESTS[Math.floor(r() * CRESTS.length)]!;
+    return { k, c: c.k, text: `two ${c.label}` };
+  }
+  const text: Record<Exclude<TaskK, 'two'>, string> = { double: 'a double face', colours: 'three colours', stars: 'two stars', four: 'four symbols' };
+  return { k, text: text[k] };
+}
+/** Symbole eines Wurfs: je Symbol gezählt (Doppelseiten doppelt, Mischseiten für beide, Gold für alle vier) */
+function symbolCount(faces: Face[]): Map<Crest, number> {
+  const n = new Map<Crest, number>();
+  const add = (c: Crest, k: number) => n.set(c, (n.get(c) ?? 0) + k);
+  for (const f of faces) {
+    if (f.k === 'gold') for (const c of CRESTS) add(c.k, 1);
+    else if (isCrest(f)) {
+      add(f.k, f.n);
+      if (f.k2) add(f.k2, 1);
+    }
+  }
+  return n;
+}
+/** Erfüllt der Wurf den Auftrag? Joker zählen als beliebiges Symbol oder als Stern */
+export function taskMet(task: Task, faces: Face[]): boolean {
+  const wild = faces.filter((f) => f.k === 'joker').length;
+  const n = symbolCount(faces);
+  switch (task.k) {
+    case 'two':
+      return (n.get(task.c!) ?? 0) + wild >= 2;
+    case 'double':
+      return faces.some((f) => f.k === 'gold' || (isCrest(f) && (f.n > 1 || !!f.k2)));
+    case 'colours':
+      return n.size + wild >= 3;
+    case 'stars':
+      return faces.filter((f) => f.k === 'star').length + wild >= 2;
+    case 'four':
+      return [...n.values()].reduce((a, b) => a + b, 0) + wild >= 4;
+  }
+}
+/** Hilft diese Seite beim Auftrag? (für den Rivalen beim Halten) */
+function helpsTask(task: Task, f: Face): boolean {
+  if (f.k === 'joker' || f.k === 'gold') return true;
+  switch (task.k) {
+    case 'two':
+      return isCrest(f) && (f.k === task.c || f.k2 === task.c);
+    case 'double':
+    case 'four':
+      return isCrest(f) && (f.n > 1 || !!f.k2);
+    case 'colours':
+      return isCrest(f);
+    case 'stars':
+      return f.k === 'star';
+  }
+}
 /** Der Wurf gilt: Symbole der Seiten und die Kombi kommen in den Vorrat */
 export function applyRoll(t: Team): Rolled[] {
   const out = currentRoll();
@@ -819,12 +885,19 @@ export function applyRoll(t: Team): Rolled[] {
   }
   S.combo = combo;
   S.freeJoker = combo?.joker ?? 0;
+  // Sepias Auftrag erfüllt: ein Joker mehr (zählt wie ein Kombi-Joker)
+  const task = taskOf(t.side);
+  const done = !!task && out.length > 0 && taskMet(task, out.map((r) => r.face));
+  if (done) {
+    S.freeJoker++;
+    count(`${t.side}task`);
+  }
   S.starBonus = combo?.star ?? 0;
   S.joker = out.filter((r) => r.face.k === 'joker').length + S.freeJoker;
   S.rerolls = 0;
-  emit({ k: 'apply', side: t.side, crests: { ...t.crests }, combo, joker: S.joker });
+  emit({ k: 'apply', side: t.side, crests: { ...t.crests }, combo, joker: S.joker, task: done ? task : null });
   pourGlow(t);
-  logAdd(`${t.side === 2 ? 'Rival' : 'You'} rolled ${out.map((x) => faceText(x.face)).join(', ')}${combo ? `. ${combo.text}` : ''}.`, t.side === 2 ? 'rival' : 'you');
+  logAdd(`${t.side === 2 ? 'Rival' : 'You'} rolled ${out.map((x) => faceText(x.face)).join(', ')}${combo ? `. ${combo.text}` : ''}${done ? `. Sepia's task (${task.text}): a Joker` : ''}.`, t.side === 2 ? 'rival' : 'you');
   return out;
 }
 /** Welche Würfel halten: Drilling und Regenbogen ganz, ein Paar, Sterne (wenn noch Platz ist), Joker und Gold */
@@ -832,10 +905,14 @@ export function aiHold(t: Team, rolled: Rolled[]): number[] {
   const all = rolled.map((r) => r.u.id);
   const combo = comboOf(rolled.map((r) => r.face));
   if (combo && (combo.kind === 'triple' || combo.kind === 'rainbow')) return all;
+  // Auftrag schon erfüllt: alles behalten, sonst die Seiten halten, die dazu passen
+  const task = taskOf(t.side);
+  if (task && taskMet(task, rolled.map((r) => r.face))) return all;
   const room = onSheet(t).length < ON_SHEET && t.units.some((u) => u.state === 'bag');
   const hold = rolled.filter((r) => {
     const f = r.face;
     if (f.k === 'joker' || f.k === 'gold') return true;
+    if (task && helpsTask(task, f) && (task.k !== 'colours' || rolled.findIndex((o) => isCrest(o.face) && o.face.k === (f as { k: Crest }).k) === rolled.indexOf(r))) return true;
     if (f.k === 'star') return room;
     return combo?.kind === 'pair' && (combo.sym === f.k || (isCrest(f) && combo.sym === f.k2));
   });

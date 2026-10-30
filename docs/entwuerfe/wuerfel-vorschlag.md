@@ -1,6 +1,6 @@
 # Vorschlag: Würfel spannender, Fähigkeiten natürlicher
 
-Stand 30.10.2026, Fassung 3. Freigegeben am 30.10.2026 („make it so“) mit allen Empfehlungen: A und B neu, dann Fähigkeiten 1 (Sättigung) mit 5 (Abgang), dann F, dann E. Mischseite zählt für jedes ihrer Symbole, bisherige Würfel bekommen die neuen Seiten. Schritt A und B gebaut, Playtest v0.0.1.73, Bild docs/entwuerfe/wuerfelseiten-sichtbar.png. Fähigkeiten (Sättigung mit Abgang) gebaut, Playtest v0.0.1.75, Bild docs/entwuerfe/meisterzug.png.
+Stand 30.10.2026, Fassung 3. Freigegeben am 30.10.2026 („make it so“) mit allen Empfehlungen: A und B neu, dann Fähigkeiten 1 (Sättigung) mit 5 (Abgang), dann F, dann E. Mischseite zählt für jedes ihrer Symbole, bisherige Würfel bekommen die neuen Seiten. Schritt A und B gebaut, Playtest v0.0.1.73, Bild docs/entwuerfe/wuerfelseiten-sichtbar.png. Fähigkeiten (Sättigung mit Abgang) gebaut, Playtest v0.0.1.75, Bild docs/entwuerfe/meisterzug.png. F (Sepias Auftrag) gebaut, Playtest v0.0.1.77, Bild docs/entwuerfe/sepias-auftrag.png.
 
 Rückmeldung zu Fassung 1 (30.10.2026): A ist ok, E und F gefallen. B ist zu fix (gelesen als: feste Anzahl Doppelseiten je Seltenheit ist zu vorhersehbar). Die Fähigkeiten der Kleckse, die Glow brauchen, wirken fehl am Platz: Die Kleckse sollen etwas können, aber anders. Dazu Vorschläge.
 
@@ -44,6 +44,12 @@ Statt fester Anzahl würfelt jede Symbolseite beim Entstehen des Würfels (aus s
 
 - Jede Runde zeigt Sepia oben ein Wurfziel, zum Beispiel „two Guard“, „a triple“, „three colours“. Wer es würfelt, bekommt einen Joker. Der Rivale hat eigene Aufträge.
 - Gibt jedem Wurf ein Ziel, ohne neue Regeln auf dem Blatt.
+- **Gebaut (30.10.2026):** fünf Arten von Aufträgen: „two Step/Splash/Guard/Glow“ (doppelt so oft wie die anderen), „a double face“ (Doppel-, Dreifach-, Misch- oder Goldseite), „three colours“ (drei verschiedene Symbole), „two stars“, „four symbols“. Doppelseiten zählen doppelt, Mischseiten für beide Symbole, Gold für alle vier, Joker als alles. Zählt der Wurf, wie er am Ende liegt (nach dem Neuwurf).
+- Der Auftrag kommt aus eigenem Zufall (öffentlicher Seed, Runde, Seite), der Würfelzufall bleibt unberührt. Nicht im Lern-Duell.
+- Anzeige: Pille über dem Blatt in der Mitte (deine in Gold, die des Rivalen rot während seines Zugs, erfüllt mit Haken), unter der Kombi beim offenen Wurf „Sepia’s task: … ✓“, beim Erfüllen „Task done: … A Joker!“ mit Klang. Antippen erklärt. Auf engen Handys rücken die Fläschchen zusammen und der Set-Bonus zeigt nur „×2“.
+- Der Joker zählt wie ein Kombi-Joker (beim Beschwören als Stern 3 oder als Symbol nach Wahl). Der Rivale hält Würfel, die zu seinem Auftrag passen.
+- Simulation: etwa 2 erfüllte Aufträge pro Seite und Duell (rund 37 % der Würfe), Siegquoten im bisherigen Rahmen (94/79/83/63/51/42 % gegen 93/82/82/65/47/41 % ohne Aufträge).
+- Dabei behoben: Die Joker-Zeile brach in der Beschwörphase um und überdeckte die Knöpfe darunter.
 
 ### Nicht weiter
 

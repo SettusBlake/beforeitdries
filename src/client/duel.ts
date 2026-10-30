@@ -66,6 +66,8 @@ let held = new Set<number>();
 let deckOpen = false;
 /** Die 3D-Würfel auf der Bühne, vom Wurf bis der Wurf gilt */
 const stageDice = new Map<number, { cube: HTMLElement; box: HTMLElement; fi: number }>();
+/** Sepias Aufträge, die in diesem Duell schon erfüllt sind (Runde:Seite) */
+const tasksDone = new Set<string>();
 let summonU: Unit | null = null,
   orient = 0,
   anchor: number | null = null;
@@ -202,8 +204,13 @@ View.setup(board, {
   hud: () => {
     renderTop();
     renderPool();
+    renderStatus();
   },
-  banner: showBanner,
+  banner: (text, kind) => {
+    showBanner(text, kind);
+    // Neuer Zug: der Auftrag oben gehört jetzt der Seite am Zug
+    if (kind === 'turn') renderStatus();
+  },
   // Ergebnisse stehen am Ziel, der Ticker meldet nur noch den Radierer (alles andere unter „What happened“)
   ticker: (t, c) => {
     if (c === 'eraser') showTicker(t, c);
@@ -233,7 +240,7 @@ function openStage(label: string): HTMLElement {
   stageDice.clear();
   stage.append(el('p', 'stage-lbl', label));
   const row = el('div', 'stage-row');
-  stage.append(row, el('p', 'stage-combo', ''));
+  stage.append(row, el('p', 'stage-combo', ''), el('p', 'stage-task', ''));
   requestAnimationFrame(() => stage.classList.add('on'));
   return row;
 }
@@ -251,6 +258,15 @@ function landDie(id: number, fi: number): void {
   const up = R.isCrestFace(f) && (f.n > 1 || !!f.k2);
   d.box.classList.toggle('upface', up);
   if (up) sfx.upface(f.n >= 3 ? 2 : 1);
+}
+/** Sepias Auftrag unter der Kombi: erfüllt der Wurf ihn schon? */
+function taskPreview(side: Side): void {
+  const line = document.querySelector('#stage .stage-task') as HTMLElement | null;
+  const t = R.taskOf(side, V.round);
+  if (!line || !t) return;
+  const met = R.taskMet(t, lastRolled().map((r) => r.face));
+  line.textContent = `${side === 2 ? 'Rival task' : 'Sepia’s task'}: ${t.text}${met ? ' ✓' : ''}`;
+  line.classList.toggle('met', met);
 }
 /** Was der Wurf gerade ergeben würde */
 function comboPreview(): void {
@@ -271,6 +287,7 @@ async function playRoll(e: Extract<Ev, { k: 'roll' }>): Promise<void> {
   sfx.dice(dice.length);
   await Promise.all(dice.map((x, k) => tumble(x.cube, x.d.fi, (k * 110) / V.speed, 1050 / V.speed, (k - 1) * 70)));
   for (const x of dice) landDie(x.d.id, x.d.fi);
+  taskPreview(e.side);
   await View.wait(e.side === 1 ? 200 : 420);
 }
 async function playReroll(e: Extract<Ev, { k: 'reroll' }>): Promise<void> {
@@ -283,6 +300,7 @@ async function playReroll(e: Extract<Ev, { k: 'reroll' }>): Promise<void> {
   sfx.dice(list.length);
   await Promise.all(list.map((y, k) => tumble(y.x!.cube, y.d.fi, (k * 110) / V.speed, 900 / V.speed, (k - 1) * 60)));
   for (const y of list) landDie(y.d.id, y.d.fi);
+  taskPreview(e.side);
   await View.wait(e.side === 1 ? 250 : 380);
 }
 async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
@@ -296,6 +314,16 @@ async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
     for (const x of stageDice.values()) x.box.classList.add('combo');
     sfx.combo(e.combo.kind);
     await View.wait(e.combo.kind === 'pair' ? 650 : 900);
+  }
+  // Sepias Auftrag erfüllt: ein Joker
+  const tl = stage.querySelector('.stage-task') as HTMLElement | null;
+  if (e.task && tl) {
+    tasksDone.add(`${V.round}:${e.side}`);
+    tl.textContent = `${e.side === 2 ? 'Rival task done' : 'Task done'}: ${e.task.text}. A Joker!`;
+    tl.classList.add('met', 'pop');
+    sfx.combo('rainbow');
+    renderStatus();
+    await View.wait(800);
   }
   // Symbole fliegen in den Vorrat: von den Würfelseiten, dazu der Gewinn der Kombi
   const flights: [HTMLElement, Face][] = [];
@@ -354,7 +382,10 @@ function renderKeep(): void {
     stage.append(legend);
   } else if (!keep && legend) legend.remove();
   for (const [id, x] of stageDice) x.box.classList.toggle('held', keep && held.has(id));
-  if (keep) comboPreview();
+  if (keep) {
+    comboPreview();
+    taskPreview(1);
+  }
 }
 function toggleHold(id: number): void {
   if (phase() !== 'keep' || !myTurn() || S.rerolls < 1) return;
@@ -531,7 +562,7 @@ function renderStatus(): void {
   box.style.top = `${board.offsetTop}px`;
   box.style.width = `${board.offsetWidth}px`;
   box.style.height = `${Math.max(20, View.padTop() - 2)}px`;
-  const key = JSON.stringify([S.teams.map((t) => t.media ?? []), R.setBonus(1), R.setBonus(2), cell]);
+  const key = JSON.stringify([S.teams.map((t) => t.media ?? []), R.setBonus(1), R.setBonus(2), cell, V.round, V.turn || S.turn, tasksDone.size]);
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   box.replaceChildren();
@@ -548,14 +579,28 @@ function renderStatus(): void {
     const sb = R.setBonus(sd);
     if (sb) {
       const t = R.FAMILY_TEXT[sb.fam][sb.n >= 3 ? 1 : 0];
-      const b = html('button', `st-set f-${sb.fam}`, `${sb.fam} ×${sb.n}`) as HTMLButtonElement;
+      const b = html('button', `st-set f-${sb.fam}`, `<span class="fam">${sb.fam} </span>×${sb.n}`) as HTMLButtonElement;
       b.type = 'button';
       b.addEventListener('click', () => showTicker(`${sd === 2 ? 'Rival ' : ''}${sb.fam} ×${sb.n}: ${t}.`, sd === 1 ? 'you' : 'rival'));
       g.append(b);
     }
     return g;
   };
-  box.append(side(1), side(2));
+  // Sepias Auftrag dieser Runde: der Seite, die am Zug ist
+  const ts = V.turn || S.turn;
+  const task = R.taskOf(ts, V.round);
+  if (task) {
+    const done = tasksDone.has(`${V.round}:${ts}`);
+    const b = html('button', `st-task s${ts}${done ? ' done' : ''}`, `<span class="pre">${ts === 2 ? 'Rival: ' : '✦ '}</span>${task.text}${done ? ' ✓' : ''}`) as HTMLButtonElement;
+    b.type = 'button';
+    b.addEventListener('click', () =>
+      showTicker(ts === 2 ? `Rival’s task this round: ${task.text}. If its roll shows it, it gets a Joker.` : `Master Sepia’s task this round: roll ${task.text}. Jokers count. Done: a Joker.`, ts === 1 ? 'you' : 'rival'),
+    );
+    box.append(side(1), b, side(2));
+    // Zu eng (viele Malmittel): Fläschchen dichter, Set-Bonus nur mit Zahl, damit der Auftrag lesbar bleibt
+    box.classList.remove('tight');
+    if (b.scrollWidth > b.clientWidth + 1) box.classList.add('tight');
+  } else box.append(side(1), side(2));
 }
 function renderTop(): void {
   if (!V.teams.length || !S.teams.length) return;
@@ -1632,6 +1677,7 @@ async function startDuel(tutorial = false): Promise<void> {
   resetUi();
   showScreen('game');
   View.reset();
+  tasksDone.clear();
   S.teams = [] as unknown as typeof S.teams;
   busy = true;
   if (tutorial) {

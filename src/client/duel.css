@@ -156,10 +156,26 @@ button { font: inherit; color: inherit; }
 .st-side.s2 { flex-direction: row-reverse; }
 .st-med { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1.5px solid var(--you); background: var(--sheet); display: grid; place-items: center; cursor: pointer; }
 .s2 .st-med { border-color: var(--rival); }
-.st-set { border: 1px solid var(--line); background: var(--sheet); border-radius: 999px; padding: 2px 8px; min-height: 24px; font: 700 11px var(--f-mono); text-transform: capitalize; cursor: pointer; }
+.st-set { flex: none; white-space: nowrap; border: 1px solid var(--line); background: var(--sheet); border-radius: 999px; padding: 2px 7px; min-height: 24px; font: 700 11px var(--f-mono); text-transform: capitalize; cursor: pointer; }
+/* Mehrere Fläschchen stehen dicht hintereinander, damit der Auftrag in der Mitte lesbar bleibt */
+.st-med { flex: none; }
+.st-side.s1 .st-med + .st-med { margin-left: -8px; }
+.st-side.s2 .st-med + .st-med { margin-right: -8px; }
+#status.tight .st-side.s1 .st-med + .st-med { margin-left: -14px; }
+#status.tight .st-side.s2 .st-med + .st-med { margin-right: -14px; }
+#status.tight .st-set .fam { display: none; }
+#status.tight .st-task { font-size: 10.5px; padding: 2px 6px; max-width: 62%; }
+#status.tight .st-task .pre { display: none; }
 .st-set.f-warm { color: #b1462a; border-color: #e3b3a4; }
 .st-set.f-cool { color: #2b5ea3; border-color: #a9c0e3; }
 .st-set.f-earth { color: #74512f; border-color: #d4bfa6; }
+/* Sepias Auftrag dieser Runde */
+.st-task { min-width: 0; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: auto; border: 1px dashed #c9a24a; background: #fffaf0; color: var(--gold-ink); border-radius: 999px; padding: 2px 7px; min-height: 24px; font: 700 11px var(--f-mono); cursor: pointer; }
+.st-task.s2 { color: var(--rival); border-color: #e0b0aa; background: #fff7f5; }
+.st-task.done { border-style: solid; background: #fbefc9; }
+.stage-task { margin: 0; min-height: 1.2em; font: 600 13px var(--f-body); color: var(--muted); }
+.stage-task.met { color: var(--gold-ink); font-weight: 800; }
+.stage-task.pop { animation: comboPop .5s cubic-bezier(.2,.9,.25,1.4); }
 /* Malmittel-Wahl: drei Karten in der Leiste */
 #ctx.media { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .mcard { display: grid; justify-items: center; align-content: start; gap: 3px; padding: 8px 4px 9px; border: 1px solid var(--line); border-radius: 12px; background: #fffdf8; cursor: pointer; text-align: center; }
@@ -269,9 +285,11 @@ button { font: inherit; color: inherit; }
 .card-lines .special { font: 12px var(--f-mono); color: var(--muted); }
 
 /* ---------- Joker im Wurf ---------- */
-#joker { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; padding: 4px 6px; border-radius: 10px; background: #f3eef8; box-shadow: inset 0 0 0 1px #d9cce6; }
-#joker .jlbl { display: inline-flex; align-items: center; gap: 3px; font: 700 11.5px var(--f-mono); color: #5c2f7d; margin-right: auto; }
-#joker .jc { border: 1px solid #d9cce6; background: #fff; border-radius: 9px; min-width: 38px; min-height: 36px; display: grid; place-items: center; cursor: pointer; }
+#joker { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; padding: 4px 6px; border-radius: 10px; background: #f3eef8; box-shadow: inset 0 0 0 1px #d9cce6; }
+/* Der Text bricht in sich um, die vier Knöpfe bleiben in einer Zeile (sonst überdecken sie die Leiste darunter) */
+#joker .jlbl { display: inline-flex; align-items: center; gap: 3px; flex: 1 1 auto; min-width: 0; font: 700 11.5px/1.2 var(--f-mono); color: #5c2f7d; margin-right: auto; }
+#joker .jlbl svg { flex: none; }
+#joker .jc { flex: none; border: 1px solid #d9cce6; background: #fff; border-radius: 9px; min-width: 36px; min-height: 36px; display: grid; place-items: center; cursor: pointer; }
 #joker .jc:disabled { opacity: .4; }
 
 /* ---------- Titel: Würfel ---------- */
@@ -347,7 +365,7 @@ canvas.wet { background: #ece6d8; animation: wetpulse 1.1s ease-in-out infinite;
 .dsum { width: 100%; }
 #result-reward { margin: 4px 0 0; font: 700 14px var(--f-mono); }
 #result-reward small { font-weight: 400; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { #dip-hint { animation: none; } .stage-combo.pop, .stage-die.combo .die3 { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #dip-hint { animation: none; } .stage-combo.pop, .stage-task.pop, .stage-die.combo .die3 { animation: none; } }
 
 /* ---------- Fassung 6: Goldknopf für Fähigkeiten, Sepia paints ---------- */
 #abil { position: absolute; inset: 0; pointer-events: none; }
