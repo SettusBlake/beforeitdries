@@ -1170,17 +1170,25 @@ function computeGuide(): Guide {
   if (!sug) return armed || aiming ? {} : { el: '#end' };
   return goGuide({ id: sug.u.id, to: sug.to, a: sug.a, at: sug.at });
 }
+/** Sepias Gold: hell genug für Aquarellfarben, mit dunklem Rand */
+const GOLD = '#ffcf3f';
 function drawGuide(ctx: CanvasRenderingContext2D, cell: number): void {
   if (guideNow.cell === undefined || drag) return;
   const i = guideNow.cell;
   const t = performance.now();
   const x = ((i % COLS) + 0.5) * cell,
     y = (Math.floor(i / COLS) + 0.5) * cell;
-  const a = 0.65 + 0.35 * Math.sin(t / 180);
-  ctx.strokeStyle = `rgba(201,150,30,${a})`;
-  ctx.lineWidth = 3;
+  const r = cell * (0.42 + 0.06 * Math.sin(t / 180));
+  // Feld leicht aufhellen, dann dunkler Rand und helles Gold darüber: auf jeder Farbe gut zu sehen
+  ctx.fillStyle = `rgba(255,214,90,${0.22 + 0.12 * Math.sin(t / 180)})`;
   ctx.beginPath();
-  ctx.arc(x, y, cell * (0.42 + 0.06 * Math.sin(t / 180)), 0, 7);
+  ctx.arc(x, y, r, 0, 7);
+  ctx.fill();
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = 'rgba(29,33,48,.8)';
+  ctx.stroke();
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = GOLD;
   ctx.stroke();
   if (guideNow.from === undefined || guideNow.from === i) return;
   // Pfeil vom Klecks zum Ziel: so wird gewischt
@@ -1192,29 +1200,41 @@ function drawGuide(ctx: CanvasRenderingContext2D, cell: number): void {
     sy = fy + Math.sin(ang) * cell * 0.45;
   const ex = fx + Math.cos(ang) * len,
     ey = fy + Math.sin(ang) * len;
-  ctx.strokeStyle = 'rgba(201,150,30,.95)';
-  ctx.lineWidth = 4;
   ctx.lineCap = 'round';
-  ctx.setLineDash([8, 7]);
-  ctx.lineDashOffset = -t / 40;
   ctx.beginPath();
   ctx.moveTo(sx, sy);
   ctx.lineTo(ex, ey);
+  ctx.lineWidth = 9;
+  ctx.strokeStyle = 'rgba(29,33,48,.75)';
+  ctx.stroke();
+  ctx.setLineDash([10, 7]);
+  ctx.lineDashOffset = -t / 40;
+  ctx.lineWidth = 4.5;
+  ctx.strokeStyle = GOLD;
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.lineDashOffset = 0;
-  ctx.fillStyle = 'rgba(201,150,30,.95)';
   ctx.beginPath();
-  ctx.moveTo(ex + Math.cos(ang) * 10, ey + Math.sin(ang) * 10);
-  ctx.lineTo(ex + Math.cos(ang + 2.4) * 10, ey + Math.sin(ang + 2.4) * 10);
-  ctx.lineTo(ex + Math.cos(ang - 2.4) * 10, ey + Math.sin(ang - 2.4) * 10);
+  ctx.moveTo(ex + Math.cos(ang) * 13, ey + Math.sin(ang) * 13);
+  ctx.lineTo(ex + Math.cos(ang + 2.4) * 13, ey + Math.sin(ang + 2.4) * 13);
+  ctx.lineTo(ex + Math.cos(ang - 2.4) * 13, ey + Math.sin(ang - 2.4) * 13);
+  ctx.closePath();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(29,33,48,.8)';
+  ctx.stroke();
+  ctx.fillStyle = GOLD;
   ctx.fill();
   // Ein Punkt wandert den Weg entlang wie ein Finger
   const k = (t % 1400) / 1400;
-  ctx.fillStyle = `rgba(201,150,30,${0.9 * (1 - k)})`;
+  ctx.globalAlpha = 1 - k;
   ctx.beginPath();
-  ctx.arc(fx + (x - fx) * k, fy + (y - fy) * k, cell * 0.14, 0, 7);
+  ctx.arc(fx + (x - fx) * k, fy + (y - fy) * k, cell * 0.16, 0, 7);
+  ctx.fillStyle = GOLD;
   ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(29,33,48,.8)';
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 }
 function applyGuide(): void {
   guideNow = computeGuide();
@@ -1230,16 +1250,25 @@ function cellAt(e: PointerEvent): number | null {
     y = Math.floor((e.clientY - rect.top - View.padTop()) / cell);
   return R.inside(x, y) ? R.idx(x, y) : null;
 }
-/** Kleckse ragen nach oben ins nächste Feld: ein Griff an den Kopf zählt für den eigenen Klecks darunter */
+/**
+ * Kleckse ragen nach oben ins nächste Feld und überdecken sich: getroffen wird der eigene Klecks, den man an der Stelle sieht
+ * (Umriss oder Sockel, der vordere zuerst). Im Lern-Duell gewinnt der markierte, sobald der Finger auf seinem Bild liegt
+ */
 function grabAt(e: PointerEvent): number | null {
   const rect = board.getBoundingClientRect();
   const cell = View.cellSize();
-  const fx = (e.clientX - rect.left) / cell,
-    fy = (e.clientY - rect.top - View.padTop()) / cell;
+  const px = e.clientX - rect.left,
+    py = e.clientY - rect.top - View.padTop();
+  const g = tut() && guideNow.from !== undefined ? R.unitAt(guideNow.from % COLS, Math.floor(guideNow.from / COLS)) : null;
+  const id = View.pickUnit(px, py, 1, g?.side === 1 ? g.id : null);
+  const u = id === null ? null : R.unitById(id);
+  if (u) return R.idx(u.x, u.y);
+  const fx = px / cell,
+    fy = py / cell;
   const x = Math.floor(fx),
     y = Math.floor(fy);
   const mine = (yy: number) => (R.inside(x, yy) && R.unitAt(x, yy)?.side === 1 ? R.idx(x, yy) : null);
-  return mine(y) ?? (fy - y > 0.45 ? mine(y + 1) : null) ?? cellAt(e);
+  return mine(y) ?? (fy - y > 0.3 ? mine(y + 1) : null) ?? cellAt(e);
 }
 board.addEventListener('pointerdown', (e) => {
   if (busy && S.turn === 2) {

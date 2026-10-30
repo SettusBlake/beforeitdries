@@ -567,6 +567,59 @@ function drawPalette(side: Side, t: number): void {
   }
   ctx.restore();
 }
+/** Umriss eines Kleckses grob als Maske (48 × 48), für den Treffer beim Antippen */
+const hitMasks = new Map<HTMLCanvasElement, Uint8Array>();
+const HM = 48;
+function hitMask(sil: HTMLCanvasElement): Uint8Array {
+  let m = hitMasks.get(sil);
+  if (m) return m;
+  const c = document.createElement('canvas');
+  c.width = c.height = HM;
+  const x = c.getContext('2d', { willReadFrequently: true })!;
+  x.drawImage(sil, 0, 0, HM, HM);
+  const d = x.getImageData(0, 0, HM, HM).data;
+  m = new Uint8Array(HM * HM);
+  for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3]! > 60 ? 1 : 0;
+  hitMasks.set(sil, m);
+  return m;
+}
+/** Wo der Klecks steht: Mitte, Sockel und Rahmen des Bildes (Blattkoordinaten in CSS-Pixeln) */
+function unitBox(u: VUnit): { x: number; base: number; left: number; top: number; w: number; h: number } {
+  const x = (u.dx + u.ox + 0.5) * cell;
+  const base = (u.dy + u.oy + 0.5) * cell + cell * 0.24 - u.lift * cell;
+  const size = Math.round(cell * BIG) * u.scale;
+  return { x, base, left: x - (size * u.sqx) / 2, top: base - size * 0.84 * u.sqy, w: size * u.sqx, h: size * u.sqy };
+}
+/**
+ * Welcher Klecks liegt unter dem Finger? Wie man es sieht: der vorderste (weiter unten auf dem Blatt) zuerst, getroffen
+ * zählt sein Umriss oder sein Sockel. prefer: dieser Klecks gewinnt, sobald der Finger in seinem Bild liegt (Lern-Duell)
+ */
+export function pickUnit(px: number, py: number, side: Side, prefer: number | null = null): number | null {
+  const list = [...V.units.values()].filter((u) => u.side === side && u.state === 'sheet').sort((a, b) => b.dy - a.dy);
+  const inBox = (u: VUnit) => {
+    const b = unitBox(u);
+    return px >= b.left && px <= b.left + b.w && py >= b.top && py <= b.base + cell * 0.2;
+  };
+  const pref = prefer === null ? undefined : list.find((u) => u.id === prefer);
+  if (pref && inBox(pref)) return pref.id;
+  for (const u of list) {
+    const b = unitBox(u);
+    // Sockel
+    if (Math.abs(px - b.x) <= cell * 0.42 && Math.abs(py - b.base) <= cell * 0.2) return u.id;
+    if (!inBox(u)) continue;
+    const st = stickerCache.get(`${u.id}:${Math.round(cell * BIG)}`);
+    if (!st) {
+      // Noch nicht gemalt: die Mitte des Bildes zählt
+      if (Math.hypot((px - b.x) / (b.w * 0.35), (py - (b.top + b.h * 0.5)) / (b.h * 0.4)) <= 1) return u.id;
+      continue;
+    }
+    const mx = Math.floor(((px - b.left) / b.w) * HM),
+      my = Math.floor(((py - b.top) / b.h) * HM);
+    if (mx >= 0 && my >= 0 && mx < HM && my < HM && hitMask(st.sil)[my * HM + mx]) return u.id;
+  }
+  return null;
+}
+
 function drawUnit(u: VUnit, t: number): void {
   const x = (u.dx + u.ox + 0.5) * cell,
     groundY = (u.dy + u.oy + 0.5) * cell;
