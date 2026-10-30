@@ -285,7 +285,7 @@ function openDie(d: DieRec): void {
       washArmed = null;
       void washOut(d);
     });
-    wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It is gone for good. ${speciesLabel(u.m)} gains ${n} glaze.`));
+    wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It leaves your collection, ${speciesLabel(u.m)} gains ${n} glaze. Blots that drift to the margins sometimes come back.`));
   }
   box.append(top, net, faces, gl, row, stats, lines, wash);
   $('inspect').hidden = false;

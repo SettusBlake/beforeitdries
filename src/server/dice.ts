@@ -279,9 +279,13 @@ export async function diceGlaze(d: Deps, userId: string | undefined, id: unknown
   });
 }
 
+/** Ein ausgewaschener Würfel im Archiv: alles, was ihn ausmacht, und woher er kommt */
+export type Recycled = { die: DieRec; from: string; at: number; rarity: Rarity };
+
 /**
- * Würfel auswaschen: er verschwindet und gibt seiner Art Lasur (so viel wie ein Doppelter früher).
- * Nicht im Deck, und es bleiben immer genug Würfel für ein volles Deck. Der Seed bleibt im Register, das Monster kommt nie wieder.
+ * Würfel auswaschen: er verlässt die Sammlung und gibt seiner Art Lasur (so viel wie ein Doppelter früher).
+ * Nicht im Deck, und es bleiben immer genug Würfel für ein volles Deck. Gelöscht wird er nicht (festgelegt am 30.10.2026):
+ * er kommt ins Archiv, später für Gegner und Marktplatz. Das Register zeigt recycled, als neuer Zug kommt er nie wieder.
  */
 export async function diceWash(d: Deps, userId: string | undefined, id: unknown): Promise<DiceResponse> {
   const uid = needUser(userId);
@@ -293,8 +297,15 @@ export async function diceWash(d: Deps, userId: string | undefined, id: unknown)
     if (s.bag.includes(id)) throw new GameError('bad_request', 'This die is in your deck. Take it out first.');
     if (s.dice.length <= KEEP_MIN) throw new GameError('bad_request', `Keep at least ${KEEP_MIN} dice for your deck.`);
     const key = dieSpecies(die);
+    const rarity = rarityOfDie(die);
     s.dice = s.dice.filter((x) => x !== die);
-    s.glaze[key] = (s.glaze[key] ?? 0) + washGlaze(rarityOfDie(die));
+    s.glaze[key] = (s.glaze[key] ?? 0) + washGlaze(rarity);
+    // Erst ins Archiv, dann aus der Sammlung: geht etwas schief, ist der Würfel lieber doppelt als weg
+    const seed = String(monsterSeed(die.sheet, die.idx));
+    const rec: Recycled = { die, from: uid, at: d.now, rarity };
+    await d.redis.hSet(K.recycled, { [seed]: JSON.stringify(rec) });
+    await d.redis.zAdd(K.recycledAt, { member: seed, score: d.now });
+    await d.redis.hSet(K.seeds, { [seed]: `recycled:${uid}:${die.id}` });
     await saveDice(d, uid, s);
     return respond(d, s);
   });

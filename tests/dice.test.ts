@@ -174,8 +174,15 @@ describe('Würfelsammlung', () => {
     const w = await diceWash(d, USER, out.id);
     expect(w.dice.dice.some((x) => x.id === out.id)).toBe(false);
     expect(w.dice.glaze[key]).toBe(gain);
-    // Das Monster kommt nie wieder: der Seed bleibt im Register
-    expect(await d.redis.hGet(K.seeds, String(monsterSeed(out.sheet, out.idx)))).toBe(`${USER}:${out.id}`);
+    // Gelöscht wird nichts: der Würfel liegt samt Herkunft im Archiv, das Register zeigt recycled, als Zug kommt er nie wieder
+    const seed = String(monsterSeed(out.sheet, out.idx));
+    expect(await d.redis.hGet(K.seeds, seed)).toBe(`recycled:${USER}:${out.id}`);
+    const rec = JSON.parse((await d.redis.hGet(K.recycled, seed))!) as { die: typeof out; from: string; at: number; rarity: string };
+    expect(rec.die).toEqual(out);
+    expect(rec.from).toBe(USER);
+    expect(rec.at).toBe(d.now);
+    expect(rec.rarity).toBe(dieUnit(dieMonster(out)).rarity);
+    expect((await d.redis.zRange(K.recycledAt, 0, -1, { by: 'rank' })).map((x) => x.member)).toEqual([seed]);
     // Genug Lasur für eine Seite: weitere Würfel dieser Art auswaschen, solange es geht
     let t = w.dice;
     while ((t.glaze[key] ?? 0) < GLAZE_COST) {
