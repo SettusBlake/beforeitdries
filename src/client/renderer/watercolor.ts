@@ -61,6 +61,29 @@ export function ellipsePts(b: BlobShape, S: number, r: Rand, n: number): P3[] {
   return pts;
 }
 
+/** Umriss eines Kleckses: Ellipse wie im Prototyp, oder ein Vieleck der neuen Formen (Ecken bleiben, lange Kanten werden geteilt) */
+export function blobPts(b: BlobShape, S: number, r: Rand, n: number): P3[] {
+  if (!b.pts) return ellipsePts(b, S, r, n);
+  const q: [number, number][] = b.pts.map((p) => [p[0], p[1]]);
+  while (q.length < n) {
+    let k = 0,
+      best = -1;
+    for (let i = 0; i < q.length; i++) {
+      const a = q[i]!,
+        c = q[(i + 1) % q.length]!,
+        d = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      if (d > best) {
+        best = d;
+        k = i;
+      }
+    }
+    const a = q[k]!,
+      c = q[(k + 1) % q.length]!;
+    q.splice(k + 1, 0, [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2]);
+  }
+  return q.map((p) => [p[0] * S, p[1] * S, rr(r, 0.55, 1.45)]);
+}
+
 export function deform(pts: P3[], r: Rand, amt: number): P3[] {
   const out: P3[] = [];
   for (let i = 0; i < pts.length; i++) {
@@ -645,7 +668,8 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
   const geo = BP[m.bp].build(RNG(m.seed + 7919 * m.mutations + 13));
   const vf = 0.65 + clamp((m.humidity - 30) / 65, 0, 1) * 0.75;
   const gr = RNG(m.seed + 31 * m.mutations + 5);
-  const bases = geo.blobs.map((b) => ({ b, base: deformN(ellipsePts(b, S, gr, 12), gr, 0.3 * vf, 3) }));
+  // crisp gibt es nur bei den neuen Formen, ohne bleibt jede Zahl wie im Prototyp
+  const bases = geo.blobs.map((b) => ({ b, base: deformN(blobPts(b, S, gr, 12), gr, 0.3 * vf * (b.crisp ?? 1), 3) }));
   let core = bases[0]!;
   bases.forEach((o) => {
     if (o.b.rx * o.b.ry > core.b.rx * core.b.ry) core = o;
@@ -653,7 +677,8 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
 
   ctx.globalCompositeOperation = 'multiply';
   geo.limbs.forEach((l) => limbWash(ctx, l, main.rgb, gr, S));
-  bases.forEach((o) => wash(ctx, o.base, main.rgb, gr, o.b.leaf ? 14 : 22, o.b.wing ? 0.04 : 0.05, 0.3 * vf));
+  // few: kleine Teile der neuen Formen, 12 Schichten mit gleicher Gesamtdeckung wie 22
+  bases.forEach((o) => wash(ctx, o.base, main.rgb, gr, o.b.leaf ? 14 : o.b.few ? 12 : 22, o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05, 0.3 * vf * (o.b.crisp ?? 1)));
   m.sec.forEach((id, i) => {
     const p = PIG[id];
     let list = bases.filter((o) => (i === 0 ? o !== core : o === core));
@@ -667,12 +692,12 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
   m.glazes.forEach((g) => {
     const p = PIG[g.p],
       r2 = RNG(g.seed);
-    bases.forEach((o) => wash(ctx, o.base, p.rgb, r2, 10, 0.032, 0.18));
+    bases.forEach((o) => wash(ctx, o.base, p.rgb, r2, 10, 0.032, 0.18 * (o.b.crisp ?? 1)));
     geo.limbs.forEach((l) => limbWash(ctx, l, p.rgb, r2, S, 0.045));
   });
   if (m.mud) {
     const r3 = RNG(m.seed + 99);
-    bases.forEach((o) => wash(ctx, o.base, [116, 100, 82], r3, 16, 0.055, 0.25));
+    bases.forEach((o) => wash(ctx, o.base, [116, 100, 82], r3, 16, 0.055, 0.25 * (o.b.crisp ?? 1)));
   }
   bases.forEach((o) => edges(ctx, o.base, main.rgb, gr, S));
   const granAmt = Math.max(main.gran, ...m.sec.map((id) => PIG[id].gran * 0.6), ...m.glazes.map((g) => PIG[g.p].gran * 0.5), m.mud ? 0.8 : 0);
@@ -688,7 +713,7 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
     ir = RNG(m.seed + 777);
   const big = core.b.rx * core.b.ry;
   bases.forEach((o) => {
-    if (o.b.rx * o.b.ry >= big * 0.3 && !o.b.leaf) contour(ctx, o.base, lw * 0.9, ir);
+    if ((o.b.rx * o.b.ry >= big * 0.3 || o.b.ink) && !o.b.leaf) contour(ctx, o.base, lw * 0.9, ir);
   });
   geo.limbs.forEach((l) => inkPath(ctx, l.pts.map((p) => [p[0] * S, p[1] * S]), lw * 0.85, ir, 0.7));
   drawFace(ctx, m, geo, S, RNG(m.seed + 31337), paper, core.b);

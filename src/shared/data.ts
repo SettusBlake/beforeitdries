@@ -92,6 +92,14 @@ export interface BlobShape {
   rot: number;
   wing?: boolean;
   leaf?: boolean;
+  /** Neue Formen: Umriss als Vieleck in Blattkoordinaten statt Ellipse (x, y, rx, ry bleiben als Näherung) */
+  pts?: Pt[];
+  /** Neue Formen: wie stark der Rand verläuft, 1 wie bei Ellipsen, kleiner für Dinge und Maschinen */
+  crisp?: number;
+  /** Neue Formen: Tuschekontur auch für kleine Teile */
+  ink?: boolean;
+  /** Neue Formen: kleines Teil, weniger und dafür kräftigere Lasurschichten (spart Malzeit) */
+  few?: boolean;
 }
 export type Pt = [number, number];
 export interface Limb {
