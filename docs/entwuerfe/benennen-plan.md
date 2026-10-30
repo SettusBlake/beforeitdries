@@ -1,6 +1,6 @@
 # Plan: Benennen mit „What do you see?“
 
-Stand 30.10.2026, Fassung 1, wartet auf Freigabe.
+Stand 30.10.2026, Fassung 2. Freigegeben am 30.10.2026 mit allen Empfehlungen („alles ok“). Gebaut, Playtest v0.0.1.69. Bild im Spiel: docs/entwuerfe/benennen-im-spiel.png.
 
 Schon freigegeben am 30.10.2026 (Plan „Einzigartig und Stile“): Benennen per „What do you see?“-Post, je 50 Pigment für den Finder und den Namensgeber. Wie bisher: Art = Bauplan + Hauptpigment (96 Arten), der erste Name bleibt, jeden Namen gibt es nur einmal.
 
@@ -40,16 +40,11 @@ Schon freigegeben am 30.10.2026 (Plan „Einzigartig und Stile“): Benennen per
 
 ## Umfang und Reihenfolge
 
-1. **Server:** Namen aller Arten abrufen, Post anlegen (Prüfungen oben), Zustand je Post in Redis (in keys.ts geführt), Auftrag nach 24 Stunden über den Scheduler, Name übernehmen, Pigment gutschreiben, Kommentar der Bestiary. Tests.
-2. **Post-Ansicht:** neuer Einstieg `name` mit Monster groß, Restzeit, Regeln, danach der Name.
-3. **Spiel:** Knopf auf Karte und nach dem Ziehen, Namen überall anzeigen.
-4. **Mod-Menüs**, Upload und Handy-Test.
+1. **Server:** Namen aller Arten abrufen, Post anlegen (Prüfungen oben), Zustand je Post in Redis (in keys.ts geführt), Auftrag nach 24 Stunden über den Scheduler, Name übernehmen, Pigment gutschreiben, Kommentar der Bestiary. Tests. Gebaut: src/server/naming.ts, Endpunkte /api/species, /api/dice/share, /api/naming, Scheduler-Auftrag `name-species` (devvit.json), Redis `naming:{post}`, `naming:posts`, `naming:open`, Speicher-Feld `nameDay`, Tests tests/naming.test.ts.
+2. **Post-Ansicht:** neuer Einstieg `name` mit Monster groß, Restzeit, Regeln, danach der Name. Gebaut: src/client/name.html, name.ts, name.css (Shiny im Stil mit Rahmen, Restzeit zählt mit, Stand alle 5 Minuten neu).
+3. **Spiel:** Knopf auf Karte und nach dem Ziehen, Namen überall anzeigen. Gebaut: Feld „Unnamed species“ mit „What do you see?“ auf der Würfelkarte (oder „Being named · open the post“), Knopf neben Done nach einem Einzelzug, Namen in Sammlung, Karte, Deck, Ziehen und Duell (src/client/lib/species.ts), Karte mit „Species named by u/…“.
+4. **Mod-Menüs**, Upload und Handy-Test. Gebaut: „Before It Dries: name it now“ und „Before It Dries: cancel naming“ am Post. Hochgeladen als Playtest v0.0.1.69.
 
 ## Offene Fragen
 
-1. Benannt wird die Art für alle (wie freigegeben), nicht das einzelne Monster? (Empfehlung: ja. Ein Spitzname fürs eigene Exemplar könnte später dazukommen)
-2. Höchstens ein Post pro Spieler und Tag? (Empfehlung: ja)
-3. Gemalte Monster erst nach Freigabe durch einen Mod, gemeldet wird vorerst über Reddit? (Empfehlung: ja)
-4. Kein gültiger Name nach 24 Stunden: Art bleibt offen, der nächste Finder darf neu teilen? (Empfehlung: ja)
-5. Namensregeln wie beim Tagespost (oben)? (Empfehlung: ja)
-6. Pigment für Namensgeber, die noch nie gespielt haben, beim ersten Öffnen? (Empfehlung: ja)
+Keine. Später vielleicht: Spitzname fürs eigene Exemplar, Meldung im Spiel (mit Tauschen oder Galerie).

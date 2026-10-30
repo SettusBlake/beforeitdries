@@ -17,6 +17,7 @@ import * as R from '../shared/duel/rules';
 import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, ROWS, S, type Ev, type Face, type Level, type Plan, type Side, type Unit } from '../shared/duel/rules';
 import { paintLater } from './lib/painter';
 import { api, ApiError } from './lib/api';
+import { loadSpecies, speciesName } from './lib/species';
 import { makeCube, tumble } from './duel/dice3d';
 import { iconSvg, netSvg } from './duel/icons';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
@@ -111,6 +112,10 @@ function nudge(): void {
   }
 }
 const rgb = (p: PigmentId) => `rgb(${PIG[p].rgb})`;
+/** Kleckse tragen den Namen ihrer Art, sobald die Community ihn vergeben hat (nur Anzeige, die Regeln kennen nur IDs) */
+function renameUnits(): void {
+  for (const t of S.teams) for (const u of t.units) u.name = speciesName(u.m) ?? u.name;
+}
 
 /* ---------- Server ---------- */
 async function playEvents(evs: Ev[]): Promise<void> {
@@ -133,7 +138,10 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
     onError(e);
     return false;
   }
-  if (res.state) loadState(res.state);
+  if (res.state) {
+    loadState(res.state);
+    renameUnits();
+  }
   View.prewarm();
   if (res.reward) reward = res.reward;
   armed = null;
@@ -176,6 +184,7 @@ function onError(e: unknown): void {
     .then((r) => {
       if (!r.state) return;
       loadState(r.state);
+      renameUnits();
       R.sync();
       void playEvents(R.drain()).then(renderAll);
     })
@@ -1604,6 +1613,7 @@ async function resumeDuel(): Promise<void> {
   busy = false;
   if (!res.state) return void startDuel();
   loadState(res.state);
+  renameUnits();
   showScreen('game');
   View.reset();
   R.sync();
@@ -1737,6 +1747,11 @@ setLevel(level);
 soundLabel();
 titleArt();
 showScreen('title');
+// Namen der Arten früh holen: Duell, Sammlung und Ziehen zeigen sie
+void loadSpecies().then(() => {
+  renameUnits();
+  renderAll();
+});
 api
   .duel()
   .then((r) => {

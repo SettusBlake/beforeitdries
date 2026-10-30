@@ -4,11 +4,14 @@
  */
 import type { DiceResponse } from '../../shared/api';
 import { PAPER } from '../../shared/data';
-import { dieMonster, dieSpecies, drawLocked, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { dayKey } from '../../shared/day';
+import { dieMonster, dieSpecies, drawLocked, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { speciesLabel } from '../../shared/monster';
 import { looseKey, looseNow, painted, paintedNow } from '../lib/painter';
+import { navigateToPost } from '@devvit/web/client';
 import { api } from '../lib/api';
+import { loadSpecies, namingPost, speciesName, speciesNamedBy } from '../lib/species';
 import { initDraw, openDraw } from './draw';
 import { initReview, openReview } from './review';
 import { iconSvg, netSvg } from './icons';
@@ -70,7 +73,12 @@ function art(d: DieRec, px: number, prio = 0, deco = false): HTMLCanvasElement {
   }
   return out;
 }
-const unitOfDie = (d: DieRec): Unit => dieUnit(dieMonster(d), d.mods);
+/** Würfel als Einheit, mit dem Namen der Art, sobald die Community ihn vergeben hat */
+const unitOfDie = (d: DieRec): Unit => {
+  const u = dieUnit(dieMonster(d), d.mods);
+  u.name = speciesName(u.m) ?? u.name;
+  return u;
+};
 const shortName = (u: Unit) => u.name;
 
 /* ---------- Bildschirm ---------- */
@@ -189,7 +197,7 @@ function render(): void {
 
 async function load(): Promise<void> {
   try {
-    const r = await api.dice();
+    const [r] = await Promise.all([api.dice(), loadSpecies()]);
     mod = !!r.mod;
     review = r.review ?? 0;
     apply(r);
@@ -250,6 +258,7 @@ function openDie(d: DieRec): void {
     el('b', '', u.name),
     html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b class="rlabel" style="color:${r.col}">${r.label}</b>`),
     el('small', '', `${PAPER[u.m.paper].n} · ${speciesLabel(u.m)}`),
+    ...(speciesNamedBy(u.m) ? [el('small', 'named-line', `Species named by u/${speciesNamedBy(u.m)}`)] : []),
     html('small', 'serial-line', (d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind') + (d.draw ? ` · <span class="drawn">${BRUSH} drawn by you</span>` : '')),
     ...(d.style ? [el('small', 'shiny-line', `✦ Shiny · ${styleDef(d.style).label} · ${styleDef(d.style).odds}`)] : []),
   );
@@ -351,8 +360,56 @@ function openDie(d: DieRec): void {
     });
     wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It leaves your collection, ${speciesLabel(u.m)} gains ${n} glaze. Blots that drift to the margins sometimes come back.`));
   }
-  box.append(top, net, faces, gl, row, stats, lines, wash);
+  box.append(top, net, faces, gl, row, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), stats, lines, wash);
   $('inspect').hidden = false;
+}
+/** Art ohne Namen: als „What do you see?“-Post teilen (einer am Tag), oder den laufenden Post öffnen */
+function namingRow(d: DieRec, s: DiceSave, u: Unit): HTMLElement {
+  const box = el('div', 'naming');
+  const open = namingPost(u.m);
+  const today = s.nameDay === dayKey(Date.now());
+  const b = el('button', 'ghost name-btn', open ? 'Being named · open the post' : 'What do you see?') as HTMLButtonElement;
+  b.type = 'button';
+  b.disabled = busy || (!open && today);
+  b.addEventListener('click', () => {
+    if (open) {
+      sfx.tap();
+      return navigateToPost(open as `t3_${string}`);
+    }
+    void share(d);
+  });
+  const why = open
+    ? 'Someone found this species first. Suggest or vote for a name in the comments.'
+    : today
+      ? 'You shared a blot today. Share another one tomorrow.'
+      : `Unnamed species. Share it as a post: after 24 hours the top comment names it for everyone. You and the namer get ${REWARD.name} pigment.`;
+  box.append(el('b', '', 'Unnamed species'), b, el('small', '', why));
+  return box;
+}
+/** Teilen: der Server legt den Post an, danach geht es dorthin */
+async function share(d: DieRec): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  try {
+    const r = await api.diceShare(d.id);
+    apply(r);
+    await loadSpecies();
+    busy = false;
+    $('inspect').hidden = true;
+    $('dip').hidden = true;
+    render();
+    try {
+      navigateToPost(r.postId as `t3_${string}`);
+    } catch {
+      /* außerhalb von Reddit (Vorschau) */
+    }
+    return;
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
 }
 async function washOut(d: DieRec, confirm = false): Promise<void> {
   if (busy) return;
@@ -451,6 +508,14 @@ async function pull(kind: PullKind): Promise<void> {
   await reveal(res.pulls, before);
   busy = false;
   render();
+  afterReveal();
+}
+/** Nach dem Ziehen „What do you see?“ angetippt: jetzt teilen */
+let shareAfter: DieRec | null = null;
+function afterReveal(): void {
+  const d = shareAfter;
+  shareAfter = null;
+  if (d) void share(d);
 }
 async function reveal(pulls: PullResult[], before: DiceSave | null): Promise<void> {
   const ov = $('dip');
@@ -503,6 +568,23 @@ function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
       sfx.tap();
       done();
     });
+    // Art ohne Namen: gleich teilen (gemalte erst nach Freigabe, das sagt dann der Server)
+    const canShare = !speciesName(u.m) && !namingPost(u.m) && save?.nameDay !== dayKey(Date.now()) && !p.die.draw;
+    if (canShare) {
+      lines.push('Nobody has named this species yet.');
+      const sh = el('button', 'ghost', 'What do you see?') as HTMLButtonElement;
+      sh.type = 'button';
+      sh.id = 'dip-share';
+      sh.addEventListener('click', () => {
+        // Geteilt wird, wenn das Ziehen ganz fertig ist (sonst ist die Sammlung noch beschäftigt)
+        shareAfter = p.die;
+        done();
+      });
+      const row = el('div', 'trow dip-row');
+      row.append(sh, ok);
+      body.append(el('p', 'dnote', lines.join(' ')), row);
+      return;
+    }
     body.append(el('p', 'dnote', lines.join(' ')), ok);
   });
 }
@@ -626,6 +708,7 @@ async function paintDrawing(code: string): Promise<true | string> {
   await reveal(res.pulls, before);
   busy = false;
   render();
+  afterReveal();
   // Mods: die neue Zeichnung steht jetzt in der Prüfliste
   if (mod) void load();
   return true;
@@ -662,6 +745,7 @@ export async function diceBadge(): Promise<string> {
     freeReady = r.freeReady;
     tester = !!r.tester;
     mod = !!r.mod;
+    void loadSpecies();
     review = r.review ?? 0;
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.freeReady) return 'free dip';

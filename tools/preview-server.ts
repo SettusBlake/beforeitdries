@@ -9,6 +9,7 @@ import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
 import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestShiny, diceWash, dicePull, loadDice, saveDice } from '../src/server/dice';
 import { reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
+import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
 import { K } from '../src/server/keys';
@@ -43,6 +44,8 @@ for (const day of OLD) {
 
 await ensurePlayPost(deps());
 
+/** Zuletzt geteilter „What do you see?“-Post: die Vorschau von name.html zeigt ihn */
+let lastNaming = '';
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.woff': 'font/woff', '.map': 'application/json' };
 
 createServer(async (req, res) => {
@@ -85,6 +88,19 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id, b.confirm));
       if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing, USER.name));
       if (url.pathname === '/api/dice/seen') return send(200, await diceSeen(d, asUser));
+      if (url.pathname === '/api/dice/share') {
+        const r = await diceShare(d, asUser, USER.name, b.id);
+        lastNaming = r.postId;
+        return send(200, r);
+      }
+    }
+    if (url.pathname === '/api/species') return send(200, await speciesNames(d));
+    if (url.pathname === '/api/naming') return send(200, await namingGet(d, url.searchParams.get('post') ?? lastNaming));
+    // Nur in der Vorschau: ein Kommentar und sofort benennen (wie das Mod-Menü „name it now“)
+    if (url.pathname === '/dev/name') {
+      const post = url.searchParams.get('post') ?? lastNaming;
+      if (url.searchParams.has('name')) reddit.addComment(post, 'someone_else', url.searchParams.get('name')!, 7);
+      return send(200, await adoptNaming(d, post, url.searchParams.has('cancel')));
     }
     if (url.pathname.startsWith('/api/review')) {
       let raw = '';
