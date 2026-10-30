@@ -97,7 +97,7 @@ Wunsch vom 30.10.2026: Monster, die man nicht mehr will, recyceln oder später a
 
 1. **Recycling:** Archiv am Server, Text, Tests, Upload. Gebaut.
 2. **2b Entwurf:** Entwurfsbogen zur Rückmeldung, noch nicht im Spiel. Gebaut.
-3. **2b einbauen** nach deiner Rückmeldung, Upload. Gebaut, mit gemalten Augen.
+3. **2b einbauen** nach deiner Rückmeldung, Upload. Gebaut, mit gemalten Augen. Playtest v0.0.1.53.
 4. Danach laut Plan: seltene Stile (Shiny), dann Benennen.
 
 ## Offene Fragen
