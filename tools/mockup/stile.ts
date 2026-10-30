@@ -10,10 +10,10 @@ import { RNG, clamp, gauss, ri, rr, type Rand } from '../../src/shared/rng';
 type Ctx = CanvasRenderingContext2D;
 type Base = { b: BlobShape; base: P3[] };
 
-const mixRGB = (a: readonly number[], b: readonly number[], t: number): number[] => a.map((v, i) => Math.round(v + ((b[i] ?? 0) - v) * t));
-const rgb = (c: readonly number[], a = 1): string => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+export const mixRGB = (a: readonly number[], b: readonly number[], t: number): number[] => a.map((v, i) => Math.round(v + ((b[i] ?? 0) - v) * t));
+export const rgb = (c: readonly number[], a = 1): string => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
-function prep(m: Monster, S: number, amt = 0.3, iters = 3) {
+export function prep(m: Monster, S: number, amt = 0.3, iters = 3) {
   const geo = BP[m.bp].build(RNG(m.seed + 7919 * m.mutations + 13));
   const gr = RNG(m.seed + 31 * m.mutations + 5);
   const bases: Base[] = geo.blobs.map((b) => ({ b, base: deformN(ellipsePts(b, S, gr, 12), gr, amt, iters) }));
@@ -24,7 +24,7 @@ function prep(m: Monster, S: number, amt = 0.3, iters = 3) {
   return { geo, gr, bases, core };
 }
 
-function unionPath(ctx: Ctx, polys: P2[][]): void {
+export function unionPath(ctx: Ctx, polys: P2[][]): void {
   ctx.beginPath();
   for (const p of polys) {
     ctx.moveTo(p[0]![0], p[0]![1]);
@@ -33,7 +33,7 @@ function unionPath(ctx: Ctx, polys: P2[][]): void {
   }
 }
 
-function smoothClosed(ctx: Ctx, pts: P2[]): void {
+export function smoothClosed(ctx: Ctx, pts: P2[]): void {
   const n = pts.length;
   ctx.beginPath();
   const mid = (i: number): [number, number] => [(pts[i % n]![0] + pts[(i + 1) % n]![0]) / 2, (pts[i % n]![1] + pts[(i + 1) % n]![1]) / 2];
@@ -47,7 +47,7 @@ function smoothClosed(ctx: Ctx, pts: P2[]): void {
   ctx.closePath();
 }
 
-function bbox(polys: P2[][]): [number, number, number, number] {
+export function bbox(polys: P2[][]): [number, number, number, number] {
   let x0 = 1e9,
     y0 = 1e9,
     x1 = -1e9,
