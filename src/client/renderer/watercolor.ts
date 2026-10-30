@@ -9,6 +9,8 @@ import type { Monster } from '../../shared/monster';
 import { RNG, clamp, gauss, ri, rr, type Rand } from '../../shared/rng';
 import { decodeDrawing, drawnGeometry } from '../../shared/drawn';
 import { form } from '../../shared/forms';
+import { lookOf, tinted, type Look } from '../../shared/look';
+import { bloom2, drawFace2, drawPattern, lifted, patternParts, runs, splatter, tide } from './gen2b';
 
 export type Quality = 'full' | 'lite';
 export interface RenderOptions {
@@ -17,7 +19,11 @@ export interface RenderOptions {
   quality?: Quality;
   /** false: ohne Papier, der Klecks steht frei (Duell). Der Papierwurf hat einen eigenen Zufall, der Klecks bleibt gleich */
   paper?: boolean;
+  /** Nur für Entwürfe: true oder false schaltet 2b für Generation 2 ein oder aus, ein Look erzwingt dieses Aussehen */
+  look?: Look | boolean;
 }
+/** Generation 2b im Spiel: aus, bis der Entwurf freigegeben ist (docs/entwuerfe/gen2b-entwurf.png) */
+export const GEN2B = false;
 
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
@@ -658,6 +664,17 @@ export function renderMonster(canvas: HTMLCanvasElement, m: Paintable, cssSize: 
 }
 
 /** Die Geometrie: Generation 2 aus den neuen Formen (eigener Zufall), sonst der Bauplan wie im Prototyp */
+/** Dinge und Maschinen haben feste Kanten (crisp klein): andere Muster als Tiere */
+function isThing(g: Geometry): boolean {
+  let hard = 0,
+    all = 0;
+  for (const b of g.blobs) {
+    all += b.rx * b.ry;
+    if ((b.crisp ?? 1) < 0.45) hard += b.rx * b.ry;
+  }
+  return hard > all * 0.5;
+}
+
 export function geometryOf(m: Paintable): Geometry {
   // Selbst gemalt: die Zeichnung ist die Form (rechnet ohne Zufall, die Würfe des Renderers bleiben gleich)
   const dr = m.draw ? decodeDrawing(m.draw) : null;
@@ -703,6 +720,11 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   if (opts.paper !== false) drawPaper(ctx, S, pa, r);
   yield* pause();
   const geo = geometryOf(m);
+  // Generation 2b: eigener Farbton, Muster, Gesicht und Malereignisse (eigener Zufall, nur Aussehen). Generation 1 bleibt
+  const on = typeof opts.look === 'object' || (opts.look ?? GEN2B);
+  const look = m.gen === 2 && on ? (typeof opts.look === 'object' ? opts.look : lookOf(m, isThing(geo))) : null;
+  const mainRgb: RGB = look ? tinted(main.rgb, look.main) : main.rgb;
+  const lr = RNG(look ? look.seed : 0);
   const vf = 0.65 + clamp((m.humidity - 30) / 65, 0, 1) * 0.75;
   const gr = RNG(m.seed + 31 * m.mutations + 5);
   // crisp gibt es nur bei den neuen Formen, ohne bleibt jede Zahl wie im Prototyp
@@ -714,23 +736,29 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
 
   ctx.globalCompositeOperation = 'multiply';
   for (const [i, l] of geo.limbs.entries()) {
-    limbWash(ctx, l, main.rgb, gr, S);
+    limbWash(ctx, l, mainRgb, gr, S);
     if (i % 8 === 7) yield* wet();
   }
   yield* wet();
   // few: kleine Teile der neuen Formen, 12 Schichten mit gleicher Gesamtdeckung wie 22
   for (const o of bases) {
-    wash(ctx, o.base, main.rgb, gr, o.b.leaf ? 14 : o.b.few ? 12 : 22, o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05, 0.3 * vf * (o.b.crisp ?? 1));
+    wash(ctx, o.base, mainRgb, gr, o.b.leaf ? 14 : o.b.few ? 12 : 22, o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05, 0.3 * vf * (o.b.crisp ?? 1));
+    yield* wet();
+  }
+  if (look?.pattern) {
+    const pc = look.pattern.dark || !m.sec.length ? dark(mainRgb, 0.5) : tinted(PIG[m.sec[0]!].rgb, look.sec);
+    drawPattern(ctx, patternParts(bases, look.pattern), look.pattern, pc, S, lr);
     yield* wet();
   }
   for (const [i, id] of m.sec.entries()) {
-    const p = PIG[id];
+    const p = PIG[id],
+      prgb = look ? tinted(p.rgb, look.sec) : p.rgb;
     let list = bases.filter((o) => (i === 0 ? o !== core : o === core));
     if (!list.length) list = [core];
     for (const o of list) {
       const b = o.b,
         sub = { x: b.x + gauss(gr) * b.rx * 0.2, y: b.y + gauss(gr) * b.ry * 0.2 + (i ? b.ry * 0.3 : 0), rx: b.rx * rr(gr, 0.45, 0.8), ry: b.ry * rr(gr, 0.45, 0.8), rot: b.rot };
-      wash(ctx, deformN(ellipsePts(sub, S, gr, 10), gr, 0.45 * vf, 3), p.rgb, gr, 16, 0.045, 0.45 * vf);
+      wash(ctx, deformN(ellipsePts(sub, S, gr, 10), gr, 0.45 * vf, 3), prgb, gr, 16, 0.045, 0.45 * vf);
       yield* wet();
     }
   }
@@ -751,18 +779,28 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
       yield* wet();
     }
   }
-  bases.forEach((o) => edges(ctx, o.base, main.rgb, gr, S));
+  bases.forEach((o) => edges(ctx, o.base, mainRgb, gr, S));
   yield* wet();
   const granAmt = Math.max(main.gran, ...m.sec.map((id) => PIG[id].gran * 0.6), ...m.glazes.map((g) => PIG[g.p].gran * 0.5), m.mud ? 0.8 : 0);
-  if (granAmt > 0.15) granulate(ctx, bases.map((o) => o.base), m.mud ? [116, 100, 82] : main.rgb, gr, granAmt, S);
+  if (granAmt > 0.15) granulate(ctx, bases.map((o) => o.base), m.mud ? [116, 100, 82] : mainRgb, gr, granAmt, S);
   yield* wet();
 
   const er = RNG(m.seed + 4242);
   // Große Vielecke (neue und gemalte Formen) messen sich am ganzen Umriss: Malereignisse bleiben so groß wie bei Klecksen
   const fx = core.b.pts ? { ...core.b, rx: Math.min(core.b.rx, 0.16), ry: Math.min(core.b.ry, 0.16) } : core.b;
-  if (m.events.bloom) bloomFx(ctx, fx, S, main.rgb, paper, er);
+  // Generation 2: weiche Blüte statt Splittern
+  if (m.events.bloom) {
+    if (look) bloom2(ctx, core.b, S, mainRgb, paper, lr);
+    else bloomFx(ctx, fx, S, main.rgb, paper, er);
+  }
   if (m.events.salt) saltFx(ctx, fx, S, paper, er);
-  if (m.events.alcohol) alcoholFx(ctx, fx, S, main.rgb, paper, er);
+  if (m.events.alcohol) alcoholFx(ctx, fx, S, mainRgb, paper, er);
+  if (look) {
+    if (look.fx.runs) runs(ctx, bases, mainRgb, S, lr);
+    if (look.fx.tide) tide(ctx, bases, mainRgb, S, lr);
+    if (look.fx.lifted) lifted(ctx, core.b, S, paper, lr);
+    if (look.fx.splatter) splatter(ctx, bases.map((o) => o.base), mainRgb, S, lr);
+  }
   yield* pause();
 
   ctx.globalCompositeOperation = 'source-over';
@@ -773,7 +811,8 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     if ((o.b.rx * o.b.ry >= big * 0.3 || o.b.ink) && !o.b.leaf) contour(ctx, o.base, lw * 0.9, ir);
   });
   geo.limbs.forEach((l) => inkPath(ctx, l.pts.map((p) => [p[0] * S, p[1] * S]), lw * 0.85, ir, 0.7));
-  drawFace(ctx, m, geo, S, RNG(m.seed + 31337), paper, core.b);
+  if (look) drawFace2(ctx, look, geo, S, RNG(look.seed + 31337), paper, mainRgb);
+  else drawFace(ctx, m, geo, S, RNG(m.seed + 31337), paper, core.b);
   if (m.events.print) printFx(ctx, core.b, S, RNG(m.seed + 5));
   ctx.restore();
   LITE = false;

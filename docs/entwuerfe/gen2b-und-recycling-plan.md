@@ -80,18 +80,22 @@ Wunsch vom 30.10.2026: Monster, die man nicht mehr will, recyceln oder später a
 - **Ausgehobene Lichter:** helle Tupfer, als hätte jemand mit Papier Farbe abgenommen.
 - **Neue Blüte** für Generation 2: weicher Blumenkohlrand statt der splittrigen Fläche. Die Blüte der Generation 1 bleibt, wie sie ist.
 
-**5. Messen und zeigen**
+**5. Messen und zeigen (Entwurf gebaut)**
 
-- Entwurfsbogen (PNG in docs/entwuerfe) mit denselben Zügen vorher und nachher, dazu einzelne Reihen für Farbe, Muster, Gesichter und Ereignisse.
-- Malzeit messen. Ziel: höchstens etwa 30 % mehr. Es wird ohnehin nebenbei gemalt.
+- Entwurfsbogen docs/entwuerfe/gen2b-entwurf.png: 16 Züge vorher und nachher, dazu Reihen für Farbton, Muster, Gesichter (1,8-mal vergrößert) und Malereignisse. Quelle tools/mockup/gen2b-entwurf.ts.
+- Gemessen an 48 Zügen: Malzeit praktisch gleich (0 bis 1 % mehr, Ziel war höchstens 30 %).
+- Anteile an 2000 Zügen: Muster 41 %, nicht zwei Augen 40 %, Augenbrauen 31 %, mindestens ein neues Malereignis 42 %.
+- Code: Würfe in src/shared/look.ts (eigener Zufallsstrom), Malen in src/client/renderer/gen2b.ts. Im Spiel noch aus (Schalter `GEN2B` in watercolor.ts), Generation 1 weiter 144 von 144 gleich.
 
 ## Reihenfolge
 
 1. **Recycling:** Archiv am Server, Text, Tests, Upload. Gebaut.
-2. **2b Entwurf:** Entwurfsbogen zur Rückmeldung, noch nicht im Spiel.
+2. **2b Entwurf:** Entwurfsbogen zur Rückmeldung, noch nicht im Spiel. Gebaut.
 3. **2b einbauen** nach deiner Rückmeldung, Upload.
 4. Danach laut Plan: seltene Stile (Shiny), dann Benennen.
 
 ## Offene Fragen
 
 1. Zurückholen: Passt der Vorschlag (Rescue für Spieler mit doppelter Lasur, 300 Pigment, 7 Tage, einmal pro Woche, dazu Wiederherstellen durch Mods)? Nur eins von beiden? Oder später?
+2. Entwurf 2b: Was gefällt, was nicht? Sind die Muster kräftig genug?
+3. 40 % der Monster haben nicht zwei Augen (1 bis 7). Ist das zu oft? Sonst würde ich auf etwa 25 % gehen.
