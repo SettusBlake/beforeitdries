@@ -11,14 +11,14 @@ import { RNG, clamp, gauss, ri, rr, type Rand } from '../../shared/rng';
 import { MANY, drawFace2 } from './gen2b';
 import { blobPts, deformN, drawFace, geometryOf, grainTex, type P2, type P3 } from './watercolor';
 
-type Ctx = CanvasRenderingContext2D;
-type C3 = number[];
+export type Ctx = CanvasRenderingContext2D;
+export type C3 = number[];
 
 /* ---------- Grundlagen: Farbe als Text, Geometrie wie beim Aquarell ---------- */
-const mixRGB = (a: readonly number[], b: readonly number[], t: number): number[] => a.map((v, i) => Math.round(v + ((b[i] ?? 0) - v) * t));
-const rgb = (c: readonly number[], a = 1): string => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+export const mixRGB = (a: readonly number[], b: readonly number[], t: number): number[] => a.map((v, i) => Math.round(v + ((b[i] ?? 0) - v) * t));
+export const rgb = (c: readonly number[], a = 1): string => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 /** Formen wie im Aquarell (Bauplan, neue Formen oder Zeichnung), Ränder nur leicht verformt */
-function prep(m: Monster, S: number, amt = 0.3, iters = 3) {
+export function prep(m: Monster, S: number, amt = 0.3, iters = 3) {
   const geo = geometryOf(m);
   const gr = RNG(m.seed + 31 * m.mutations + 5);
   const bases = geo.blobs.map((b) => ({ b, base: deformN(blobPts(b, S, gr, 12), gr, amt * (b.crisp ?? 1), iters) }));
@@ -28,9 +28,9 @@ function prep(m: Monster, S: number, amt = 0.3, iters = 3) {
   });
   return { geo, gr, bases, core };
 }
-type Prep = ReturnType<typeof prep>;
-type Base = Prep['bases'][number];
-function smoothClosed(ctx: Ctx, pts: P2[]): void {
+export type Prep = ReturnType<typeof prep>;
+export type Base = Prep['bases'][number];
+export function smoothClosed(ctx: Ctx, pts: P2[]): void {
   const n = pts.length;
   ctx.beginPath();
   const mid = (i: number): [number, number] => [(pts[i % n]![0] + pts[(i + 1) % n]![0]) / 2, (pts[i % n]![1] + pts[(i + 1) % n]![1]) / 2];
@@ -43,7 +43,7 @@ function smoothClosed(ctx: Ctx, pts: P2[]): void {
   }
   ctx.closePath();
 }
-function bbox(polys: P2[][]): [number, number, number, number] {
+export function bbox(polys: P2[][]): [number, number, number, number] {
   let x0 = 1e9,
     y0 = 1e9,
     x1 = -1e9,
@@ -61,7 +61,7 @@ function bbox(polys: P2[][]): [number, number, number, number] {
 let DECO = true;
 
 /** Gesicht: Generation 2 mit den Gesichtern aus 2b (gemalte Monster immer mit Gesicht), sonst wie im Prototyp */
-function faceOf(ctx: Ctx, m: Monster, geo: Prep['geo'], S: number, paper: string, core: BlobShape, col?: readonly number[]): void {
+export function faceOf(ctx: Ctx, m: Monster, geo: Prep['geo'], S: number, paper: string, core: BlobShape, col?: readonly number[]): void {
   if (m.gen !== 2) return drawFace(ctx, m, geo, S, RNG(m.seed + 31337), paper, core);
   const look = lookOf(m);
   if (look.faceless && !m.draw) return;
@@ -69,7 +69,7 @@ function faceOf(ctx: Ctx, m: Monster, geo: Prep['geo'], S: number, paper: string
 }
 
 /* ---------- Farbe ---------- */
-function toHsl(c: readonly number[]): [number, number, number] {
+export function toHsl(c: readonly number[]): [number, number, number] {
   const r = c[0]! / 255,
     g = c[1]! / 255,
     b = c[2]! / 255;
@@ -82,7 +82,7 @@ function toHsl(c: readonly number[]): [number, number, number] {
   const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
   return [h / 6, s, l];
 }
-function fromHsl(h: number, s: number, l: number): C3 {
+export function fromHsl(h: number, s: number, l: number): C3 {
   const f = (n: number) => {
     const k = (n + h * 12) % 12,
       a = s * Math.min(l, 1 - l);
@@ -90,23 +90,23 @@ function fromHsl(h: number, s: number, l: number): C3 {
   };
   return [f(0), f(8), f(4)];
 }
-const shade = (c: readonly number[], f: number): C3 => c.map((v) => Math.round(clamp(v * f, 0, 255)));
+export const shade = (c: readonly number[], f: number): C3 => c.map((v) => Math.round(clamp(v * f, 0, 255)));
 
 /* ---------- Leinwand-Helfer ---------- */
-function layer(S: number): [HTMLCanvasElement, Ctx] {
+export function layer(S: number): [HTMLCanvasElement, Ctx] {
   const c = document.createElement('canvas');
   c.width = c.height = S;
   return [c, c.getContext('2d')!];
 }
-const limbPx = (l: Limb, S: number): P2[] => l.pts.map((p) => [p[0] * S, p[1] * S]);
-function limbPath(ctx: Ctx, pts: P2[]): void {
+export const limbPx = (l: Limb, S: number): P2[] => l.pts.map((p) => [p[0] * S, p[1] * S]);
+export function limbPath(ctx: Ctx, pts: P2[]): void {
   ctx.beginPath();
   ctx.moveTo(pts[0]![0], pts[0]![1]);
   for (let i = 1; i < pts.length - 1; i++) ctx.quadraticCurveTo(pts[i]![0], pts[i]![1], (pts[i]![0] + pts[i + 1]![0]) / 2, (pts[i]![1] + pts[i + 1]![1]) / 2);
   const l = pts[pts.length - 1]!;
   ctx.lineTo(l[0], l[1]);
 }
-function strokeLimb(ctx: Ctx, l: Limb, S: number, w: number, dx = 0, dy = 0): void {
+export function strokeLimb(ctx: Ctx, l: Limb, S: number, w: number, dx = 0, dy = 0): void {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.lineWidth = w;
@@ -117,7 +117,7 @@ function strokeLimb(ctx: Ctx, l: Limb, S: number, w: number, dx = 0, dy = 0): vo
   ctx.stroke();
 }
 /** Wie smoothClosed, aber hängt an den laufenden Pfad an (für Löcher mit evenodd) */
-function addSmooth(ctx: Ctx, pts: P2[], dx = 0, dy = 0): void {
+export function addSmooth(ctx: Ctx, pts: P2[], dx = 0, dy = 0): void {
   const n = pts.length;
   const mid = (i: number): [number, number] => [(pts[i % n]![0] + pts[(i + 1) % n]![0]) / 2 + dx, (pts[i % n]![1] + pts[(i + 1) % n]![1]) / 2 + dy];
   const m0 = mid(0);
@@ -129,7 +129,7 @@ function addSmooth(ctx: Ctx, pts: P2[], dx = 0, dy = 0): void {
   }
   ctx.closePath();
 }
-function blobPath2D(pts: P2[]): Path2D {
+export function blobPath2D(pts: P2[]): Path2D {
   const p = new Path2D(),
     n = pts.length;
   const mid = (i: number): [number, number] => [(pts[i % n]![0] + pts[(i + 1) % n]![0]) / 2, (pts[i % n]![1] + pts[(i + 1) % n]![1]) / 2];
@@ -144,7 +144,7 @@ function blobPath2D(pts: P2[]): Path2D {
   return p;
 }
 /** Schattenseite eines Kleckses: der Klecks ohne seine nach oben links verschobene Kopie. k = Breite des Schattens */
-function clipShadow(ctx: Ctx, o: Base, S: number, k: number): void {
+export function clipShadow(ctx: Ctx, o: Base, S: number, k: number): void {
   smoothClosed(ctx, o.base);
   ctx.clip();
   ctx.beginPath();
@@ -153,7 +153,7 @@ function clipShadow(ctx: Ctx, o: Base, S: number, k: number): void {
   ctx.clip('evenodd');
 }
 /** Silhouette (Kleckse, Glieder, Zusatzformen) in einer Farbe */
-function silhouette(S: number, p: Prep, col: string, extra: Extras | null, limbScale = 1): HTMLCanvasElement {
+export function silhouette(S: number, p: Prep, col: string, extra: Extras | null, limbScale = 1): HTMLCanvasElement {
   const [c, x] = layer(S);
   x.fillStyle = x.strokeStyle = col;
   for (const l of p.geo.limbs) strokeLimb(x, l, S, l.w * S * limbScale);
@@ -181,13 +181,13 @@ function silhouette(S: number, p: Prep, col: string, extra: Extras | null, limbS
   return c;
 }
 /** Umriss um die ganze Silhouette: die Maske ringsum versetzt stempeln */
-function ring(ctx: Ctx, mask: HTMLCanvasElement, w: number): void {
+export function ring(ctx: Ctx, mask: HTMLCanvasElement, w: number): void {
   for (let i = 0; i < 28; i++) {
     const a = (i / 28) * Math.PI * 2;
     ctx.drawImage(mask, Math.cos(a) * w, Math.sin(a) * w);
   }
 }
-function paperFill(ctx: Ctx, S: number, tone: readonly number[], grain: number): void {
+export function paperFill(ctx: Ctx, S: number, tone: readonly number[], grain: number): void {
   ctx.fillStyle = rgb(tone);
   ctx.fillRect(0, 0, S, S);
   const pat = ctx.createPattern(grainTex(), 'repeat')!;
@@ -202,13 +202,13 @@ function paperFill(ctx: Ctx, S: number, tone: readonly number[], grain: number):
   ctx.globalAlpha = 1;
 }
 /** Blattmitte der Figur, damit Hintergründe um sie herum gebaut werden */
-function centerOf(p: Prep): { cx: number; cy: number; x0: number; y0: number; x1: number; y1: number } {
+export function centerOf(p: Prep): { cx: number; cy: number; x0: number; y0: number; x1: number; y1: number } {
   const [x0, y0, x1, y1] = bbox(p.bases.map((o) => o.base));
   let ly1 = y1;
   for (const l of p.geo.limbs) for (const q of l.pts) ly1 = Math.max(ly1, q[1]);
   return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, x0, y0, x1, y1: ly1 };
 }
-function feetY(p: Prep, S: number): number {
+export function feetY(p: Prep, S: number): number {
   let y = 0;
   for (const o of p.bases) for (const q of o.base) y = Math.max(y, q[1]);
   for (const l of p.geo.limbs) for (const q of l.pts) y = Math.max(y, q[1] * S);
@@ -216,12 +216,12 @@ function feetY(p: Prep, S: number): number {
 }
 
 /* ---------- Gesicht und Zusatzformen als Lage (gleiche Stellen wie drawFace) ---------- */
-type Eye = { x: number; y: number; r: number; kind: string };
-type FaceL = { X: number; Y: number; R: number; eyes: Eye[]; stalks: P2[][]; mouth: { x: number; y: number; w: number; kind: string }; first: boolean };
+export type Eye = { x: number; y: number; r: number; kind: string };
+export type FaceL = { X: number; Y: number; R: number; eyes: Eye[]; stalks: P2[][]; mouth: { x: number; y: number; w: number; kind: string }; first: boolean };
 /** 2b-Augen und -Münder in die Arten, die die Stile kennen */
 const EYE_KIND: Record<EyeShape, string> = { round: 'rund', button: 'punkt', almond: 'rund', slit: 'schlitz', sleepy: 'muede', shiny: 'rund', closed: 'muede', dash: 'schlitz' };
 const MOUTH_KIND: Record<Mouth, string> = { smile: 'laecheln', grin: 'grinsen', teeth: 'zaehne', tongue: 'laecheln', tusks: 'zaehne', fangs: 'zaehne', o: 'rohr', zigzag: 'zaehne', beak: 'schnabel', none: 'keiner' };
-function faceLayout(m: Monster, p: Prep, S: number): FaceL[] {
+export function faceLayout(m: Monster, p: Prep, S: number): FaceL[] {
   return m.gen === 2 ? faceLayout2(m, p, S) : faceLayout1(m, p, S);
 }
 /** Generation 2: Augenzahl, Form und Mund aus 2b, Stellen wie bei drawFace2 */
@@ -287,8 +287,8 @@ function faceLayout1(m: Monster, p: Prep, S: number): FaceL[] {
     return { X, Y, R, eyes, stalks, mouth: { x: X, y: Y + R * 0.42, w: R * 0.3, kind: m.face.mouth }, first: fi === 0 };
   });
 }
-type Extras = { tris: P2[][]; antennae: { path: P2[]; tip: P2; r: number; w: number }[]; freckles: P2[]; horns: boolean };
-function extrasOf(m: Monster, p: Prep, S: number, faces: FaceL[]): Extras {
+export type Extras = { tris: P2[][]; antennae: { path: P2[]; tip: P2; r: number; w: number }[]; freckles: P2[]; horns: boolean };
+export function extrasOf(m: Monster, p: Prep, S: number, faces: FaceL[]): Extras {
   const out: Extras = { tris: [], antennae: [], freckles: [], horns: false };
   // Generation 2 hat keine Extras aus dem Prototyp (Hörner, Fühler und Stacheln bringen die Formen selbst mit)
   if (m.gen === 2) return out;
@@ -345,14 +345,14 @@ function extrasOf(m: Monster, p: Prep, S: number, faces: FaceL[]): Extras {
   }
   return out;
 }
-function triPath(ctx: Ctx, t: P2[]): void {
+export function triPath(ctx: Ctx, t: P2[]): void {
   ctx.beginPath();
   t.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])));
   ctx.closePath();
 }
 
 /* ---------- Kontur mit Druck: dicker auf der Schattenseite ---------- */
-function pressureContour(ctx: Ctx, pts: P3[] | P2[], cx: number, cy: number, lw: number, col: (a: number) => string, r: Rand | null, jitter: number, alpha: number, overshoot = 0): void {
+export function pressureContour(ctx: Ctx, pts: P3[] | P2[], cx: number, cy: number, lw: number, col: (a: number) => string, r: Rand | null, jitter: number, alpha: number, overshoot = 0): void {
   const n = pts.length,
     start = r ? Math.floor(r() * n) : 0,
     len = n + overshoot;
@@ -1154,7 +1154,7 @@ export function anime(ctx: Ctx, m: Monster, S: number): void {
     ctx.fill();
   }
 }
-function star(ctx: Ctx, x: number, y: number, R: number, r: number, n: number): void {
+export function star(ctx: Ctx, x: number, y: number, R: number, r: number, n: number): void {
   for (let i = 0; i < n * 2; i++) {
     const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2,
       d = i % 2 ? r : R;
@@ -1236,7 +1236,7 @@ function animeEye(ctx: Ctx, x: number, y: number, r: number, kind: string, irisH
   ctx.ellipse(x, y, w * 1.0, h * 1.0, 0, Math.PI * 0.32, Math.PI * 0.68);
   ctx.stroke();
 }
-function animeMouth(ctx: Ctx, f: FaceL, LC: string): void {
+export function animeMouth(ctx: Ctx, f: FaceL, LC: string): void {
   const { x, y, kind } = f.mouth,
     R = f.R;
   ctx.strokeStyle = LC;
