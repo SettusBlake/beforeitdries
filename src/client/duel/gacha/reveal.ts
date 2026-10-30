@@ -6,7 +6,7 @@
 import { Application, Container, DisplacementFilter, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { PAPER, PIG, type PaperId } from '../../../shared/data';
 import { RARITIES, rarityDef, rarityIndex, serialText, STYLES, styleDef, type Rarity, type StyleId } from '../../../shared/dice';
-import type { Face } from '../../../shared/duel/rules';
+import { faceKey, type Face } from '../../../shared/duel/rules';
 import type { Monster } from '../../../shared/monster';
 import { keepLoose, looseKey, paintLater } from '../../lib/painter';
 import { iconSvg } from '../icons';
@@ -201,7 +201,7 @@ export class Reveal {
     sp.width = sp.height = size;
   }
   private faceTex(f: Face): Promise<Texture> {
-    const key = `${f.k}${f.n}`;
+    const key = faceKey(f);
     const hit = this.faceCache.get(key);
     if (hit) return Promise.resolve(hit);
     return new Promise((res) => {

@@ -1,6 +1,6 @@
 # Vorschlag: Würfel spannender, Fähigkeiten natürlicher
 
-Stand 30.10.2026, Fassung 2, wartet auf Auswahl.
+Stand 30.10.2026, Fassung 3. Freigegeben am 30.10.2026 („make it so“) mit allen Empfehlungen: A und B neu, dann Fähigkeiten 1 (Sättigung) mit 5 (Abgang), dann F, dann E. Mischseite zählt für jedes ihrer Symbole, bisherige Würfel bekommen die neuen Seiten. Schritt A und B gebaut, Playtest v0.0.1.73, Bild docs/entwuerfe/wuerfelseiten-sichtbar.png.
 
 Rückmeldung zu Fassung 1 (30.10.2026): A ist ok, E und F gefallen. B ist zu fix (gelesen als: feste Anzahl Doppelseiten je Seltenheit ist zu vorhersehbar). Die Fähigkeiten der Kleckse, die Glow brauchen, wirken fehl am Platz: Die Kleckse sollen etwas können, aber anders. Dazu Vorschläge.
 

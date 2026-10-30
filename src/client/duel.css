@@ -94,6 +94,11 @@ button { font: inherit; color: inherit; }
 .d3face { position: absolute; inset: 0; display: grid; place-items: center; background: #fffdf8; border: 2.5px solid; border-radius: 9px;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), inset 0 -6px 10px rgba(30,25,20,.08); backface-visibility: hidden; }
 .stage-die.star .die3 { filter: drop-shadow(0 0 8px rgba(43,63,163,.55)); }
+/* Doppel-, Dreifach- oder Mischseite oben: goldener Schein und ein kurzer Hüpfer */
+.stage-die.upface .die3 { filter: drop-shadow(0 0 9px rgba(201,150,30,.75)); animation: upface .45s ease; }
+.stage-die.upface small { color: #8a6410; font-weight: 700; }
+@keyframes upface { 40% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .stage-die.upface .die3 { animation: none; } }
 /* Haltephase: Würfel antippen, gehaltene heben sich mit goldenem Rand */
 #stage.pick { pointer-events: auto; }
 #stage.pick .stage-die { cursor: pointer; transition: transform .2s ease; }

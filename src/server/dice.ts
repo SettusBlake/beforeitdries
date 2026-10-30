@@ -315,7 +315,7 @@ export async function diceGlaze(d: Deps, userId: string | undefined, id: unknown
     const die = s.dice.find((x) => x.id === id);
     if (!die) throw new GameError('not_found', 'That die is not yours.', 404);
     const f = dieUnit(dieMonster(die), die.mods).faces[face as number]!;
-    if (!isCrestFace(f) || f.n !== 1) throw new GameError('bad_request', 'Only a single crest takes a glaze.');
+    if (!isCrestFace(f) || f.n !== 1 || f.k2) throw new GameError('bad_request', 'Only a single crest takes a glaze.');
     const key = dieSpecies(die);
     if ((s.glaze[key] ?? 0) < GLAZE_COST) throw new GameError('bad_request', `Needs ${GLAZE_COST} glaze of this species.`);
     s.glaze[key]! -= GLAZE_COST;

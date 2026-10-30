@@ -107,10 +107,13 @@ export type Crest = 'step' | 'splash' | 'guard' | 'glow';
 type StatK = 'flo' | 'opa' | 'sat' | 'grn' | 'glw';
 /** Eine Würfelseite: Stern mit Stufe oder Symbol mit Anzahl */
 /** Joker: Stern, der für andere als Stufe 3 zählt. Gold: je ein Symbol jeder Sorte. */
-export type Face = { k: 'star' | 'joker' | 'gold' | Crest; n: number };
+/** Eine Würfelseite. n: wie oft das Symbol zählt (1 bis 3). k2: Mischseite, ein zweites Symbol dazu (zählt einmal) */
+export type Face = { k: 'star' | 'joker' | 'gold' | Crest; n: number; k2?: Crest };
+/** Schlüssel für Bilder und Zwischenspeicher einer Seite */
+export const faceKey = (f: Face): string => `${f.k}${f.n}${f.k2 ?? ''}`;
 export const isStar = (f: Face): boolean => f.k === 'star' || f.k === 'joker';
 export const starValue = (f: Face): number => (f.k === 'joker' ? 3 : f.k === 'star' ? f.n : 0);
-const isCrest = (f: Face): f is { k: Crest; n: number } => f.k !== 'star' && f.k !== 'joker' && f.k !== 'gold';
+const isCrest = (f: Face): f is { k: Crest; n: number; k2?: Crest } => f.k !== 'star' && f.k !== 'joker' && f.k !== 'gold';
 export const isCrestFace = isCrest;
 export type P = [number, number];
 /** layer: zweite Schicht aus einer Lasur (zählt am Ende doppelt) */
@@ -382,30 +385,41 @@ function makeFaces(u: Unit): Face[] {
 /** Stufe aus der Stärke: schwache Würfel beschwören leicht, starke schwer */
 export const LEVEL_POWER = [110, 123];
 export const levelOf = (u: Unit): number => (power(u) < LEVEL_POWER[0]! ? 1 : power(u) < LEVEL_POWER[1]! ? 2 : 3);
-/** Seltenheit verändert Seiten: Uncommon eine Seite doppelt, Rare dazu ein Joker, Epic noch eine doppelte, Legendary dazu Gold */
-function rarityFaces(f: Face[], r: Rarity): Face[] {
+/**
+ * Chancen je Symbolseite (festgelegt am 30.10.2026, docs/entwuerfe/wuerfel-vorschlag.md): jede Seite würfelt beim Entstehen
+ * des Würfels, ob sie dreifach, eine Mischseite oder doppelt wird. Seltenheit erhöht nur die Chance
+ */
+export const FACE_ODDS: Record<Rarity, { x2: number; x3: number; mix: number }> = {
+  common: { x2: 0.12, x3: 0, mix: 0 },
+  uncommon: { x2: 0.25, x3: 0, mix: 0.05 },
+  rare: { x2: 0.3, x3: 0.05, mix: 0.1 },
+  epic: { x2: 0.35, x3: 0.12, mix: 0.15 },
+  legendary: { x2: 0.35, x3: 0.2, mix: 0.2 },
+};
+/**
+ * Seltenheit verändert Seiten: Joker ab Rare und Gold bei Legendary stehen fest (zeigen die Seltenheit), danach würfelt jede
+ * Symbolseite nach FACE_ODDS (eigener Zufall aus dem Seed, die Grundseiten bleiben, wie sie waren)
+ */
+function rarityFaces(f: Face[], r: Rarity, u: Unit): Face[] {
   const out = f.map((x) => ({ ...x }));
   const ri = rarityIndex(r);
-  const crestAt = (from: 'start' | 'end', single = true) => {
-    const order = out.map((_, i) => i);
-    if (from === 'end') order.reverse();
-    return order.find((i) => isCrest(out[i]!) && (!single || out[i]!.n === 1));
+  const last = () => {
+    for (let i = out.length - 1; i >= 0; i--) if (isCrest(out[i]!)) return i;
+    return -1;
   };
-  if (ri >= 1) {
-    const i = crestAt('start');
-    if (i !== undefined) out[i]!.n = 2;
-  }
-  if (ri >= 2) {
-    const i = crestAt('end', false);
-    if (i !== undefined) out[i] = { k: 'joker', n: 3 };
-  }
-  if (ri >= 3) {
-    const i = crestAt('start');
-    if (i !== undefined) out[i]!.n = 2;
-  }
-  if (ri >= 4) {
-    const i = crestAt('end', false);
-    if (i !== undefined) out[i] = { k: 'gold', n: 1 };
+  if (ri >= 2 && last() >= 0) out[last()] = { k: 'joker', n: 3 };
+  if (ri >= 4 && last() >= 0) out[last()] = { k: 'gold', n: 1 };
+  const odds = FACE_ODDS[r];
+  const rr = RNG(u.m.seed ^ 0x7a1e5);
+  // Mischseite: das Symbol der Seite und das stärkste andere des Kleckses
+  const order = [...CRESTS].sort((a, b) => crestStat(u, b.k) - crestStat(u, a.k)).map((c) => c.k);
+  for (const x of out) {
+    if (!isCrest(x)) continue;
+    const v = rr();
+    if (v < odds.x3) x.n = 3;
+    else if (v < odds.x3 + odds.mix) {
+      if (x.n === 1) x.k2 = order.find((c) => c !== x.k)!;
+    } else if (v < odds.x3 + odds.mix + odds.x2) x.n = Math.max(x.n, 2);
   }
   return out;
 }
@@ -414,13 +428,13 @@ function glazeFaces(f: Face[], mods: FaceMod[]): Face[] {
   const out = f.map((x) => ({ ...x }));
   for (const m of mods) {
     const x = out[m.i];
-    if (x && isCrest(x) && x.n === 1 && m.to === 'x2') x.n = 2;
+    if (x && isCrest(x) && x.n === 1 && !x.k2 && m.to === 'x2') x.n = 2;
   }
   return out;
 }
 /** Alle Seiten eines Würfels: Grundseiten aus den Werten, dann Seltenheit, dann Lasuren */
 export function facesFor(u: Unit, mods: FaceMod[] = []): Face[] {
-  return glazeFaces(rarityFaces(makeFaces(u), u.rarity), mods);
+  return glazeFaces(rarityFaces(makeFaces(u), u.rarity, u), mods);
 }
 /** Ein Würfel außerhalb eines Duells (Sammlung, Karte) */
 export function dieUnit(m: Monster, mods: FaceMod[] = []): Unit {
@@ -559,7 +573,8 @@ export function logAdd(t: string, c: string): void {
   S.log.unshift({ t, c });
   emit({ k: 'log', t, c });
 }
-export const faceText = (f: Face) => (f.k === 'star' ? `★${f.n}` : f.k === 'joker' ? 'Joker' : f.k === 'gold' ? 'Gold' : `${crestDef(f.k).label}${f.n > 1 ? ' ×2' : ''}`);
+export const faceText = (f: Face) =>
+  f.k === 'star' ? `★${f.n}` : f.k === 'joker' ? 'Joker' : f.k === 'gold' ? 'Gold' : `${crestDef(f.k).label}${f.k2 ? ` + ${crestDef(f.k2).label}` : ''}${f.n > 1 ? ` ×${f.n}` : ''}`;
 /** Was eine besondere Seite kann */
 export const FACE_HELP: Record<'joker' | 'gold', string> = {
   joker: 'Joker: counts as a star of any level, or turns into any one crest.',
@@ -754,7 +769,12 @@ export function comboOf(faces: Face[]): Combo | null {
   // Drei Sterne zählen nur mit gleicher Stufe (die Zahl steht auf der Seite)
   const stars = Math.max(0, ...[1, 2, 3].map((lv) => faces.filter((f) => f.k === 'star' && f.n === lv).length));
   const n = new Map<Crest, number>();
-  for (const f of faces) if (isCrest(f)) n.set(f.k, (n.get(f.k) ?? 0) + 1);
+  // Eine Mischseite zählt für jedes ihrer beiden Symbole (festgelegt am 30.10.2026)
+  for (const f of faces)
+    if (isCrest(f)) {
+      n.set(f.k, (n.get(f.k) ?? 0) + 1);
+      if (f.k2) n.set(f.k2, (n.get(f.k2) ?? 0) + 1);
+    }
   let best: Crest | null = null,
     bc = 0;
   for (const c of CREST_ORDER) {
@@ -769,7 +789,7 @@ export function comboOf(faces: Face[]): Combo | null {
     return { kind: 'triple', sym, gain: { [sym]: 2 }, joker: 1, star: 0, text: `Triple ${symLabel(sym)}: +2 and a Joker` };
   if (stars + wild >= 3 && faces.length >= 3) return { kind: 'triple', sym: 'star', gain: {}, joker: 1, star: 0, text: 'Three stars: a Joker' };
   if (best && bc + wild >= 2) return { kind: 'pair', sym, gain: { [sym]: 1 }, joker: 0, star: 0, text: `Pair of ${symLabel(sym)}: +1 ${symLabel(sym)}` };
-  if (faces.length >= 3 && wild === 0 && n.size === 3 && bc === 1) return { kind: 'rainbow', sym: null, gain: {}, joker: 1, star: 0, text: 'Rainbow: a Joker' };
+  if (faces.length >= 3 && faces.every(isCrest) && n.size >= 3 && bc === 1) return { kind: 'rainbow', sym: null, gain: {}, joker: 1, star: 0, text: 'Rainbow: a Joker' };
   return null;
 }
 /** Der Wurf gilt: Symbole der Seiten und die Kombi kommen in den Vorrat */
@@ -778,7 +798,10 @@ export function applyRoll(t: Team): Rolled[] {
   for (const r of out) {
     const f = r.face;
     if (f.k === 'gold') for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + 1);
-    else if (isCrest(f)) t.crests[f.k] = Math.min(CREST_MAX, t.crests[f.k] + f.n);
+    else if (isCrest(f)) {
+      t.crests[f.k] = Math.min(CREST_MAX, t.crests[f.k] + f.n);
+      if (f.k2) t.crests[f.k2] = Math.min(CREST_MAX, t.crests[f.k2] + 1);
+    }
   }
   const combo = comboOf(out.map((r) => r.face));
   if (combo && hasMedium(t.side, 'irid')) {
@@ -809,7 +832,7 @@ export function aiHold(t: Team, rolled: Rolled[]): number[] {
     const f = r.face;
     if (f.k === 'joker' || f.k === 'gold') return true;
     if (f.k === 'star') return room;
-    return combo?.kind === 'pair' && combo.sym === f.k;
+    return combo?.kind === 'pair' && (combo.sym === f.k || (isCrest(f) && combo.sym === f.k2));
   });
   return hold.map((r) => r.u.id);
 }
@@ -1777,7 +1800,7 @@ export function aiChooseDice(t: Team, look: number, r: Rand): Unit[] {
         for (const u of us)
           for (const f of u.faces) {
             if (f.k === 'gold') v += CRESTS.reduce((a, c) => a + FACE_VALUE[c.k], 0) / 6;
-            else if (isCrest(f)) v += (FACE_VALUE[f.k] * f.n) / 6;
+            else if (isCrest(f)) v += (FACE_VALUE[f.k] * f.n + (f.k2 ? FACE_VALUE[f.k2] : 0)) / 6;
           }
         if (room && us.some((u) => u.state === 'bag')) {
           let p = 0,

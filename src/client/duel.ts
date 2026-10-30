@@ -247,6 +247,10 @@ function landDie(id: number, fi: number): void {
   d.box.classList.add('landed');
   d.box.querySelector('small')!.textContent = R.faceText(f);
   d.box.classList.toggle('star', f.k === 'star' || f.k === 'joker');
+  // Doppel-, Dreifach- oder Mischseite: kurz aufleuchten und klingen
+  const up = R.isCrestFace(f) && (f.n > 1 || !!f.k2);
+  d.box.classList.toggle('upface', up);
+  if (up) sfx.upface(f.n >= 3 ? 2 : 1);
 }
 /** Was der Wurf gerade ergeben würde */
 function comboPreview(): void {
@@ -299,9 +303,13 @@ async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
     const f = R.unitById(id)?.faces[x.fi];
     if (!f) continue;
     if (f.k === 'gold') for (const c of CRESTS) flights.push([x.cube, { k: c.k, n: 1 }]);
-    else if (R.isCrestFace(f)) flights.push([x.cube, f]);
+    else if (R.isCrestFace(f)) {
+      // Jedes Symbol fliegt einzeln, auch bei Doppel-, Dreifach- und Mischseiten
+      for (let k = 0; k < f.n; k++) flights.push([x.cube, { k: f.k, n: 1 }]);
+      if (f.k2) flights.push([x.cube, { k: f.k2, n: 1 }]);
+    }
   }
-  if (e.combo && line) for (const c of CRESTS) if (e.combo.gain[c.k]) flights.push([line, { k: c.k, n: e.combo.gain[c.k]! }]);
+  if (e.combo && line) for (const c of CRESTS) for (let k = 0; k < (e.combo.gain[c.k] ?? 0); k++) flights.push([line, { k: c.k, n: 1 }]);
   await Promise.all(flights.map(([from, f], k) => flyCrest(from, f, e.side, k)));
   const t = V.teams[e.side - 1];
   if (t) t.crests = { ...e.crests };
@@ -364,7 +372,7 @@ function flyCrest(from: HTMLElement, f: Face, side: Side, k: number): Promise<vo
   if (!dest) return Promise.resolve();
   const a = from.getBoundingClientRect(),
     b = dest.getBoundingClientRect();
-  const fl = html('div', 'fly', iconSvg(f, 30) + (f.n > 1 ? '<b>×2</b>' : ''));
+  const fl = html('div', 'fly', iconSvg(f, 30));
   document.body.append(fl);
   const x0 = a.left + a.width / 2 - 15,
     y0 = a.top + a.height / 2 - 15,
@@ -946,7 +954,7 @@ function renderAll(): void {
 /* ---------- Hervorhebungen auf dem Blatt ---------- */
 const faceImgs = new Map<string, HTMLImageElement>();
 function faceImg(f: Face): HTMLImageElement {
-  const k = f.k + f.n;
+  const k = R.faceKey(f);
   let i = faceImgs.get(k);
   if (!i) {
     i = new Image();

@@ -1,5 +1,5 @@
 /* Symbole der Würfelseiten als kleines SVG, aus Code gezeichnet */
-import { crestDef, type Face } from '../../shared/duel/rules';
+import { crestDef, faceKey, type Crest, type Face } from '../../shared/duel/rules';
 
 const ICON_PATH: Record<Face['k'], string> = {
   step: '<path d="M4 4.5l5.5 5.5-5.5 5.5M10.5 4.5l5.5 5.5-5.5 5.5" fill="none" stroke="C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -15,12 +15,19 @@ export const JOKER_COL = '#7a3fa3';
 export const GOLD_COL = '#b8860b';
 export const faceCol = (f: Face) => (f.k === 'star' ? STAR_COL : f.k === 'joker' ? JOKER_COL : f.k === 'gold' ? GOLD_COL : crestDef(f.k).col);
 
+/** Ein Symbol verkleinert an eine Stelle der Seite */
+const small = (c: Crest, x: number, y: number, s: number) => `<g transform="translate(${x},${y}) scale(${s})">${ICON_PATH[c].replace(/"C"/g, `"${crestDef(c).col}"`)}</g>`;
 export function iconInner(f: Face): string {
   const col = faceCol(f);
+  // Doppel-, Dreifach- und Mischseiten zeigen jedes Symbol einzeln (festgelegt am 30.10.2026: Doppelseiten sichtbar)
+  if (f.k !== 'star' && f.k !== 'joker' && f.k !== 'gold') {
+    if (f.k2) return `<path d="M19 1L1 19" stroke="#cfcabd" stroke-width=".8"/>${small(f.k, -0.5, -0.5, 0.6)}${small(f.k2, 8.5, 8.5, 0.6)}`;
+    if (f.n === 2) return `${small(f.k, -0.5, -0.5, 0.62)}${small(f.k, 8, 8, 0.62)}`;
+    if (f.n >= 3) return `${small(f.k, 4.6, -0.6, 0.54)}${small(f.k, -0.4, 9, 0.54)}${small(f.k, 9.6, 9, 0.54)}`;
+  }
   let inner = ICON_PATH[f.k].replace(/"C"/g, `"${col}"`);
   if (f.k === 'star' || f.k === 'joker') inner += `<text x="10" y="13.3" font-size="7.4" text-anchor="middle" fill="#fff" font-family="JetBrains Mono, monospace" font-weight="700">${f.k === 'joker' ? '?' : f.n}</text>`;
   else if (f.k === 'gold') inner += `<path d="M10 6.2l1.1 2.4 2.6.3-1.9 1.8.5 2.6-2.3-1.3-2.3 1.3.5-2.6-1.9-1.8 2.6-.3z" fill="#fff4c9"/>`;
-  else if (f.n > 1) inner += `<circle cx="16" cy="16" r="4" fill="#fff" stroke="${col}" stroke-width="1"/><text x="16" y="18.4" font-size="6.4" text-anchor="middle" fill="${col}" font-family="JetBrains Mono, monospace" font-weight="700">2</text>`;
   return inner;
 }
 export function iconSvg(f: Face, px: number): string {
@@ -29,7 +36,7 @@ export function iconSvg(f: Face, px: number): string {
 /** Als Bild für das Canvas */
 const imgs = new Map<string, HTMLImageElement>();
 export function iconImage(f: Face, onload: () => void): HTMLImageElement {
-  const key = f.k + f.n;
+  const key = faceKey(f);
   let img = imgs.get(key);
   if (!img) {
     img = new Image();

@@ -270,7 +270,7 @@ function openDie(d: DieRec): void {
   const faces = el('div', 'faces');
   const canGlaze = glaze >= GLAZE_COST;
   u.faces.forEach((f, i) => {
-    const ok = canGlaze && isCrestFace(f) && f.n === 1;
+    const ok = canGlaze && isCrestFace(f) && f.n === 1 && !f.k2;
     const b = el('button', 'face' + (ok ? ' can' : '')) as HTMLButtonElement;
     b.type = 'button';
     b.disabled = !ok || busy;

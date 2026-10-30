@@ -134,6 +134,10 @@ export const sfx = {
       for (let k = 0; k < 5; k++) tone(0.3 + k * 0.06, 2000 + k * 220, 2400 + k * 220, 0.1, 'sine', 0.03);
     } else [392, 494, 587, 698, 880, 1047].forEach((f, k) => tone(k * 0.05, f, f * 1.02, 0.25, 'sine', 0.05));
   },
+  /** Eine Doppel- oder Mischseite (1) oder Dreifachseite (2) landet oben */
+  upface(rank = 1): void {
+    [880, 1175, 1568].slice(0, rank + 1).forEach((f, k) => tone(0.05 + k * 0.06, f, f * 1.01, 0.18, 'triangle', 0.05));
+  },
   /** Seltenheit wird sichtbar: je seltener, desto länger der Akkord */
   reveal(rank = 0): void {
     const notes = [392, 494, 587, 784, 988, 1175, 1568];
