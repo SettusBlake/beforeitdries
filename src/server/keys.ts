@@ -1,7 +1,7 @@
 /*
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
  * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at,
- * drawn:queue, drawn:ok, drawn:washed, drawn:strikes).
+ * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, naming:posts, naming:open).
  */
 export const K = {
   /** Hash: seed, humidity, postId, bp, main, createdAt, named */
@@ -50,4 +50,10 @@ export const K = {
   drawnWashed: 'drawn:washed',
   /** Hash: userId → JSON mit Name, Zeitpunkten der übermalten Zeichnungen und Sperre */
   drawnStrikes: 'drawn:strikes',
+  /** JSON eines „What do you see?“-Posts (NamingInfo) */
+  naming: (postId: string) => `naming:${postId}`,
+  /** Sorted Set aller „What do you see?“-Posts, Score = angelegt */
+  namingPosts: 'naming:posts',
+  /** Hash: Art → Post, solange ihr Post läuft (je Art nur einer) */
+  namingOpen: 'naming:open',
 } as const;

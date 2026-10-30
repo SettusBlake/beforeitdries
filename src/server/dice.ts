@@ -69,7 +69,7 @@ export async function saveDice(d: Pick<Deps, 'redis' | 'now'>, uid: string, s: D
   await d.redis.set(K.dice(uid), JSON.stringify(s));
   await d.redis.zAdd(K.dicePlayers, { member: uid, score: d.now });
 }
-const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] = []): DiceResponse => ({ dice: s, freeReady: s.freeDay !== dayKey(d.now), pulls });
+export const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] = []): DiceResponse => ({ dice: s, freeReady: s.freeDay !== dayKey(d.now), pulls });
 
 /** Ein Monster mit dem Papier dieser Seltenheit. Legendary: ein Monster auf Cotton Rag bekommt ein seltenes Papier. */
 function rollMonster(d: Deps, rarity: Rarity, avoid: Set<string> | null): Pick<DieRec, 'sheet' | 'idx' | 'paper'> {

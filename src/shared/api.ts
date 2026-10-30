@@ -5,7 +5,7 @@ import type { LogEntry } from './glaze';
 import type { Monster } from './monster';
 import type { DuelState } from './duel/play';
 import type { Ev } from './duel/rules';
-import type { DiceSave, PullResult } from './dice';
+import type { DiceSave, DieRec, PullResult } from './dice';
 
 /** Gespeichert unter monster:{id}. Nur Seed, Würfe und Zustand, nie das Bild. */
 export interface MonsterRecord extends Monster {
@@ -39,6 +39,11 @@ export interface DayPostData {
 export interface PlayPostData {
   [key: string]: string | number;
   kind: 'play';
+}
+/** postData eines „What do you see?“-Posts (der Zustand liegt in Redis unter naming:{postId}) */
+export interface NamePostData {
+  [key: string]: string | number;
+  kind: 'name';
 }
 
 /** Kurzer Stand für das Startbild des Spiel-Posts */
@@ -132,6 +137,37 @@ export interface DiceResponse {
   /** Mod des Subreddits: sieht die Prüfliste der Zeichnungen, review = so viele warten (kommt mit dem Laden der Sammlung) */
   mod?: boolean;
   review?: number;
+}
+/** Benennen: Zustand eines „What do you see?“-Posts */
+export type NamingStatus = 'open' | 'named' | 'empty' | 'cancelled';
+export interface NamingInfo {
+  postId: string;
+  /** Art (Bauplan:Pigment) */
+  key: string;
+  /** Finder */
+  uid: string;
+  user: string;
+  /** Der Würfel, wie er beim Teilen war (zum Malen im Post) */
+  die: DieRec;
+  at: number;
+  ends: number;
+  status: NamingStatus;
+  name?: string;
+  namedBy?: string;
+}
+export interface NamingResponse {
+  naming: NamingInfo | null;
+  now: number;
+}
+/** Namen aller benannten Arten und die gerade offenen Posts (Art → Post) */
+export interface SpeciesResponse {
+  names: Record<string, { name: string; namedBy: string }>;
+  open: Record<string, string>;
+}
+/** Nach dem Teilen: der neue Post */
+export interface ShareResponse extends DiceResponse {
+  postId: string;
+  url: string;
 }
 /** Eine gemalte Zeichnung in der Prüfliste der Mods. key = {userId}:{Würfel-ID} */
 export interface ReviewItem {

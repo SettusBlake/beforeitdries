@@ -2,7 +2,7 @@
  * Spiellogik am Server. Alle Zufallswürfe passieren hier, der Client malt nur.
  * Abhängigkeiten werden hereingereicht, damit sich die Logik ohne Reddit testen lässt.
  */
-import type { CatchResponse, DayInfo, DayPostData, ErrorCode, GlazeResponse, MonsterRecord, PlayPostData, SpeciesInfo } from '../shared/api';
+import type { CatchResponse, DayInfo, DayPostData, ErrorCode, GlazeResponse, MonsterRecord, NamePostData, PlayPostData, SpeciesInfo } from '../shared/api';
 import { PIG, STAT_KEYS, type PigmentId } from '../shared/data';
 import { dayKey, isDayKey, parseNameSuggestion, prettyDay } from '../shared/day';
 import { applyGlaze, MAX_GLAZES, SEPIA, sepiaStart } from '../shared/glaze';
@@ -33,6 +33,7 @@ export interface CommentLike {
   body: string;
   score: number;
   authorName: string;
+  authorId?: string;
   removed: boolean;
   createdAt: Date;
 }
@@ -43,7 +44,7 @@ export interface RedditLike {
     subredditName: string;
     title: string;
     entry?: string;
-    postData?: DayPostData | PlayPostData;
+    postData?: DayPostData | PlayPostData | NamePostData;
     textFallback?: { text: string };
   }): Promise<{ id: string; url: string; permalink: string }>;
   getPostById(id: `t3_${string}`): Promise<{ sticky(position?: 1 | 2): Promise<void> }>;
@@ -64,6 +65,8 @@ export interface Deps {
   dryMs: number;
   /** Version der App: Playtest-Versionen haben eine vierte Stelle (0.0.1.47), veröffentlichte nicht */
   appVersion?: string;
+  /** Auftrag für später (Scheduler): Benennen nach 24 Stunden */
+  schedule?: (name: string, runAt: Date, data: Record<string, string>) => Promise<void>;
 }
 
 export class GameError extends Error {

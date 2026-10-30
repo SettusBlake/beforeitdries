@@ -34,7 +34,7 @@ export class FakeReddit implements RedditLike {
   }
   addComment(postId: string, authorName: string, body: string, score: number, extra: Partial<CommentLike> = {}) {
     const list = this.comments.get(postId) ?? [];
-    list.push({ id: `t1_c${++this.n}`, parentId: postId, body, score, authorName, removed: false, createdAt: new Date(1e12 + this.n * 1000), ...extra });
+    list.push({ id: `t1_c${++this.n}`, parentId: postId, body, score, authorName, authorId: `t2_${authorName}`, removed: false, createdAt: new Date(1e12 + this.n * 1000), ...extra });
     this.comments.set(postId, list);
   }
 }

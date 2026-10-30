@@ -14,6 +14,10 @@
       "play": {
         "entry": "play.html",
         "height": "tall"
+      },
+      "name": {
+        "entry": "name.html",
+        "height": "tall"
       }
     }
   },
@@ -35,12 +39,35 @@
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/post-play"
+      },
+      {
+        "label": "Before It Dries: name it now",
+        "description": "Takes the top valid name from the comments right away",
+        "location": "post",
+        "forUserType": "moderator",
+        "postFilter": "currentApp",
+        "endpoint": "/internal/menu/name-now"
+      },
+      {
+        "label": "Before It Dries: cancel naming",
+        "description": "Closes this naming post without a name",
+        "location": "post",
+        "forUserType": "moderator",
+        "postFilter": "currentApp",
+        "endpoint": "/internal/menu/cancel-naming"
       }
     ]
   },
   "triggers": {
     "onAppInstall": "/internal/triggers/on-app-install",
     "onAppUpgrade": "/internal/triggers/on-app-upgrade"
+  },
+  "scheduler": {
+    "tasks": {
+      "name-species": {
+        "endpoint": "/internal/scheduler/name-species"
+      }
+    }
   },
   "settings": {
     "subreddit": {

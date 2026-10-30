@@ -1,12 +1,13 @@
 /* Devvit-Web-Server: /api/* für die Webviews, /internal/* für Menü, Trigger und Scheduler */
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { context, createServer, getServerPort, reddit, redis, settings } from '@devvit/web/server';
+import { context, createServer, getServerPort, reddit, redis, scheduler, settings } from '@devvit/web/server';
 import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
 import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
 import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
 import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestShiny, diceWash } from './dice';
 import { reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
+import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
 import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
 
@@ -26,6 +27,9 @@ async function deps(): Promise<Deps> {
     appSlug: context.appSlug ?? context.appName ?? '',
     dryMs: dryMsFromHours(dryHours),
     appVersion: context.appVersion,
+    schedule: async (name, runAt, data) => {
+      await scheduler.runJob({ name, runAt, data });
+    },
   };
 }
 
@@ -156,6 +160,27 @@ app.post(
   }),
 );
 
+/* ---------- Benennen: „What do you see?“-Posts ---------- */
+
+app.get(
+  '/api/species',
+  wrap(async (_req, res) => {
+    res.json(await speciesNames(await deps()));
+  }),
+);
+app.post(
+  '/api/dice/share',
+  wrap(async (req, res) => {
+    res.json(await diceShare(await deps(), context.userId, await username(), (req.body as { id?: unknown } | undefined)?.id));
+  }),
+);
+app.get(
+  '/api/naming',
+  wrap(async (_req, res) => {
+    res.json(await namingGet(await deps(), context.postId));
+  }),
+);
+
 /* ---------- Zeichnungen prüfen (nur Mods) ---------- */
 
 app.get(
@@ -213,6 +238,40 @@ app.post(
       console.error('ensurePlayPost', e);
     }
     res.json({});
+  }),
+);
+
+/* Benennen nach 24 Stunden */
+app.post(
+  '/internal/scheduler/name-species',
+  wrap(async (req, res) => {
+    const postId = (req.body as { data?: { postId?: unknown } } | undefined)?.data?.postId;
+    if (typeof postId === 'string') console.log('naming', postId, JSON.stringify(await adoptNaming(await deps(), postId)));
+    res.json({});
+  }),
+);
+const namingToast = (r: NamingResult): string =>
+  r.status === 'named'
+    ? `Named: ${r.name} (by u/${r.namedBy})`
+    : r.status === 'empty'
+      ? 'No valid name in the comments. The species stays open.'
+      : r.status === 'cancelled'
+        ? 'Naming closed without a name.'
+        : r.status === 'closed'
+          ? `This naming is already over${r.name ? `: ${r.name}` : ''}.`
+          : 'This is not a naming post.';
+app.post(
+  '/internal/menu/name-now',
+  wrap(async (req, res) => {
+    const target = (req.body as MenuItemRequest | undefined)?.targetId ?? '';
+    res.json({ showToast: namingToast(await adoptNaming(await deps(), target)) } satisfies UiResponse);
+  }),
+);
+app.post(
+  '/internal/menu/cancel-naming',
+  wrap(async (req, res) => {
+    const target = (req.body as MenuItemRequest | undefined)?.targetId ?? '';
+    res.json({ showToast: namingToast(await adoptNaming(await deps(), target, true)) } satisfies UiResponse);
   }),
 );
 

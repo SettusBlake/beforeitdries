@@ -111,6 +111,8 @@ export type DiceSave = {
   paintedOver?: number[];
   /** Malen gesperrt (nach übermalten Zeichnungen): bis zu dieser Zeit, 'mod' bis ein Mod es aufhebt */
   drawLock?: number | 'mod';
+  /** Tag (UTC) des letzten „What do you see?“-Posts: höchstens einer pro Tag */
+  nameDay?: string;
 };
 export function emptyDice(): DiceSave {
   return { v: 1, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };
