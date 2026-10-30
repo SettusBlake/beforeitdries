@@ -145,6 +145,8 @@ export type Unit = {
   used: boolean;
   /** Sättigung (Brim): füllt sich durch Tun, voll wird der nächste Wisch ein Meisterzug (festgelegt am 30.10.2026) */
   brim: number;
+  /** Würfe in diesem Duell (Neuwürfe zählen mit), daraus wächst nach dem Duell die Patina des Würfels */
+  rolls?: number;
   pattern: P[];
   net: P[];
   lv: number;
@@ -429,19 +431,27 @@ function rarityFaces(f: Face[], r: Rarity, u: Unit): Face[] {
   }
   return out;
 }
-/** Lasuren: ein einfaches Symbol wird doppelt */
-function glazeFaces(f: Face[], mods: FaceMod[]): Face[] {
+/**
+ * Lasuren und Patina der Reihe nach: x2 macht ein einfaches Symbol doppelt (Lasur oder Patina),
+ * x3 ein doppeltes dreifach, mix gibt einem einfachen oder doppelten Symbol das stärkste andere dazu (nur Patina)
+ */
+function glazeFaces(f: Face[], mods: FaceMod[], u: Unit): Face[] {
   const out = f.map((x) => ({ ...x }));
   for (const m of mods) {
     const x = out[m.i];
-    if (x && isCrest(x) && x.n === 1 && !x.k2 && m.to === 'x2') x.n = 2;
+    if (!x || !isCrest(x) || x.k2) continue;
+    if (m.to === 'x2' && x.n === 1) x.n = 2;
+    else if (m.to === 'x3' && x.n === 2) x.n = 3;
+    else if (m.to === 'mix' && x.n <= 2) x.k2 = [...CRESTS].sort((a, b) => crestStat(u, b.k) - crestStat(u, a.k)).find((c) => c.k !== x.k)!.k;
   }
   return out;
 }
-/** Alle Seiten eines Würfels: Grundseiten aus den Werten, dann Seltenheit, dann Lasuren */
+/** Alle Seiten eines Würfels: Grundseiten aus den Werten, dann Seltenheit, dann Lasuren und Patina */
 export function facesFor(u: Unit, mods: FaceMod[] = []): Face[] {
-  return glazeFaces(rarityFaces(makeFaces(u), u.rarity, u), mods);
+  return glazeFaces(rarityFaces(makeFaces(u), u.rarity, u), mods, u);
 }
+/** Seiten, die Patina noch verbessern kann: einfache und doppelte Symbole ohne Mischung */
+export const patinaFaces = (faces: Face[]): number[] => faces.flatMap((f, i) => (isCrest(f) && !f.k2 && f.n <= 2 ? [i] : []));
 /** Ein Würfel außerhalb eines Duells (Sammlung, Karte) */
 export function dieUnit(m: Monster, mods: FaceMod[] = []): Unit {
   const u = unitOf(m, 1);
@@ -488,6 +498,8 @@ export const S = {
   rng: 1,
   /** Öffentlicher Seed nur für die Form der Farbflecken */
   paintSeed: 0,
+  /** Würfel aus der Sammlung zu deinen Klecksen (gleiche Reihenfolge), bleibt am Server */
+  dieIds: [] as string[],
   phase: 'opening' as Phase,
   lastRoll: [] as { id: number; fi: number }[],
   /** Joker aus dem letzten Wurf, die noch nicht als Stern oder Symbol verbraucht sind (Würfelseiten und Kombi-Joker) */
@@ -605,6 +617,7 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.unlocked = [...START_MEDIA];
   S.heartsTurn = 0;
   S.tutorial = 0;
+  S.dieIds = [];
   uid = 0;
   S.cells = Array.from({ length: COLS * ROWS }, emptyCell);
   S.round = 1;
@@ -726,6 +739,7 @@ export function rollDice(t: Team, us: Unit[]): Rolled[] {
     const fi = Math.floor(rand01() * 6);
     // Geworfen heißt verbraucht, bis neu gemischt wird
     u.used = true;
+    u.rolls = (u.rolls ?? 0) + 1;
     return { u, fi, face: u.faces[fi]! };
   });
   S.lastRoll = out.map((r) => ({ id: r.u.id, fi: r.fi }));
@@ -750,6 +764,8 @@ export function rerollDice(t: Team, hold: number[]): Rolled[] {
   for (const r of S.lastRoll) {
     if (hold.includes(r.id)) continue;
     r.fi = Math.floor(rand01() * 6);
+    const u = unitById(r.id);
+    if (u) u.rolls = (u.rolls ?? 0) + 1;
     again.push({ ...r });
   }
   S.rerolls = Math.max(0, S.rerolls - 1);

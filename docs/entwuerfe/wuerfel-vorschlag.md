@@ -1,6 +1,6 @@
 # Vorschlag: Würfel spannender, Fähigkeiten natürlicher
 
-Stand 30.10.2026, Fassung 3. Freigegeben am 30.10.2026 („make it so“) mit allen Empfehlungen: A und B neu, dann Fähigkeiten 1 (Sättigung) mit 5 (Abgang), dann F, dann E. Mischseite zählt für jedes ihrer Symbole, bisherige Würfel bekommen die neuen Seiten. Schritt A und B gebaut, Playtest v0.0.1.73, Bild docs/entwuerfe/wuerfelseiten-sichtbar.png. Fähigkeiten (Sättigung mit Abgang) gebaut, Playtest v0.0.1.75, Bild docs/entwuerfe/meisterzug.png. F (Sepias Auftrag) gebaut, Playtest v0.0.1.77, Bild docs/entwuerfe/sepias-auftrag.png.
+Stand 30.10.2026, Fassung 3. Freigegeben am 30.10.2026 („make it so“) mit allen Empfehlungen: A und B neu, dann Fähigkeiten 1 (Sättigung) mit 5 (Abgang), dann F, dann E. Mischseite zählt für jedes ihrer Symbole, bisherige Würfel bekommen die neuen Seiten. Schritt A und B gebaut, Playtest v0.0.1.73, Bild docs/entwuerfe/wuerfelseiten-sichtbar.png. Fähigkeiten (Sättigung mit Abgang) gebaut, Playtest v0.0.1.75, Bild docs/entwuerfe/meisterzug.png. F (Sepias Auftrag) gebaut, Playtest v0.0.1.77, Bild docs/entwuerfe/sepias-auftrag.png. E (Patina) gebaut, Playtest v0.0.1.79, Bild docs/entwuerfe/patina.png. Damit ist der Vorschlag vollständig umgesetzt.
 
 Rückmeldung zu Fassung 1 (30.10.2026): A ist ok, E und F gefallen. B ist zu fix (gelesen als: feste Anzahl Doppelseiten je Seltenheit ist zu vorhersehbar). Die Fähigkeiten der Kleckse, die Glow brauchen, wirken fehl am Platz: Die Kleckse sollen etwas können, aber anders. Dazu Vorschläge.
 
@@ -39,6 +39,9 @@ Statt fester Anzahl würfelt jede Symbolseite beim Entstehen des Würfels (aus s
 - Jeder Würfel zählt, wie oft er im Duell geworfen wurde. Nach 10, 30 und 60 Würfen wird eine zufällige Seite besser: einfach wird doppelt, doppelt wird Mischseite oder dreifach.
 - Auf der Karte sichtbar („Patina 1/3“), beim Aufwerten ein kurzer Moment mit Sepia.
 - Der Lieblingswürfel wird mit der Zeit besser. Passt zu „jedes Monster einzigartig“.
+- **Gebaut (30.10.2026):** Jeder Wurf im Duell zählt beim Würfel, Neuwürfe mit (im Lern-Duell nicht). Der Server führt die Würfel des Decks zum Duell mit und schreibt die Würfe beim Ende gut. An den Schwellen 10, 30 und 60 würfelt der Server eine Seite, die noch besser werden kann (einfach oder doppelt, ohne Mischung): einfach wird doppelt, doppelt wird zu gleichen Teilen dreifach oder Mischseite (mit dem stärksten anderen Symbol). Jede Stufe gibt also genau ein Symbol mehr. Gespeichert als Seitenänderung im Würfel (wie die Lasur, Feld `p`), dazu `rolls` und `patina`.
+- Karte: „Patina 1/3 · 14/30 rolls in duels“, Seiten mit Patina haben einen Bronzerand mit Punkt. Ergebnis nach dem Duell: welche Seite gewachsen ist, bei mehr als zwei Würfeln kurz zusammengefasst, dazu Sepia („Wear suits it. That face has learned something.“) und ein Klang.
+- Etwa 2 bis 3 Würfe pro Würfel und Duell: Stufe 1 nach etwa 4 Duellen mit demselben Würfel, Stufe 3 nach etwa 25.
 
 ### F. Sepias Auftrag pro Runde (gefällt)
 

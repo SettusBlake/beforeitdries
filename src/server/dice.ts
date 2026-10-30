@@ -16,6 +16,7 @@ import {
   GLAZE_COST,
   KEEP_MIN,
   LEGENDARY_PAPERS,
+  PATINA,
   PULL_COST,
   PITY,
   RARITIES,
@@ -34,7 +35,7 @@ import {
   type PullResult,
   type Rarity,
 } from '../shared/dice';
-import { BAG, dieUnit, isCrestFace } from '../shared/duel/rules';
+import { BAG, dieUnit, isCrestFace, patinaFaces } from '../shared/duel/rules';
 import { humidityFor, makeMonster, monsterSeed, speciesKey } from '../shared/monster';
 import { GameError, isMod, withLock, type Deps } from './core';
 import { K } from './keys';
@@ -377,8 +378,33 @@ export async function bagForDuel(d: Deps, uid: string): Promise<DieRec[]> {
   return bag;
 }
 
-/** Pigment nach einem Duell. Nur innerhalb der Spielersperre aufrufen. */
-export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial: boolean): Promise<DuelReward> {
+/**
+ * Patina: Würfe aus dem Duell zählen, an jeder Schwelle wird eine zufällige Seite besser
+ * (einfach wird doppelt, doppelt wird dreifach oder Mischseite). Gewürfelt am Server
+ */
+export function wearDice(d: Deps, s: DiceSave, worn: { id: string; n: number }[]): NonNullable<DuelReward['patina']> {
+  const out: NonNullable<DuelReward['patina']> = [];
+  for (const w of worn) {
+    const die = s.dice.find((x) => x.id === w.id);
+    if (!die || !(w.n > 0)) continue;
+    die.rolls = (die.rolls ?? 0) + Math.min(w.n, 60);
+    while ((die.patina ?? 0) < PATINA.length && die.rolls >= PATINA[die.patina ?? 0]!) {
+      die.patina = (die.patina ?? 0) + 1;
+      const faces = dieUnit(dieMonster(die), die.mods).faces;
+      const can = patinaFaces(faces);
+      if (!can.length) continue;
+      const i = can[d.rand() % can.length]!;
+      const to = faces[i]!.n === 1 ? 'x2' : d.rand() % 2 ? 'x3' : 'mix';
+      die.mods.push({ i, to, p: 1 });
+      const u = dieUnit(dieMonster(die), die.mods);
+      out.push({ id: die.id, level: die.patina, i, to, name: u.name, face: u.faces[i]! });
+    }
+  }
+  return out;
+}
+
+/** Pigment nach einem Duell, dazu die Patina der geworfenen Würfel. Nur innerhalb der Spielersperre aufrufen. */
+export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial: boolean, worn: { id: string; n: number }[] = []): Promise<DuelReward> {
   const s = await loadDice(d, uid);
   let reward: DuelReward;
   if (tutorial) {
@@ -399,6 +425,8 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
   }
   s.pigment += reward.pigment;
   reward.total = s.pigment;
+  const patina = wearDice(d, s, worn);
+  if (patina.length) reward.patina = patina;
   // Jedes fertige Duell schaltet das nächste Malmittel frei
   if (!tutorial) {
     const have = s.media ?? [...START_MEDIA];

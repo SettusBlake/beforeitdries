@@ -1618,7 +1618,18 @@ async function finishDuel(): Promise<void> {
   $('result-sepia').textContent = sepiaEnd();
   const rw = $('result-reward');
   rw.hidden = !reward;
-  if (reward) rw.innerHTML = (reward.pigment ? `<span class="pigi"></span> +${reward.pigment} pigment <small>(${reward.total} in total)</small>` : reward.why === 'capped' ? 'No pigment: five rewarded duels a day.' : '') + (reward.unlocked ? `<br>New medium: <b>${mediumDef(reward.unlocked).name}</b>` : '');
+  if (reward)
+    rw.innerHTML =
+      (reward.pigment ? `<span class="pigi"></span> +${reward.pigment} pigment <small>(${reward.total} in total)</small>` : reward.why === 'capped' ? 'No pigment: five rewarded duels a day.' : '') +
+      (reward.unlocked ? `<br>New medium: <b>${mediumDef(reward.unlocked).name}</b>` : '') +
+      // Patina: ein Würfel hat durch Gebrauch eine bessere Seite bekommen
+      (reward.patina?.length
+        ? (reward.patina.length <= 2
+            ? reward.patina.map((p) => `<span class="patina-r">Patina ${p.level}/3 · <b>${p.name}</b>: a face grew to ${iconSvg(p.face, 18)} ${R.faceText(p.face)}</span>`).join('')
+            : `<span class="patina-r">Patina grew on ${reward.patina.length} dice: ${reward.patina.map((p) => `${iconSvg(p.face, 16)}`).join(' ')}<br><small>See their cards in Your dice.</small></span>`) +
+          `<span class="patina-s">Master Sepia: “Wear suits it. That face has learned something.”</span>`
+        : '');
+  if (reward?.patina?.length) setTimeout(() => sfx.upface(2), 500);
   reward = null;
   $('result').hidden = false;
   $('result').className = S.winner === 1 ? 'overlay win' : 'overlay';

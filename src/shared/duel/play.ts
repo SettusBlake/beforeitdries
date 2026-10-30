@@ -115,7 +115,7 @@ export type DuelState = {
   tutorial: number;
 };
 /** Was der Server speichert */
-export type DuelSave = DuelState & { rng: number; gameSeed: number };
+export type DuelSave = DuelState & { rng: number; gameSeed: number; dieIds?: string[] };
 
 export class DuelError extends Error {}
 const bad = (msg: string): never => {
@@ -152,11 +152,11 @@ export function publicState(): DuelState {
   };
 }
 export function saveState(): string {
-  const s: DuelSave = { ...publicState(), rng: S.rng, gameSeed: S.gameSeed };
+  const s: DuelSave = { ...publicState(), rng: S.rng, gameSeed: S.gameSeed, dieIds: S.dieIds };
   return JSON.stringify(s);
 }
 /** Zustand übernehmen (Server: gespeicherter Stand, Client: Stand vom Server) */
-export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSeed'>>): void {
+export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSeed' | 'dieIds'>>): void {
   S.cells = s.cells;
   S.teams = [s.teams[0]!, s.teams[1]!];
   S.round = s.round;
@@ -182,7 +182,15 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSee
   S.tutorial = s.tutorial ?? 0;
   S.rng = s.rng ?? 0;
   S.gameSeed = s.gameSeed ?? 0;
+  S.dieIds = s.dieIds ?? [];
   S.events = [];
+}
+/** Wie oft jeder deiner Würfel in diesem Duell geworfen wurde (für die Patina, nur am Server bekannt) */
+export function wornDice(): { id: string; n: number }[] {
+  return S.teams[0].units.flatMap((u, k) => {
+    const id = S.dieIds[k];
+    return id && u.rolls ? [{ id, n: u.rolls }] : [];
+  });
 }
 /** Der letzte Wurf mit Würfeln und Seiten */
 export const lastRolled = (): Rolled[] => currentRoll();

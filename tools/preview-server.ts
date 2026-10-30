@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestShiny, diceWash, dicePull, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestShiny, diceWash, dicePull, loadDice, saveDice, wearDice } from '../src/server/dice';
 import { reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
@@ -112,6 +112,14 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/review/unlock') return send(200, await reviewUnlock(d, USER.name, b.uid));
     }
     // Nur in der Vorschau: Pigment und Lasur zum Ausprobieren
+    // Patina zum Ansehen: jeder Würfel bekommt n Würfe dazu, wie nach Duellen
+    if (url.pathname === '/dev/wear') {
+      const s = await loadDice(d, USER.id);
+      const n = Number(url.searchParams.get('n') ?? 10);
+      const up = wearDice(d, s, s.dice.slice(0, Number(url.searchParams.get('k') ?? s.dice.length)).map((x) => ({ id: x.id, n })));
+      await saveDice(d, USER.id, s);
+      return send(200, up);
+    }
     if (url.pathname === '/dev/pigment') {
       const s = await loadDice(d, USER.id);
       s.pigment += Number(url.searchParams.get('n') ?? 1000);

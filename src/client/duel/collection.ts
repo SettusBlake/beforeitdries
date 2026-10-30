@@ -5,7 +5,7 @@
 import type { DiceResponse } from '../../shared/api';
 import { PAPER } from '../../shared/data';
 import { dayKey } from '../../shared/day';
-import { dieMonster, dieSpecies, drawLocked, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { dieMonster, dieSpecies, drawLocked, GLAZE_COST, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { speciesLabel } from '../../shared/monster';
 import { looseKey, looseNow, painted, paintedNow } from '../lib/painter';
@@ -269,9 +269,10 @@ function openDie(d: DieRec): void {
   // Seiten mit Lasur: ein einfaches Symbol wird doppelt
   const faces = el('div', 'faces');
   const canGlaze = glaze >= GLAZE_COST;
+  const worn = new Set(d.mods.filter((m) => m.p).map((m) => m.i));
   u.faces.forEach((f, i) => {
     const ok = canGlaze && isCrestFace(f) && f.n === 1 && !f.k2;
-    const b = el('button', 'face' + (ok ? ' can' : '')) as HTMLButtonElement;
+    const b = el('button', 'face' + (ok ? ' can' : '') + (worn.has(i) ? ' worn' : '')) as HTMLButtonElement;
     b.type = 'button';
     b.disabled = !ok || busy;
     b.dataset.face = String(i);
@@ -285,6 +286,15 @@ function openDie(d: DieRec): void {
     'p',
     'glazeline',
     canGlaze ? `Glaze ${glaze}: tap a single crest to double it (${GLAZE_COST} glaze).` : `Glaze ${glaze}/${GLAZE_COST}. Wash out another ${speciesLabel(u.m)} to gain glaze${kin ? ` (you have ${kin})` : ''}.`,
+  );
+  // Patina: Würfe im Duell, an jeder Schwelle wird eine Seite besser
+  const pl = d.patina ?? 0,
+    rolls = d.rolls ?? 0;
+  const pat = html(
+    'p',
+    'patinaline',
+    `<b>Patina ${pl}/${PATINA.length}</b> · ` +
+      (pl < PATINA.length ? `${rolls}/${PATINA[pl]} rolls in duels. At ${PATINA.join(', ')} rolls a random face gets better.` : `${rolls} rolls in duels. Well worn: three faces grew with use.`),
   );
   const stats = el('div', 'card-stats');
   for (const [k, n] of [
@@ -360,7 +370,7 @@ function openDie(d: DieRec): void {
     });
     wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It leaves your collection, ${speciesLabel(u.m)} gains ${n} glaze. Blots that drift to the margins sometimes come back.`));
   }
-  box.append(top, net, faces, gl, row, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), stats, lines, wash);
+  box.append(top, net, faces, gl, pat, row, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), stats, lines, wash);
   $('inspect').hidden = false;
 }
 /** Art ohne Namen: als „What do you see?“-Post teilen (einer am Tag), oder den laufenden Post öffnen */

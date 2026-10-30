@@ -24,12 +24,15 @@ export function rarityOf(paper: PaperId): Rarity {
 export const rarityFromRoll = (d100: number): Rarity => (RARITIES.find((r) => d100 >= r.from && d100 <= r.to) ?? RARITIES[0]!).k;
 
 /** Lasur auf einer Würfelseite: ein einfaches Symbol wird doppelt */
-export type FaceMod = { i: number; to: 'x2' };
+/** Lasur (x2) oder Patina (p: x2, x3 oder mix) auf einer Seite, der Reihe nach angewendet */
+export type FaceMod = { i: number; to: 'x2' | 'x3' | 'mix'; p?: 1 };
+/** Patina (festgelegt am 30.10.2026): nach so vielen Würfen im Duell wird jeweils eine zufällige Seite besser */
+export const PATINA = [10, 30, 60];
 /**
  * Ein Würfel in der Sammlung: Bogen-Seed und Nummer des Monsters, seltenes Papier, Lasuren auf Seiten.
  * no ist die Seriennummer über alle Spieler, der Seed des Monsters gehört nur diesem Würfel (Register am Server).
  */
-export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2; draw?: string; style?: StyleId };
+export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2; draw?: string; style?: StyleId; rolls?: number; patina?: number };
 
 /** Shiny: ein anderer Malstil statt Aquarell, nur Aussehen */
 export type StyleId = 'pencil' | 'comic' | 'plate' | 'anime' | 'oil';

@@ -4,7 +4,7 @@ import type { PigmentId } from './data';
 import type { LogEntry } from './glaze';
 import type { Monster } from './monster';
 import type { DuelState } from './duel/play';
-import type { Ev } from './duel/rules';
+import type { Ev, Face } from './duel/rules';
 import type { DiceSave, DieRec, PullResult } from './dice';
 
 /** Gespeichert unter monster:{id}. Nur Seed, Würfe und Zustand, nie das Bild. */
@@ -111,7 +111,7 @@ export type ErrorCode = 'login' | 'no_day' | 'dried' | 'not_found' | 'forbidden'
  * Stand des Duell-Ablaufs (Aktionen, Phasen, Ereignisse). Bei jeder Änderung erhöhen: Der Client schickt ihn mit,
  * der Server lehnt alte Oberflächen ab und bittet, den Post neu zu öffnen (sonst passen Anzeige und Regeln nicht zusammen)
  */
-export const DUEL_PROTOCOL = 9;
+export const DUEL_PROTOCOL = 10;
 export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {
@@ -200,4 +200,6 @@ export interface DuelReward {
   total: number;
   /** Neu freigeschaltetes Malmittel */
   unlocked?: MediumId;
+  /** Patina: diese Würfel haben eine Seite verbessert (level 1 bis 3, Seite i wurde x2, x3 oder Mischseite) */
+  patina?: { id: string; level: number; i: number; to: 'x2' | 'x3' | 'mix'; name: string; face: Face }[];
 }

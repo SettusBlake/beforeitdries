@@ -3,7 +3,7 @@
  * Laden, Aktion und Serialisieren laufen ohne await dazwischen, damit sich Anfragen nicht in die Quere kommen.
  */
 import type { DuelResponse } from '../shared/api';
-import { DuelError, loadState, openDuel, perform, publicState, saveState, type DuelAction, type DuelSave } from '../shared/duel/play';
+import { DuelError, loadState, openDuel, perform, publicState, saveState, wornDice, type DuelAction, type DuelSave } from '../shared/duel/play';
 import { dieMonster } from '../shared/dice';
 import { BAG, drain, mk, newGame, S, type Level } from '../shared/duel/rules';
 import { startTutorial, TUTORIAL_SEED, tutorialBags } from '../shared/duel/tutorial';
@@ -58,6 +58,7 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
         d.rand(),
         bag.map((b) => b.mods),
       );
+      S.dieIds = bag.map((b) => b.id);
     }
     // Malmittel zur Wahl kommen aus den freigeschalteten (vorher geladen, nach newGame kein await mehr)
     S.unlocked = [...unlocked];
@@ -91,7 +92,7 @@ export async function duelAct(d: Deps, userId: string | undefined, action: unkno
     await d.redis.set(K.duel(uid), blob);
     await d.redis.zAdd(K.duelPlayers, { member: uid, score: d.now });
     // Pigment fürs Duell, genau einmal beim Ende
-    if (done) out.reward = await payDuel(d, uid, out.state!.winner, out.state!.tutorial > 0);
+    if (done) out.reward = await payDuel(d, uid, out.state!.winner, out.state!.tutorial > 0, out.state!.tutorial > 0 ? [] : wornDice());
     return out;
   });
 }

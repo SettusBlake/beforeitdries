@@ -346,6 +346,15 @@ canvas.wet { background: #ece6d8; animation: wetpulse 1.1s ease-in-out infinite;
 .face.can { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); cursor: pointer; }
 .face:disabled:not(.can) { opacity: .75; }
 .glazeline { margin: 6px 0; text-align: center; font: 11.5px var(--f-mono); color: var(--muted); }
+/* Patina: abgegriffene Seiten mit Bronzerand, Zeile mit Fortschritt */
+.face { position: relative; }
+.face.worn { border-color: #a8763e; box-shadow: inset 0 0 0 1px #c99a5b, 0 0 0 2px rgba(168,118,62,.18); }
+.face.worn::after { content: ''; position: absolute; right: 3px; top: 3px; width: 6px; height: 6px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #f0c98a, #8a5a26); }
+.patinaline { margin: -2px 0 6px; text-align: center; font: 11.5px/1.35 var(--f-mono); color: var(--muted); }
+.patinaline b { color: #8a5a26; }
+.patina-r { display: block; margin-top: 6px; color: #8a5a26; }
+.patina-r svg { vertical-align: -4px; }
+.patina-s { display: block; margin-top: 4px; font-style: italic; color: var(--muted); }
 .inbag-lbl { font: 700 12px var(--f-mono); color: var(--ok); margin: 0 auto 8px; }
 #inspect .trow { margin: 0 auto 10px; }
 

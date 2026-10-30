@@ -125,6 +125,11 @@ describe('Duell am Server', () => {
     expect(reward?.unlocked).toBe('mask');
     expect((await diceGet(d, USER)).dice.media).toContain('mask');
     expect((await diceGet(d, USER)).dice.pigment).toBe(reward?.pigment);
+    // Patina: jeder Wurf zählt beim Würfel in der Sammlung (Neuwürfe mit), die Zahl bleibt am Server
+    const thrown = S.teams[0].units.reduce((a, u) => a + (u.rolls ?? 0), 0);
+    expect(thrown).toBeGreaterThan(0);
+    expect((await diceGet(d, USER)).dice.dice.reduce((a, x) => a + (x.rolls ?? 0), 0)).toBe(thrown);
+    expect(JSON.stringify(res)).not.toContain('dieIds');
     // Antworten bleiben klein genug für das Handy
     expect(biggest).toBeLessThan(400_000);
   });
