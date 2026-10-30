@@ -258,8 +258,13 @@ function drawBlob(i: number, c: Cell, scale: number, alpha: number): void {
 
 /* ---------- Zeichnen ---------- */
 let last = now();
+/** Nur malen, solange das Duell zu sehen ist, sonst rechnet das Blatt im Hintergrund mit (z. B. beim Zeichnen) */
+let shown = true;
+export function show(on: boolean): void {
+  shown = on;
+}
 function draw(): void {
-  if (!canvas || !V.cells.length) return;
+  if (!canvas || !V.cells.length || !shown) return;
   const t = now();
   const dt = Math.min(50, t - last) / 1000;
   last = t;

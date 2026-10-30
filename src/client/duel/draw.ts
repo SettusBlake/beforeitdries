@@ -3,7 +3,7 @@
  * offene bleiben Linien, Mirror spiegelt an der Mitte (Rorschach). Gewürfelt wird erst am Server nach „Paint it“.
  */
 import type { Pt } from '../../shared/data';
-import { DRAW, encodeDrawing, hasShape, parts, type Drawing } from '../../shared/drawn';
+import { DRAW, encodeDrawing, hasShape, parts, simplify, type Drawing } from '../../shared/drawn';
 import { sfx } from './sound';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -16,6 +16,17 @@ let cur: Pt[] | null = null;
 let eyes = false;
 let busy = false;
 let px = 300;
+/** Blatt mit allen fertigen Strichen und Augen, nur neu gemalt, wenn sich etwas ändert. Pro Bild kommt nur der laufende Strich dazu */
+let base: HTMLCanvasElement | null = null;
+/** Lage des Blatts, gemessen beim Aufsetzen des Fingers (Messen bei jedem Schritt bremst das Handy aus) */
+let rect: DOMRect | null = null;
+/** Neu zeichnen höchstens einmal pro Bild */
+let frame = 0;
+/** So viele Punkte nimmt ein Strich höchstens auf, vereinfacht wird er ohnehin */
+const MAX_PTS = 600;
+const changed = () => {
+  base = null;
+};
 
 const SAY = ['Draw whatever you like. The dice decide what it is good for.', 'A blank canvas. The paint has opinions, but it listens.', 'Draw me something. I have seen worse. Probably.'];
 let greet = SAY[0]!;
@@ -31,17 +42,28 @@ function size(): void {
   const k = Math.min(2, window.devicePixelRatio || 1);
   c.width = c.height = Math.round(px * k);
   c.style.width = c.style.height = px + 'px';
+  rect = null;
+  changed();
   redraw();
+}
+/** Beim nächsten Bild neu zeichnen, mehrere Fingerschritte dazwischen zählen einmal */
+function later(): void {
+  if (!frame) frame = requestAnimationFrame(() => {
+    frame = 0;
+    redraw(false);
+  });
 }
 function line(x: CanvasRenderingContext2D, pts: Pt[], close = false): void {
   x.beginPath();
   pts.forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])));
   if (close) x.closePath();
 }
-function redraw(): void {
-  const c = $('pad') as HTMLCanvasElement;
-  const x = c.getContext('2d')!;
-  x.setTransform(c.width, 0, 0, c.height, 0, 0);
+function paintBase(w: number, h: number): HTMLCanvasElement {
+  const b = document.createElement('canvas');
+  b.width = w;
+  b.height = h;
+  const x = b.getContext('2d')!;
+  x.setTransform(w, 0, 0, h, 0, 0);
   x.fillStyle = '#fbfaf6';
   x.fillRect(0, 0, 1, 1);
   const u = 1 / px;
@@ -67,20 +89,6 @@ function redraw(): void {
     x.strokeStyle = 'rgba(40,40,46,.85)';
     x.stroke();
   }
-  // Der Strich, der gerade entsteht (gespiegelt heller)
-  if (cur && cur.length > 1) {
-    x.strokeStyle = 'rgba(40,40,46,.85)';
-    line(x, cur);
-    x.stroke();
-    if (d.mirror) {
-      x.strokeStyle = 'rgba(40,40,46,.4)';
-      line(
-        x,
-        cur.map((p): Pt => [1 - p[0], p[1]]),
-      );
-      x.stroke();
-    }
-  }
   if (d.face) {
     const [fx, fy] = d.face;
     x.strokeStyle = '#c9961e';
@@ -95,7 +103,36 @@ function redraw(): void {
       x.fill();
     }
   }
-  ui();
+  return b;
+}
+function redraw(withUi = true): void {
+  if (frame) {
+    cancelAnimationFrame(frame);
+    frame = 0;
+  }
+  const c = $('pad') as HTMLCanvasElement;
+  const x = c.getContext('2d')!;
+  base ??= paintBase(c.width, c.height);
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  x.drawImage(base, 0, 0);
+  // Der Strich, der gerade entsteht (gespiegelt heller)
+  if (cur && cur.length > 1) {
+    x.setTransform(c.width, 0, 0, c.height, 0, 0);
+    x.lineCap = x.lineJoin = 'round';
+    x.lineWidth = 3 / px;
+    x.strokeStyle = 'rgba(40,40,46,.85)';
+    line(x, cur);
+    x.stroke();
+    if (d.mirror) {
+      x.strokeStyle = 'rgba(40,40,46,.4)';
+      line(
+        x,
+        cur.map((p): Pt => [1 - p[0], p[1]]),
+      );
+      x.stroke();
+    }
+  }
+  if (withUi) ui();
 }
 function ui(): void {
   $('t-mirror').setAttribute('aria-pressed', String(d.mirror));
@@ -109,15 +146,18 @@ function ui(): void {
 
 /* ---------- Finger ---------- */
 function at(e: PointerEvent): Pt {
-  const r = $('pad').getBoundingClientRect();
+  rect ??= $('pad').getBoundingClientRect();
+  const r = rect;
   return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
 }
 function down(e: PointerEvent): void {
   if (busy || (e.pointerType === 'mouse' && e.button !== 0)) return;
   e.preventDefault();
+  rect = $('pad').getBoundingClientRect();
   if (eyes) {
     d.face = at(e);
     eyes = false;
+    changed();
     say('The eyes go there. It will look back at you.');
     sfx.tap();
     return redraw();
@@ -132,19 +172,26 @@ function down(e: PointerEvent): void {
 function move(e: PointerEvent): void {
   if (!cur) return;
   e.preventDefault();
-  for (const ev of e.getCoalescedEvents?.() ?? [e]) {
+  // Manche Browser liefern eine leere Liste: dann zählt das Ereignis selbst
+  const evs = e.getCoalescedEvents?.() ?? [];
+  for (const ev of evs.length ? evs : [e]) {
+    if (cur.length >= MAX_PTS) break;
     const p = at(ev),
       q = cur[cur.length - 1]!;
     if (Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.004) cur.push(p);
   }
-  redraw();
+  later();
 }
 function up(): void {
   if (!cur) return;
   const s = cur;
   cur = null;
   // Ein Tupfer ohne Strich zählt nicht
-  if (s.length >= 2) d.strokes.push(s);
+  if (s.length >= 2) {
+    // Gleich vereinfacht ablegen (dieselbe Vereinfachung wie beim Speichern), dann rechnet jeder weitere Schritt mit wenigen Punkten
+    d.strokes.push(simplify(s));
+    changed();
+  }
   redraw();
 }
 
@@ -165,6 +212,7 @@ async function paint(): Promise<void> {
     d.face = null;
     d.mirror = true;
     eyes = false;
+    changed();
   }
   redraw();
 }
@@ -182,6 +230,7 @@ export function initDraw(h: Hooks): void {
   });
   $('t-mirror').addEventListener('click', () => {
     d.mirror = !d.mirror;
+    changed();
     sfx.tap();
     redraw();
   });
@@ -194,12 +243,14 @@ export function initDraw(h: Hooks): void {
   $('t-undo').addEventListener('click', () => {
     if (d.strokes.length) d.strokes.pop();
     else d.face = null;
+    changed();
     sfx.tap();
     redraw();
   });
   $('t-clear').addEventListener('click', () => {
     d.strokes = [];
     d.face = null;
+    changed();
     sfx.tap();
     redraw();
   });

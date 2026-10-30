@@ -84,7 +84,15 @@ export class Reveal {
   private host: HTMLElement | null = null;
   async init(host: HTMLElement): Promise<void> {
     this.host = host;
-    await this.app.init({ resizeTo: host, antialias: true, backgroundAlpha: 0, resolution: Math.min(2, window.devicePixelRatio || 1), autoDensity: true });
+    // Die Bühne nimmt keine Eingaben über Pixi an (Antippen läuft über das DOM). Ohne das prüft Pixi jeden Fingerschritt im ganzen Fenster, auch beim Zeichnen
+    await this.app.init({
+      resizeTo: host,
+      antialias: true,
+      backgroundAlpha: 0,
+      resolution: Math.min(2, window.devicePixelRatio || 1),
+      autoDensity: true,
+      eventFeatures: { move: false, globalMove: false, click: false, wheel: false },
+    });
     host.appendChild(this.app.canvas);
     this.app.stage.addChild(this.bg, this.world, this.flash);
     this.world.addChild(this.back, this.mid, this.parts.layer, this.front);
