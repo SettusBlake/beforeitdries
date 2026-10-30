@@ -32,9 +32,9 @@ Schon festgelegt am 30.10.2026: Shiny 1 zu 1000 je Zug (Hand-W100 zeigt 100, dan
 
 ## Schritt 2: Die fünf Stile im Renderer (Entwurf gebaut)
 
-- Die Stile aus dem Entwurf kommen in den Renderer, eine Datei je Stil (src/client/renderer/styles/).
+- Die Stile aus dem Entwurf kommen in den Renderer (eine Datei, src/client/renderer/styles.ts).
 - Sie lernen alles, was der Aquarell-Renderer heute kann: die neuen Formen (Vielecke, Linien), gemalte Monster und die Gesichter aus 2b (Augenzahl, Mund, Brauen), jeweils in der eigenen Technik. Muster und Malereignisse aus 2b sind Aquarell-Techniken und fallen weg.
-- Malen nebenbei in Schritten wie beim Aquarell, mit Zwischenspeicher.
+- Malen nebenbei in der Warteschlange wie beim Aquarell, mit Zwischenspeicher (kommt mit Schritt 3).
 - **Entwurfsbogen** docs/entwuerfe/shiny-entwurf.png: ein Zug in allen sechs Händen groß mit Dekoration, jeder Stil auf sieben neuen Formen und einem gemalten Falter, klein wie im Deck (46 px) und in der Sammlung (64 px), Malzeit. Quelle tools/mockup/shiny-entwurf.ts.
 - Code: src/client/renderer/styles.ts (aus dem Entwurf übernommen), `renderStyled(canvas, monster, style, size, { deco })`. Noch nicht im Spiel: Shinys werden bis Schritt 3 in Aquarell gemalt.
 - Gemessen (150 px): Aquarell 17,5 ms, Pencil 12,1 ms, Comic 2,5 ms, Bestiary Plate 3,8 ms, Anime 1,1 ms, Oil 8,3 ms. Alle Stile sind schneller als Aquarell, das Ziel für Öl ist weit erfüllt.
