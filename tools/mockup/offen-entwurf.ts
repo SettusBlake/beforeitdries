@@ -150,5 +150,5 @@ EX.forEach((ex, i) => {
   }
   grid.append(row);
 });
-OPEN.mode = 'close';
+OPEN.mode = 'brush';
 (window as unknown as { done: boolean }).done = true;

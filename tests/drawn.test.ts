@@ -31,14 +31,19 @@ describe('selbst malen', () => {
     expect(parts({ mirror: true, face: null, strokes: [circle(0.5, 0.5, 0.1)] }).length).toBe(1);
   });
 
-  it('ohne Fläche wird der längste Strich zur Fläche, die Zeichnung sitzt mittig in fester Größe', () => {
+  it('ohne Fläche wird jeder Strich ein breiter Pinselstrich, die Zeichnung sitzt mittig in fester Größe', () => {
     const d: Drawing = { mirror: false, face: null, strokes: [line([0.1, 0.1], [0.2, 0.15]), line([0.1, 0.3], [0.3, 0.32])] };
     expect(hasShape(d)).toBe(false);
     const g = drawnGeometry(d);
-    expect(g.blobs.length).toBe(1);
+    expect(g.blobs.length).toBe(2);
+    expect(g.limbs.length).toBe(0);
+    expect(g.blobs.every((b) => b.bare && b.pts!.length > 20)).toBe(true);
+    expect(g.faces.length).toBe(1);
     const xs = [...g.blobs.flatMap((b) => b.pts!), ...g.limbs.flatMap((l) => l.pts)];
     const span = (k: 0 | 1) => Math.max(...xs.map((p) => p[k])) - Math.min(...xs.map((p) => p[k]));
-    expect(Math.max(span(0), span(1))).toBeCloseTo(DRAW.size, 5);
+    // Die Linien sind so groß wie immer, der Pinsel trägt etwas über
+    expect(Math.max(span(0), span(1))).toBeGreaterThan(DRAW.size);
+    expect(Math.max(span(0), span(1))).toBeLessThan(DRAW.size + 0.08);
     for (const [x, y] of xs) {
       expect(x).toBeGreaterThan(0);
       expect(x).toBeLessThan(1);

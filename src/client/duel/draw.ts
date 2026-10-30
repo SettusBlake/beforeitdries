@@ -3,7 +3,7 @@
  * offene bleiben Linien, Mirror spiegelt an der Mitte (Rorschach). Gewürfelt wird erst am Server nach „Paint it“.
  */
 import type { Pt } from '../../shared/data';
-import { decodeDrawing, DRAW, encodeDrawing, hasShape, parts, simplify, type Drawing } from '../../shared/drawn';
+import { decodeDrawing, DRAW, encodeDrawing, parts, simplify, type Drawing } from '../../shared/drawn';
 import { sfx } from './sound';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -25,11 +25,8 @@ let rect: DOMRect | null = null;
 let frame = 0;
 /** So viele Punkte nimmt ein Strich höchstens auf, vereinfacht wird er ohnehin */
 const MAX_PTS = 600;
-/** Nach einem vergeblichen „Paint it“: offene Enden rot zeigen, bis sich etwas ändert */
-let ends = false;
 const changed = () => {
   base = null;
-  ends = false;
   why(null);
 };
 /** Grund direkt über dem Knopf, warum nichts gemalt wurde (Sepias Satz oben übersieht man leicht) */
@@ -69,8 +66,8 @@ function line(x: CanvasRenderingContext2D, pts: Pt[], close = false): void {
   pts.forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])));
   if (close) x.closePath();
 }
-/** Blatt mit den Strichen einer Zeichnung (size: Breite in CSS-Pixeln, für die Strichstärke, marks: offene Enden rot) */
-function paintBase(w: number, h: number, dr: Drawing, size: number, marks = false): HTMLCanvasElement {
+/** Blatt mit den Strichen einer Zeichnung (size: Breite in CSS-Pixeln, für die Strichstärke) */
+function paintBase(w: number, h: number, dr: Drawing, size: number): HTMLCanvasElement {
   const b = document.createElement('canvas');
   b.width = w;
   b.height = h;
@@ -103,18 +100,6 @@ function paintBase(w: number, h: number, dr: Drawing, size: number, marks = fals
     x.strokeStyle = 'rgba(40,40,46,.85)';
     x.stroke();
   }
-  if (marks) {
-    x.strokeStyle = '#c0392b';
-    x.lineWidth = 2.5 * u;
-    for (const p of ps) {
-      if (p.closed) continue;
-      for (const q of [p.pts[0]!, p.pts[p.pts.length - 1]!]) {
-        x.beginPath();
-        x.arc(q[0], q[1], 0.025, 0, 7);
-        x.stroke();
-      }
-    }
-  }
   if (dr.face) {
     const [fx, fy] = dr.face;
     x.strokeStyle = '#c9961e';
@@ -138,7 +123,7 @@ function redraw(withUi = true): void {
   }
   const c = $('pad') as HTMLCanvasElement;
   const x = c.getContext('2d')!;
-  base ??= paintBase(c.width, c.height, d, px, ends);
+  base ??= paintBase(c.width, c.height, d, px);
   x.setTransform(1, 0, 0, 1, 0, 0);
   x.drawImage(base, 0, 0);
   // Der Strich, der gerade entsteht (gespiegelt heller)
@@ -236,13 +221,6 @@ function up(): void {
 async function paint(): Promise<void> {
   if (busy) return;
   if (!d.strokes.length) return nope('Draw something first.');
-  if (!hasShape(d)) {
-    say('Close a shape. Paint needs somewhere to pool.');
-    nope(d.mirror ? 'No closed shape yet. End a line where it started, or start and end it on the dashed middle line.' : 'No closed shape yet. End a line where it started.');
-    ends = true;
-    base = null;
-    return redraw();
-  }
   busy = true;
   why(null);
   ui();

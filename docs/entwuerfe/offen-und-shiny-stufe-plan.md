@@ -1,6 +1,6 @@
 # Plan: Malen ohne geschlossene Form, Shiny hebt die Seltenheit
 
-Stand 30.10.2026, Fassung 1, wartet auf Freigabe.
+Stand 30.10.2026, Fassung 2. Freigegeben am 30.10.2026 mit allen Empfehlungen: A Pinselstrich, Shiny hebt die Seltenheit eine Stufe, Schutz vor Pech zählt nach dem W100, Legendary Shiny ohne Extra, bisherige Shinys bleiben. Gebaut, Playtest v0.0.1.65. Bild im Spiel: docs/entwuerfe/pinsel-und-shiny-stufe.png.
 
 Wunsch vom 30.10.2026 zum Erstellen: 1. Man soll keine geschlossene Form brauchen. 2. Bekommt man eine spezielle Kunstform (Shiny), wird die Seltenheit eventuell eine Stufe gehoben. Frage dazu: Wie wirkt sich das auf die Würfel aus?
 
@@ -40,15 +40,11 @@ Entwurfsbogen docs/entwuerfe/offen-entwurf.png: fünf Zeichnungen nur aus offene
 
 ## Umfang und Reihenfolge
 
-1. Pinselstrich (A) für Zeichnungen ohne Fläche, Sperre „Close a shape“ fällt weg, Tests.
-2. Shiny hebt das Papier am Server, Tests (Werte, Seiten, Stufe, Lasur).
-3. Ziehen: Anzeige der gehobenen Stufe.
-4. Upload und Handy-Test.
+1. Pinselstrich (A) für Zeichnungen ohne Fläche, Sperre „Close a shape“ fällt weg, Tests. Gebaut: `OPEN.mode = 'brush'` in src/shared/drawn.ts (Strich verdichtet, in der Mitte voll, runde Enden, ohne Tuschekontur, Feld `bare`), Server und Zeichenbildschirm verlangen keine Fläche mehr, Hinweis unter dem Blatt angepasst.
+2. Shiny hebt das Papier am Server, Tests (Werte, Seiten, Stufe, Lasur). Gebaut in `pullOne` (src/server/dice.ts), PullResult `lifted` (die Seltenheit danach, `rarity` bleibt der W100), Test über 80 Shiny-Züge.
+3. Ziehen: Anzeige der gehobenen Stufe. Gebaut: bis zur Hand zeigt das Blatt das Papier des W100, nach dem Stil „✦ SHINY LIFTS IT ✦ Uncommon → Rare“, Strahlen und Hof in der neuen Farbe, Karte mit der neuen Seltenheit. Zeile danach: „It lifted the die from Uncommon to Rare.“, Übersicht des Zehnerzugs mit „lifted“.
+4. Upload und Handy-Test. Hochgeladen als Playtest v0.0.1.65.
 
 ## Offene Fragen
 
-1. Ohne Fläche: A Pinselstrich oder B Lavierung? (Empfehlung: A. Zeichnungen mit Fläche bleiben wie heute)
-2. Shiny hebt die Seltenheit um eine Stufe, mit allen Folgen oben? (Empfehlung: ja)
-3. Schutz vor Pech zählt nach dem W100, nicht nach der gehobenen Stufe? (Empfehlung: ja)
-4. Legendary Shiny bleibt Legendary, ohne Extra? (Empfehlung: ja, Shiny und Legendary ist schon die Krone)
-5. Bisherige Shinys (nur vom Test-Knopf) bleiben, wie sie sind? (Empfehlung: ja)
+Keine.

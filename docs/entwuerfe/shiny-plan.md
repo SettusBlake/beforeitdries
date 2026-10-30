@@ -18,7 +18,7 @@ Schon festgelegt am 30.10.2026: Shiny 1 zu 1000 je Zug (Hand-W100 zeigt 100, dan
 | **Anime** | Pastell, harte Zellschatten, große glänzende Augen, Funkeln | 1 zu 5000 |
 | **Oil** | pastose Striche entlang der Form, Halbdunkel, Goldrahmen | 1 zu 10 000 |
 
-- Nur Aussehen: gleiche Art, gleiche Werte, gleiche Fähigkeit. Kein Schutz vor Pech, nichts zu kaufen.
+- Nur Aussehen: gleiche Art, gleiche Werte, gleiche Fähigkeit. Kein Schutz vor Pech, nichts zu kaufen. Geändert am 30.10.2026: Ein Shiny hebt Papier und Seltenheit eine Stufe, damit auch Werte und Seiten (docs/entwuerfe/offen-und-shiny-stufe-plan.md).
 - Unabhängig von der Seltenheit: Auch ein Common kann Shiny sein, ein Legendary in Öl ist die Krone.
 - Nur neue Züge. Bisherige Würfel bleiben, wie sie sind.
 

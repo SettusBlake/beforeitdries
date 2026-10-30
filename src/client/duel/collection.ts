@@ -427,6 +427,7 @@ function toReveal(p: PullResult): RevealPull {
     hand: p.hand,
     ...(p.shinyD10 ? { shinyD10: p.shinyD10 } : {}),
     ...(p.styleD10 ? { styleD10: p.styleD10 } : {}),
+    ...(p.lifted ? { lifted: p.lifted } : {}),
   };
 }
 
@@ -494,7 +495,7 @@ function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
     if (p.die.draw) lines.push(`Your drawing, painted as ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
     else lines.push(p.dup ? `Another ${speciesLabel(u.m)}, but no other blot looks like this one (${serialText(p.die.no)}).` : `A new species for you: ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
     if (p.blank) lines.push('The die showed 1: you also found a blank canvas.');
-    if (p.die.style) lines.unshift(`✦ Shiny! ${styleDef(p.die.style).label}, ${styleDef(p.die.style).odds}.`);
+    if (p.die.style) lines.unshift(`✦ Shiny! ${styleDef(p.die.style).label}, ${styleDef(p.die.style).odds}.${p.lifted ? ` It lifted the die from ${rarityDef(p.rarity).label} to ${rarityDef(p.lifted).label}.` : ''}`);
     const ok = el('button', 'primary', 'Done') as HTMLButtonElement;
     ok.type = 'button';
     ok.id = 'dip-next';
@@ -513,10 +514,11 @@ function summary(pulls: PullResult[]): Promise<void> {
     const grid = el('div', 'dsum');
     for (const p of pulls) {
       const u = unitOfDie(p.die);
-      const r = rarityDef(p.rarity);
-      const c = el('div', `dcard r-${p.rarity}`);
+      // Ein Shiny zeigt die gehobene Seltenheit
+      const r = rarityDef(p.lifted ?? p.rarity);
+      const c = el('div', `dcard r-${r.k}`);
       c.style.setProperty('--c', r.col);
-      c.append(art(p.die, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}${p.blank ? ' · +canvas' : ''}`));
+      c.append(art(p.die, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}${p.lifted ? ' · lifted' : ''}${p.blank ? ' · +canvas' : ''}`));
       if (!p.dup) c.append(el('span', 'bagmark new', 'new'));
       if (p.die.style) {
         c.classList.add('shiny');
@@ -524,7 +526,7 @@ function summary(pulls: PullResult[]): Promise<void> {
       }
       grid.append(c);
     }
-    const best = pulls.reduce((a, p) => Math.max(a, rarityIndex(p.rarity)), 0);
+    const best = pulls.reduce((a, p) => Math.max(a, rarityIndex(p.lifted ?? p.rarity)), 0);
     sfx.reveal(best);
     const ok = el('button', 'primary', 'Done') as HTMLButtonElement;
     ok.type = 'button';

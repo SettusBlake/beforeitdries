@@ -46,7 +46,7 @@ Ein **Blank canvas** ist ein leerer Würfel. Du zeichnest mit dem Finger, das Sp
 ## Speichern
 
 - Nur die Striche, vereinfacht: meist 100 bis 450 Zeichen je Monster, höchstens etwa 4,6 KB. Nie ein Bild.
-- Der Server prüft die Striche (Anzahl, Punkte, im Blatt, mindestens eine Fläche) und würfelt erst dann.
+- Der Server prüft die Striche (Anzahl, Punkte, im Blatt) und würfelt erst dann. Eine Fläche ist seit dem 30.10.2026 nicht mehr nötig: Zeichnungen nur aus Linien werden breite Pinselstriche (docs/entwuerfe/offen-und-shiny-stufe-plan.md).
 - Server und Handy rechnen aus denselben Strichen dieselbe Form (reine Rechnung ohne Zufall).
 
 ## Andere sehen es

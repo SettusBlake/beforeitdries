@@ -131,6 +131,8 @@ export type PullResult = {
   hand: number;
   shinyD10?: number;
   styleD10?: number;
+  /** Shiny hebt Papier und Seltenheit eine Stufe (festgelegt am 30.10.2026): die Seltenheit danach. rarity bleibt der W100 */
+  lifted?: Rarity;
 };
 /**
  * Leere Würfel (festgelegt am 30.10.2026): jede Woche einer, der freie füllt höchstens bis BLANK.max auf.

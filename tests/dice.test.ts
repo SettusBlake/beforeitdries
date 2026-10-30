@@ -5,8 +5,9 @@ import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTes
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
-import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, rarityDef, rarityFromRoll, rarityIndex, rollShiny, STARTER_PULLS, styleFromRoll, type DiceSave } from '../src/shared/dice';
-import { monsterSeed } from '../src/shared/monster';
+import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollShiny, STARTER_PULLS, styleFromRoll, type DiceSave } from '../src/shared/dice';
+import { PAPER } from '../src/shared/data';
+import { monsterSeed, statRows } from '../src/shared/monster';
 import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
 import { loadState } from '../src/shared/duel/play';
 import { RNG } from '../src/shared/rng';
@@ -255,7 +256,6 @@ describe('Würfelsammlung', () => {
     // Halbe Form an der Mitte, gespiegelt eine Fläche
     const pic = encodeDrawing({ mirror: true, face: [0.5, 0.4], strokes: [[[0.5, 0.2], [0.3, 0.3], [0.2, 0.5], [0.3, 0.7], [0.5, 0.8]]] });
     expect(await code(diceDraw(d, USER, 'kaputt'))).toBe('bad_request');
-    expect(await code(diceDraw(d, USER, encodeDrawing({ mirror: false, face: null, strokes: [[[0.1, 0.1], [0.2, 0.4]]] })))).toBe('bad_request');
     const res = await diceDraw(d, USER, pic);
     const p = res.pulls[0]!;
     expect(res.pulls).toHaveLength(1);
@@ -365,5 +365,41 @@ describe('Würfelsammlung', () => {
     // Zurücknehmen geht auch
     await diceTestShiny(d, USER, 'Vegavild', 'comic');
     expect((await diceTestShiny(d, USER, 'Vegavild', null)).dice.forceShiny).toBeUndefined();
+  });
+
+  it('Shiny hebt Papier und Seltenheit eine Stufe, Werte und Seiten wie bei dieser Seltenheit, Legendary bleibt', async () => {
+    const d = setup(123);
+    await dicePull(d, USER, 'starter');
+    await addPigment(d, 100 * PULL_COST);
+    const seen = new Set<string>();
+    for (let i = 0; i < 80; i++) {
+      const s = await loadDice(d, USER);
+      s.forceShiny = 'comic';
+      const before = { ...s.pity };
+      await saveDice(d, USER, s);
+      const p = (await dicePull(d, USER, 'one')).pulls[0]!;
+      const ri = rarityIndex(p.rarity);
+      const unit = dieUnit(dieMonster(p.die));
+      seen.add(p.rarity);
+      if (p.rarity === 'legendary') {
+        expect(p.lifted).toBeUndefined();
+        expect(unit.rarity).toBe('legendary');
+      } else {
+        expect(p.lifted).toBe(RARITIES[ri + 1]!.k);
+        expect(unit.rarity).toBe(p.lifted);
+        // Ohne die Hebung: das Papier, das der W100 gebracht hat
+        const plain = dieMonster({ ...p.die, paper: undefined });
+        expect(plain.paper).toBe(rarityDef(p.rarity).paper);
+        const up = statRows(dieMonster(p.die)),
+          was = statRows(plain);
+        const gain = PAPER[dieMonster(p.die).paper].bonus - PAPER[plain.paper].bonus;
+        up.forEach((r, k) => expect(r.total - was[k]!.total).toBe(Math.min(gain, Math.max(0, r.cap - was[k]!.total))));
+      }
+      // Der Schutz vor Pech zählt nach dem W100
+      const after = (await loadDice(d, USER)).pity;
+      expect(after.rare).toBe(ri >= 2 ? 0 : before.rare + 1);
+      expect(after.legendary).toBe(ri >= 4 ? 0 : before.legendary + 1);
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(3);
   });
 });

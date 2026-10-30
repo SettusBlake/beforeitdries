@@ -31,6 +31,8 @@ export type RevealPull = {
   hand?: number;
   shinyD10?: number;
   styleD10?: number;
+  /** Shiny hebt die Seltenheit eine Stufe: die Seltenheit danach (rarity bleibt der W100, monster hat schon das neue Papier) */
+  lifted?: Rarity;
 };
 
 /** Leuchtfarbe je Seltenheit */
@@ -408,8 +410,10 @@ export class Reveal {
     // Beide Bilder malen nebenbei, während Glas und Pinsel kommen: erst das neutrale, dann das echte Papier.
     // Ein Shiny ist bis zur Hand ein Aquarell wie jedes andere, sein Stilbild malt sich nebenbei mit
     const { style, ...water } = p.monster;
+    // Gehoben: bis zur Hand zeigt das Blatt das Papier, das der W100 gebracht hat
+    const wPaper = p.lifted ? (rarityDef(p.rarity).paper ?? water.paper) : water.paper;
     const plainP = this.monsterTex({ ...water, paper: PLAIN }, 512, 4);
-    const realP = this.monsterTex(water, 512, 3, style || !p.id ? undefined : looseKey(p.id, water));
+    const realP = this.monsterTex({ ...water, paper: wPaper }, 512, 3, style || !p.id ? undefined : looseKey(p.id, water));
     const styleP = style ? this.monsterTex(p.monster, 512, 2.5, undefined, true) : null;
 
     // Hinten: Strahlen und Hof (erst bei der Seltenheit sichtbar)
@@ -601,7 +605,7 @@ export class Reveal {
 
     // 7. Erst jetzt zeigt sich das echte Papier: ein Lichtstreif fährt über das Blatt und tauscht es aus
     const real = new Container();
-    const rp = new Sprite(Texture.from(paperCanvas(Math.round(g.S), Math.round(g.S), PAPER[p.monster.paper].tone, PAPER[p.monster.paper].deckle)));
+    const rp = new Sprite(Texture.from(paperCanvas(Math.round(g.S), Math.round(g.S), PAPER[wPaper].tone, PAPER[wPaper].deckle)));
     rp.anchor.set(0.5);
     const rm = new Sprite(realTex);
     rm.anchor.set(0.5);
@@ -653,11 +657,11 @@ export class Reveal {
     }
     // Blattgold regnet, sobald die Karte liegt nur noch leicht
     let flakes = 0.6;
-    if (ri === 4) {
+    const goldRain = () =>
       this.loops.push(() => {
         if (Math.random() < flakes) this.parts.spawn({ tex: flakeTex(), x: Math.random() * this.W, y: -20, vy: 80 + Math.random() * 90, vx: (Math.random() - 0.5) * 40, g: 10, life: 4200, tint: Math.random() < 0.5 ? 0xffd66b : 0xe0a93a, scale: 0.35 + Math.random() * 0.4, spin: (Math.random() - 0.5) * 4, flip: 3 + Math.random() * 6, rot: Math.random() * 6 });
       });
-    }
+    if (ri === 4) goldRain();
     this.loops.push((dt) => {
       halo.scale.set(((g.S * 2.4) / 256) * (1 + 0.04 * Math.sin(performance.now() / 300)));
       void dt;
@@ -687,6 +691,51 @@ export class Reveal {
     // 7b. Die Hand: ein zweiter W100. Bei 100 wird es still, ein W10 entscheidet über Shiny
     const shinyTex = await this.handStep(p, g, sheet, by + 96, roll, styleP, rollUi);
     await this.wait(shinyTex ? 900 : 500);
+    // 7c. Shiny hebt die Seltenheit eine Stufe: Schrift, neue Farbe für Strahlen und Hof, bei Legendary Blattgold
+    let shown = p;
+    if (shinyTex && p.lifted) {
+      shown = { ...p, rarity: p.lifted };
+      const li = rarityIndex(p.lifted),
+        lt = GLOW[p.lifted];
+      const lift = new Container();
+      lift.position.set(g.cx, g.cy - g.S / 2 - 34);
+      const cap = new Text({ text: '✦ SHINY LIFTS IT ✦', style: { fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: '800', fill: 0xffd66b, letterSpacing: 3 } });
+      cap.anchor.set(0.5);
+      cap.y = -26;
+      const from = new Text({ text: rarityDef(p.rarity).label, style: { fontFamily: 'Young Serif, Georgia, serif', fontSize: 26, fill: GLOW[p.rarity] } });
+      const arrow = new Text({ text: '→', style: { fontFamily: 'Figtree, sans-serif', fontSize: 26, fontWeight: '800', fill: 0xfdf8ee } });
+      const to = new Text({ text: rarityDef(p.lifted).label, style: { fontFamily: 'Young Serif, Georgia, serif', fontSize: 34, fill: lt, dropShadow: { color: lt, blur: 16, distance: 0, alpha: 0.9 } } });
+      for (const t of [from, arrow, to]) t.anchor.set(0, 0.5);
+      const gap = 12;
+      const wsum = from.width + arrow.width + to.width + gap * 2;
+      from.x = -wsum / 2;
+      arrow.x = from.x + from.width + gap;
+      to.x = arrow.x + arrow.width + gap;
+      to.alpha = 0;
+      lift.addChild(cap, from, arrow, to);
+      lift.alpha = 0;
+      this.front.addChild(lift);
+      await this.tween(300, (q) => (lift.alpha = q));
+      await this.wait(350);
+      sfx.reveal(li);
+      sfx.shimmer();
+      this.whiteFlash(li === 4 ? 0.8 : 0.45, 600, li === 4 ? 0xfff2c4 : 0xffffff);
+      this.quake(4 + li * 2);
+      this.sparkles(g.cx, g.cy, lt, 20 + li * 10, 160 + li * 50);
+      rays.tint = halo.tint = edge.tint = lt;
+      rayOn = true;
+      void this.tween(500, (q) => {
+        to.alpha = q;
+        to.scale.set(0.6 + 0.4 * ease.back(q));
+        from.alpha = 1 - 0.55 * q;
+        rays.alpha = Math.max(rays.alpha, (0.25 + li * 0.12) * q);
+        halo.alpha = Math.max(halo.alpha, (0.12 + li * 0.13) * q);
+        edge.alpha = Math.max(edge.alpha, (0.35 + li * 0.12) * q);
+      }, ease.out);
+      if (li === 4 && ri < 4) goldRain();
+      await this.wait(1300);
+      void this.tween(300, (q) => (lift.alpha = 1 - q)).then(() => lift.destroy({ children: true }));
+    }
 
     // 8. Die Karte: das Blatt dreht sich um, das Netz klappt auf, Stempel drauf
     const faces = await faceTexP;
@@ -694,7 +743,7 @@ export class Reveal {
     void this.tween(300, (q) => (rollUi.alpha = 1 - q));
     sfx.cardFlip();
     await this.tween(260, (q) => (sheet.scale.x = 1 - q), ease.in);
-    const card = this.makeCard(p, shinyTex ?? realTex, g.S, faces);
+    const card = this.makeCard(shown, shinyTex ?? realTex, g.S, faces);
     card.c.position.set(g.cx, g.cy + 40);
     sheet.destroy({ children: true });
     this.mid.addChild(card.c);

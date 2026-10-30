@@ -6,7 +6,7 @@
 import { START_MEDIA, UNLOCK_ORDER } from '../shared/duel/media';
 import type { DiceResponse, DuelReward, ReviewItem } from '../shared/api';
 import { dayKey, weekKey } from '../shared/day';
-import { decodeDrawing, encodeDrawing, hasShape } from '../shared/drawn';
+import { decodeDrawing, encodeDrawing } from '../shared/drawn';
 import {
   BLANK,
   dieMonster,
@@ -18,6 +18,7 @@ import {
   LEGENDARY_PAPERS,
   PULL_COST,
   PITY,
+  RARITIES,
   rarityDef,
   rarityFromRoll,
   rarityIndex,
@@ -145,6 +146,13 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
   if (sh.style) {
     die.style = sh.style;
     out.styleD10 = sh.styleD10;
+    // Shiny hebt das Papier eine Stufe, damit Seltenheit, Werte und Seiten (festgelegt am 30.10.2026). Legendary bleibt.
+    // Der Schutz vor Pech hat oben schon nach dem W100 gezählt
+    const up = RARITIES[rarityIndex(rarity) + 1];
+    if (up) {
+      die.paper = up.paper ?? LEGENDARY_PAPERS[d.rand() % LEGENDARY_PAPERS.length]!;
+      out.lifted = up.k;
+    }
   }
   // Der schlechteste Wurf tröstet: dazu ein leerer Würfel zum Selbstmalen
   if (d100 === BLANK.find) {
@@ -263,7 +271,7 @@ export async function diceDraw(d: Deps, userId: string | undefined, code: unknow
   const uid = needUser(userId);
   const dr = typeof code === 'string' ? decodeDrawing(code) : null;
   if (!dr) throw new GameError('bad_request', 'That drawing did not survive the trip. Try again.');
-  if (!hasShape(dr)) throw new GameError('bad_request', 'Close a shape. Paint needs somewhere to pool.');
+  // Eine geschlossene Form ist nicht nötig (festgelegt am 30.10.2026): nur Linien werden breite Pinselstriche
   return withLock(d, playerLock(uid), async () => {
     const s = await loadDice(d, uid);
     if (s.starter > 0) throw new GameError('bad_request', 'Dip your free dice first, then paint.');

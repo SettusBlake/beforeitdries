@@ -136,11 +136,12 @@ export function parts(d: Drawing): Part[] {
 }
 
 /**
- * Entwurf (30.10.2026, wartet auf Wahl): wie eine Zeichnung ganz ohne geschlossene Form gemalt wird.
- * close: der längste Strich wird zur Fläche (bisher), brush: jeder Strich ein breiter Pinselstrich, wash: Linien mit Lavierung dahinter
+ * Wie eine Zeichnung ganz ohne geschlossene Form gemalt wird. Festgelegt am 30.10.2026: brush, jeder Strich ein breiter
+ * Pinselstrich (docs/entwuerfe/offen-entwurf.png). close (der längste Strich wird zur Fläche) und wash (Linien mit
+ * Lavierung dahinter) bleiben für den Entwurfsbogen
  */
 export type OpenMode = 'close' | 'brush' | 'wash';
-export const OPEN: { mode: OpenMode } = { mode: 'close' };
+export const OPEN: { mode: OpenMode } = { mode: 'brush' };
 const blobOf = (pts: Pt[], crisp: number, ink: boolean, bare = false): BlobShape => {
   const [x0, y0, x1, y1] = box(pts);
   return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, rx: Math.max((x1 - x0) / 2, 0.01), ry: Math.max((y1 - y0) / 2, 0.01), rot: 0, pts, crisp, ink, ...(bare ? { bare } : {}) };
@@ -148,7 +149,15 @@ const blobOf = (pts: Pt[], crisp: number, ink: boolean, bare = false): BlobShape
 
 /** Breiter Pinselstrich um eine Linie: in der Mitte voll, zu den Enden schmaler, runde Enden */
 function brushPoly(line: Pt[], w: number): Pt[] {
-  const s = resample(line, 32);
+  // Gerade Stücke sind nach dem Vereinfachen nur zwei Punkte: erst verdichten, damit der Strich zur Mitte hin anschwillt
+  const dense: Pt[] = [line[0]!];
+  for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1]!,
+      b = line[i]!,
+      n = Math.max(1, Math.ceil(dist(a, b) / 0.02));
+    for (let k = 1; k <= n; k++) dense.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+  }
+  const s = resample(dense, 32);
   const n = s.length;
   const L: Pt[] = [],
     R: Pt[] = [];
