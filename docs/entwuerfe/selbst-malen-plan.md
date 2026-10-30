@@ -60,7 +60,7 @@ Ein **Blank canvas** ist ein leerer Würfel. Du zeichnest mit dem Finger, das Sp
 1. Striche zu Formen (src/shared/drawn.ts, mit Tests). Gebaut.
 2. Server: Vorrat (Woche, Fund bei W100 = 1), Endpunkt /api/dice/draw, Prüfung, Würfel mit Zeichnung, Seriennummer. Gebaut.
 3. Zeichenbildschirm (Canvas 2D, Finger, Mirror, Eyes, Undo, Clear), Ritual mit deiner Zeichnung, Karte mit Pinsel-Zeichen. Gebaut.
-4. Upload und Handy-Test.
+4. Upload und Handy-Test. Hochgeladen als Playtest v0.0.1.47.
 
 Danach 2b. Melden und Mod-Menü kommen mit der ersten Stelle, an der fremde Monster zu sehen sind.
 
