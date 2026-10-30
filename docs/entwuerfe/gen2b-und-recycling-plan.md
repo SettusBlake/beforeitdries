@@ -1,6 +1,8 @@
 # Plan: Generation 2b (Farbe, Muster, Gesichter, Malereignisse) und Recycling
 
-Stand 30.10.2026, Fassung 2. Freigegeben am 30.10.2026 mit diesen Antworten: neue Malereignisse nur Aussehen, die Generation-2-Würfel von heute bekommen das neue Aussehen, der Knopf heißt weiter „Wash out“, Zurückholen vielleicht (nur unter erschwerten Bedingungen oder durch Mods, Vorschlag unten), Reihenfolge Recycling, dann 2b.
+Stand 30.10.2026, Fassung 3. Rückmeldung zu Fassung 2: Zurückholen später, Entwurf passt und kommt ins Spiel, nur noch etwa 25 % nicht zwei Augen, kein Gesicht oder schlichte Schlitze reichen auch, die Augen müssen deutlich besser zum Zeichenstil passen (umgesetzt, siehe Gesichter).
+
+Freigegeben am 30.10.2026 (Fassung 2) mit diesen Antworten: neue Malereignisse nur Aussehen, die Generation-2-Würfel von heute bekommen das neue Aussehen, der Knopf heißt weiter „Wash out“, Zurückholen vielleicht (nur unter erschwerten Bedingungen oder durch Mods, Vorschlag unten), Reihenfolge Recycling, dann 2b.
 
 Wunsch vom 30.10.2026: Monster, die man nicht mehr will, recyceln oder später auf einen Marktplatz stellen. Gelöscht werden sie nicht, weil sie später als Gegner dienen sollen.
 
@@ -17,7 +19,7 @@ Wunsch vom 30.10.2026: Monster, die man nicht mehr will, recyceln oder später a
 - Text unter dem Knopf: „It leaves your collection, … gains 2 glaze. Blots that drift to the margins sometimes come back.“
 - Was vor dem Einbau ausgewaschen wurde (nur Playtest), ist weg. Ab jetzt bleibt alles.
 
-**Zurückholen (offen, Vorschlag):**
+**Zurückholen (später, Vorschlag):**
 
 - **Für Spieler, erschwert:** „Rescue“ im Würfelbildschirm, nur die eigenen ausgewaschenen Monster der letzten 7 Tage. Kostet die Lasur doppelt zurück (fehlt sie, geht es nicht) und 300 Pigment, höchstens einmal pro Woche.
 - **Für Mods:** Mod-Menü „restore a washed-out die“ mit Seriennummer, gibt das Monster seinem letzten Besitzer zurück, ohne Kosten (für Fehler und Hilfe).
@@ -57,20 +59,23 @@ Wunsch vom 30.10.2026: Monster, die man nicht mehr will, recyceln oder später a
 
 **3. Gesichter**
 
-- **Augen:** meist 2, sonst 1 bis 7. Formen:
+- **Augen:** zwei bei etwa 75 %, sonst 1 bis 7. Formen:
   - rund, Knopf, Mandel, Schlitz, müde
   - groß mit Glanzpunkt (Anime-Art)
   - Pupille als Stern, Spirale oder Ring
   - geschlossen als Bogen
+  - schlichte Schlitze (ein Pinselstrich)
 
   Blick zufällig, selten schielend.
+- **Gemalt statt aufgeklebt:** Das Weiße ist ausgespartes Papier mit weichem Rand. Pupillen und Iris sind nasse Tropfen mit Wasserrand. Das Oberlid ist ein Pinselstrich mit Druck (Mitte kräftig, Enden spitz), das Unterlid nur angedeutet, der Glanz ausgehoben. Vergleich: docs/entwuerfe/augen-aquarell.png
 - **Münder:**
   - Lächeln, Grinsen, Zähne, Zunge, Hauer, Fänge
   - O-Mund, Zickzack, Schnabel, keiner
   - manchmal Schnurrhaare dazu
-- **Augenbrauen** (etwa 30 %): böse, besorgt, hochgezogen, gelangweilt.
+- **Augenbrauen** (etwa 30 %): böse, besorgt, hochgezogen, gelangweilt. Als Pinselstriche mit Druck, wie Lächeln und Zähne. Grinsen, Zunge, O-Mund und Schnabel sind weiche, nasse Flächen.
 - **Wangen** (etwa 15 %): Röte oder Sommersprossen.
-- Gemalte Monster: Die Augen bleiben, wo du hingetippt hast. Art und Anzahl würfelt das Spiel.
+- **Kein Gesicht** (etwa 8 %): nur die Farbe.
+- Gemalte Monster: Die Augen bleiben, wo du hingetippt hast. Art und Anzahl würfelt das Spiel, ein Gesicht haben sie immer.
 
 **4. Malereignisse (je etwa 10 bis 15 %, nur Aussehen)**
 
@@ -80,22 +85,21 @@ Wunsch vom 30.10.2026: Monster, die man nicht mehr will, recyceln oder später a
 - **Ausgehobene Lichter:** helle Tupfer, als hätte jemand mit Papier Farbe abgenommen.
 - **Neue Blüte** für Generation 2: weicher Blumenkohlrand statt der splittrigen Fläche. Die Blüte der Generation 1 bleibt, wie sie ist.
 
-**5. Messen und zeigen (Entwurf gebaut)**
+**5. Messen und zeigen (gebaut)**
 
 - Entwurfsbogen docs/entwuerfe/gen2b-entwurf.png: 16 Züge vorher und nachher, dazu Reihen für Farbton, Muster, Gesichter (1,8-mal vergrößert) und Malereignisse. Quelle tools/mockup/gen2b-entwurf.ts.
 - Gemessen an 48 Zügen: Malzeit praktisch gleich (0 bis 1 % mehr, Ziel war höchstens 30 %).
-- Anteile an 2000 Zügen: Muster 41 %, nicht zwei Augen 40 %, Augenbrauen 31 %, mindestens ein neues Malereignis 42 %.
-- Code: Würfe in src/shared/look.ts (eigener Zufallsstrom), Malen in src/client/renderer/gen2b.ts. Im Spiel noch aus (Schalter `GEN2B` in watercolor.ts), Generation 1 weiter 144 von 144 gleich.
+- Anteile an 2000 Zügen: Muster 41 %, nicht zwei Augen 25 %, ohne Gesicht 8 %, Schlitzaugen 12 %, Augenbrauen 31 %, mindestens ein neues Malereignis 42 %.
+- Code: Würfe in src/shared/look.ts (eigener Zufallsstrom), Malen in src/client/renderer/gen2b.ts. Im Spiel an (Schalter `GEN2B` in watercolor.ts), Generation 1 weiter 144 von 144 gleich.
+- Bilder: docs/entwuerfe/gen2b-entwurf.png (Bogen), docs/entwuerfe/augen-aquarell.png (Augen vorher und jetzt), docs/entwuerfe/gen2b-im-spiel.png (im Spiel).
 
 ## Reihenfolge
 
 1. **Recycling:** Archiv am Server, Text, Tests, Upload. Gebaut.
 2. **2b Entwurf:** Entwurfsbogen zur Rückmeldung, noch nicht im Spiel. Gebaut.
-3. **2b einbauen** nach deiner Rückmeldung, Upload.
+3. **2b einbauen** nach deiner Rückmeldung, Upload. Gebaut, mit gemalten Augen.
 4. Danach laut Plan: seltene Stile (Shiny), dann Benennen.
 
 ## Offene Fragen
 
-1. Zurückholen: Passt der Vorschlag (Rescue für Spieler mit doppelter Lasur, 300 Pigment, 7 Tage, einmal pro Woche, dazu Wiederherstellen durch Mods)? Nur eins von beiden? Oder später?
-2. Entwurf 2b: Was gefällt, was nicht? Sind die Muster kräftig genug?
-3. 40 % der Monster haben nicht zwei Augen (1 bis 7). Ist das zu oft? Sonst würde ich auf etwa 25 % gehen.
+Keine. Zurückholen kommt später (Vorschlag oben).
