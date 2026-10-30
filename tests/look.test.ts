@@ -10,12 +10,16 @@ describe('Generation 2b', () => {
   it('gleicher Seed, gleiches Aussehen', () => {
     for (const m of mons.slice(0, 50)) expect(JSON.stringify(lookOf(m))).toBe(JSON.stringify(lookOf(m)));
   });
-  it('Anteile wie im Plan: etwa 40 % Muster, meist 2 Augen, 30 % Brauen', () => {
+  it('Anteile wie im Plan: etwa 40 % Muster, 75 % zwei Augen, 8 % ohne Gesicht, 30 % Brauen', () => {
     const ls = mons.map((m) => lookOf(m));
     const share = (f: (l: (typeof ls)[number]) => boolean) => ls.filter(f).length / ls.length;
     expect(share((l) => !!l.pattern)).toBeGreaterThan(0.35);
     expect(share((l) => !!l.pattern)).toBeLessThan(0.45);
-    expect(share((l) => l.eyes.n === 2)).toBeGreaterThan(0.55);
+    // Etwa 25 % nicht zwei Augen, etwa 8 % ganz ohne Gesicht
+    expect(share((l) => l.eyes.n !== 2)).toBeGreaterThan(0.2);
+    expect(share((l) => l.eyes.n !== 2)).toBeLessThan(0.3);
+    expect(share((l) => l.faceless)).toBeGreaterThan(0.05);
+    expect(share((l) => l.faceless)).toBeLessThan(0.11);
     expect(share((l) => !!l.brows)).toBeGreaterThan(0.25);
     expect(share((l) => !!l.brows)).toBeLessThan(0.35);
     for (const l of ls) {

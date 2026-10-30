@@ -286,6 +286,100 @@ export function lifted(ctx: Ctx, core: BlobShape, S: number, paper: string, r: R
   }
 }
 
+/* ---------- Pinsel für Gesichter ---------- */
+/** Leicht unregelmäßiger Rand, wie von Hand */
+function soft(pts: P2[], r: Rand, amt = 0.16): P3[] {
+  return deformN(
+    pts.map((p): P3 => [p[0], p[1], rr(r, 0.7, 1.3)]),
+    r,
+    amt,
+    2,
+  );
+}
+/** Ausgespartes Papier: weicher Rand, nicht ganz deckend, darunter scheint die Farbe ein wenig durch */
+function reserve(ctx: Ctx, pts: P2[], paper: string, r: Rand): void {
+  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length,
+    cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = `rgba(${paper},.5)`;
+  poly(
+    ctx,
+    soft(
+      pts.map((p): P2 => [cx + (p[0] - cx) * 1.07, cy + (p[1] - cy) * 1.07]),
+      r,
+      0.22,
+    ),
+  );
+  ctx.fill();
+  ctx.fillStyle = `rgba(${paper},.88)`;
+  poly(ctx, soft(pts, r, 0.12));
+  ctx.fill();
+}
+/** Nasser Tropfen: verlaufener Hof, Kern in zwei Schichten, Pigment sammelt sich am Rand */
+function drop(ctx: Ctx, pts: P2[], rgb: string | RGBn, r: Rand, a = 0.9): void {
+  const c = typeof rgb === 'string' ? rgb : rgb.join(',');
+  const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length,
+    cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+  const grow = (k: number): P2[] => pts.map((p): P2 => [cx + (p[0] - cx) * k, cy + (p[1] - cy) * k]);
+  const rad = Math.max(...pts.map((p) => Math.hypot(p[0] - cx, p[1] - cy)));
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = `rgba(${c},${a * 0.18})`;
+  poly(ctx, soft(grow(1.3), r, 0.3));
+  ctx.fill();
+  const core = soft(pts, r, 0.12);
+  ctx.fillStyle = `rgba(${c},${a * 0.7})`;
+  poly(ctx, core);
+  ctx.fill();
+  ctx.fillStyle = `rgba(${c},${a * 0.55})`;
+  poly(ctx, soft(grow(0.7), r, 0.2));
+  ctx.fill();
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = `rgba(${c},${a * 0.55})`;
+  ctx.lineWidth = Math.max(0.6, rad * 0.16);
+  poly(ctx, core);
+  ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+}
+/** Ausgehobenes Glanzlicht: weich, ohne harte Kante */
+function glint(ctx: Ctx, x: number, y: number, rad: number, paper: string, a = 0.95): void {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+  g.addColorStop(0, `rgba(${paper},${a})`);
+  g.addColorStop(0.55, `rgba(${paper},${a * 0.8})`);
+  g.addColorStop(1, `rgba(${paper},0)`);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, rad, 0, 7);
+  ctx.fill();
+}
+/** Pinselstrich mit Druck: in der Mitte kräftig, an den Enden spitz, leicht zittrig */
+function stroke(ctx: Ctx, pts: P2[], w: number, r: Rand, a = 0.88): void {
+  if (pts.length < 2) return;
+  // Gleichmäßig unterteilen, damit der Druck weich verläuft
+  const q: P2[] = [];
+  for (let i = 0; i < pts.length - 1; i++)
+    for (let k = 0; k < 4; k++) {
+      const t = k / 4,
+        a0 = pts[i]!,
+        b0 = pts[i + 1]!;
+      q.push([a0[0] + (b0[0] - a0[0]) * t, a0[1] + (b0[1] - a0[1]) * t]);
+    }
+  q.push(pts[pts.length - 1]!);
+  const j = w * 0.12;
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = `rgba(${INK},${a})`;
+  for (let i = 0; i < q.length - 1; i++) {
+    const t = (i + 0.5) / (q.length - 1);
+    ctx.lineWidth = w * (0.25 + 0.95 * Math.sin(Math.PI * t)) * rr(r, 0.9, 1.1);
+    ctx.beginPath();
+    ctx.moveTo(q[i]![0] + gauss(r) * j, q[i]![1] + gauss(r) * j);
+    ctx.lineTo(q[i + 1]![0] + gauss(r) * j, q[i + 1]![1] + gauss(r) * j);
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 /* ---------- Gesichter der Generation 2 ---------- */
 /** Lage vieler Augen (in Gesichtsradien vom Augenpunkt): eine oder zwei Reihen */
 const MANY: Record<number, [number, number][]> = {
@@ -326,23 +420,23 @@ const MANY: Record<number, [number, number][]> = {
   ],
 };
 export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Rand, paper: string, rgb: RGBn): void {
+  if (look.faceless) return;
   const lw = S / 300,
     e = look.eyes,
     col = rgb.join(',');
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineCap = ctx.lineJoin = 'round';
 
+  /* Augen wie mit dem Pinsel: ausgespartes Papier, nasse Tuschetropfen, Lidstriche mit Pinseldruck */
   const pupil = (x: number, y: number, rad: number) => {
-    ctx.fillStyle = `rgba(${INK},.92)`;
     if (e.pupil === 'star') {
       const p: P2[] = [];
       for (let i = 0; i < 10; i++) {
         const a = -Math.PI / 2 + (i * Math.PI) / 5,
-          q = i % 2 ? rad * 0.45 : rad;
+          q = i % 2 ? rad * 0.5 : rad * 1.05;
         p.push([x + Math.cos(a) * q, y + Math.sin(a) * q]);
       }
-      poly(ctx, p);
-      ctx.fill();
+      drop(ctx, p, INK, r, 0.95);
     } else if (e.pupil === 'spiral') {
       const p: P2[] = [];
       for (let i = 0; i <= 24; i++) {
@@ -350,105 +444,100 @@ export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Ran
           q = (rad * i) / 24;
         p.push([x + Math.cos(a) * q, y + Math.sin(a) * q]);
       }
-      inkPath(ctx, p, lw * 0.8, r, 0.9);
+      stroke(ctx, p, lw * 1.3, r, 0.9);
     } else if (e.pupil === 'ring') {
-      ctx.strokeStyle = `rgba(${INK},.9)`;
-      ctx.lineWidth = rad * 0.4;
-      ctx.beginPath();
-      ctx.arc(x, y, rad * 0.75, 0, 7);
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.arc(x, y, rad, 0, 7);
-      ctx.fill();
-    }
+      drop(ctx, circlePts(x, y, rad, rad, 12), INK, r, 0.85);
+      reserve(ctx, circlePts(x, y, rad * 0.5, rad * 0.5, 10), paper, r);
+    } else drop(ctx, circlePts(x, y, rad, rad * rr(r, 0.92, 1.06), 12), INK, r, 0.95);
   };
 
   /** Ein Auge. side: -1 links, 1 rechts, 0 Mitte (für Schielen und Brauen) */
   const eye = (x: number, y: number, rad: number, side: number) => {
     const gx = e.cross ? -side * 0.8 : e.gaze[0],
       gy = e.cross ? 0.2 : e.gaze[1];
+    if (e.shape === 'dash') {
+      // Schlitzaugen: ein Pinselstrich, in der Mitte kräftig, an den Enden spitz
+      stroke(
+        ctx,
+        [
+          [x - rad * 0.9, y + rad * 0.06],
+          [x, y - rad * 0.02],
+          [x + rad * 0.9, y - rad * 0.06],
+        ],
+        lw * 2.6,
+        r,
+        0.92,
+      );
+      return;
+    }
     if (e.shape === 'closed') {
       const p: P2[] = [];
-      for (let i = 0; i <= 8; i++) {
-        const a = Math.PI + (i / 8) * Math.PI;
+      for (let i = 0; i <= 10; i++) {
+        const a = Math.PI + (i / 10) * Math.PI;
         p.push([x + Math.cos(a) * rad, y + Math.sin(a) * rad * 0.7 + rad * 0.3]);
       }
-      inkPath(ctx, p, lw * 1.1, r);
+      stroke(ctx, p, lw * 1.9, r, 0.9);
       return;
     }
     if (e.shape === 'button') {
-      ctx.fillStyle = `rgba(${INK},.92)`;
-      ctx.beginPath();
-      ctx.arc(x, y, rad * 0.55, 0, 7);
-      ctx.fill();
-      ctx.fillStyle = `rgb(${paper})`;
-      ctx.beginPath();
-      ctx.arc(x - rad * 0.18, y - rad * 0.2, rad * 0.16, 0, 7);
-      ctx.fill();
+      // Ein Tropfen Tusche mit ausgehobenem Glanz
+      drop(ctx, circlePts(x, y, rad * 0.55, rad * 0.55 * rr(r, 0.9, 1.05), 12), INK, r, 0.95);
+      glint(ctx, x - rad * 0.18, y - rad * 0.2, rad * 0.2, paper);
       return;
     }
-    const sq = e.shape === 'almond' ? 0.6 : e.shape === 'slit' ? 0.7 : 1;
-    // Weißes Auge mit Tuschekontur
-    ctx.fillStyle = `rgb(${paper})`;
-    let outline: P2[];
-    if (e.shape === 'almond') {
-      // Linse mit spitzen Enden: oben und unten je ein Bogen
-      outline = [];
-      for (let i = 0; i <= 10; i++) {
-        const t = -1 + i / 5;
-        outline.push([x + t * rad * 1.15, y - rad * sq * 1.3 * (1 - t * t)]);
-      }
-      for (let i = 9; i >= 1; i--) {
-        const t = -1 + i / 5;
-        outline.push([x + t * rad * 1.15, y + rad * sq * 1.1 * (1 - t * t)]);
-      }
-    } else outline = circlePts(x, y, rad, rad * sq, 22);
-    poly(ctx, outline);
-    ctx.fill();
-    if (e.shape === 'shiny') {
-      // Große Iris in der eigenen Farbe, zwei Glanzpunkte (Anime-Art)
-      ctx.fillStyle = `rgba(${darker(rgb, 0.7)},.85)`;
-      ctx.beginPath();
-      ctx.ellipse(x + gx * rad * 0.15, y + gy * rad * 0.15, rad * 0.68, rad * 0.78, 0, 0, 7);
-      ctx.fill();
-      pupil(x + gx * rad * 0.18, y + gy * rad * 0.18, rad * 0.36);
-      ctx.fillStyle = `rgb(${paper})`;
-      ctx.beginPath();
-      ctx.arc(x - rad * 0.28, y - rad * 0.3, rad * 0.2, 0, 7);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + rad * 0.22, y + rad * 0.25, rad * 0.09, 0, 7);
-      ctx.fill();
-    } else if (e.shape === 'slit') {
-      ctx.fillStyle = `rgba(${INK},.92)`;
-      ctx.beginPath();
-      ctx.ellipse(x + gx * rad * 0.25, y, rad * 0.13, rad * 0.55, 0, 0, 7);
-      ctx.fill();
-    } else {
-      pupil(x + gx * rad * 0.3, y + gy * rad * 0.28 * sq, rad * (e.shape === 'almond' ? 0.36 : 0.44));
-      if (e.pupil === 'dot') {
-        ctx.fillStyle = `rgb(${paper})`;
-        ctx.beginPath();
-        ctx.arc(x + gx * rad * 0.3 - rad * 0.12, y + gy * rad * 0.28 * sq - rad * 0.14, rad * 0.1, 0, 7);
-        ctx.fill();
+    const sq = e.shape === 'almond' ? 0.6 : e.shape === 'slit' ? 0.72 : 0.92;
+    // Umriss: oben ein Bogen von Augenwinkel zu Augenwinkel, unten einer zurück
+    let top: P2[] = [],
+      bottom: P2[] = [];
+    for (let i = 0; i <= 10; i++) {
+      const t = -1 + i / 5;
+      if (e.shape === 'almond') {
+        top.push([x + t * rad * 1.15, y - rad * sq * 1.3 * (1 - t * t)]);
+        bottom.push([x + t * rad * 1.15, y + rad * sq * 1.1 * (1 - t * t)]);
+      } else {
+        const a = Math.PI + ((t + 1) / 2) * Math.PI;
+        top.push([x + Math.cos(a) * rad, y + Math.sin(a) * rad * sq]);
+        bottom.push([x + Math.cos(a) * rad, y - Math.sin(a) * rad * sq]);
       }
     }
-    inkPath(ctx, outline, lw, r, 0.9, true);
+    // Das Weiße ist ausgespartes Papier, weich und nicht ganz deckend
+    reserve(ctx, [...top, ...bottom.slice(1, -1).reverse()], paper, r);
+    if (e.shape === 'shiny') {
+      // Große Iris als nasser Tropfen in der eigenen Farbe, innen heller, zwei ausgehobene Glanzpunkte (Anime-Art)
+      const ix = x + gx * rad * 0.15,
+        iy = y + gy * rad * 0.15;
+      drop(ctx, circlePts(ix, iy, rad * 0.7, rad * 0.8, 14), darker(rgb, 0.7), r, 0.9);
+      glint(ctx, ix, iy + rad * 0.25, rad * 0.45, paper, 0.35);
+      pupil(ix + gx * rad * 0.04, iy + gy * rad * 0.04, rad * 0.32);
+      glint(ctx, x - rad * 0.28, y - rad * 0.3, rad * 0.24, paper);
+      glint(ctx, x + rad * 0.22, y + rad * 0.25, rad * 0.12, paper);
+    } else if (e.shape === 'slit') {
+      drop(ctx, circlePts(x + gx * rad * 0.25, y, rad * 0.14, rad * 0.58, 12), INK, r, 0.95);
+    } else {
+      const px = x + gx * rad * 0.3,
+        py = y + gy * rad * 0.28 * sq;
+      pupil(px, py, rad * (e.shape === 'almond' ? 0.36 : 0.42));
+      if (e.pupil === 'dot') glint(ctx, px - rad * 0.12, py - rad * 0.14, rad * 0.14, paper);
+    }
+    // Oberlid kräftig, Unterlid nur angedeutet
+    stroke(ctx, top, lw * 1.7, r, 0.9);
+    stroke(ctx, bottom.slice(2, -2), lw * 0.9, r, 0.4);
     if (e.shape === 'sleepy') {
-      // Halb geschlossenes Lid in der eigenen Farbe
-      ctx.fillStyle = `rgba(${col},.85)`;
-      ctx.beginPath();
-      ctx.ellipse(x, y, rad * 1.05, rad * 1.05, 0, Math.PI, 2 * Math.PI);
+      // Halb geschlossenes Lid: Lasur in der eigenen Farbe über der oberen Hälfte
+      const lidPts: P2[] = [...top, [x + rad * 1.02, y + rad * 0.05], [x - rad * 1.02, y + rad * 0.05]];
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = `rgba(${col},.7)`;
+      poly(ctx, soft(lidPts, r, 0.08));
       ctx.fill();
-      inkPath(
+      ctx.globalCompositeOperation = 'source-over';
+      stroke(
         ctx,
         [
-          [x - rad * 1.05, y],
-          [x, y + rad * 0.1],
-          [x + rad * 1.05, y],
+          [x - rad * 1.02, y + rad * 0.02],
+          [x, y + rad * 0.14],
+          [x + rad * 1.02, y + rad * 0.02],
         ],
-        lw,
+        lw * 1.6,
         r,
         0.9,
       );
@@ -481,7 +570,9 @@ export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Ran
         [x - rad, top + rad * 0.45],
         [x + rad, top + rad * 0.45],
       ];
-    inkPath(ctx, p, lw * 1.4, r, 0.9, false, look.brows !== 'raised');
+    // Gerade Brauen bekommen einen Mittelpunkt, damit der Pinseldruck in der Mitte liegt
+    if (p.length === 2) p = [p[0]!, [(p[0]![0] + p[1]![0]) / 2, (p[0]![1] + p[1]![1]) / 2], p[1]!];
+    stroke(ctx, p, lw * 2.2, r, 0.9);
   };
 
   const mouth = (X: number, my: number, R: number) => {
@@ -491,29 +582,24 @@ export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Ran
       [X, my + R * d],
       [X + R * w, my - R * 0.04],
     ];
-    if (m === 'smile') inkPath(ctx, smile(0.28, 0.12), lw, r);
+    if (m === 'smile') stroke(ctx, smile(0.28, 0.12), lw * 1.6, r);
     else if (m === 'grin') {
+      // Offenes Grinsen: ein dunkler Tropfen, darin die Zunge
       const a: P2[] = [];
       for (let i = 0; i <= 10; i++) a.push([X - R * 0.4 + (R * 0.8 * i) / 10, my - R * 0.05 + Math.sin((i / 10) * Math.PI) * R * 0.24]);
-      ctx.fillStyle = `rgba(${INK},.8)`;
-      poly(ctx, a);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(214,92,112,.85)';
-      ctx.beginPath();
-      ctx.ellipse(X, my + R * 0.11, R * 0.13, R * 0.06, 0, 0, 7);
-      ctx.fill();
-    } else if (m === 'teeth') {
+      drop(ctx, a, INK, r, 0.85);
+      drop(ctx, circlePts(X, my + R * 0.11, R * 0.12, R * 0.055, 10), '214,92,112', r, 0.8);
+    } else if (m === 'teeth' || m === 'zigzag') {
       const p: P2[] = [];
-      for (let i = 0; i <= 7; i++) p.push([X - R * 0.32 + (R * 0.64 * i) / 7, my + (i % 2 ? R * 0.09 : 0)]);
-      inkPath(ctx, p, lw, r, 0.85, false, true);
+      const n = m === 'teeth' ? 7 : 6,
+        w = m === 'teeth' ? 0.32 : 0.28;
+      for (let i = 0; i <= n; i++) p.push([X - R * w + (R * w * 2 * i) / n, my + (m === 'teeth' ? (i % 2 ? R * 0.09 : 0) : i % 2 ? -R * 0.05 : R * 0.05)]);
+      stroke(ctx, p, lw * 1.4, r);
     } else if (m === 'tongue') {
-      ctx.fillStyle = 'rgba(214,92,112,.85)';
-      ctx.beginPath();
-      ctx.ellipse(X + R * 0.05, my + R * 0.15, R * 0.09, R * 0.12, 0.2, 0, 7);
-      ctx.fill();
-      inkPath(ctx, smile(0.28, 0.1), lw, r);
+      drop(ctx, circlePts(X + R * 0.05, my + R * 0.15, R * 0.085, R * 0.11, 10), '214,92,112', r, 0.8);
+      stroke(ctx, smile(0.28, 0.1), lw * 1.6, r);
     } else if (m === 'tusks' || m === 'fangs') {
-      inkPath(ctx, m === 'tusks' ? smile(0.32, 0.08) : smile(0.26, 0.02), lw, r);
+      stroke(ctx, m === 'tusks' ? smile(0.32, 0.08) : smile(0.26, 0.02), lw * 1.6, r);
       [-1, 1].forEach((s) => {
         const bx = X + s * R * (m === 'tusks' ? 0.24 : 0.1),
           by = my + R * (m === 'tusks' ? 0.02 : 0.0);
@@ -529,31 +615,20 @@ export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Ran
                 [bx, by + R * 0.14],
                 [bx + R * 0.045, by],
               ];
-        ctx.fillStyle = `rgb(${paper})`;
-        poly(ctx, p);
-        ctx.fill();
-        inkPath(ctx, p, lw * 0.8, r, 0.85, false, true);
+        // Zähne als ausgespartes Papier mit feinem Strich
+        reserve(ctx, p, paper, r);
+        stroke(ctx, p, lw * 0.9, r, 0.75);
       });
     } else if (m === 'o') {
-      ctx.fillStyle = `rgba(${INK},.55)`;
-      ctx.beginPath();
-      ctx.ellipse(X, my + R * 0.05, R * 0.08, R * 0.1, 0, 0, 7);
-      ctx.fill();
-      inkPath(ctx, circlePts(X, my + R * 0.05, R * 0.08, R * 0.1, 14), lw, r, 0.9, true);
-    } else if (m === 'zigzag') {
-      const p: P2[] = [];
-      for (let i = 0; i <= 6; i++) p.push([X - R * 0.28 + (R * 0.56 * i) / 6, my + (i % 2 ? -R * 0.05 : R * 0.05)]);
-      inkPath(ctx, p, lw, r, 0.85, false, true);
+      drop(ctx, circlePts(X, my + R * 0.05, R * 0.08, R * 0.1, 12), INK, r, 0.85);
     } else if (m === 'beak') {
       const p: P2[] = [
         [X - R * 0.2, my - R * 0.08],
         [X + R * 0.2, my - R * 0.08],
         [X, my + R * 0.22],
       ];
-      ctx.fillStyle = 'rgba(214,150,40,.75)';
-      poly(ctx, p);
-      ctx.fill();
-      inkPath(ctx, [...p, p[0]!], lw, r, 0.9, false, true);
+      drop(ctx, p, '214,150,40', r, 0.8);
+      stroke(ctx, [...p, p[0]!], lw * 1.1, r, 0.8);
     }
   };
 

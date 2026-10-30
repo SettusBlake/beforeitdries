@@ -18,7 +18,7 @@ export type Pattern = {
   scale: number;
   angle: number;
 };
-export type EyeShape = 'round' | 'button' | 'almond' | 'slit' | 'sleepy' | 'shiny' | 'closed';
+export type EyeShape = 'round' | 'button' | 'almond' | 'slit' | 'sleepy' | 'shiny' | 'closed' | 'dash';
 export type Pupil = 'dot' | 'star' | 'spiral' | 'ring';
 export type Mouth = 'smile' | 'grin' | 'teeth' | 'tongue' | 'tusks' | 'fangs' | 'o' | 'zigzag' | 'beak' | 'none';
 export type Brow = 'angry' | 'worried' | 'raised' | 'bored';
@@ -33,6 +33,8 @@ export type Look = {
   cheeks: 'blush' | 'freckles' | null;
   /** Neue Malereignisse, nur Aussehen */
   fx: { runs: boolean; splatter: boolean; tide: boolean; lifted: boolean };
+  /** Ganz ohne Gesicht (gemalte Monster behalten ihres) */
+  faceless: boolean;
   /** Zufall für das Malen selbst (Lage der Flecken, Spritzer) */
   seed: number;
 };
@@ -41,8 +43,9 @@ const tint = (r: Rand): Tint => ({ hue: rr(r, -12, 12), light: rr(r, 0.85, 1.15)
 const W = <T>(k: T, w: number) => ({ k, w });
 const ANIMAL_PATTERNS = [W<PatternKind>('spots', 3), W<PatternKind>('stripes', 3), W<PatternKind>('rings', 1), W<PatternKind>('speckle', 2), W<PatternKind>('fade', 2), W<PatternKind>('marble', 1)];
 const THING_PATTERNS = [W<PatternKind>('bands', 3), W<PatternKind>('check', 2), W<PatternKind>('speckle', 1), W<PatternKind>('fade', 2), W<PatternKind>('stripes', 1), W<PatternKind>('marble', 1)];
-const EYE_N = [W(2, 60), W(1, 12), W(3, 12), W(4, 6), W(5, 4), W(6, 3), W(7, 3)];
-const SHAPES = [W<EyeShape>('round', 4), W<EyeShape>('button', 2), W<EyeShape>('almond', 2), W<EyeShape>('slit', 1), W<EyeShape>('sleepy', 2), W<EyeShape>('shiny', 2), W<EyeShape>('closed', 1)];
+// Etwa 25 % nicht zwei Augen (festgelegt am 30.10.2026)
+const EYE_N = [W(2, 75), W(1, 9), W(3, 7), W(4, 4), W(5, 2), W(6, 2), W(7, 1)];
+const SHAPES = [W<EyeShape>('round', 4), W<EyeShape>('button', 2), W<EyeShape>('almond', 2), W<EyeShape>('slit', 1), W<EyeShape>('sleepy', 2), W<EyeShape>('shiny', 2), W<EyeShape>('closed', 1), W<EyeShape>('dash', 2)];
 const PUPILS = [W<Pupil>('dot', 16), W<Pupil>('star', 2), W<Pupil>('spiral', 1), W<Pupil>('ring', 1)];
 const MOUTHS = [
   W<Mouth>('smile', 4),
@@ -90,7 +93,9 @@ export function lookOf(m: { seed: number; mutations: number; sec: readonly unkno
   const brows = r() < 0.3 ? BROWS[Math.floor(r() * BROWS.length)]! : (r(), null);
   const cheeks = r() < 0.15 ? (r() < 0.67 ? 'blush' : 'freckles') : (r(), null);
   const fx = { runs: r() < 0.12, splatter: r() < 0.12, tide: r() < 0.15, lifted: r() < 0.12 };
-  return { main, sec, pattern: hasPattern ? pattern : null, eyes, mouth, whiskers, brows, cheeks, fx, seed: Math.floor(r() * 4294967296) };
+  // Kein Gesicht reicht auch (festgelegt am 30.10.2026)
+  const faceless = r() < 0.08;
+  return { main, sec, pattern: hasPattern ? pattern : null, eyes, mouth, whiskers, brows, cheeks, fx, faceless, seed: Math.floor(r() * 4294967296) };
 }
 
 /** Pigmentfarbe mit eigenem Ton (über HSL), bleibt im Bereich des Pigments */

@@ -22,8 +22,8 @@ export interface RenderOptions {
   /** Nur für Entwürfe: true oder false schaltet 2b für Generation 2 ein oder aus, ein Look erzwingt dieses Aussehen */
   look?: Look | boolean;
 }
-/** Generation 2b im Spiel: aus, bis der Entwurf freigegeben ist (docs/entwuerfe/gen2b-entwurf.png) */
-export const GEN2B = false;
+/** Generation 2b im Spiel: freigegeben am 30.10.2026 (docs/entwuerfe/gen2b-entwurf.png). false malt Generation 2 wie davor */
+export const GEN2B = true;
 
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
@@ -722,7 +722,9 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   const geo = geometryOf(m);
   // Generation 2b: eigener Farbton, Muster, Gesicht und Malereignisse (eigener Zufall, nur Aussehen). Generation 1 bleibt
   const on = typeof opts.look === 'object' || (opts.look ?? GEN2B);
-  const look = m.gen === 2 && on ? (typeof opts.look === 'object' ? opts.look : lookOf(m, isThing(geo))) : null;
+  const picked = m.gen === 2 && on ? (typeof opts.look === 'object' ? opts.look : lookOf(m, isThing(geo))) : null;
+  // Gemalte Monster behalten ihr Gesicht
+  const look = picked && m.draw ? { ...picked, faceless: false } : picked;
   const mainRgb: RGB = look ? tinted(main.rgb, look.main) : main.rgb;
   const lr = RNG(look ? look.seed : 0);
   const vf = 0.65 + clamp((m.humidity - 30) / 65, 0, 1) * 0.75;

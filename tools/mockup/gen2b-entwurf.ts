@@ -42,7 +42,7 @@ const grid = (s: HTMLElement) => {
   return g;
 };
 /** Grundaussehen ohne Muster und Ereignisse, damit eine Reihe nur eine Sache zeigt */
-const calm = (m: Monster): Look => ({ ...lookOf(m), pattern: null, fx: { runs: false, splatter: false, tide: false, lifted: false } });
+const calm = (m: Monster): Look => ({ ...lookOf(m), pattern: null, fx: { runs: false, splatter: false, tide: false, lifted: false }, faceless: false });
 
 const head = el('header');
 head.append(el('p', 'eyebrow', 'Before It Dries · draft'), el('h1', '', 'Generation 2b: colour, patterns, faces, paint events'));
@@ -102,7 +102,7 @@ function faceM(i: number): Monster {
   for (let j = 0; !quiet(m); j++) m = gen2(`face-${j}-${i}`, i % 12);
   return { ...m, draw: encodeDrawing({ mirror: false, face: null, strokes: [circle] }) };
 }
-const s4 = section('Faces (shown 1.8× larger)', 'Eyes 1 to 7 (mostly 2), many eye shapes and pupils, mouths, brows for the mood, cheeks. Drawn monsters keep their eyes where you tapped.');
+const s4 = section('Faces (shown 1.8× larger)', 'Eyes 1 to 7 (two in about 75 %), many eye shapes and pupils, plain slits, mouths, brows for the mood, cheeks. About 8 % have no face at all. Drawn monsters keep their eyes where you tapped.');
 const g4 = grid(s4);
 type F = Partial<Pick<Look, 'mouth' | 'brows' | 'cheeks' | 'whiskers'>> & Partial<Look['eyes']>;
 const faces: [string, F][] = [
@@ -119,8 +119,8 @@ const faces: [string, F][] = [
   ['cross-eyed · whiskers', { shape: 'round', cross: true, mouth: 'smile', whiskers: true }],
   ['1 eye · grin', { n: 1, shape: 'shiny', mouth: 'grin' }],
   ['3 eyes · teeth', { n: 3, shape: 'round', mouth: 'teeth' }],
-  ['4 eyes · none', { n: 4, shape: 'almond', mouth: 'none', brows: 'angry' }],
-  ['5 eyes · o', { n: 5, shape: 'button', mouth: 'o' }],
+  ['slits · smile', { shape: 'dash', mouth: 'smile' }],
+  ['slits · none · angry', { shape: 'dash', mouth: 'none', brows: 'angry' }],
   ['7 eyes · fangs', { n: 7, shape: 'round', mouth: 'fangs' }],
 ];
 faces.forEach(([cap, f], i) => {
@@ -187,6 +187,8 @@ for (const [k, v] of [
   ['with a pattern', share((l) => !!l.pattern)],
   ['not 2 eyes', share((l) => l.eyes.n !== 2)],
   ['with brows', share((l) => !!l.brows)],
+  ['no face at all', share((l) => l.faceless)],
+  ['slit eyes', share((l) => !l.faceless && l.eyes.shape === 'dash')],
   ['with at least one new paint event', share((l) => Object.values(l.fx).some(Boolean))],
 ] as [string, string][]) {
   const tr = el('tr');
