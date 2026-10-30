@@ -7,7 +7,8 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, diceTestBlank, diceTestShiny, diceWash, dicePull, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestShiny, diceWash, dicePull, loadDice, saveDice } from '../src/server/dice';
+import { reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
 import { K } from '../src/server/keys';
@@ -82,7 +83,17 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
       if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));
       if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id, b.confirm));
-      if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing));
+      if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing, USER.name));
+      if (url.pathname === '/api/dice/seen') return send(200, await diceSeen(d, asUser));
+    }
+    if (url.pathname.startsWith('/api/review')) {
+      let raw = '';
+      for await (const c of req) raw += c;
+      const b = JSON.parse(raw || '{}');
+      if (url.pathname === '/api/review') return send(200, await reviewList(d, USER.name));
+      if (url.pathname === '/api/review/ok') return send(200, await reviewOk(d, USER.name, b.key));
+      if (url.pathname === '/api/review/over') return send(200, await reviewOver(d, USER.name, b.key));
+      if (url.pathname === '/api/review/unlock') return send(200, await reviewUnlock(d, USER.name, b.uid));
     }
     // Nur in der Vorschau: Pigment und Lasur zum Ausprobieren
     if (url.pathname === '/dev/pigment') {

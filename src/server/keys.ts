@@ -1,6 +1,7 @@
 /*
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
- * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at).
+ * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at,
+ * drawn:queue, drawn:ok, drawn:washed, drawn:strikes).
  */
 export const K = {
   /** Hash: seed, humidity, postId, bp, main, createdAt, named */
@@ -41,4 +42,12 @@ export const K = {
   recycledAt: 'recycled:at',
   /** Zähler der Seriennummern aller Würfel */
   serial: 'serial',
+  /** Hash: {userId}:{Würfel-ID} → JSON einer neuen Zeichnung (ReviewItem), die noch kein Mod angesehen hat (Prüfliste) */
+  drawnQueue: 'drawn:queue',
+  /** Hash: {userId}:{Würfel-ID} → JSON der freigegebenen Zeichnung mit Mod und Zeit. Andere sehen später nur diese */
+  drawnOk: 'drawn:ok',
+  /** Hash: {userId}:{Würfel-ID} → JSON der übermalten Zeichnung mit Strichen, Mod und Zeit (Protokoll für Einsprüche) */
+  drawnWashed: 'drawn:washed',
+  /** Hash: userId → JSON mit Name, Zeitpunkten der übermalten Zeichnungen und Sperre */
+  drawnStrikes: 'drawn:strikes',
 } as const;

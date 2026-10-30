@@ -4,13 +4,14 @@
  * Jedes Monster gibt es nur einmal (festgelegt am 30.10.2026): sein Seed steht im Register, jeder Würfel hat eine Seriennummer.
  */
 import { START_MEDIA, UNLOCK_ORDER } from '../shared/duel/media';
-import type { DiceResponse, DuelReward } from '../shared/api';
+import type { DiceResponse, DuelReward, ReviewItem } from '../shared/api';
 import { dayKey, weekKey } from '../shared/day';
 import { decodeDrawing, encodeDrawing, hasShape } from '../shared/drawn';
 import {
   BLANK,
   dieMonster,
   dieSpecies,
+  drawLocked,
   emptyDice,
   GLAZE_COST,
   KEEP_MIN,
@@ -34,7 +35,7 @@ import {
 } from '../shared/dice';
 import { BAG, dieUnit, isCrestFace } from '../shared/duel/rules';
 import { humidityFor, makeMonster, monsterSeed, speciesKey } from '../shared/monster';
-import { GameError, withLock, type Deps } from './core';
+import { GameError, isMod, withLock, type Deps } from './core';
 import { K } from './keys';
 
 export function needUser(userId: string | undefined): string {
@@ -167,25 +168,31 @@ function runStarter(d: Deps, s: DiceSave): PullResult[] {
 export const isPlaytest = (v: string | undefined): boolean => !!v && /^\d+\.\d+\.\d+\.[1-9]\d*$/.test(v);
 /** Test-Werkzeuge nur im Playtest und nur für Mods des Subreddits */
 export async function isTester(d: Deps, username: string | undefined): Promise<boolean> {
-  if (!isPlaytest(d.appVersion) || !username) return false;
-  try {
-    const mods = await d.reddit.getModerators({ subredditName: d.subredditName, username }).all();
-    return mods.some((m) => m.username.toLowerCase() === username.toLowerCase());
-  } catch {
-    return false;
-  }
+  return isPlaytest(d.appVersion) && (await isMod(d, username));
 }
 
 export async function diceGet(d: Deps, userId: string | undefined, username?: string): Promise<DiceResponse> {
   const uid = needUser(userId);
-  const tester = await isTester(d, username);
-  const s = await loadDice(d, uid);
-  if (s.dice.every((x) => x.no)) return { ...respond(d, s), tester };
+  const [mod, loaded] = await Promise.all([isMod(d, username), loadDice(d, uid)]);
+  // Mods sehen, wie viele Zeichnungen auf sie warten
+  const extra = { tester: mod && isPlaytest(d.appVersion), ...(mod ? { mod, review: await d.redis.hLen(K.drawnQueue) } : {}) };
+  if (loaded.dice.every((x) => x.no)) return { ...respond(d, loaded), ...extra };
   // Ältere Würfel ohne Seriennummer: einmal unter der Sperre nachtragen
   return withLock(d, playerLock(uid), async () => {
     const t = await loadDice(d, uid);
     await saveDice(d, uid, t);
-    return { ...respond(d, t), tester };
+    return { ...respond(d, t), ...extra };
+  });
+}
+
+/** Sepia hat gesagt, welche Zeichnungen übermalt wurden: der Hinweis kommt nicht wieder */
+export async function diceSeen(d: Deps, userId: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    delete s.paintedOver;
+    await saveDice(d, uid, s);
+    return respond(d, s);
   });
 }
 
@@ -252,7 +259,7 @@ export async function dicePull(d: Deps, userId: string | undefined, kind: unknow
  * Selbst malen (Blank canvas): die Striche bestimmen nur die Form. Alles andere würfelt der Server wie bei einem Zug
  * (W100, Seltenheit, Papier, Pigment, Werte, Schutz vor Pech), danach ist die Zeichnung fest.
  */
-export async function diceDraw(d: Deps, userId: string | undefined, code: unknown): Promise<DiceResponse> {
+export async function diceDraw(d: Deps, userId: string | undefined, code: unknown, username = ''): Promise<DiceResponse> {
   const uid = needUser(userId);
   const dr = typeof code === 'string' ? decodeDrawing(code) : null;
   if (!dr) throw new GameError('bad_request', 'That drawing did not survive the trip. Try again.');
@@ -261,12 +268,17 @@ export async function diceDraw(d: Deps, userId: string | undefined, code: unknow
     const s = await loadDice(d, uid);
     if (s.starter > 0) throw new GameError('bad_request', 'Dip your free dice first, then paint.');
     if ((s.blank ?? 0) < 1) throw new GameError('bad_request', 'No blank canvas left. A new one comes every Monday.');
+    if (drawLocked(s, d.now)) throw new GameError('forbidden', 'Master Sepia has taken your brush for now.', 403);
     s.blank! -= 1;
     const p = pullOne(d, s, false, false);
     // Gespeichert wird die geprüfte, vereinfachte Fassung, nie ein Bild
     p.die.draw = encodeDrawing(dr);
     await claimPulls(d, uid, [p]);
     await saveDice(d, uid, s);
+    // Jede neue Zeichnung kommt in die Prüfliste der Mods
+    const key = `${uid}:${p.die.id}`;
+    const item: ReviewItem = { key, uid, user: username, id: p.die.id, no: p.die.no ?? 0, seed: monsterSeed(p.die.sheet, p.die.idx), draw: p.die.draw, at: d.now };
+    await d.redis.hSet(K.drawnQueue, { [key]: JSON.stringify(item) });
     return respond(d, s, [p]);
   });
 }

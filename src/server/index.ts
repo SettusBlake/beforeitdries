@@ -4,7 +4,8 @@ import { context, createServer, getServerPort, reddit, redis, settings } from '@
 import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
 import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
 import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
-import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTestShiny, diceWash } from './dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestShiny, diceWash } from './dice';
+import { reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
 import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
@@ -145,7 +146,40 @@ app.post(
 app.post(
   '/api/dice/draw',
   wrap(async (req, res) => {
-    res.json(await diceDraw(await deps(), context.userId, (req.body as { drawing?: unknown } | undefined)?.drawing));
+    res.json(await diceDraw(await deps(), context.userId, (req.body as { drawing?: unknown } | undefined)?.drawing, await username()));
+  }),
+);
+app.post(
+  '/api/dice/seen',
+  wrap(async (_req, res) => {
+    res.json(await diceSeen(await deps(), context.userId));
+  }),
+);
+
+/* ---------- Zeichnungen prüfen (nur Mods) ---------- */
+
+app.get(
+  '/api/review',
+  wrap(async (_req, res) => {
+    res.json(await reviewList(await deps(), await username()));
+  }),
+);
+app.post(
+  '/api/review/ok',
+  wrap(async (req, res) => {
+    res.json(await reviewOk(await deps(), await username(), (req.body as { key?: unknown } | undefined)?.key));
+  }),
+);
+app.post(
+  '/api/review/over',
+  wrap(async (req, res) => {
+    res.json(await reviewOver(await deps(), await username(), (req.body as { key?: unknown } | undefined)?.key));
+  }),
+);
+app.post(
+  '/api/review/unlock',
+  wrap(async (req, res) => {
+    res.json(await reviewUnlock(await deps(), await username(), (req.body as { uid?: unknown } | undefined)?.uid));
   }),
 );
 

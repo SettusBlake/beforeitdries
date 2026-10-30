@@ -280,3 +280,14 @@ export async function adoptTopName(d: Deps, day: string): Promise<NamingResult> 
   }
   return { status: 'no_suggestions' };
 }
+
+/** Mod des Subreddits? (Prüfliste der Zeichnungen, im Playtest auch die Test-Knöpfe) */
+export async function isMod(d: Pick<Deps, 'reddit' | 'subredditName'>, username: string | undefined): Promise<boolean> {
+  if (!username) return false;
+  try {
+    const mods = await d.reddit.getModerators({ subredditName: d.subredditName, username }).all();
+    return mods.some((m) => m.username.toLowerCase() === username.toLowerCase());
+  } catch {
+    return false;
+  }
+}

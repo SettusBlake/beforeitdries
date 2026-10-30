@@ -107,6 +107,10 @@ export type DiceSave = {
   blankWeek?: string;
   /** Test-Knopf (Playtest, nur Mods): der nächste Zug ist Shiny in diesem Stil */
   forceShiny?: StyleId;
+  /** Von Mods übermalte Zeichnungen (Seriennummern): Sepia sagt es beim nächsten Öffnen, danach weg */
+  paintedOver?: number[];
+  /** Malen gesperrt (nach übermalten Zeichnungen): bis zu dieser Zeit, 'mod' bis ein Mod es aufhebt */
+  drawLock?: number | 'mod';
 };
 export function emptyDice(): DiceSave {
   return { v: 1, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };
@@ -133,6 +137,13 @@ export type PullResult = {
  * Dazu ein Fund, wenn der W100 beim Ziehen BLANK.find zeigt (zählt immer, auch über max).
  */
 export const BLANK = { max: 2, find: 1 };
+/**
+ * Übermalen (festgelegt am 30.10.2026): lockAt-mal innerhalb von strikeDays Tagen sperrt das Malen lockDays Tage,
+ * modAt-mal (seit der letzten Aufhebung) sperrt es, bis ein Mod es aufhebt
+ */
+export const PAINT_OVER = { strikeDays: 30, lockAt: 2, lockDays: 14, modAt: 3 };
+/** Darf gerade nicht malen */
+export const drawLocked = (s: Pick<DiceSave, 'drawLock'>, now: number): boolean => s.drawLock === 'mod' || (typeof s.drawLock === 'number' && s.drawLock > now);
 /** Ausgewaschen gibt ein Würfel so viel Lasur für seine Art */
 export const washGlaze = (r: Rarity): number => rarityDef(r).glaze;
 /** So viele Würfel bleiben mindestens, damit das Deck voll wird */

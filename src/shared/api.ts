@@ -129,6 +129,33 @@ export interface DiceResponse {
   pulls: PullResult[];
   /** Nur im Playtest und nur für Mods: Test-Knopf für leere Würfel (kommt mit dem Laden der Sammlung) */
   tester?: boolean;
+  /** Mod des Subreddits: sieht die Prüfliste der Zeichnungen, review = so viele warten (kommt mit dem Laden der Sammlung) */
+  mod?: boolean;
+  review?: number;
+}
+/** Eine gemalte Zeichnung in der Prüfliste der Mods. key = {userId}:{Würfel-ID} */
+export interface ReviewItem {
+  key: string;
+  uid: string;
+  user: string;
+  id: string;
+  no: number;
+  seed: number;
+  draw: string;
+  at: number;
+}
+/** Ein Spieler, der gerade nicht malen darf */
+export interface LockedPlayer {
+  uid: string;
+  user: string;
+  /** Übermalte Zeichnungen seit der letzten Aufhebung */
+  strikes: number;
+  lock: number | 'mod';
+}
+/** Prüfliste: neue Zeichnungen (älteste zuerst) und gesperrte Spieler */
+export interface ReviewResponse {
+  items: ReviewItem[];
+  locked: LockedPlayer[];
 }
 /** Pigment nach einem Duell */
 export interface DuelReward {
