@@ -754,9 +754,11 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   yield* wet();
 
   const er = RNG(m.seed + 4242);
-  if (m.events.bloom) bloomFx(ctx, core.b, S, main.rgb, paper, er);
-  if (m.events.salt) saltFx(ctx, core.b, S, paper, er);
-  if (m.events.alcohol) alcoholFx(ctx, core.b, S, main.rgb, paper, er);
+  // Große Vielecke (neue und gemalte Formen) messen sich am ganzen Umriss: Malereignisse bleiben so groß wie bei Klecksen
+  const fx = core.b.pts ? { ...core.b, rx: Math.min(core.b.rx, 0.16), ry: Math.min(core.b.ry, 0.16) } : core.b;
+  if (m.events.bloom) bloomFx(ctx, fx, S, main.rgb, paper, er);
+  if (m.events.salt) saltFx(ctx, fx, S, paper, er);
+  if (m.events.alcohol) alcoholFx(ctx, fx, S, main.rgb, paper, er);
   yield* pause();
 
   ctx.globalCompositeOperation = 'source-over';

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/young-serif/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-700.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-800.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/caveat/latin-500.css" />
+    <style>
+      :root { --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --line: #cfcabd; --you: #2b3fa3; --sepia: #6e4b33; --gold: #c9961e; }
+      body { margin: 0; padding: 28px; background: var(--table); font-family: Figtree, sans-serif; color: var(--ink); display: flex; gap: 36px; align-items: flex-start; width: 1160px; }
+      .eyebrow { margin: 0; font: 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+      h1 { margin: 6px 0 16px; font: 400 2rem 'Young Serif', serif; }
+      .phone { width: 390px; height: 800px; box-sizing: border-box; padding: 14px 16px; background: var(--table); border-radius: 26px; box-shadow: 0 0 0 10px #1d2130, 0 24px 50px -20px rgba(0,0,0,.5); display: flex; flex-direction: column; gap: 10px; flex: none; margin: 10px; }
+      .top { display: flex; align-items: center; gap: 10px; }
+      .top h2 { margin: 0; flex: 1; font: 400 1.5rem 'Young Serif', serif; }
+      .back { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--sheet); display: grid; place-items: center; font-size: 20px; }
+      .left { font: 700 13px Figtree; background: var(--sheet); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; }
+      .sepia { background: var(--sheet); border-radius: 12px; padding: 9px 12px; border-left: 4px solid var(--sepia); }
+      .sepia .hand { margin: 3px 0 0; font: 500 1.3rem/1.1 Caveat, cursive; color: var(--sepia); }
+      .pad { border-radius: 6px; box-shadow: 0 0 0 1px var(--line), 0 10px 22px -14px rgba(30,25,20,.6); }
+      .tools { display: flex; gap: 6px; }
+      .tool { flex: 1; min-height: 44px; border-radius: 12px; border: 1px solid var(--ink); background: transparent; font: 700 15px Figtree; }
+      .tool.on { background: var(--you); border-color: var(--you); color: var(--sheet); }
+      .hint { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.35; }
+      .primary { border: 0; border-radius: 12px; background: var(--ink); color: var(--sheet); font: 800 18px Figtree; min-height: 52px; }
+      .fine { margin: 0; font: 11px/1.4 'JetBrains Mono', monospace; color: var(--muted); }
+      .right { flex: 1; }
+      .row { display: grid; grid-template-columns: repeat(4, 156px); gap: 10px; }
+      .row.head span { font: 11px 'JetBrains Mono', monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding-bottom: 6px; }
+      figure { margin: 0; background: var(--sheet); padding: 3px; border-radius: 4px; box-shadow: 0 1px 2px rgba(22,26,44,.14); }
+      canvas { display: block; border-radius: 2px; }
+      .cap { margin: 5px 0 14px; font-size: 13px; color: var(--muted); }
+      .cap b { color: var(--ink); }
+    </style>
+  </head>
+  <body>
+    <script src="./selbst-malen.js"></script>
+  </body>
+</html>
