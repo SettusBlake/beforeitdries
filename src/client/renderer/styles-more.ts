@@ -1817,6 +1817,611 @@ export function mosaic(ctx: Ctx, m: Monster, S: number, deco: boolean): void {
   }
 }
 
+/* =====================================================================
+ * Graffiti (Entwurf 31.10.2026): Sprühfarbe auf Beton. Alte übermalte Tags, Sprühnebel, 3D-Schatten,
+ * doppelte Kontur, Verlauf in der Füllung, Glanzstriche, Laufnasen, Name als Bubble-Schrift mit Krone
+ * ===================================================================== */
+/** Form in einer Farbe aus einer Maske (Maske bleibt unverändert) */
+function tintedMask(mask: HTMLCanvasElement, col: string): HTMLCanvasElement {
+  const [c, x] = layer(mask.width);
+  x.drawImage(mask, 0, 0);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = col;
+  x.fillRect(0, 0, mask.width, mask.width);
+  return c;
+}
+export function graffiti(ctx: Ctx, m: Monster, S: number, deco: boolean): void {
+  const p = prep(m, S, 0.1, 2);
+  const r = RNG(m.seed + 5150);
+  const { y0, y1 } = centerOf(p);
+  // Beton mit Plattenfugen und Flecken
+  ctx.fillStyle = '#9b968f';
+  ctx.fillRect(0, 0, S, S);
+  grainOver(ctx, S, 0.45, 'multiply', 240);
+  grainOver(ctx, S, 0.25, 'overlay', 80);
+  for (let i = 0; i < 7; i++) {
+    const x = r() * S,
+      y = r() * S,
+      rad = S * rr(r, 0.08, 0.22);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, `rgba(60,52,44,${rr(r, 0.08, 0.18)})`);
+    g.addColorStop(1, 'rgba(60,52,44,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  ctx.strokeStyle = 'rgba(55,50,46,.4)';
+  ctx.lineWidth = S * 0.004;
+  ctx.beginPath();
+  ctx.moveTo(S * 0.34, 0);
+  ctx.lineTo(S * 0.34, S);
+  ctx.moveTo(S * 0.72, 0);
+  ctx.lineTo(S * 0.72, S);
+  ctx.moveTo(0, S * 0.6);
+  ctx.lineTo(S, S * 0.6);
+  ctx.stroke();
+  // Alte Tags, teils grau übermalt
+  const OLD = ['#d24b8a', '#2d7fd0', '#e8b320', '#3aa36b', '#1e1c22'];
+  for (let k = 0; k < 6; k++) {
+    ctx.strokeStyle = OLD[k % OLD.length]!;
+    ctx.globalAlpha = rr(r, 0.2, 0.38);
+    ctx.lineWidth = S * rr(r, 0.005, 0.011);
+    ctx.lineCap = ctx.lineJoin = 'round';
+    let x = r() * S * 0.8,
+      y = rr(r, 0.05, 0.95) * S;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    for (let i = 0; i < 6; i++) {
+      const nx = x + rr(r, 0.02, 0.07) * S,
+        ny = y + rr(r, -0.06, 0.06) * S;
+      ctx.quadraticCurveTo(x + rr(r, -0.03, 0.05) * S, y + rr(r, -0.08, 0.08) * S, nx, ny);
+      x = nx;
+      y = ny;
+    }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(140,135,128,.92)';
+  const bx = rr(r, 0.05, 0.6) * S,
+    by = rr(r, 0.05, 0.3) * S;
+  ctx.beginPath();
+  ctx.moveTo(bx, by);
+  for (let i = 0; i <= 8; i++) ctx.lineTo(bx + (i / 8) * S * 0.3, by + gauss(r) * S * 0.006);
+  for (let i = 8; i >= 0; i--) ctx.lineTo(bx + (i / 8) * S * 0.3, by + S * 0.12 + gauss(r) * S * 0.006);
+  ctx.closePath();
+  ctx.fill();
+
+  const [h, s0, l0] = toHsl(mainRgb(m));
+  const sat = clamp(s0 * 0.8 + 0.4, 0.6, 1);
+  const L = clamp(l0 * 0.35 + 0.42, 0.45, 0.62);
+  const C = fromHsl(h, sat, L),
+    LIGHT = fromHsl(towards(h, 0.14, 0.15), sat, clamp(L + 0.2, 0.6, 0.85)),
+    DARK = fromHsl(towards(h, 0.72, 0.15), sat, L - 0.2);
+  const sec = secRgb(m);
+  const OUTER: C3 = sec ? fromHsl(toHsl(sec)[0], 0.9, 0.7) : [255, 255, 255];
+  const BLACK = '#141216';
+  const faces = faceLayout(m, p, S);
+  const ex = extrasOf(m, p, S, faces);
+  const mask = silhouette(S, p, '#000', ex, 1);
+  // Äußere Kontur als eigene Lage, schwarze innen
+  const [outer, ox] = layer(S);
+  ring(ox, tintedMask(mask, rgb(OUTER)), S * 0.024);
+  ox.drawImage(tintedMask(mask, rgb(OUTER)), 0, 0);
+  // Sprühnebel
+  ctx.save();
+  ctx.shadowColor = rgb(OUTER, 0.85);
+  ctx.shadowBlur = S * 0.05;
+  ctx.globalAlpha = 0.7;
+  ctx.drawImage(outer, 0, 0);
+  ctx.restore();
+  // 3D-Schatten nach unten rechts
+  const deep = tintedMask(outer, '#241a33');
+  for (let k = 10; k >= 1; k--) ctx.drawImage(deep, k * S * 0.0028, k * S * 0.0034);
+  ctx.drawImage(outer, 0, 0);
+  ring(ctx, tintedMask(mask, BLACK), S * 0.009);
+  // Füllung: Verlauf von hell nach dunkel über die ganze Figur
+  const fade = ctx.createLinearGradient(0, y0, 0, y1);
+  fade.addColorStop(0, rgb(LIGHT));
+  fade.addColorStop(0.55, rgb(C));
+  fade.addColorStop(1, rgb(DARK));
+  for (const lm of p.geo.limbs) {
+    ctx.strokeStyle = fade;
+    strokeLimb(ctx, lm, S, lm.w * S);
+  }
+  const big = p.core.b.rx * p.core.b.ry;
+  for (const o of p.bases) {
+    ctx.fillStyle = o.b.leaf ? rgb(fromHsl(0.33, 0.8, 0.5)) : fade;
+    smoothClosed(ctx, o.base);
+    ctx.fill();
+    if (o === p.core) {
+      // Band in der Zweitfarbe mit Zacken und ein paar Blasen
+      ctx.save();
+      smoothClosed(ctx, o.base);
+      ctx.clip();
+      const by2 = (o.b.y + o.b.ry * 0.25) * S;
+      ctx.fillStyle = rgb(sec ? fromHsl(toHsl(sec)[0], 0.85, 0.55) : DARK, 0.85);
+      ctx.beginPath();
+      ctx.moveTo(0, S);
+      ctx.lineTo(0, by2);
+      for (let x = 0; x <= S; x += S * 0.03) ctx.lineTo(x, by2 + ((x / (S * 0.03)) % 2 ? S * 0.02 : 0));
+      ctx.lineTo(S, S);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.45)';
+      ctx.lineWidth = S * 0.004;
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.arc((o.b.x + rr(r, -0.6, 0.6) * o.b.rx) * S, (o.b.y + rr(r, -0.6, 0.1) * o.b.ry) * S, S * rr(r, 0.01, 0.025), 0, 7);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    ctx.strokeStyle = BLACK;
+    ctx.lineWidth = S * 0.005;
+    smoothClosed(ctx, o.base);
+    ctx.stroke();
+    // Glanzstriche oben links
+    if (o.b.rx * o.b.ry > big * 0.2 && !o.b.leaf) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = S * 0.011;
+      ctx.beginPath();
+      ctx.ellipse(o.b.x * S, o.b.y * S, o.b.rx * S * 0.72, o.b.ry * S * 0.72, o.b.rot || 0, Math.PI * 1.08, Math.PI * 1.32);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc((o.b.x - o.b.rx * 0.36) * S, (o.b.y - o.b.ry * 0.68) * S, S * 0.0065, 0, 7);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+  }
+  // Laufnasen unten an den Flächen
+  for (const o of p.bases) {
+    if (o.b.leaf) continue;
+    const low = [...o.base].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    for (let k = 0; k < 2; k++) {
+      if (r() < 0.35) continue;
+      const q = low[Math.floor(r() * low.length)]!;
+      const len = S * rr(r, 0.03, 0.09),
+        w = S * rr(r, 0.006, 0.009);
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = BLACK;
+      ctx.lineWidth = w + S * 0.006;
+      ctx.beginPath();
+      ctx.moveTo(q[0], q[1] - S * 0.004);
+      ctx.lineTo(q[0], q[1] + len);
+      ctx.stroke();
+      ctx.strokeStyle = rgb(DARK);
+      ctx.lineWidth = w;
+      ctx.stroke();
+      ctx.fillStyle = rgb(DARK);
+      ctx.beginPath();
+      ctx.arc(q[0], q[1] + len, w * 0.9, 0, 7);
+      ctx.fill();
+    }
+  }
+  // Gesicht: große Augen mit schwerem Lid und Brauen
+  for (const f of faces) {
+    for (const st of f.stalks) {
+      ctx.strokeStyle = BLACK;
+      ctx.lineWidth = f.R * 0.1;
+      limbPath(ctx, st);
+      ctx.stroke();
+    }
+    for (const e of f.eyes) {
+      const rad = e.r * (e.kind === 'punkt' ? 2.1 : 1.45);
+      if (e.kind === 'schlitz' || e.kind === 'muede') {
+        ctx.strokeStyle = BLACK;
+        ctx.lineWidth = S * 0.008;
+        ctx.beginPath();
+        ctx.moveTo(e.x - rad, e.y);
+        ctx.quadraticCurveTo(e.x, e.y + (e.kind === 'muede' ? rad * 0.5 : -rad * 0.2), e.x + rad, e.y);
+        ctx.stroke();
+        continue;
+      }
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = BLACK;
+      ctx.lineWidth = S * 0.006;
+      ctx.beginPath();
+      ctx.ellipse(e.x, e.y, rad, rad * 1.2, 0, 0, 7);
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = BLACK;
+      ctx.beginPath();
+      ctx.arc(e.x + rad * 0.2, e.y + rad * 0.25, rad * 0.55, 0, 7);
+      ctx.fill();
+      // Schweres Lid: cooler Blick
+      ctx.fillStyle = rgb(DARK);
+      ctx.fillRect(e.x - rad * 1.2, e.y - rad * 1.3, rad * 2.4, rad * 0.85);
+      ctx.restore();
+      ctx.beginPath();
+      ctx.ellipse(e.x, e.y, rad, rad * 1.2, 0, 0, 7);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.x - rad * 1.05, e.y - rad * 0.45);
+      ctx.lineTo(e.x + rad * 1.05, e.y - rad * 0.45);
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(e.x + rad * 0.05, e.y + rad * 0.12, rad * 0.16, 0, 7);
+      ctx.fill();
+    }
+    if (f.eyes.length) {
+      if (f.mouth.kind === 'grinsen' || f.mouth.kind === 'zaehne') {
+        const { x, y } = f.mouth,
+          R = f.R;
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = BLACK;
+        ctx.lineWidth = S * 0.005;
+        ctx.beginPath();
+        ctx.moveTo(x - R * 0.26, y - R * 0.08);
+        ctx.quadraticCurveTo(x, y + R * 0.05, x + R * 0.26, y - R * 0.12);
+        ctx.quadraticCurveTo(x, y + R * 0.3, x - R * 0.26, y - R * 0.08);
+        ctx.fill();
+        ctx.stroke();
+      } else plainMouth(ctx, f, BLACK, S * 0.007);
+    }
+  }
+  // Glanzsterne
+  for (let i = 0; i < 3; i++) {
+    const o = p.bases[i % p.bases.length]!;
+    const x = (o.b.x + rr(r, -0.8, 0.2) * o.b.rx) * S,
+      y = (o.b.y - rr(r, 0.4, 0.9) * o.b.ry) * S,
+      s = S * rr(r, 0.018, 0.03);
+    ctx.save();
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowBlur = s;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    star(ctx, x, y, s, s * 0.15, 4);
+    ctx.fill();
+    ctx.restore();
+  }
+  if (deco) graffitiTag(ctx, m, S, C, LIGHT, DARK, OUTER, r);
+}
+/** Name als Bubble-Schrift: Tiefe, helle und schwarze Kontur, Verlauf, Krone und Laufnasen */
+function graffitiTag(ctx: Ctx, m: Monster, S: number, C: C3, LIGHT: C3, DARK: C3, OUTER: C3, r: Rand): void {
+  const text = m.name;
+  ctx.save();
+  ctx.translate(S * 0.07, S * 0.93);
+  ctx.rotate(-0.07);
+  ctx.font = `900 ${S * 0.1}px Figtree, sans-serif`;
+  ctx.lineJoin = 'round';
+  const w = ctx.measureText(text).width;
+  for (let k = 7; k >= 1; k--) {
+    ctx.fillStyle = '#241a33';
+    ctx.strokeStyle = '#241a33';
+    ctx.lineWidth = S * 0.03;
+    ctx.strokeText(text, k * S * 0.0025, k * S * 0.003);
+  }
+  ctx.strokeStyle = rgb(OUTER);
+  ctx.lineWidth = S * 0.03;
+  ctx.strokeText(text, 0, 0);
+  ctx.strokeStyle = '#141216';
+  ctx.lineWidth = S * 0.014;
+  ctx.strokeText(text, 0, 0);
+  const g = ctx.createLinearGradient(0, -S * 0.08, 0, 0);
+  g.addColorStop(0, rgb(LIGHT));
+  g.addColorStop(0.6, rgb(C));
+  g.addColorStop(1, rgb(DARK));
+  ctx.fillStyle = g;
+  ctx.fillText(text, 0, 0);
+  // Krone über dem ersten Buchstaben
+  ctx.fillStyle = '#ffd23f';
+  ctx.strokeStyle = '#141216';
+  ctx.lineWidth = S * 0.004;
+  ctx.beginPath();
+  const cx = S * 0.02,
+    cy = -S * 0.1;
+  ctx.moveTo(cx - S * 0.03, cy);
+  ctx.lineTo(cx - S * 0.035, cy - S * 0.035);
+  ctx.lineTo(cx - S * 0.015, cy - S * 0.015);
+  ctx.lineTo(cx, cy - S * 0.045);
+  ctx.lineTo(cx + S * 0.015, cy - S * 0.015);
+  ctx.lineTo(cx + S * 0.035, cy - S * 0.035);
+  ctx.lineTo(cx + S * 0.03, cy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Laufnasen aus der Schrift
+  ctx.strokeStyle = rgb(DARK);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const x = rr(r, 0.1, 0.9) * w,
+      len = S * rr(r, 0.015, 0.045);
+    ctx.lineWidth = S * 0.006;
+    ctx.beginPath();
+    ctx.moveTo(x, S * 0.005);
+    ctx.lineTo(x, S * 0.005 + len);
+    ctx.stroke();
+  }
+  ctx.restore();
+  // Seriennummer als schnelles Kürzel in der Ecke
+  ctx.fillStyle = '#141216';
+  ctx.font = `400 ${S * 0.05}px Caveat, cursive`;
+  ctx.fillText(serialOf(m), S * 0.78, S * 0.08);
+}
+
+/* =====================================================================
+ * Art Nouveau (Entwurf 31.10.2026): Jugendstil-Karte wie ein Plakat um 1900. Großer Nimbus mit Ringen und
+ * Strahlen, Lilien und Ranken mit Peitschenschwung, gedämpfte Farben, braune Linie mit Druck, Rahmen und Titelfeld
+ * ===================================================================== */
+const NV = { ink: '#4a3424', cream: '#efe4c9', gold: '#c9a24b', paleGold: '#ead7a2', sage: '#93a98a', teal: '#5f8f8a', rose: '#d4a29a' };
+/** Spirale wie ein Peitschenschwung, von außen nach innen */
+function spiral(ctx: Ctx, x: number, y: number, R: number, turns: number, dir: number, a0: number): void {
+  ctx.beginPath();
+  const n = 60;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n,
+      a = a0 + dir * t * turns * Math.PI * 2,
+      rad = R * (1 - t * 0.85);
+    const px = x + Math.cos(a) * rad,
+      py = y + Math.sin(a) * rad;
+    i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+  }
+  ctx.stroke();
+}
+/** Eine Lilie: Stängel mit Schwung, Blätter, Blüte aus fünf Blütenblättern */
+function lily(ctx: Ctx, x: number, y: number, tx: number, ty: number, S: number, r: Rand, col: string): void {
+  const cx1 = x + (tx - x) * 0.1 + (r() < 0.5 ? -1 : 1) * S * 0.12,
+    cy1 = y + (ty - y) * 0.45;
+  ctx.strokeStyle = NV.ink;
+  ctx.lineWidth = S * 0.006;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(cx1, cy1, tx, ty);
+  ctx.stroke();
+  ctx.strokeStyle = NV.sage;
+  ctx.lineWidth = S * 0.0035;
+  ctx.stroke();
+  // Blätter entlang des Stängels
+  for (let k = 1; k <= 3; k++) {
+    const t = k / 4.2,
+      px = (1 - t) * (1 - t) * x + 2 * (1 - t) * t * cx1 + t * t * tx,
+      py = (1 - t) * (1 - t) * y + 2 * (1 - t) * t * cy1 + t * t * ty;
+    const a = (k % 2 ? -1 : 1) * 0.9 - Math.PI / 2;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(a + Math.PI / 2);
+    ctx.fillStyle = k % 2 ? NV.sage : NV.teal;
+    ctx.strokeStyle = NV.ink;
+    ctx.lineWidth = S * 0.003;
+    ctx.beginPath();
+    ctx.ellipse(S * 0.03, 0, S * 0.032, S * 0.011, 0, 0, 7);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+  // Blüte
+  ctx.fillStyle = col;
+  ctx.strokeStyle = NV.ink;
+  ctx.lineWidth = S * 0.003;
+  for (let k = 0; k < 5; k++) {
+    const a = -Math.PI / 2 + (k - 2) * 0.55;
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.ellipse(S * 0.025, 0, S * 0.026, S * 0.011, 0, 0, 7);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillStyle = NV.gold;
+  ctx.beginPath();
+  ctx.arc(tx, ty, S * 0.008, 0, 7);
+  ctx.fill();
+}
+export function nouveau(ctx: Ctx, m: Monster, S: number, deco: boolean): void {
+  const p = prep(m, S, 0.1, 2);
+  const r = RNG(m.seed + 1900);
+  const { cx, x0, y0, x1, y1 } = centerOf(p);
+  const faces = faceLayout(m, p, S);
+  // Grund: Creme, unten leicht salbeigrün
+  const bg = ctx.createLinearGradient(0, 0, 0, S);
+  bg.addColorStop(0, NV.cream);
+  bg.addColorStop(1, '#dfe2c8');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, S, S);
+  // Nimbus hinter Kopf und Körper
+  const f0 = faces[0];
+  const R = clamp(Math.max(x1 - x0, (y1 - y0) * 0.7) * 0.55, S * 0.22, S * 0.36);
+  // Der Nimbus bleibt ganz im Bild, auch wenn der Kopf am Rand sitzt
+  const hx = clamp(f0 ? f0.X : cx, R + S * 0.05, S - R - S * 0.05),
+    hy = clamp(f0 ? f0.Y : y0 + (y1 - y0) * 0.35, R + S * 0.05, S - R - S * 0.05);
+  ctx.fillStyle = NV.paleGold;
+  ctx.beginPath();
+  ctx.arc(hx, hy, R, 0, 7);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(74,52,36,.28)';
+  ctx.lineWidth = S * 0.002;
+  for (let k = 0; k < 48; k++) {
+    const a = (k / 48) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(hx + Math.cos(a) * R * 0.3, hy + Math.sin(a) * R * 0.3);
+    ctx.lineTo(hx + Math.cos(a) * R * 0.8, hy + Math.sin(a) * R * 0.8);
+    ctx.stroke();
+  }
+  // Band mit Steinchen zwischen zwei Ringen
+  ctx.fillStyle = NV.gold;
+  ctx.beginPath();
+  ctx.arc(hx, hy, R, 0, 7);
+  ctx.arc(hx, hy, R * 0.82, 0, 7, true);
+  ctx.fill();
+  const nDots = 36;
+  for (let k = 0; k < nDots; k++) {
+    const a = (k / nDots) * Math.PI * 2;
+    ctx.fillStyle = k % 3 === 0 ? NV.teal : k % 3 === 1 ? NV.rose : NV.cream;
+    ctx.beginPath();
+    ctx.arc(hx + Math.cos(a) * R * 0.91, hy + Math.sin(a) * R * 0.91, R * 0.045, 0, 7);
+    ctx.fill();
+  }
+  ctx.strokeStyle = NV.ink;
+  ctx.lineWidth = S * 0.004;
+  for (const k of [1, 0.82, 0.3]) {
+    ctx.beginPath();
+    ctx.arc(hx, hy, R * k, 0, 7);
+    ctx.stroke();
+  }
+  // Lilien aus den unteren Ecken
+  const fy = Math.min(S * 0.97, Math.max(y1, S * 0.8));
+  lily(ctx, S * 0.04, S * 1.0, S * 0.14, fy - S * 0.36, S, r, NV.rose);
+  lily(ctx, S * 0.96, S * 1.0, S * 0.86, fy - S * 0.3, S, r, NV.cream);
+  if (r() < 0.6) lily(ctx, S * 0.1, S * 1.0, S * 0.24, fy - S * 0.18, S, r, NV.cream);
+  // Figur: gedämpfte Farbe, braune Linie, fließende Innenlinien
+  const [h, s0, l0] = toHsl(mainRgb(m));
+  const C = fromHsl(h, clamp(s0 * 0.45 + 0.12, 0.22, 0.5), clamp(l0 * 0.3 + 0.52, 0.55, 0.74));
+  const sec = secRgb(m);
+  const ex = extrasOf(m, p, S, faces);
+  ring(ctx, silhouette(S, p, NV.ink, ex), S * 0.0065);
+  for (const lm of p.geo.limbs) {
+    ctx.strokeStyle = rgb(C);
+    strokeLimb(ctx, lm, S, lm.w * S);
+  }
+  for (const o of p.bases) {
+    ctx.fillStyle = o.b.leaf ? NV.sage : rgb(C);
+    smoothClosed(ctx, o.base);
+    ctx.fill();
+    ctx.save();
+    smoothClosed(ctx, o.base);
+    ctx.clip();
+    if (o === p.core && sec) {
+      ctx.fillStyle = rgb(fromHsl(toHsl(sec)[0], 0.35, 0.78));
+      ctx.beginPath();
+      ctx.ellipse(o.b.x * S, (o.b.y + o.b.ry * 0.4) * S, o.b.rx * S * 0.55, o.b.ry * S * 0.45, o.b.rot || 0, 0, 7);
+      ctx.fill();
+    }
+    const g = ctx.createLinearGradient((o.b.x - o.b.rx) * S, (o.b.y - o.b.ry) * S, (o.b.x + o.b.rx) * S, (o.b.y + o.b.ry) * S);
+    g.addColorStop(0, 'rgba(255,248,230,.25)');
+    g.addColorStop(1, 'rgba(74,52,36,.22)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S, S);
+    // Fließende Innenlinien wie Faltenwurf
+    ctx.strokeStyle = 'rgba(74,52,36,.35)';
+    ctx.lineWidth = S * 0.0025;
+    for (const k of [0.72]) {
+      ctx.beginPath();
+      o.base.forEach((q, i) => {
+        const px = o.b.x * S + (q[0] - o.b.x * S) * k,
+          py = o.b.y * S + (q[1] - o.b.y * S) * k + o.b.ry * S * (1 - k) * 0.35;
+        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      });
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.strokeStyle = NV.ink;
+    ctx.lineWidth = S * 0.0035;
+    smoothClosed(ctx, o.base);
+    ctx.stroke();
+  }
+  // Ruhiges Gesicht: Mandelaugen mit schwerem Lid, kleiner Mund in Rosé
+  for (const f of faces) {
+    for (const st of f.stalks) {
+      ctx.strokeStyle = NV.ink;
+      ctx.lineWidth = f.R * 0.07;
+      limbPath(ctx, st);
+      ctx.stroke();
+    }
+    for (const e of f.eyes) {
+      const w = e.r * (e.kind === 'punkt' ? 2 : 1.3),
+        hh = w * 0.5;
+      ctx.fillStyle = '#fbf6ea';
+      ctx.strokeStyle = NV.ink;
+      ctx.lineWidth = S * 0.003;
+      ctx.beginPath();
+      ctx.moveTo(e.x - w, e.y);
+      ctx.quadraticCurveTo(e.x, e.y - hh * 1.6, e.x + w, e.y);
+      ctx.quadraticCurveTo(e.x, e.y + hh * 1.3, e.x - w, e.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = NV.teal;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y + hh * 0.1, hh * 0.85, 0, 7);
+      ctx.fill();
+      ctx.fillStyle = NV.ink;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y + hh * 0.1, hh * 0.38, 0, 7);
+      ctx.fill();
+      // Lid halb geschlossen
+      ctx.fillStyle = rgb(shade(C, 0.92));
+      ctx.fillRect(e.x - w * 1.2, e.y - hh * 2, w * 2.4, hh * (e.kind === 'muede' || e.kind === 'schlitz' ? 2.1 : 1.45));
+      ctx.restore();
+      ctx.lineWidth = S * 0.0045;
+      ctx.beginPath();
+      ctx.moveTo(e.x - w * 1.05, e.y - hh * 0.05);
+      ctx.quadraticCurveTo(e.x, e.y - hh * (e.kind === 'muede' || e.kind === 'schlitz' ? 0.3 : 1.05), e.x + w * 1.05, e.y - hh * 0.05);
+      ctx.stroke();
+      // Feine Braue
+      ctx.lineWidth = S * 0.002;
+      ctx.beginPath();
+      ctx.moveTo(e.x - w * 0.9, e.y - hh * 2.1);
+      ctx.quadraticCurveTo(e.x, e.y - hh * 2.8, e.x + w * 1.1, e.y - hh * 2.0);
+      ctx.stroke();
+    }
+    if (f.eyes.length && f.mouth.kind !== 'keiner') {
+      const { x, y } = f.mouth,
+        Rm = f.R;
+      ctx.fillStyle = '#c97a72';
+      ctx.beginPath();
+      ctx.ellipse(x, y - Rm * 0.02, Rm * 0.1, Rm * 0.045, 0, 0, 7);
+      ctx.fill();
+    }
+  }
+  grainOver(ctx, S, 0.12, 'multiply', 420);
+  // Rahmen: klein ein feiner Doppelrand, groß das ganze Plakat
+  ctx.strokeStyle = NV.ink;
+  if (!deco) {
+    ctx.lineWidth = S * 0.006;
+    ctx.strokeRect(S * 0.03, S * 0.03, S * 0.94, S * 0.94);
+    return;
+  }
+  ctx.lineWidth = S * 0.008;
+  ctx.strokeRect(S * 0.025, S * 0.025, S * 0.95, S * 0.95);
+  ctx.lineWidth = S * 0.003;
+  ctx.strokeRect(S * 0.045, S * 0.045, S * 0.91, S * 0.91);
+  // Bogen oben mit Spiralen in den Ecken
+  ctx.lineWidth = S * 0.005;
+  ctx.beginPath();
+  ctx.moveTo(S * 0.045, S * 0.2);
+  ctx.bezierCurveTo(S * 0.2, S * 0.05, S * 0.8, S * 0.05, S * 0.955, S * 0.2);
+  ctx.stroke();
+  for (const [x, y, dir] of [
+    [S * 0.11, S * 0.11, 1],
+    [S * 0.89, S * 0.11, -1],
+    [S * 0.11, S * 0.83, -1],
+    [S * 0.89, S * 0.83, 1],
+  ] as const) {
+    ctx.lineWidth = S * 0.004;
+    spiral(ctx, x, y, S * 0.045, 1.6, dir, dir > 0 ? Math.PI : 0);
+  }
+  // Titelfeld unten mit dem Namen, Seriennummer im kleinen Schild oben
+  const ty = S * 0.875;
+  ctx.fillStyle = NV.gold;
+  ctx.beginPath();
+  ctx.roundRect(S * 0.16, ty, S * 0.68, S * 0.085, S * 0.042);
+  ctx.fill();
+  ctx.lineWidth = S * 0.005;
+  ctx.stroke();
+  ctx.fillStyle = NV.ink;
+  ctx.font = `400 ${S * 0.042}px "Young Serif", serif`;
+  ctx.textAlign = 'center';
+  const name = m.name.toUpperCase().split('').join(' ');
+  ctx.fillText(name, S * 0.5, ty + S * 0.058);
+  ctx.fillStyle = NV.cream;
+  ctx.beginPath();
+  ctx.roundRect(S * 0.4, S * 0.035, S * 0.2, S * 0.05, S * 0.02);
+  ctx.fill();
+  ctx.lineWidth = S * 0.003;
+  ctx.stroke();
+  ctx.fillStyle = NV.ink;
+  ctx.font = `400 ${S * 0.026}px "Young Serif", serif`;
+  ctx.fillText(`No. ${String(m.seed % 100000).padStart(5, '0')}`, S * 0.5, S * 0.068);
+  ctx.textAlign = 'left';
+}
+
 /** Entwurf: alle neuen Stile unter einem Namen */
 export const MORE_STYLES = {
   anime_sky: (ctx: Ctx, m: Monster, S: number, deco: boolean) => anime2(ctx, m, S, 'sky', deco),
@@ -1829,6 +2434,8 @@ export const MORE_STYLES = {
   crayon,
   papercut,
   mosaic,
+  graffiti,
+  nouveau,
 } as const;
 export type MoreStyle = keyof typeof MORE_STYLES;
 /** Wie renderStyled: Leinwand vorbereiten und im Entwurfsstil malen */

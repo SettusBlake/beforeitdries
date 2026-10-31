@@ -1,6 +1,6 @@
 # Plan: Anime neu und weitere Stilrichtungen für Shinys
 
-Stand 30.10.2026, Fassung 2. Freigegeben am 30.10.2026 („und ja“) mit den Empfehlungen: Anime mit beiden Szenen je nach Monster, alle acht neuen Stile, W20 wie in der Tabelle. Gebaut, Playtest v0.0.1.81, Bild docs/entwuerfe/stile-mehr-im-spiel.png. Frage 4 (weitere Ideen) ist noch offen.
+Stand 31.10.2026, Fassung 3. Freigegeben am 30.10.2026 („und ja“) mit den Empfehlungen: Anime mit beiden Szenen je nach Monster, alle acht neuen Stile, W20 wie in der Tabelle. Gebaut, Playtest v0.0.1.81, Bild docs/entwuerfe/stile-mehr-im-spiel.png. Gewünscht am 31.10.2026: Graffiti und Jugendstil-Karte als Entwurf. Gezeichnet, Entwurfsbogen docs/entwuerfe/graffiti-jugendstil-entwurf.png, wartet auf Freigabe (Fragen 5 bis 7 unten).
 
 Wunsch 30.10.2026: Mit dem Anime-Stil noch nicht zufrieden, dazu fehlen noch andere Stilrichtungen.
 
@@ -92,9 +92,31 @@ Werden es weniger, verteile ich die Seiten neu, immer mit 1 oder 2 Seiten je Sti
 - Test-Knopf „next dip shiny“ zeigt alle 13 Stile.
 - Tests: jede Seite des W20 gehört genau einem Stil, sieben mit 2 Seiten, sechs mit 1.
 
+## Weitere Entwürfe (31.10.2026): Graffiti und Jugendstil-Karte
+
+Quelle tools/mockup/stile-mehr2.ts, Stile `graffiti` und `nouveau` in src/client/renderer/styles-more.ts, noch nicht im Spiel.
+
+| | Stil | Was man sieht | Karte groß |
+|---|---|---|---|
+| I | **Graffiti** | Sprühfarbe auf einer Betonwand mit Plattenfugen, alte Tags halb grau übermalt, Sprühnebel in der Zweitfarbe, 3D-Schatten nach unten rechts, doppelte Kontur (hell außen, schwarz innen), Füllung mit Verlauf und gezacktem Band, Glanzstriche und Sterne, Laufnasen, Augen mit schwerem Lid | Name als Bubble-Schrift mit Tiefe, Krone und Laufnasen, Seriennummer wie schnell hingekritzelt |
+| J | **Jugendstil-Karte** | Plakat um 1900: großer Nimbus hinter dem Kopf mit Ringen, Strahlen und Steinchen, Lilien mit Peitschenschwung aus den Ecken, gedämpfte Farben, braune Linie, Faltenlinie im Körper, ruhige halb geschlossene Augen, kleiner Mund in Rosé | Rahmen mit Bogen und Spiralen, goldenes Titelfeld mit dem Namen, Nummernschild oben |
+
+- Malzeit: Graffiti etwa 0,6 Aquarell (groß gut 100 ms wegen Sprühnebel), Jugendstil etwa 0,2.
+- Werkzeuge beim Ziehen: Graffiti eine Sprühdose mit Nebel, Jugendstil eine Feder mit goldener Spitze.
+
+### Seltenheit mit 15 Stilen
+
+Der W20 ist mit 13 Stilen voll. Zwei Wege:
+
+- **A, W20 bleibt:** fünf Stile mit 2 Seiten (Pencil, Comic, Anime, Pixel, Neon, je 1 zu 10 000), zehn mit 1 Seite (Bestiary Plate, Crayon, Oil, Ukiyo-e, Stained Glass, Blueprint, Papercut, Mosaic, Graffiti, Jugendstil, je 1 zu 20 000). Bestiary Plate und Crayon werden dadurch seltener.
+- **B, W24:** alle bisherigen Seiten bleiben, Graffiti und Jugendstil bekommen je 2 Seiten. Dann ist jeder Stil etwas seltener: 2 Seiten 1 zu 12 000, 1 Seite 1 zu 24 000.
+
 ## Fragen
 
 1. Anime: Szene 1 (Himmel), Szene 2 (Speedlines) oder beide, je nach Monster gewürfelt? (Empfehlung: beide, das macht jedes Anime-Shiny etwas anders)
 2. Welche der acht Kandidaten sollen ins Spiel? (Empfehlung: alle acht, sie sind deutlich verschieden und schnell)
 3. Seltenheit mit W20 wie in der Tabelle? (Empfehlung: ja)
-4. Reizt dich eine der weiteren Ideen ohne Entwurf, die ich als Nächstes zeichnen soll?
+4. Reizt dich eine der weiteren Ideen ohne Entwurf, die ich als Nächstes zeichnen soll? (Beantwortet am 31.10.2026: Graffiti und Jugendstil-Karte, gezeichnet)
+5. Graffiti und Jugendstil-Karte ins Spiel? (Empfehlung: beide)
+6. Seltenheit: A (W20 bleibt, Plate und Crayon seltener) oder B (W24)? (Empfehlung: A, der W20 bleibt vertraut und die Rechnung einfach)
+7. Noch offen ohne Entwurf: Knetfigur, Low-Poly, Kreuzstich, Höhlenmalerei, Risograph-Druck. Später zeichnen oder weglassen? (Empfehlung: erst einmal weglassen, 15 Stile reichen für 1 zu 1000)
