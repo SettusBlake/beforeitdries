@@ -1,6 +1,6 @@
 # Plan: Anime neu und weitere Stilrichtungen für Shinys
 
-Stand 31.10.2026, Fassung 3. Freigegeben am 30.10.2026 („und ja“) mit den Empfehlungen: Anime mit beiden Szenen je nach Monster, alle acht neuen Stile, W20 wie in der Tabelle. Gebaut, Playtest v0.0.1.81, Bild docs/entwuerfe/stile-mehr-im-spiel.png. Gewünscht am 31.10.2026: Graffiti und Jugendstil-Karte als Entwurf. Gezeichnet, Entwurfsbogen docs/entwuerfe/graffiti-jugendstil-entwurf.png, wartet auf Freigabe (Fragen 5 bis 7 unten).
+Stand 31.10.2026, Fassung 4. Freigegeben am 30.10.2026 („und ja“) mit den Empfehlungen: Anime mit beiden Szenen je nach Monster, alle acht neuen Stile, W20 wie in der Tabelle. Gebaut, Playtest v0.0.1.81, Bild docs/entwuerfe/stile-mehr-im-spiel.png. Graffiti und Jugendstil-Karte gezeichnet am 31.10.2026 (docs/entwuerfe/graffiti-jugendstil-entwurf.png). Antworten am 31.10.2026: Frage 5 ja (beide ins Spiel), Frage 6 Stile müssen nicht Shiny sein, Shiny soll extra Glanz und Holo bringen, Frage 7 weglassen. Weiter in docs/entwuerfe/stil-und-holo-plan.md.
 
 Wunsch 30.10.2026: Mit dem Anime-Stil noch nicht zufrieden, dazu fehlen noch andere Stilrichtungen.
 
