@@ -1,6 +1,6 @@
 # Plan: Galerie-Duell (andere Spieler im Duell)
 
-Stand 31.10.2026, Fassung 1. Gewünscht am 31.10.2026 („mach 1, schreib den plan“). Freigegeben am 31.10.2026 („alles ja“, alle sieben Fragen). Alle drei Schritte gebaut (siehe unten), offen ist Frage 8.
+Stand 31.10.2026, Fassung 1. Gewünscht am 31.10.2026 („mach 1, schreib den plan“). Freigegeben am 31.10.2026 („alles ja“, alle sieben Fragen). Alle drei Schritte gebaut (siehe unten). Frage 8 am 31.10.2026 entschieden: so lassen, kein Heimvorteil.
 
 Entwurf: docs/entwuerfe/galerie-duell-entwurf.png (Attrappe auf der echten Vorschau, Quelle tools/mockup/galerie-entwurf.cjs).
 
@@ -140,4 +140,4 @@ Allein im Test-Subreddit gibt es keine fremden Decks und kein fremdes Archiv. De
 
 Neue Frage nach Schritt 1:
 
-8. Ein gleich starkes Galerie-Deck verliert gegen einen Spieler, der so gut spielt wie der Computer, etwa 2 von 3 Duellen. So lassen (wer gut spielt, gewinnt öfter) oder dem Galerie-Deck einen kleinen Heimvorteil geben, z. B. 1 Guard und 1 Glow zum Start? (Empfehlung: erst so lassen und nach deinen eigenen Duellen entscheiden)
+8. Ein gleich starkes Galerie-Deck verliert gegen einen Spieler, der so gut spielt wie der Computer, etwa 2 von 3 Duellen. So lassen (wer gut spielt, gewinnt öfter) oder dem Galerie-Deck einen kleinen Heimvorteil geben, z. B. 1 Guard und 1 Glow zum Start? (Empfehlung: erst so lassen und nach deinen eigenen Duellen entscheiden) **Entschieden am 31.10.2026: so lassen.**
