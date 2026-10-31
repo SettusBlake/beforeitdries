@@ -3,7 +3,7 @@
  * Alle Würfe kommen vom Server, hier wird nur gezeigt und angetippt. Jedes Monster gibt es nur einmal (Seriennummer).
  */
 import { statBlock } from './statcard';
-import type { DiceResponse } from '../../shared/api';
+import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER } from '../../shared/data';
 import { dayKey } from '../../shared/day';
 import { dieMonster, dieSpecies, drawLocked, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
@@ -17,6 +17,7 @@ import { loadSpecies, namingPost, speciesName, speciesNamedBy } from '../lib/spe
 import { initDraw, openDraw } from './draw';
 import { initReview, openReview } from './review';
 import { foeTag, galleryStatus, inboxText, setGalleryStatus } from './gallery';
+import { buyBox, initMarket, marketGate, openMarket, provText, sellBox, setMarket, setTradeStatus, tradeStatusNow } from './market';
 import { setColorChoice } from './colors';
 import { iconSvg, netSvg } from './icons';
 import type { Reveal, RevealPull } from './gacha/reveal';
@@ -58,7 +59,8 @@ let washShiny: string | null = null;
 
 /* ---------- Bilder der Würfel: nebenbei gemalt, fertige sofort ---------- */
 function art(d: DieRec, px: number, prio = 0, deco = false): HTMLCanvasElement {
-  const key = `${d.id}:${d.paper ?? ''}:${d.gen ?? 1}:${d.style ?? ''}:${d.draw ? 'draw' : ''}:${deco ? 'deco' : ''}:${px}`;
+  // Schlüssel aus dem Seed: Würfel aus dem Markt haben IDs, die es auch in deiner Sammlung gibt
+  const key = `${d.sheet}:${d.idx}:${d.paper ?? ''}:${d.gen ?? 1}:${d.style ?? ''}:${d.draw ? 'draw' + d.draw.length : ''}:${deco ? 'deco' : ''}:${px}`;
   const out = document.createElement('canvas');
   out.width = out.height = Math.max(200, Math.round(px * dpr()));
   const draw = (c: HTMLCanvasElement) => {
@@ -69,7 +71,9 @@ function art(d: DieRec, px: number, prio = 0, deco = false): HTMLCanvasElement {
     out.classList.remove('wet');
   };
   // Bilder vom Ziehen gibt es nur in Aquarell, ein Stil malt sich selbst
-  const now = paintedNow(key) ?? (d.style ? null : looseNow(looseKey(d.id, d), out.width));
+  // Bilder vom Ziehen hängen an der ID: nur für eigene Würfel (fremde aus dem Markt haben IDs, die es bei dir auch gibt)
+  const own = !!save?.dice.some((x) => x.id === d.id && x.sheet === d.sheet && x.idx === d.idx);
+  const now = paintedNow(key) ?? (d.style || !own ? null : looseNow(looseKey(d.id, d), out.width));
   if (now) draw(now);
   else {
     out.classList.add('wet');
@@ -151,6 +155,18 @@ function render(): void {
     $('painted-say').textContent = `I painted over ${nos.length > 1 ? nos.slice(0, -1).join(', ') + ' and ' + nos[nos.length - 1] : nos[0]}. Some things do not belong on my sheet.`;
   }
   ($('painted-ok') as HTMLButtonElement).disabled = busy;
+  // Sepia erzählt einmal, was Markt und Tausch gebracht haben (Pigment ist schon gutgeschrieben)
+  const news = [...(s.news ?? [])].reverse();
+  $('news-note').hidden = !news.length;
+  if (news.length) $('news-say').textContent = news.slice(0, 3).map((n) => n.text).join(' ') + (news.length > 3 ? ` And ${news.length - 3} more.` : '');
+  ($('news-ok') as HTMLButtonElement).disabled = busy;
+  // Markt: wie viele Würfel es gibt, wie viele von dir drin sind
+  const ts = tradeStatusNow();
+  $('market-sub').textContent = ts ? (ts.listed ? `${ts.listed} of yours for sale` : ts.market ? `${ts.market} dice for sale` : 'dice for pigment') : 'dice for pigment';
+  $('market-test').hidden = !tester;
+  ($('market-test') as HTMLButtonElement).disabled = busy;
+  $('market-buy-test').hidden = !tester;
+  ($('market-buy-test') as HTMLButtonElement).disabled = busy;
   // Was dein Deck in der Galerie erlebt hat, bis du es abholst
   const gs = galleryStatus();
   $('gallery-note').hidden = !gs?.inbox;
@@ -170,21 +186,21 @@ function render(): void {
   $('pigment-test').hidden = !tester;
   ($('pigment-test') as HTMLButtonElement).disabled = busy;
   // Test-Knopf: der nächste Zug mit dem gewählten Stil und, getrennt davon, mit Holo
-  const ts = $('shiny-test');
-  ts.hidden = !tester;
+  const st = $('shiny-test');
+  st.hidden = !tester;
   if (tester) {
-    ts.replaceChildren(el('span', '', 'Playtest · mods only · next dip:'));
+    st.replaceChildren(el('span', '', 'Playtest · mods only · next dip:'));
     const holo = el('button', 'chip holo' + (s.forceHolo ? ' on' : ''), '✦ Holo') as HTMLButtonElement;
     holo.type = 'button';
     holo.disabled = busy;
     holo.addEventListener('click', () => void testShiny(s.forceStyle ?? null, !s.forceHolo));
-    ts.append(holo);
-    for (const st of STYLES) {
-      const b = el('button', 'chip' + (s.forceStyle === st.k ? ' on' : ''), st.label) as HTMLButtonElement;
+    st.append(holo);
+    for (const sk of STYLES) {
+      const b = el('button', 'chip' + (s.forceStyle === sk.k ? ' on' : ''), sk.label) as HTMLButtonElement;
       b.type = 'button';
       b.disabled = busy;
-      b.addEventListener('click', () => void testShiny(s.forceStyle === st.k ? null : st.k, !!s.forceHolo));
-      ts.append(b);
+      b.addEventListener('click', () => void testShiny(s.forceStyle === sk.k ? null : sk.k, !!s.forceHolo));
+      st.append(b);
     }
   }
   // Beutel
@@ -256,6 +272,7 @@ function apply(r: DiceResponse): void {
   freeReady = r.freeReady;
   if (r.tester !== undefined) tester = r.tester;
   setGalleryStatus(r.gallery);
+  setTradeStatus(r.trade);
   render();
 }
 
@@ -330,9 +347,11 @@ async function packBag(ids: string[]): Promise<void> {
 }
 
 /* ---------- Karte eines Würfels, mit Lasur ---------- */
-function openDie(d: DieRec): void {
+/** Würfelkarte. item: ein Würfel aus dem Markt (fremd oder dein Eintrag), dann ohne Deck, Lasur und Auswaschen, mit Kaufen */
+function openDie(d: DieRec, item?: MarketItem): void {
   if (!save) return;
   sfx.tap();
+  const foreign = !!item;
   const s = save;
   const u = unitOfDie(d);
   const r = rarityDef(u.rarity);
@@ -354,7 +373,7 @@ function openDie(d: DieRec): void {
     html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b class="rlabel" style="color:${r.col}">${r.label}</b>`),
     el('small', '', `${PAPER[u.m.paper].n} · ${speciesLabel(u.m)}`),
     ...(speciesNamedBy(u.m) ? [el('small', 'named-line', `Species named by u/${speciesNamedBy(u.m)}`)] : []),
-    html('small', 'serial-line', (d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind') + (d.draw ? ` · <span class="drawn">${BRUSH} drawn by you</span>` : '')),
+    html('small', 'serial-line', (d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind') + (d.draw ? ` · <span class="drawn">${BRUSH} drawn by ${d.hist?.[0] ? foeTag(d.hist[0].u) : foreign ? 'its painter' : 'you'}</span>` : '')),
     ...(d.holo ? [el('small', 'shiny-line holo', `✦ Holo · ${foilLabel(d)} · ${HOLO_ODDS}`)] : []),
     ...(d.style ? [el('small', 'shiny-line', `Style · ${styleDef(d.style).label} · ${styleDef(d.style).odds}`)] : []),
   );
@@ -367,7 +386,7 @@ function openDie(d: DieRec): void {
   const canGlaze = glaze >= GLAZE_COST;
   const worn = new Set(d.mods.filter((m) => m.p).map((m) => m.i));
   u.faces.forEach((f, i) => {
-    const ok = canGlaze && isCrestFace(f) && f.n === 1 && !f.k2;
+    const ok = !foreign && canGlaze && isCrestFace(f) && f.n === 1 && !f.k2;
     const b = el('button', 'face' + (ok ? ' can' : '') + (worn.has(i) ? ' worn' : '')) as HTMLButtonElement;
     b.type = 'button';
     b.disabled = !ok || busy;
@@ -456,8 +475,38 @@ function openDie(d: DieRec): void {
     });
     wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It leaves your collection, ${speciesLabel(u.m)} gains ${n} glaze. Blots that drift to the margins sometimes come back.`));
   }
+  // Herkunft: durch wessen Hände der Würfel ging
+  const prov = d.hist?.length ? [html('p', 'prov', provText(d))] : [];
+  if (item) {
+    // Aus dem Markt: kaufen oder den eigenen Eintrag zurücknehmen
+    const buy = buyBox(item, s.pigment, () => ($('inspect').hidden = true));
+    box.append(top, ...prov, buy, net, faces, pat, statBlock(u, false), lines);
+    $('inspect').hidden = false;
+    return;
+  }
+  // Verkaufen: nicht Startwürfel, nicht im Deck (Tausch und Markt, festgelegt am 31.10.2026)
+  const sell = el('div', 'trow sell');
+  const gate = marketGate();
+  if (d.bound) sell.append(el('small', '', 'Starter die: it stays with you.'));
+  else if (s.bag.includes(d.id)) sell.append(el('small', '', 'In your deck. Take it out to sell it.'));
+  else {
+    const sb = el('button', 'ghost', 'Sell on the market') as HTMLButtonElement;
+    sb.type = 'button';
+    sb.disabled = busy || (!!gate && !gate.ok);
+    sb.addEventListener('click', () => {
+      sfx.tap();
+      sell.replaceWith(
+        sellBox(d, () => {
+          $('inspect').hidden = true;
+          render();
+        }),
+      );
+    });
+    sell.append(sb);
+    if (gate && !gate.ok) sell.append(el('small', '', gate.why ?? 'You cannot trade yet.'));
+  }
   // Werte und alles fürs Duell vor dem Benennen (festgelegt am 31.10.2026)
-  box.append(top, net, faces, gl, pat, row, statBlock(u, false), lines, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), wash);
+  box.append(top, ...prov, net, faces, gl, pat, row, sell, statBlock(u, false), lines, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), wash);
   $('inspect').hidden = false;
 }
 /** Art ohne Namen: als „What do you see?“-Post teilen (einer am Tag), oder den laufenden Post öffnen */
@@ -762,6 +811,23 @@ async function seen(): Promise<void> {
   busy = false;
   render();
 }
+/** Test-Knöpfe Markt (Playtest, nur Mods): drei Test-Händler stellen ein, oder einer kauft deinen günstigsten Eintrag */
+async function testMarket(buy: boolean): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  render();
+  try {
+    setMarket(buy ? await api.marketTestBuy() : await api.marketTestList());
+    busy = false;
+    await load();
+    if (!buy) openMarket();
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
 /** Test-Knopf (Playtest, nur Mods): Stil und Holo für den nächsten Zug (nochmal tippen nimmt es zurück) */
 async function testShiny(style: StyleId | null, holo: boolean): Promise<void> {
   if (busy) return;
@@ -832,6 +898,19 @@ export function initDice(h: Hooks): void {
   initReview({ back: closeReview, error: (e) => hooks.error(e) });
   $('review-b').addEventListener('click', openReviewScreen);
   $('painted-ok').addEventListener('click', () => void seen());
+  $('news-ok').addEventListener('click', () => void seen());
+  initMarket({
+    open: (it) => openDie(it.die, it),
+    // Danach neu laden: Zähler am Markt-Knopf und Lieferungen
+    dice: (r) => {
+      apply({ ...r, tester, mod, review });
+      void load();
+    },
+    error: (e) => hooks.error(e),
+  });
+  $('market-b').addEventListener('click', openMarket);
+  $('market-test').addEventListener('click', () => void testMarket(false));
+  $('market-buy-test').addEventListener('click', () => void testMarket(true));
   $('blank-b').addEventListener('click', openBlank);
   $('blank-test').addEventListener('click', () => void testBlank());
   $('pigment-test').addEventListener('click', () => void testPigment());
@@ -864,6 +943,7 @@ export async function diceBadge(): Promise<string> {
     void loadSpecies();
     review = r.review ?? 0;
     setGalleryStatus(r.gallery);
+    setTradeStatus(r.trade);
     setColorChoice(r.dice.color, r.dice.color2);
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.freeReady) return 'free dip';

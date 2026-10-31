@@ -79,6 +79,8 @@
   <div class="dscroll">
     <div class="sepia-say note galnote" id="gallery-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="gallery-say"></p><p class="gal-who" id="gallery-who"></p><button type="button" class="tool" id="gallery-ok">Collect</button></div>
     <div class="sepia-say note" id="painted-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="painted-say"></p><button type="button" class="tool" id="painted-ok">OK</button></div>
+    <div class="sepia-say note" id="news-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="news-say"></p><button type="button" class="tool" id="news-ok">OK</button></div>
+    <div class="mkrow" id="mkrow"><button type="button" class="mkbtn" id="market-b"><b>Market</b><small id="market-sub">dice for pigment</small></button></div>
     <section class="dbox dip">
       <p class="eyebrow">Dip the brush</p>
       <div id="dip-btns"></div>
@@ -89,6 +91,8 @@
       <button type="button" class="testbtn" id="pigment-test" hidden>Playtest · mods only: +1000 pigment</button>
       <button type="button" class="testbtn" id="gallery-decks-test" hidden>Playtest · mods only: +2 test decks in the gallery</button>
       <button type="button" class="testbtn" id="gallery-test" hidden>Playtest · mods only: gallery uses my own deck: off</button>
+      <button type="button" class="testbtn" id="market-test" hidden>Playtest · mods only: +3 test listings in the market</button>
+      <button type="button" class="testbtn" id="market-buy-test" hidden>Playtest · mods only: a test buyer buys my cheapest listing</button>
       <div class="testrow" id="shiny-test" hidden></div>
       <button type="button" class="modbtn" id="review-b" hidden><b>Review drawings</b><small>mods only</small><span id="review-b-n">0</span></button>
     </section>
@@ -238,6 +242,19 @@
     </div>
     <div class="sepia-say"><p class="eyebrow">Master Sepia</p><p class="hand" id="gal-say"></p></div>
     <div class="gal-btns"><button type="button" class="primary" id="gal-go" disabled>Duel</button><button type="button" class="ghost" id="gal-another" disabled>Another deck</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="market" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="mk-close">✕</button>
+    <p class="eyebrow">Market</p>
+    <h2>Wet paint for sale</h2>
+    <p class="mk-gate" id="mk-gate" hidden></p>
+    <div class="mkfilt" id="mk-filt"></div>
+    <div class="gal-grid mk-grid" id="mk-grid"></div>
+    <div id="mk-mine-box" hidden><p class="eyebrow">Your listings</p><div class="gal-grid mk-grid" id="mk-mine"></div></div>
+    <p class="mknote" id="mk-note"></p>
   </div>
 </div>
 

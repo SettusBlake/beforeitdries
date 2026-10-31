@@ -1,6 +1,6 @@
 # Plan: Würfel tauschen (A) und verkaufen (B)
 
-Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026 („alles Empfehlung“). Schritt 1 gebaut (siehe unten).
+Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026 („alles Empfehlung“). Schritt 1 und 2 gebaut (siehe unten).
 
 Anlass (31.10.2026): Frage „Tauschen und verkaufen geht?“. Gewählt: A direkter Tausch und B Markt, mit Schutz vor Zweitkonten.
 
@@ -138,6 +138,17 @@ Entwurf: docs/entwuerfe/tausch-markt-entwurf.png (Attrappen in der echten Vorsch
   - Tausch: `/api/trade/list`, `collection`, `offer`, `accept`, `decline`, `cancel`, `msg`
   - Test-Händler: `test-list`, `test-buy`, `test-offer` (nur Playtest, nur Mods). Test-Händler nehmen Angebote an sie sofort an.
 - **Noch ohne Bedienung**, die kommt in Schritt 2 (Markt) und 3 (Tausch).
+
+### Schritt 2, Markt (31.10.2026, Playtest v0.0.1.105, Bild docs/entwuerfe/markt-im-spiel.png)
+
+- **Your dice:** Knopf „Market“ (Zahl der Würfel im Markt oder deiner Einträge). Sepia meldet Verkäufe und Rückgaben einmal, das Pigment ist dann schon gutgeschrieben.
+- **Markt-Fenster** (src/client/duel/market.ts): Kacheln mit Preis und Verkäufer, Filter (All, Rare+, Holo, Styles, Drawn), Sortieren (neu, billig, teuer), deine Einträge darunter.
+- **Karte eines fremden Würfels:** Herkunft, „Buy for …“ mit zweitem Tipp, Pigment und Käufe des Tages. Ohne Lasur, Deck und Auswaschen.
+- **Eigene Karte:** „Sell on the market“ (nicht bei Startwürfeln und Würfeln im Deck). Preis mit − und + oder eintippen, Richtwert, Gebühr, „List for …“. Holo und Legendary fragen nach.
+- **Eigener Eintrag:** auf der Karte „Take it back“.
+- **Herkunft** auf jeder Karte, die schon die Hand gewechselt hat.
+- **Test-Knöpfe** (Playtest, nur Mods): „+3 test listings in the market“, „a test buyer buys my cheapest listing“.
+- **Behoben:** Bilder vom Ziehen hängen an der Würfel-ID. Fremde Würfel bekamen sonst das Bild eines eigenen mit derselben ID.
 
 ## Fragen (beantwortet am 31.10.2026: alle wie empfohlen)
 

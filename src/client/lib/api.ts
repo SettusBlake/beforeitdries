@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type GlazeResponse, type InitResponse, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type SpeciesResponse } from '../../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type GlazeResponse, type InitResponse, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
 import type { PullKind, StyleId } from '../../shared/dice';
 import type { ColorId } from '../../shared/colors';
 import type { DuelAction } from '../../shared/duel/play';
@@ -63,6 +63,21 @@ export const api = {
   galleryTestSelf: (on: boolean) => call<DiceResponse & { gallery: GalleryStatus }>('/api/gallery/test-self', { on }),
   diceColor: (color: ColorId, color2: ColorId) => call<DiceResponse>('/api/dice/color', { color, color2 }),
   drawReport: (slot: number) => call<{ reported: number; left: number }>('/api/drawn/report', { slot }),
+  /* Markt und Tausch (docs/entwuerfe/tausch-und-markt-plan.md) */
+  marketList: (filter: MarketFilter = 'all', sort: MarketSort = 'new') => call<MarketResponse>('/api/market/list', { filter, sort }),
+  marketSell: (id: string, price: number, confirm = false) => call<MarketResponse>('/api/market/sell', { id, price, confirm }),
+  marketUnlist: (id: string) => call<MarketResponse>('/api/market/unlist', { id }),
+  marketBuy: (id: string) => call<MarketResponse>('/api/market/buy', { id }),
+  marketTestList: () => call<MarketResponse>('/api/market/test-list', {}),
+  marketTestBuy: () => call<MarketResponse>('/api/market/test-buy', {}),
+  tradeList: () => call<TradeResponse>('/api/trade/list', {}),
+  tradeCollection: (name: string) => call<TradeCollection>('/api/trade/collection', { name }),
+  tradeOffer: (to: string, give: string[], pig: number, want: string[], confirm = false) => call<TradeResponse>('/api/trade/offer', { to, give, pig, want, confirm }),
+  tradeAccept: (id: string, confirm = false) => call<TradeResponse>('/api/trade/accept', { id, confirm }),
+  tradeDecline: (id: string) => call<TradeResponse>('/api/trade/decline', { id }),
+  tradeCancel: (id: string) => call<TradeResponse>('/api/trade/cancel', { id }),
+  tradeMsg: (on: boolean) => call<DiceResponse>('/api/trade/msg', { on }),
+  tradeTestOffer: () => call<TradeResponse>('/api/trade/test-offer', {}),
 };
 
 /** Abstand zwischen Server- und Geräteuhr, für Trockenzeit und Tagesende */

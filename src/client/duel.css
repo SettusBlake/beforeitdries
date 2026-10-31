@@ -571,3 +571,37 @@ canvas.faded, .rd.drift canvas { filter: saturate(.5) brightness(1.08) contrast(
 .cpick.other { opacity: .45; }
 .cnote { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
 .gal-color { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 8px; vertical-align: 2px; box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(29,33,48,.2); }
+
+/* ---------- Markt (docs/entwuerfe/tausch-und-markt-plan.md) ---------- */
+#inspect { z-index: 25; }
+#market .sheet { max-height: 92vh; overflow-y: auto; }
+.mkrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.mkbtn { position: relative; display: grid; justify-items: start; gap: 2px; text-align: left; border: 1px solid var(--line); background: var(--sheet); border-radius: 12px; padding: 10px 12px; cursor: pointer; color: var(--ink); }
+.mkbtn b { font: 800 16px var(--f-body); }
+.mkbtn small { font-size: 12px; color: var(--muted); }
+.mkbtn .badge { position: absolute; right: 8px; top: 8px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #b01e3e; color: #fff; font: 700 12px var(--f-mono); display: grid; place-items: center; }
+.mkfilt { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 8px; }
+.mkfilt button { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 11px; font: 600 12.5px var(--f-body); color: var(--ink); cursor: pointer; }
+.mkfilt button.on { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.mkfilt .sort { margin-left: auto; }
+.mk-gate { margin: 4px 0; padding: 8px 10px; border-radius: 10px; background: #fbe9e4; color: #8a3b2c; font-size: 13px; }
+.mk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mk-grid .empty { grid-column: 1 / -1; color: var(--muted); font-size: 13px; text-align: center; margin: 14px 0; }
+.mk-grid .gd .price { position: absolute; left: 4px; bottom: 14px; font: 700 12px var(--f-mono); font-style: normal; background: rgba(255,253,248,.92); border-radius: 999px; padding: 1px 6px 1px 4px; display: inline-flex; gap: 4px; align-items: center; }
+.mk-grid .gd .price .pigi, .buybox .pigi, .sellbox .pigi { width: 9px; height: 12px; }
+.mk-grid .gd .rar { position: absolute; right: 4px; top: 3px; font: 700 9px var(--f-mono); color: var(--c); }
+.mk-grid .gd .lvb { right: auto; left: 3px; }
+#mk-mine-box { margin-top: 10px; }
+.mknote { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.sellbox, .buybox { margin: 12px 0 4px; padding: 12px; border-radius: 14px; background: #f6f4ee; border: 1px solid var(--line); display: grid; gap: 6px; justify-items: center; text-align: center; }
+.sellbox p, .buybox p { margin: 0; font-size: 13px; color: var(--muted); }
+.sellbox p b, .buybox p b { color: var(--ink); }
+.buybox small { font-size: 12px; color: var(--muted); }
+.stepper { display: grid; grid-template-columns: 44px auto 44px; gap: 10px; align-items: center; }
+.stepper button { height: 42px; border-radius: 10px; border: 1px solid var(--ink); background: #fff; font: 700 20px var(--f-body); color: var(--ink); cursor: pointer; }
+.stepper b { display: inline-flex; gap: 6px; align-items: center; }
+.stepper input { width: 6.2ch; font: 800 24px var(--f-mono); text-align: center; border: 0; border-bottom: 2px solid var(--line); background: transparent; color: var(--ink); padding: 2px 0; }
+.trow.sell { flex-direction: column; align-items: stretch; gap: 4px; margin-top: 8px; }
+.trow.sell small { font-size: 12px; color: var(--muted); text-align: center; }
+.prov { margin: 10px 0 2px; padding: 8px 10px; border-radius: 10px; background: #eef1f7; font-size: 13px; line-height: 1.4; }
+.prov b { color: #2c3550; }
