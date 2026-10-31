@@ -45,6 +45,7 @@ export const api = {
   diceWash: (id: string, confirm = false) => call<DiceResponse>('/api/dice/wash', { id, confirm }),
   diceDraw: (drawing: string) => call<DiceResponse>('/api/dice/draw', { drawing }),
   diceTestBlank: () => call<DiceResponse>('/api/dice/test-blank', {}),
+  diceTestPigment: () => call<DiceResponse>('/api/dice/test-pigment', {}),
   diceTestShiny: (style: StyleId | null, holo = false) => call<DiceResponse>('/api/dice/test-shiny', { style, holo }),
   diceSeen: () => call<DiceResponse>('/api/dice/seen', {}),
   diceShare: (id: string) => call<ShareResponse>('/api/dice/share', { id }),

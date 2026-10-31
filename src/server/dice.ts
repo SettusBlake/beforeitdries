@@ -249,6 +249,19 @@ export async function diceTestBlank(d: Deps, userId: string | undefined, usernam
   });
 }
 
+/** Test-Knopf (Playtest, nur Mods): Pigment gutschreiben, je Tipp TEST_PIGMENT */
+export const TEST_PIGMENT = 1000;
+export async function diceTestPigment(d: Deps, userId: string | undefined, username: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    s.pigment += TEST_PIGMENT;
+    await saveDice(d, uid, s);
+    return { ...respond(d, s), tester: true };
+  });
+}
+
 export async function dicePull(d: Deps, userId: string | undefined, kind: unknown): Promise<DiceResponse> {
   const uid = needUser(userId);
   const k = (['starter', 'free', 'one', 'ten'] as PullKind[]).find((x) => x === kind);

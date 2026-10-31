@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestShiny, diceWash, dicePull, loadDice, saveDice, wearDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, loadDice, saveDice, wearDice } from '../src/server/dice';
 import { reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
@@ -81,6 +81,7 @@ createServer(async (req, res) => {
       const b = JSON.parse(raw || '{}');
       if (url.pathname === '/api/dice') return send(200, await diceGet(d, asUser, USER.name));
       if (url.pathname === '/api/dice/test-blank') return send(200, await diceTestBlank(d, asUser, USER.name));
+      if (url.pathname === '/api/dice/test-pigment') return send(200, await diceTestPigment(d, asUser, USER.name));
       if (url.pathname === '/api/dice/test-shiny') return send(200, await diceTestShiny(d, asUser, USER.name, b.style ?? null, b.holo ?? false));
       if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));

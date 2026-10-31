@@ -150,6 +150,8 @@ function render(): void {
   ($('painted-ok') as HTMLButtonElement).disabled = busy;
   $('blank-test').hidden = !tester;
   ($('blank-test') as HTMLButtonElement).disabled = busy;
+  $('pigment-test').hidden = !tester;
+  ($('pigment-test') as HTMLButtonElement).disabled = busy;
   // Test-Knopf: der nächste Zug mit dem gewählten Stil und, getrennt davon, mit Holo
   const ts = $('shiny-test');
   ts.hidden = !tester;
@@ -714,6 +716,19 @@ async function testShiny(style: StyleId | null, holo: boolean): Promise<void> {
   busy = false;
   render();
 }
+/** Test-Knopf (Playtest, nur Mods): 1000 Pigment mehr */
+async function testPigment(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  try {
+    apply(await api.diceTestPigment());
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
 /** Test-Knopf (Playtest, nur Mods): ein leerer Würfel mehr */
 async function testBlank(): Promise<void> {
   if (busy) return;
@@ -760,6 +775,7 @@ export function initDice(h: Hooks): void {
   $('painted-ok').addEventListener('click', () => void seen());
   $('blank-b').addEventListener('click', openBlank);
   $('blank-test').addEventListener('click', () => void testBlank());
+  $('pigment-test').addEventListener('click', () => void testPigment());
   $('dice-back').addEventListener('click', () => {
     sfx.tap();
     swapIn = null;

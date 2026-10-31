@@ -1,7 +1,7 @@
 /* Würfelsammlung: Startzüge, offener W100, Schutz vor Pech, einzigartige Monster, Auswaschen, Beutel, Lasur auf Seiten */
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTestShiny, diceWash, isPlaytest, loadDice, saveDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, isPlaytest, loadDice, saveDice, TEST_PIGMENT } from '../src/server/dice';
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
@@ -304,6 +304,20 @@ describe('Würfelsammlung', () => {
     await diceTestBlank(play, USER, 'Vegavild');
     const res = await diceTestBlank(play, USER, 'Vegavild');
     expect(res.dice.blank).toBe(before + 2);
+    expect(res.tester).toBe(true);
+  });
+
+  it('Test-Knopf für Pigment: nur im Playtest und nur für Mods, je Tipp 1000', async () => {
+    const reddit = new FakeReddit();
+    reddit.mods.push('Vegavild');
+    const d = { ...setup(67), reddit };
+    expect(await code(diceTestPigment({ ...d, appVersion: '0.0.2' }, USER, 'Vegavild'))).toBe('forbidden');
+    const play = { ...d, appVersion: '0.0.1.85' };
+    expect(await code(diceTestPigment(play, USER, 'someone'))).toBe('forbidden');
+    const before = (await loadDice(play, USER)).pigment;
+    await diceTestPigment(play, USER, 'Vegavild');
+    const res = await diceTestPigment(play, USER, 'vegavild');
+    expect(res.dice.pigment).toBe(before + 2 * TEST_PIGMENT);
     expect(res.tester).toBe(true);
   });
 
