@@ -111,7 +111,7 @@ export type ErrorCode = 'login' | 'no_day' | 'dried' | 'not_found' | 'forbidden'
  * Stand des Duell-Ablaufs (Aktionen, Phasen, Ereignisse). Bei jeder Änderung erhöhen: Der Client schickt ihn mit,
  * der Server lehnt alte Oberflächen ab und bittet, den Post neu zu öffnen (sonst passen Anzeige und Regeln nicht zusammen)
  */
-export const DUEL_PROTOCOL = 11;
+export const DUEL_PROTOCOL = 12;
 export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {

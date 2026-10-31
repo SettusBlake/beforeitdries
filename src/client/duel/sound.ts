@@ -102,6 +102,10 @@ export const sfx = {
       tone(0.01, 520, 380, 0.16, 'triangle', 0.08);
     }
   },
+  /** Nachsetzen: kurzer aufsteigender Goldklang */
+  again(): void {
+    [660, 880, 1175].forEach((f, k) => tone(k * 0.05, f, f * 1.02, 0.2, 'triangle', 0.07));
+  },
   /** Großer Moment: tiefer Schlag mit Nachhall (Auswaschen, Herz) */
   boom(): void {
     tone(0, 70, 28, 0.7, 'sine', 0.42);

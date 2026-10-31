@@ -36,7 +36,7 @@ export const PALETTE = { guardR: 2, perTurn: 1 };
  * Treffer: Schaden = base + Sättigung / satDiv, Deckkraft = hpBase + Deckkraft / hpDiv, toHit kommt auf jeden Spritzwurf,
  * range ist die Grundreichweite. freeSplash: Spritzer auf Kleckse kosten nichts, ein Splash-Symbol braucht nur der Treffer auf die Palette
  */
-export const HIT = { base: 4, satDiv: 4, hpBase: 10, hpDiv: 3, toHit: 3, range: 2, freeSplash: true };
+export const HIT = { base: 4, satDiv: 4, hpBase: 10, hpDiv: 3, toHit: 3, range: 2, freeSplash: true, graze: 0.5 };
 /**
  * Farbreaktionen (festgelegt am 29.10.2026): gleiches Pigment auf eigener, getrockneter Farbe lasiert (eine zweite Schicht, zählt am Ende doppelt,
  * def mehr in der Abwehr), eine Nachbarfarbe verläuft auf freies Papier daneben (höchstens bleedMax Felder pro Aktion)
@@ -147,6 +147,8 @@ export type Unit = {
   shield: number;
   moved: boolean;
   acted: boolean;
+  /** Nachsetzen (S2): hat in diesem Zug schon einmal nach einem Auswaschen nachgesetzt */
+  again?: boolean;
   /** Deck: in diesem Durchgang schon geworfen (liegt auf der Ablage, bis neu gemischt wird) */
   used: boolean;
   /** Sättigung (Brim): füllt sich durch Tun, voll wird der nächste Wisch ein Meisterzug (festgelegt am 30.10.2026) */
@@ -182,7 +184,9 @@ export type Ev =
   | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[] }
   | { k: 'move'; id: number; path: number[]; trail: CellSnap[] }
   | { k: 'stamp'; id: number; wet: boolean; cells: (CellSnap & { r: StampRes })[] }
-  | { k: 'shot'; id: number; at: number; res: 'miss' | 'dodge' | 'hit' | 'crit'; dmg: number; guard: boolean; rgb: RGB; text: string; mult?: number }
+  | { k: 'shot'; id: number; at: number; res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit'; dmg: number; guard: boolean; rgb: RGB; text: string; mult?: number }
+  /** Nachsetzen (S2): der Klecks hat ausgewaschen und handelt noch einmal */
+  | { k: 'again'; id: number }
   | { k: 'hp'; id: number; hp: number; delta: number; why: string }
   | { k: 'wash'; id: number; cell: CellSnap; by: number | null }
   /** Der Rivale zeigt, was er gleich tut: wer, wohin, welches Ziel */
@@ -228,6 +232,9 @@ export const TUNE = {
   media: true,
   /** Sepias Auftrag pro Runde (Wurfziel, erfüllt gibt einen Joker) */
   tasks: true,
+  /** Wumms (31.10.2026): Streifschuss statt Fehlwurf (S1) und Nachsetzen nach dem Auswaschen (S2), zum Vergleichen in der Simulation */
+  graze: true,
+  again: true,
 };
 
 const PATTERNS: Record<BlueprintId, P[]> = {
@@ -1293,6 +1300,12 @@ export function splashLethal(u: Unit, t: Unit, pig: PigmentId): boolean {
   const first = teamOf(t).crests.guard > 0 ? Math.ceil(dmg / 2) : dmg;
   return first + (GAIT[u.m.bp].key === 'twin' ? dmg : 0) >= t.hp;
 }
+/** Erwarteter Anteil am vollen Schaden (für den Rivalen): voll mit splashOdds, sonst streift er, ausgewichen nichts */
+export function splashExpect(u: Unit, t: Unit, pig: PigmentId, plus = 0, ignoreGrain = false): number {
+  const full = splashOdds(u, t, pig, plus, ignoreGrain);
+  return full + (1 - dodgeOf(t) - full) * HIT.graze;
+}
+/** Chance auf einen vollen Treffer (nicht ausgewichen, Wurf gewonnen). Sonst streift er (S1) oder weicht aus */
 export function splashOdds(u: Unit, t: Unit, pig: PigmentId, plus = 0, ignoreGrain = false): number {
   return pWin(bonus(u.sat) - (pig !== u.m.main ? 1 : 0) + HIT.toHit + plus, ignoreGrain ? 0 : bonus(grainOf(t))) * (1 - dodgeOf(t));
 }
@@ -1305,7 +1318,7 @@ function setHp(t: Unit, hp: number, why: string): void {
 /** Ein Treffer mit Würfeln. Ein Guard des Gegners halbiert den Schaden von selbst. */
 function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignoreGrain = false): [string, number] {
   const at = idx(t.x, t.y);
-  const shot = (res: 'miss' | 'dodge' | 'hit' | 'crit', dmg: number, guard: boolean, text: string) => emit({ k: 'shot', id: u.id, at, res, dmg, guard, rgb: PIG[pig].rgb, text, mult: typeMult(pig, t.m.main) });
+  const shot = (res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit', dmg: number, guard: boolean, text: string) => emit({ k: 'shot', id: u.id, at, res, dmg, guard, rgb: PIG[pig].rgb, text, mult: typeMult(pig, t.m.main) });
   if (rand01() < dodgeOf(t)) {
     shot('dodge', 0, false, 'dodged');
     return ['dodged', 0];
@@ -1315,12 +1328,14 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
   const atk = bonus(u.sat) - (pig !== u.m.main ? 1 : 0) + HIT.toHit + plus,
     def = ignoreGrain ? 0 : bonus(grainOf(t));
   const roll = `d${a}+${atk} vs d${d}+${def}`;
-  if (a + atk <= d + def) {
+  // S1 Kein Verpuffen (festgelegt am 31.10.2026): schlecht gewürfelt streift der Spritzer nur, halber Schaden, kein Krit
+  const graze = a + atk <= d + def;
+  if (graze && !TUNE.graze) {
     shot('miss', 0, false, roll);
     return [`${roll}: miss`, 0];
   }
-  const crit = a === 20 || rand01() < critOf(u);
-  let dmg = Math.max(1, Math.round(baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1) * mult * (crit ? 1.5 : 1)));
+  const crit = !graze && (a === 20 || rand01() < critOf(u));
+  let dmg = Math.max(1, Math.round(baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1) * mult * (crit ? 1.5 : graze ? HIT.graze : 1)));
   let guard = false;
   const ft = teamOf(t);
   if (ft.crests.guard > 0) {
@@ -1329,7 +1344,7 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
     guard = true;
     count(`${t.side}guard`);
   }
-  shot(crit ? 'crit' : 'hit', dmg, guard, roll);
+  shot(crit ? 'crit' : graze ? 'graze' : 'hit', dmg, guard, roll);
   setHp(t, t.hp - dmg, crit ? 'crit' : 'hit');
   // Getroffen saugt sich voll
   if (t.hp > 0) fillBrim(t, BRIM.hit);
@@ -1343,7 +1358,7 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
     }
   }
   if (relation(pig, t.m.main) === 'komplementaer' || has(u, 'staining')) t.stain = 2;
-  return [`${roll}: ${crit ? 'crit' : 'hit'}${guard ? ', guarded' : ''}, -${dmg}`, dmg];
+  return [`${roll}: ${crit ? 'crit' : graze ? 'graze' : 'hit'}${guard ? ', guarded' : ''}, -${dmg}`, dmg];
 }
 function doSplash(u: Unit, pig: PigmentId, at: number): string {
   const ft = foeTeam(u);
@@ -1735,6 +1750,8 @@ export function canAct(u: Unit, a: Action): boolean {
 }
 export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): string {
   const t = teamOf(u);
+  // Nachsetzen (S2): wie viele Gegner standen vor der Aktion auf dem Blatt
+  const foesBefore = onSheet(foeTeam(u)).length;
   // Voll vor der Aktion: diesmal ein Meisterzug. Charge und Crush stärken den Spritzer selbst
   const master = brimFull(u) && masterApplies(u, a, at);
   if (master && a === 'splash' && (u.m.bp === 'vierbeiner' || u.m.bp === 'krabbe')) {
@@ -1761,6 +1778,17 @@ export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): stri
       if (mt !== null && (u.m.bp !== 'schlange' || (target && target.state === 'sheet' && target.side !== u.side))) s += `. Master stroke: ${doAbility(u, mt)}`;
     }
   } else if (a !== 'none') fillBrim(u, (a === 'soak' ? BRIM.soak : BRIM.act) + (has(u, 'print') ? 1 : 0));
+  // S2 Nachsetzen (festgelegt am 31.10.2026): wer einen Gegner auswäscht, handelt sofort noch einmal, einmal pro Zug.
+  // Nicht in den geführten Runden des Lern-Duells
+  const tutorialRound = S.tutorial > 0 && S.round <= S.tutorial;
+  if (TUNE.again && !S.over && !tutorialRound && u.state === 'sheet' && !u.again && onSheet(foeTeam(u)).length < foesBefore) {
+    u.again = true;
+    u.acted = false;
+    u.moved = u.rooted > 0;
+    count(`${u.side}again`);
+    emit({ k: 'again', id: u.id });
+    s += ', and it goes again';
+  }
   checkWipe();
   sync();
   return s;
@@ -1786,6 +1814,7 @@ export function startTurn(side: Side): void {
     u.moved = u.rooted > 0;
     u.rooted = 0;
     u.acted = false;
+    u.again = false;
   }
   emit({ k: 'turn', side });
   sync();
@@ -1944,7 +1973,7 @@ export function bestPig(u: Unit, a: Action, at: number | null): PigmentId {
   const t = unitAt(at % COLS, Math.floor(at / COLS));
   if (!t || t.side === u.side) return u.m.main;
   const near = cheb(u.x, u.y, t.x, t.y) <= 1;
-  const val = (p: PigmentId) => splashOdds(u, t, p) * baseDamage(u, t, p, near);
+  const val = (p: PigmentId) => splashExpect(u, t, p) * baseDamage(u, t, p, near);
   return val(pigs[1]!) > val(pigs[0]!) + 0.01 ? pigs[1]! : pigs[0]!;
 }
 function danger(u: Unit, x: number, y: number): number {
@@ -1956,8 +1985,9 @@ const homeDist = (u: Unit, x: number, y: number) => {
   const h = foeTeam(u).home;
   return cheb(x, y, h % COLS, Math.floor(h / COLS));
 };
+/** Auswaschen lohnt sich: der Klecks ist weg, und wer auswäscht, setzt nach (S2) */
 function killBonus(t: Unit, dmg: number): number {
-  return t.hp <= dmg ? 6 : 0;
+  return t.hp <= dmg ? 9 : 0;
 }
 function evalAbility(u: Unit, at: number): number {
   const foes = onSheet(foeTeam(u));
@@ -1983,7 +2013,7 @@ function evalAbility(u: Unit, at: number): number {
     }
     case 'vierbeiner': {
       const d = baseDamage(u, tAt!, u.m.main, true) * 1.5;
-      return splashOdds(u, tAt!, u.m.main, 4) * (d + killBonus(tAt!, d));
+      return splashExpect(u, tAt!, u.m.main, 4) * (d + killBonus(tAt!, d));
     }
     case 'schlange':
       return 4 + 3 + killBonus(tAt!, 4);
@@ -1991,7 +2021,7 @@ function evalAbility(u: Unit, at: number): number {
       return onSheet(teamOf(u)).filter((a) => danger(a, a.x, a.y) > 0.5).length * 2;
     case 'krabbe': {
       const d = baseDamage(u, tAt!, u.m.main, true) * 2;
-      return splashOdds(u, tAt!, u.m.main, 0, true) * (d + killBonus(tAt!, d));
+      return splashExpect(u, tAt!, u.m.main, 0, true) * (d + killBonus(tAt!, d));
     }
     case 'qualle': {
       const x = at % COLS,
@@ -2183,7 +2213,7 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
           const pig = bestPig(u, 'splash', idx(t.x, t.y));
           const hits = GAIT[u.m.bp].key === 'twin' ? 1.6 : 1;
           const dmg = baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1);
-          add(splashOdds(u, t, pig) * hits * (dmg * 0.9 + killBonus(t, dmg * hits)) + (t.stain ? 0 : relation(pig, t.m.main) === 'komplementaer' ? 1 : 0) - (HIT.freeSplash ? 0 : CREST_COST.splash), 'splash', pig, idx(t.x, t.y));
+          add(splashExpect(u, t, pig) * hits * (dmg * 0.9 + killBonus(t, dmg * hits)) + (t.stain ? 0 : relation(pig, t.m.main) === 'komplementaer' ? 1 : 0) - (HIT.freeSplash ? 0 : CREST_COST.splash), 'splash', pig, idx(t.x, t.y));
         }
       if (paletteOpen(u)) add(foeTeam(u).hearts <= 1 ? 100 : 8, 'splash', u.m.main, foeTeam(u).home);
       if (u.hp < u.max) add(soakAmount(u) * 0.35 + (u.hp < u.max * 0.35 ? 2 : 0), 'soak', u.m.main, null);

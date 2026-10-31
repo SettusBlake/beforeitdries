@@ -902,7 +902,7 @@ function previewBase(u: Unit, p: Plan | null): Preview | null {
     pv.pct = pct;
     // G4: reicht der Treffer, steht am Ziel WASH OUT
     pv.kill = kill;
-    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% to hit, -${dmg}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, t.m.main)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
+    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% full hit (else a graze), -${dmg}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, t.m.main)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
   }
   return pv;
 }

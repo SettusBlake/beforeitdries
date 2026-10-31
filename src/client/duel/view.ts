@@ -1064,6 +1064,28 @@ export async function playEvent(e: Ev): Promise<void> {
     case 'log':
       hooks.ticker(e.t, e.c);
       return;
+    case 'again': {
+      // S2 Nachsetzen: der Klecks hat ausgewaschen und darf gleich noch einmal
+      const v = V.units.get(e.id);
+      if (!v) return;
+      const [x, y] = unitPos(e.id);
+      v.acted = false;
+      text(x, y - cell * 0.55, 'AGAIN!', '#b8860b', 24, 1300);
+      ring(x, y + cell * 0.3, cell * 0.3, cell * 1.1, 'rgba(201,150,30,.95)', 700, 5);
+      for (let k = 0; k < 14; k++) {
+        const a = (k / 14) * Math.PI * 2;
+        V.parts.push({ x, y: y + cell * 0.2, vx: Math.cos(a) * 110, vy: Math.sin(a) * 110 - 30, g: 120, r: 2.2, t0: now(), life: 650, col: 'rgba(255,214,90,.95)' });
+      }
+      sfx.again();
+      await tween(320, (p) => {
+        const q = Math.sin(Math.PI * p);
+        v.lift = 0.25 * q;
+        v.sqy = 1 + 0.1 * q;
+      });
+      Object.assign(v, { lift: 0, sqy: 1 });
+      await wait(250);
+      return;
+    }
     case 'turn':
       V.turn = e.side;
       V.focus = null;
@@ -1260,6 +1282,8 @@ export async function playEvent(e: Ev): Promise<void> {
       }
       // Wie hart der Treffer sitzt: Anteil an der Deckkraft des Ziels (Palette zählt wie ein harter Treffer)
       const crit = e.res === 'crit';
+      // S1: schlecht gewürfelt streift der Spritzer nur
+      if (e.res === 'graze') text(x1, y1 - cell * 0.82, 'graze', '#8a6b4a', 14, 1000);
       const share = e.text === 'palette' ? 0.8 : target ? Math.min(1, e.dmg / Math.max(1, target.max)) : 0.4;
       splatter(x1, y1, col, crit ? 30 : 14 + Math.round(share * 14), crit ? 1.6 : 1 + share * 0.5);
       ring(x1, y1, cell * 0.15, cell * (0.7 + share * 0.5), col, 500, 4 + share * 3);

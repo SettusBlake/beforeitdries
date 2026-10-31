@@ -1,6 +1,6 @@
 # Vorschlag: mehr Wumms im Duell
 
-Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026: G1 bis G4, S1 und S2 ja, S3 und S4 später. Teil 1 gebaut (siehe unten). Rückmeldung 31.10.2026: Am Kampf stört vor allem „zu wenig Wumms“ (Züge fühlen sich fade an, zu wenig spürbare Treffer und echte Entscheidungen). Länge, Regelmenge und Balance sind nicht das Problem.
+Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026: G1 bis G4, S1 und S2 ja, S3 und S4 später. Teil 1 und Teil 2 gebaut (siehe unten). Rückmeldung 31.10.2026: Am Kampf stört vor allem „zu wenig Wumms“ (Züge fühlen sich fade an, zu wenig spürbare Treffer und echte Entscheidungen). Länge, Regelmenge und Balance sind nicht das Problem.
 
 ## Gemessen
 
@@ -63,6 +63,16 @@ Teil 1 ganz (G1 bis G4), dazu **S1 und S2**. S3 und S4 erst, wenn es danach noch
 - G2: Auswaschen mit Zeitlupe, Zoom auf den Klecks, Banner „WASHED OUT“, Farbe quer über das Blatt als Flecken. Herz mit Zeitlupe, Zoom auf die Palette, Banner „PALETTE HIT“ oder „YOUR PALETTE!“, Fleck daneben, für jedes verlorene Herz ein Riss quer durch die Palette.
 - G3: `sfx.impact` (tiefer und lauter mit der Wucht), `sfx.boom` für Auswaschen und Herz.
 - G4: Am Ziel steht über der Chance pulsierend „WASH OUT“, wenn ein normaler Treffer reicht (`splashLethal` in rules.ts, mit Meisterzug, Guard und Twin), im Hinweis „A hit washes it out!“.
+
+**Teil 2 (S1 und S2), 31.10.2026, Playtest v0.0.1.95, Bild docs/entwuerfe/wumms-im-spiel.png:**
+
+- S1: Verliert ein Spritzer den Wurf, streift er (halber Schaden, `HIT.graze`, kein Krit, Guard halbiert weiter). Nur Ausweichen bleibt. Am Ziel steht „graze“. Vorschau: „x % full hit (else a graze)“.
+- S2: Wäscht ein Klecks mit seiner Aktion einen Gegner aus (auch über Meisterzug oder Abgang), darf er sofort noch einmal ziehen und handeln, einmal pro Zug und Klecks (`again` am Klecks). Nicht in den geführten Runden des Lern-Duells. Ereignis `again` mit „AGAIN!“, Goldring und Klang.
+- Rivale: rechnet mit Streifschüssen (`splashExpect`), Auswaschen zählt mehr (Bonus 9 statt 6).
+- Hilfe: Regeln zu Splash und Go again neu, die veraltete Zeile zu Fähigkeiten durch die Meisterzüge ersetzt.
+- Schalter `TUNE.graze` und `TUNE.again` zum Vergleichen in der Simulation. DUEL_PROTOCOL 12.
+- **Simulation** gegen den Master (80 Duelle, je Seite und Duell): verpuffte Spritzer von gut 40 % auf etwa 7 % (nur Ausweichen), Nachsetzen 0,7-mal beim Spieler, 1,5-mal beim Meister. Siegquoten (250 Duelle, Spieler wie der Computer): Master 40 % vorher, 40 % jetzt, Galerie 70 % und 68 %. Lehrling und Geselle 99 % und 89 % (150 Duelle). Duelle enden öfter über die Palette (54 % statt 30 %), weil nach einem Auswaschen der Weg zur Palette frei wird.
+- **Nicht erreicht:** Züge ohne großen Moment bleiben bei etwa 61 %. Mehr Schaden (Grundschaden 5 statt 4, Streifschuss 75 % statt 50 %) ändert daran nichts. Die stillen Züge sind vor allem die ersten Runden, in denen nur aufgestellt und gestempelt wird. Dagegen helfen eher S3 und S4 oder ein früheres Aufeinandertreffen.
 
 ## Fragen
 

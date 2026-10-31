@@ -142,6 +142,15 @@ createServer(async (req, res) => {
       }
       return send(200, { over: res.state?.over, winner: res.state?.winner, reward: res.reward });
     }
+    // Nur in der Vorschau: Kleckse des Rivalen auf dem Blatt fast leer (zum Ansehen von WASH OUT und AGAIN)
+    if (url.pathname === '/dev/weak') {
+      const raw = await redis.get(K.duel(USER.id));
+      if (!raw) return send(404, { error: 'no duel' });
+      const save = JSON.parse(raw);
+      for (const u of save.teams[1].units) if (u.state === 'sheet') u.hp = Math.min(u.hp, 2);
+      await redis.set(K.duel(USER.id), JSON.stringify(save));
+      return send(200, { ok: true });
+    }
     // Nur in der Vorschau: n andere Spieler hängen ihr Deck in die Galerie, inbox=k: dein Deck wurde k-mal herausgefordert
     if (url.pathname === '/dev/gallery') {
       const n = Number(url.searchParams.get('n') ?? 4);
