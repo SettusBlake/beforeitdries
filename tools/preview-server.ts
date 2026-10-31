@@ -81,7 +81,7 @@ createServer(async (req, res) => {
       const b = JSON.parse(raw || '{}');
       if (url.pathname === '/api/dice') return send(200, await diceGet(d, asUser, USER.name));
       if (url.pathname === '/api/dice/test-blank') return send(200, await diceTestBlank(d, asUser, USER.name));
-      if (url.pathname === '/api/dice/test-shiny') return send(200, await diceTestShiny(d, asUser, USER.name, b.style ?? null));
+      if (url.pathname === '/api/dice/test-shiny') return send(200, await diceTestShiny(d, asUser, USER.name, b.style ?? null, b.holo ?? false));
       if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
       if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));

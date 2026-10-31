@@ -3,11 +3,12 @@
  * W100 rollt, erst dann zeigen sich Seltenheit und echtes Papier, zuletzt dreht sich das Blatt zur Karte.
  * Die Würfe kommen von außen (in der App vom Server), hier wird nur inszeniert. Ein Tipp beschleunigt alles.
  */
-import { Application, Container, DisplacementFilter, Graphics, Sprite, Text, Texture } from 'pixi.js';
+import { Application, Container, DisplacementFilter, FillGradient, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { PAPER, PIG, type PaperId } from '../../../shared/data';
 import { RARITIES, rarityDef, rarityIndex, serialText, STYLE_DIE, STYLES, styleDef, type Rarity, type StyleId } from '../../../shared/dice';
 import { faceKey, type Face } from '../../../shared/duel/rules';
 import type { Monster } from '../../../shared/monster';
+import { holoBake } from '../../lib/holo';
 import { keepLoose, looseKey, paintLater } from '../../lib/painter';
 import { iconSvg } from '../icons';
 import { sfx } from '../sound';
@@ -27,11 +28,12 @@ export type RevealPull = {
   no: number;
   /** Würfel-ID: das fertige Bild geht danach in die Sammlung */
   id?: string;
-  /** Die Hand (W100), bei 100 der W10 für Shiny, bei Shiny der W20 für den Stil. Fehlt im Artifact */
+  /** Die Hand: weißer W100 (bei 100 der W20 für den Stil), goldener W10 (bei 10 der goldene W100, bei 100 Holo). Fehlt im Artifact */
   hand?: number;
-  shinyD10?: number;
   styleRoll?: number;
-  /** Shiny hebt die Seltenheit eine Stufe: die Seltenheit danach (rarity bleibt der W100, monster hat schon das neue Papier) */
+  gold?: number;
+  goldD100?: number;
+  /** Holo hebt die Seltenheit eine Stufe: die Seltenheit danach (rarity bleibt der W100, monster hat schon das neue Papier) */
   lifted?: Rarity;
 };
 
@@ -186,13 +188,16 @@ export class Reveal {
 
   /* ---------- Bausteine ---------- */
   /** Klecks nebenbei malen (in kleinen Schritten während der Animation), dann als Textur */
-  private monsterTex(m: Monster, px: number, prio = 0, keep?: string, deco = false): Promise<Texture> {
+  private monsterCanvas(m: Monster, px: number, prio = 0, keep?: string, deco = false): Promise<HTMLCanvasElement> {
     const c = document.createElement('canvas');
     c.width = c.height = 1;
     return paintLater(c, m, px, { dpr: 1, deco }, prio).then((x) => {
       if (keep) keepLoose(keep, x);
-      return Texture.from(x);
+      return x;
     });
+  }
+  private monsterTex(m: Monster, px: number, prio = 0, keep?: string, deco = false): Promise<Texture> {
+    return this.monsterCanvas(m, px, prio, keep, deco).then((x) => Texture.from(x));
   }
   /** Textur nachreichen, Größe bleibt */
   private static fit(sp: Sprite, t: Texture, size: number): void {
@@ -408,13 +413,17 @@ export class Reveal {
     const pig = rgbNum(PIG[p.monster.main].rgb);
     const faceTexP = Promise.all(p.faces.map((f) => this.faceTex(f)));
     // Beide Bilder malen nebenbei, während Glas und Pinsel kommen: erst das neutrale, dann das echte Papier.
-    // Ein Shiny ist bis zur Hand ein Aquarell wie jedes andere, sein Stilbild malt sich nebenbei mit
-    const { style, ...water } = p.monster;
+    // Stil und Holo sind bis zur Hand ein Aquarell wie jedes andere, ihre Bilder malen sich nebenbei mit
+    const { style, holo, ...water } = p.monster;
     // Gehoben: bis zur Hand zeigt das Blatt das Papier, das der W100 gebracht hat
     const wPaper = p.lifted ? (rarityDef(p.rarity).paper ?? water.paper) : water.paper;
     const plainP = this.monsterTex({ ...water, paper: PLAIN }, 512, 4);
-    const realP = this.monsterTex({ ...water, paper: wPaper }, 512, 3, style || !p.id ? undefined : looseKey(p.id, water));
-    const styleP = style ? this.monsterTex(p.monster, 512, 2.5, undefined, true) : null;
+    const realC = this.monsterCanvas({ ...water, paper: wPaper }, 512, 3, style || !p.id ? undefined : looseKey(p.id, water));
+    const realP = realC.then((c) => Texture.from(c));
+    const styleC = style ? this.monsterCanvas({ ...water, style }, 512, 2.5, undefined, true) : null;
+    const styleP = styleC ? styleC.then((c) => Texture.from(c)) : null;
+    // Holo: die Folie liegt auf dem fertigen Bild (Stil oder Aquarell auf dem gehobenen Papier)
+    const holoP = holo ? (styleC ?? (p.lifted ? this.monsterCanvas(water, 512, 2.5) : realC)).then((c) => Texture.from(holoBake(c, water.seed))) : null;
 
     // Hinten: Strahlen und Hof (erst bei der Seltenheit sichtbar)
     const rays = new Sprite(raysTex());
@@ -688,18 +697,18 @@ export class Reveal {
       void this.tween(600, (q) => (marker.x = lerp(m1, zx, q)), ease.back);
     }
     await this.wait(600);
-    // 7b. Die Hand: ein zweiter W100. Bei 100 wird es still, ein W10 entscheidet über Shiny
-    const shinyTex = await this.handStep(p, g, sheet, by + 96, roll, styleP, rollUi);
+    // 7b. Die Hand: weißer W100 (Stil) und goldener W10 (Holo)
+    const shinyTex = await this.handStep(p, g, sheet, by + 96, roll, styleP, holoP, rollUi);
     await this.wait(shinyTex ? 900 : 500);
-    // 7c. Shiny hebt die Seltenheit eine Stufe: Schrift, neue Farbe für Strahlen und Hof, bei Legendary Blattgold
+    // 7c. Holo hebt die Seltenheit eine Stufe: Schrift, neue Farbe für Strahlen und Hof, bei Legendary Blattgold
     let shown = p;
-    if (shinyTex && p.lifted) {
+    if (holo && p.lifted) {
       shown = { ...p, rarity: p.lifted };
       const li = rarityIndex(p.lifted),
         lt = GLOW[p.lifted];
       const lift = new Container();
       lift.position.set(g.cx, g.cy - g.S / 2 - 34);
-      const cap = new Text({ text: '✦ SHINY LIFTS IT ✦', style: { fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: '800', fill: 0xffd66b, letterSpacing: 3 } });
+      const cap = new Text({ text: '✦ HOLO LIFTS IT ✦', style: { fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: '800', fill: 0xffd66b, letterSpacing: 3 } });
       cap.anchor.set(0.5);
       cap.y = -26;
       const from = new Text({ text: rarityDef(p.rarity).label, style: { fontFamily: 'Young Serif, Georgia, serif', fontSize: 26, fill: GLOW[p.rarity] } });
@@ -774,11 +783,12 @@ export class Reveal {
   }
 
   /**
-   * Die Hand: klein und schnell bei jedem Zug. Zeigt sie 100, wird es still und ein W10 rollt langsam.
-   * Bei 10 ist es ein Shiny: ein zweiter W10 wählt den Stil, dann malt das Werkzeug des Stils das Monster neu.
-   * Gibt das Stilbild zurück, sonst null
+   * Die Hand: weißer W100 und goldener W10, klein und schnell bei jedem Zug (festgelegt am 31.10.2026).
+   * Weiß 100: es wird still, der W20 wählt den Stil, das Werkzeug des Stils malt das Monster neu.
+   * Gold 10: der goldene W100 rollt groß, bei 100 Holo: die Folie zieht über das Bild.
+   * Gibt das Bild für die Karte zurück (Stil, Holo oder beides), sonst null
    */
-  private async handStep(p: RevealPull, g: { S: number; cx: number; cy: number }, sheet: Container, y: number, roll: boolean, styleP: Promise<Texture> | null, rollUi: Container): Promise<Texture | null> {
+  private async handStep(p: RevealPull, g: { S: number; cx: number; cy: number }, sheet: Container, y: number, roll: boolean, styleP: Promise<Texture> | null, holoP: Promise<Texture> | null, rollUi: Container): Promise<Texture | null> {
     if (p.hand === undefined) return null;
     const mono = 'JetBrains Mono, monospace';
     const box = new Container();
@@ -789,147 +799,209 @@ export class Reveal {
     const val = new Text({ text: '··', style: { fontFamily: mono, fontSize: 26, fontWeight: '800', fill: 0xfdf8ee, stroke: { color: 0x15111a, width: 4 } } });
     val.anchor.set(0, 0.5);
     val.x = -2;
-    box.addChild(lab, val);
+    const gold = new Text({ text: '✦·', style: { fontFamily: mono, fontSize: 20, fontWeight: '800', fill: 0xffd66b, stroke: { color: 0x15111a, width: 4 } } });
+    gold.anchor.set(0, 0.5);
+    gold.x = 48;
+    box.addChild(lab, val, gold);
     box.alpha = 0;
     this.front.addChild(box);
     await this.tween(180, (q) => (box.alpha = q));
     const n = roll ? 8 : 4;
     for (let k = 0; k < n; k++) {
       val.text = String(1 + Math.floor(Math.random() * 100)).padStart(2, '0');
+      gold.text = '✦' + String(1 + Math.floor(Math.random() * 10));
       sfx.tick(k);
       await this.tween(38 + k * 6, (q) => val.scale.set(1.15 - 0.15 * q));
     }
     val.text = String(p.hand);
-    if (p.hand !== 100) {
+    gold.text = '✦' + String(p.gold ?? 1);
+    const styleHit = p.hand === 100,
+      goldHit = p.gold === 10;
+    if (!styleHit && !goldHit) {
       await this.tween(220, (q) => val.scale.set(1.3 - 0.3 * q), ease.out);
       return null;
     }
-    // 100: Stille, dann der W10 groß über dem Blatt
-    val.tint = 0xffd66b;
-    sfx.land();
-    this.quake(4);
-    await this.tween(260, (q) => val.scale.set(1.6 - 0.6 * q), ease.out);
-    await this.wait(600);
     const dim = new Graphics().rect(0, 0, this.W, this.H).fill({ color: 0x0b0910, alpha: 0.82 });
     dim.alpha = 0;
     const over = new Container();
-    const cap = new Text({ text: 'd10', style: { fontFamily: mono, fontSize: 14, fontWeight: '700', fill: 0xffd66b, letterSpacing: 4 } });
+    const cap = new Text({ text: '', style: { fontFamily: mono, fontSize: 14, fontWeight: '700', fill: 0xffd66b, letterSpacing: 4 } });
     cap.anchor.set(0.5);
     cap.position.set(g.cx, g.cy - 78);
     const big = new Text({ text: '··', style: { fontFamily: mono, fontSize: 96, fontWeight: '800', fill: 0xfff2c4, stroke: { color: 0x15111a, width: 8 } } });
     big.anchor.set(0.5);
     big.position.set(g.cx, g.cy);
-    over.addChild(cap, big);
-    this.front.addChild(dim, over);
-    // Der W100 und die Hand treten zurück, damit nur der W10 zählt
-    await this.tween(420, (q) => {
-      dim.alpha = q;
-      rollUi.alpha = box.alpha = 1 - q;
-    });
-    for (let k = 0; k < 14; k++) {
-      big.text = String(1 + Math.floor(Math.random() * 10));
-      sfx.tick(k);
-      await this.tween(60 + k * k * 2.6, (q) => big.scale.set(1.2 - 0.2 * q));
-    }
-    big.text = String(p.shinyD10 ?? 1);
-    if (p.shinyD10 !== 10) {
-      sfx.land();
-      const close = new Text({ text: 'so close', style: { fontFamily: mono, fontSize: 14, fontWeight: '700', fill: 0xbdb3a6, letterSpacing: 2 } });
-      close.anchor.set(0.5);
-      close.position.set(g.cx, g.cy + 72);
-      over.addChild(close);
-      await this.wait(1100);
-      await this.tween(380, (q) => {
-        dim.alpha = over.alpha = 1 - q;
-        rollUi.alpha = box.alpha = q;
-      });
-      dim.destroy();
-      over.destroy({ children: true });
-      return null;
-    }
-    // Shiny: alles hält an, Gold, Sepia sagt etwas, der Stil wird gewürfelt
-    const st = p.monster.style ?? 'pencil';
-    sfx.shiny();
-    this.whiteFlash(0.85, 900, 0xfff2c4);
-    this.quake(10);
-    this.sparkles(g.cx, g.cy, 0xffd66b, 40, 320);
-    const title = new Text({ text: '✦ SHINY ✦', style: { fontFamily: 'Young Serif, Georgia, serif', fontSize: 44, fill: 0xffd66b, dropShadow: { color: 0xffb400, blur: 20, distance: 0, alpha: 0.9 } } });
+    const title = new Text({ text: '', style: { fontFamily: 'Young Serif, Georgia, serif', fontSize: 44, fill: 0xffd66b, dropShadow: { color: 0xffb400, blur: 20, distance: 0, alpha: 0.9 } } });
     title.anchor.set(0.5);
     title.position.set(g.cx, g.cy - 140);
-    title.scale.set(0.4);
-    over.addChild(title);
-    void this.tween(500, (q) => title.scale.set(0.4 + 0.6 * ease.back(q)));
-    const say = new Text({
-      text: 'That is not watercolour.\nSomeone else has been painting on my sheet.',
-      style: { fontFamily: 'Caveat, cursive', fontSize: 24, fill: 0xe9c9a4, align: 'center', wordWrap: true, wordWrapWidth: Math.min(this.W - 40, 360) },
-    });
+    const say = new Text({ text: '', style: { fontFamily: 'Caveat, cursive', fontSize: 24, fill: 0xe9c9a4, align: 'center', wordWrap: true, wordWrapWidth: Math.min(this.W - 40, 360) } });
     say.anchor.set(0.5, 0);
     say.position.set(g.cx, g.cy + 84);
     const who = new Text({ text: 'MASTER SEPIA', style: { fontFamily: mono, fontSize: 10, fontWeight: '700', fill: 0xbdb3a6, letterSpacing: 3 } });
     who.anchor.set(0.5, 0);
-    who.position.set(g.cx, say.y + say.height + 8);
-    say.alpha = who.alpha = 0;
-    over.addChild(say, who);
-    await this.tween(500, (q) => (say.alpha = who.alpha = q));
-    await this.wait(1400);
-    // Der W20 für den Stil: die Namen wechseln, dann steht er
-    cap.text = `d${STYLE_DIE} · style`;
-    for (let k = 0; k < 16; k++) {
-      const s = STYLES[(k * 5) % STYLES.length]!;
-      big.text = String(s.from);
-      title.text = s.label;
-      sfx.tick(k);
-      await this.tween(50 + k * k * 1.8, (q) => big.scale.set(1.15 - 0.15 * q));
+    over.addChild(cap, big, title, say, who);
+    this.front.addChild(dim, over);
+    const show = async () => {
+      over.alpha = 1;
+      big.alpha = cap.alpha = 1;
+      title.text = say.text = '';
+      say.alpha = who.alpha = 0;
+      await this.tween(420, (q) => {
+        dim.alpha = Math.max(dim.alpha, q);
+        rollUi.alpha = box.alpha = Math.min(rollUi.alpha, 1 - q);
+      });
+    };
+    const sepia = async (text: string) => {
+      say.text = text;
+      who.position.set(g.cx, say.y + say.height + 8);
+      await this.tween(500, (q) => (say.alpha = who.alpha = q));
+    };
+    const hide = () =>
+      this.tween(420, (q) => {
+        dim.alpha = 1 - q;
+        big.alpha = cap.alpha = say.alpha = who.alpha = title.alpha = 1 - q;
+      });
+    let out: Texture | null = null;
+
+    // Weiß 100: der Stil
+    if (styleHit) {
+      val.tint = 0xffd66b;
+      sfx.land();
+      this.quake(4);
+      await this.tween(260, (q) => val.scale.set(1.6 - 0.6 * q), ease.out);
+      await this.wait(500);
+      await show();
+      const st = p.monster.style ?? 'pencil';
+      cap.text = `d${STYLE_DIE} · style`;
+      title.alpha = 1;
+      title.scale.set(1);
+      for (let k = 0; k < 16; k++) {
+        const s = STYLES[(k * 5) % STYLES.length]!;
+        big.text = String(s.from);
+        title.text = s.label;
+        sfx.tick(k);
+        await this.tween(50 + k * k * 1.8, (q) => big.scale.set(1.15 - 0.15 * q));
+      }
+      big.text = String(p.styleRoll ?? styleDef(st).from);
+      title.text = styleDef(st).label;
+      sfx.shiny();
+      this.whiteFlash(0.6, 700, 0xfff2c4);
+      this.burstRing(g.cx, g.cy, 0xffd66b, 1.6, 600);
+      await this.tween(380, (q) => title.scale.set(1.4 - 0.4 * q), ease.elastic);
+      const odds = new Text({ text: styleDef(st).odds, style: { fontFamily: mono, fontSize: 13, fontWeight: '700', fill: 0xffd66b, letterSpacing: 2 } });
+      odds.anchor.set(0.5);
+      odds.position.set(g.cx, g.cy - 104);
+      over.addChild(odds);
+      await sepia('That is not watercolour.\nSomeone else has been painting on my sheet.');
+      await this.wait(1200);
+      await hide();
+      odds.destroy();
+      // Das Werkzeug des Stils malt das Monster neu
+      const tex = await (styleP ?? Promise.resolve(Texture.EMPTY));
+      const mask = this.makePaintMask(g.S);
+      const art = new Sprite(tex);
+      art.anchor.set(0.5);
+      art.width = art.height = g.S;
+      art.mask = mask.s;
+      sheet.addChild(art, mask.s);
+      const tool = this.makeTool(st);
+      tool.c.position.set(g.cx + 120, g.cy - 300);
+      this.front.addChild(tool.c);
+      await this.paintStrokes({ cx: g.cx, cy: g.cy, S: g.S, mask, brush: tool, color: 0xffd66b, rows: 5, ms: 330, scale: 1, sound: true });
+      const tx = tool.c.x,
+        ty = tool.c.y;
+      void this.tween(450, (q) => {
+        tool.c.x = tx + 140 * q;
+        tool.c.y = ty - 240 * q;
+        tool.c.alpha = 1 - q;
+      }, ease.in);
+      await this.tween(500, (q) => {
+        mask.bloom(q);
+        mask.flush();
+      }, ease.out);
+      mask.fill();
+      art.mask = null;
+      mask.s.visible = false;
+      sfx.shimmer();
+      this.sparkles(g.cx, g.cy, 0xffd66b, 24, 240);
+      out = tex;
     }
-    big.text = String(p.styleRoll ?? styleDef(st).from);
-    title.text = styleDef(st).label;
-    sfx.land();
-    this.burstRing(g.cx, g.cy, 0xffd66b, 1.6, 600);
-    await this.tween(380, (q) => title.scale.set(1.4 - 0.4 * q), ease.elastic);
-    const odds = new Text({ text: styleDef(st).odds, style: { fontFamily: mono, fontSize: 13, fontWeight: '700', fill: 0xffd66b, letterSpacing: 2 } });
-    odds.anchor.set(0.5);
-    odds.position.set(g.cx, g.cy - 104);
-    over.addChild(odds);
-    await this.wait(900);
-    // Das Werkzeug des Stils malt das Monster neu
-    await this.tween(420, (q) => {
-      dim.alpha = 1 - q;
-      big.alpha = cap.alpha = say.alpha = who.alpha = 1 - q;
-    });
-    const tex = await (styleP ?? Promise.resolve(Texture.EMPTY));
-    const mask = this.makePaintMask(g.S);
-    const art = new Sprite(tex);
-    art.anchor.set(0.5);
-    art.width = art.height = g.S;
-    art.mask = mask.s;
-    sheet.addChild(art, mask.s);
-    const tool = this.makeTool(st);
-    tool.c.position.set(g.cx + 120, g.cy - 300);
-    this.front.addChild(tool.c);
-    await this.paintStrokes({ cx: g.cx, cy: g.cy, S: g.S, mask, brush: tool, color: 0xffd66b, rows: 5, ms: 330, scale: 1, sound: true });
-    const tx = tool.c.x,
-      ty = tool.c.y;
-    void this.tween(450, (q) => {
-      tool.c.x = tx + 140 * q;
-      tool.c.y = ty - 240 * q;
-      tool.c.alpha = 1 - q;
-    }, ease.in);
-    await this.tween(500, (q) => {
-      mask.bloom(q);
-      mask.flush();
-    }, ease.out);
-    mask.fill();
-    art.mask = null;
-    mask.s.visible = false;
-    sfx.shimmer();
-    this.sparkles(g.cx, g.cy, 0xffd66b, 30, 260);
+
+    // Gold 10: der goldene W100, bei 100 Holo
+    if (goldHit) {
+      gold.scale.set(1.5);
+      sfx.land();
+      await this.wait(400);
+      await show();
+      cap.text = 'gold d100 · holo';
+      big.tint = 0xffd66b;
+      for (let k = 0; k < 14; k++) {
+        big.text = String(1 + Math.floor(Math.random() * 100));
+        sfx.tick(k);
+        await this.tween(60 + k * k * 2.6, (q) => big.scale.set(1.2 - 0.2 * q));
+      }
+      big.text = String(p.goldD100 ?? 1);
+      if (p.goldD100 !== 100) {
+        sfx.land();
+        const close = new Text({ text: 'so close', style: { fontFamily: mono, fontSize: 14, fontWeight: '700', fill: 0xbdb3a6, letterSpacing: 2 } });
+        close.anchor.set(0.5);
+        close.position.set(g.cx, g.cy + 72);
+        over.addChild(close);
+        await this.wait(1100);
+        await this.tween(380, (q) => {
+          dim.alpha = over.alpha = 1 - q;
+          rollUi.alpha = box.alpha = q;
+        });
+        dim.destroy();
+        over.destroy({ children: true });
+        return out;
+      }
+      sfx.shiny();
+      this.whiteFlash(0.85, 900, 0xfff2c4);
+      this.quake(10);
+      this.sparkles(g.cx, g.cy, 0xffd66b, 40, 320);
+      title.text = '✦ HOLO ✦';
+      title.alpha = 1;
+      title.scale.set(0.4);
+      void this.tween(500, (q) => title.scale.set(0.4 + 0.6 * ease.back(q)));
+      await sepia('It catches the light.\nI did not paint that.');
+      await this.wait(1300);
+      await hide();
+      // Die Folie zieht schräg über das Bild, ein Lichtstreif läuft vorneweg
+      const tex = await (holoP ?? Promise.resolve(Texture.EMPTY));
+      const foil = new Sprite(tex);
+      foil.anchor.set(0.5);
+      foil.width = foil.height = g.S;
+      const wipe = new Graphics();
+      foil.mask = wipe;
+      const streak = new Sprite(glowTex());
+      streak.anchor.set(0.5);
+      streak.blendMode = 'add';
+      streak.tint = 0xfff2c4;
+      streak.rotation = 0.5;
+      streak.scale.set(0.35, (g.S * 2.2) / 256);
+      sheet.addChild(foil, wipe, streak);
+      sfx.shimmer();
+      const half = g.S / 2;
+      await this.tween(1100, (q) => {
+        const d = -half * 2 + q * g.S * 3;
+        wipe.clear().poly([-half * 2, -half * 2, d, -half * 2, d - g.S, half * 2, -half * 2, half * 2]).fill(0xffffff);
+        streak.x = d - half;
+        streak.alpha = Math.sin(q * Math.PI);
+      }, ease.inOut);
+      foil.mask = null;
+      wipe.destroy();
+      streak.destroy();
+      this.sparkles(g.cx, g.cy, 0xffffff, 30, 260);
+      out = tex;
+    }
+    // Funkeln bleibt über dem Bild, solange die Karte offen ist
     this.loops.push(() => {
-      if (Math.random() < 0.35) this.parts.spawn({ tex: sparkTex(), x: g.cx + (Math.random() - 0.5) * g.S, y: g.cy + (Math.random() - 0.5) * g.S, vy: -20 - Math.random() * 30, life: 1100, tint: 0xffd66b, add: true, scale: 0.18 + Math.random() * 0.18, scaleEnd: 0.02 });
+      if (Math.random() < 0.35) this.parts.spawn({ tex: sparkTex(), x: g.cx + (Math.random() - 0.5) * g.S, y: g.cy + (Math.random() - 0.5) * g.S, vy: -20 - Math.random() * 30, life: 1100, tint: goldHit && p.goldD100 === 100 ? 0xffffff : 0xffd66b, add: true, scale: 0.18 + Math.random() * 0.18, scaleEnd: 0.02 });
     });
     await this.tween(400, (q) => (over.alpha = 1 - q));
     over.visible = false;
     dim.visible = false;
-    return tex;
+    return out;
   }
 
   /** Werkzeug des Stils, die Spitze sitzt wie beim Pinsel bei (0, 26) */
@@ -990,6 +1062,20 @@ export class Reveal {
         new Graphics().circle(0, -60, 3).fill({ color: 0x8a8f9a }),
       );
       tip = new Graphics().moveTo(-4, -60).lineTo(-1, 26).lineTo(1, -40).closePath().fill({ color: 0xd6dae2 }).moveTo(4, -60).lineTo(1, 26).lineTo(-1, -40).closePath().fill({ color: 0xc0c4cc });
+    } else if (st === 'graffiti') {
+      // Sprühdose mit Nebel an der Düse
+      c.addChild(
+        new Graphics().roundRect(-14, -176, 28, 120, 8).fill({ color: 0xe23b6a }).rect(-14.5, -150, 29, 6).fill({ color: 0x1d1d22 }).rect(-14.5, -86, 29, 6).fill({ color: 0x1d1d22 }),
+        new Graphics().roundRect(-9, -64, 18, 18, 4).fill({ color: 0xd6dae2 }).rect(-4, -48, 8, 14).fill({ color: 0x8a8f9a }),
+      );
+      tip = new Graphics().circle(0, 14, 13).fill({ color: 0xffffff, alpha: 0.25 }).circle(0, 22, 7).fill({ color: 0xffffff, alpha: 0.4 }).circle(0, 26, 3).fill({ color: 0xe23b6a });
+    } else if (st === 'nouveau') {
+      // Feder mit goldener Spitze
+      c.addChild(
+        new Graphics().moveTo(0, -190).bezierCurveTo(-26, -150, -18, -70, -2, -20).lineTo(2, -20).bezierCurveTo(12, -70, 20, -150, 0, -190).closePath().fill({ color: 0xf3ead6 }).stroke({ width: 1.5, color: 0x4a3424 }),
+        new Graphics().moveTo(0, -186).lineTo(0, -20).stroke({ width: 1.5, color: 0x9a7a52 }),
+      );
+      tip = new Graphics().moveTo(-4, -20).lineTo(4, -20).lineTo(1, 22).lineTo(0, 26).lineTo(-1, 22).closePath().fill({ color: 0xd8a032 });
     } else if (st === 'mosaic') {
       // Pinzette mit einem Steinchen
       c.addChild(new Graphics().moveTo(-3, -186).lineTo(3, -186).lineTo(-1, 14).lineTo(-6, 14).closePath().fill({ color: 0xb8bcc6 }).moveTo(-3, -186).lineTo(3, -186).lineTo(6, 14).lineTo(1, 14).closePath().fill({ color: 0x9aa0ab }));
@@ -1040,6 +1126,12 @@ export class Reveal {
       .fill({ color: 0xfbf8f1 })
       .stroke({ width: p.rarity === 'common' ? 3 : 6, color: p.rarity === 'legendary' ? 0xd8a032 : col });
     if (p.rarity === 'legendary') frame.roundRect(-w / 2 + 7, -h / 2 + 7, w - 14, h - 14, 12).stroke({ width: 1.5, color: 0xf3d77a });
+    // Holo: Regenbogenrand um die ganze Karte
+    if (p.monster.holo) {
+      const rb = new FillGradient(0, 0, 1, 1);
+      ['#ff6b6b', '#ffd36b', '#8cff9e', '#6bd5ff', '#b46bff', '#ff6b6b'].forEach((c, i) => rb.addColorStop(i / 5, c));
+      frame.roundRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6, 18).stroke({ width: 6, fill: rb });
+    }
     const art = new Sprite(mtex);
     art.anchor.set(0.5);
     art.width = art.height = S - 8;
@@ -1193,38 +1285,40 @@ export class Reveal {
       }, ease.out);
     }
     await this.wait(700);
-    // Die Hand auf jedem Klecks: kurz rattern, dann stehen alle. Eine 100 leuchtet
+    // Die Hand auf jedem Klecks: weißer W100 und goldener W10 rattern kurz, dann stehen alle. Eine 100 oder goldene 10 leuchtet
     const hands = minis.map((m) => {
       const t = new Text({ text: '··', style: { fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: '800', fill: 0xbdb3a6 } });
       t.anchor.set(0.5);
       t.position.set(0, -s / 2 + 10);
-      const bg = new Graphics().roundRect(-22, -s / 2 + 1, 44, 18, 6).fill({ color: 0x15111a, alpha: 0.75 });
+      const bg = new Graphics().roundRect(-34, -s / 2 + 1, 68, 18, 6).fill({ color: 0x15111a, alpha: 0.75 });
       m.c.addChild(bg, t);
       return t;
     });
     for (let k = 0; k < 6; k++) {
-      hands.forEach((t, i) => (t.text = minis[i]!.p.hand === undefined ? '' : '✋' + String(1 + Math.floor(Math.random() * 100))));
+      hands.forEach((t, i) => (t.text = minis[i]!.p.hand === undefined ? '' : `✋${1 + Math.floor(Math.random() * 100)} ✦${1 + Math.floor(Math.random() * 10)}`));
       sfx.tick(k);
       await this.wait(70);
     }
     hands.forEach((t, i) => {
       const h = minis[i]!.p.hand;
-      t.text = h === undefined ? '' : `✋${h}`;
-      if (h === 100) t.tint = 0xffd66b;
+      t.text = h === undefined ? '' : `✋${h} ✦${minis[i]!.p.gold ?? 1}`;
+      if (h === 100 || minis[i]!.p.gold === 10) t.tint = 0xffd66b;
     });
     await this.wait(700);
-    // Ein Shiny bekommt die große Bühne, sonst der seltenste, bei Gleichstand der höhere Wurf
+    // Holo bekommt die große Bühne, dann ein Stil, sonst der seltenste, bei Gleichstand der höhere Wurf
     let bestK = 0;
     ps.forEach((p, k) => {
       const a = rarityIndex(p.rarity),
         b = rarityIndex(ps[bestK]!.rarity);
       if (a > b || (a === b && p.d100 > ps[bestK]!.d100)) bestK = k;
     });
-    const shinyK = ps.findIndex((p) => p.monster.style);
-    if (shinyK >= 0) bestK = shinyK;
+    const holoK = ps.findIndex((p) => p.monster.holo);
+    const styleK = ps.findIndex((p) => p.monster.style);
+    if (holoK >= 0) bestK = holoK;
+    else if (styleK >= 0) bestK = styleK;
     else {
-      const hundred = ps.findIndex((p) => p.hand === 100);
-      if (hundred >= 0 && rarityIndex(ps[hundred]!.rarity) >= rarityIndex(ps[bestK]!.rarity)) bestK = hundred;
+      const near = ps.findIndex((p) => p.gold === 10);
+      if (near >= 0 && rarityIndex(ps[near]!.rarity) >= rarityIndex(ps[bestK]!.rarity)) bestK = near;
     }
     const best = minis[bestK]!;
     sfx.lift();

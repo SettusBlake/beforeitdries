@@ -24,8 +24,8 @@ import {
   rarityFromRoll,
   rarityIndex,
   REWARD,
-  rollShiny,
-  forcedShiny,
+  rollHand,
+  forcedHand,
   STYLES,
   TEN_COST,
   washGlaze,
@@ -51,7 +51,18 @@ export async function loadDice(d: Pick<Deps, 'redis' | 'now'>, uid: string): Pro
   const raw = await d.redis.get(K.dice(uid));
   const s = raw ? { ...emptyDice(), ...(JSON.parse(raw) as DiceSave) } : emptyDice();
   weeklyBlank(s, d.now);
+  migrateHolo(s);
   return s;
+}
+/**
+ * Stand 1 auf 2 (31.10.2026): bis dahin war jeder Stil ein Shiny aus dem Wurf 1 zu 1000. Diese Würfel behalten
+ * den Stil und bekommen Holo (Seltenheit war schon gehoben). Gespeichert wird mit der nächsten Änderung
+ */
+function migrateHolo(s: DiceSave): void {
+  if (s.v !== 1) return;
+  for (const die of s.dice) if (die.style) die.holo = 1;
+  Reflect.deleteProperty(s, 'forceShiny');
+  s.v = 2;
 }
 /**
  * Jede Woche ein leerer Würfel, die freien füllen nur bis BLANK.max auf (auch nach Wochen ohne Besuch).
@@ -139,15 +150,19 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
   s.dice.push(die);
   // Startzüge füllen den Beutel, spätere Würfel packt man selbst ein
   if (starter && s.bag.length < BAG) s.bag.push(die.id);
-  // Die Hand: Shiny 1 zu 1000, nur Aussehen
-  const sh = s.forceShiny ? forcedShiny(s.forceShiny) : rollShiny(d.rand);
-  delete s.forceShiny;
-  const out: PullResult = { d100, rarity, pity, die, dup: owned.has(key) ? key : null, hand: sh.hand };
-  if (sh.d10) out.shinyD10 = sh.d10;
-  if (sh.style) {
-    die.style = sh.style;
-    out.styleRoll = sh.styleRoll;
-    // Shiny hebt das Papier eine Stufe, damit Seltenheit, Werte und Seiten (festgelegt am 30.10.2026). Legendary bleibt.
+  // Die Hand: Stil 1 zu 100, Holo 1 zu 1000, unabhängig voneinander (festgelegt am 31.10.2026)
+  const hd = s.forceStyle || s.forceHolo ? forcedHand(s.forceStyle, !!s.forceHolo, d.rand) : rollHand(d.rand);
+  delete s.forceStyle;
+  delete s.forceHolo;
+  const out: PullResult = { d100, rarity, pity, die, dup: owned.has(key) ? key : null, hand: hd.hand, gold: hd.gold };
+  if (hd.goldD100) out.goldD100 = hd.goldD100;
+  if (hd.style) {
+    die.style = hd.style;
+    out.styleRoll = hd.styleRoll;
+  }
+  if (hd.holo) {
+    die.holo = 1;
+    // Nur Holo hebt das Papier eine Stufe, damit Seltenheit, Werte und Seiten (festgelegt am 31.10.2026). Legendary bleibt.
     // Der Schutz vor Pech hat oben schon nach dem W100 gezählt
     const up = RARITIES[rarityIndex(rarity) + 1];
     if (up) {
@@ -205,16 +220,18 @@ export async function diceSeen(d: Deps, userId: string | undefined): Promise<Dic
   });
 }
 
-/** Test-Knopf (Playtest, nur Mods): der nächste Zug ist Shiny in diesem Stil, null nimmt es zurück */
-export async function diceTestShiny(d: Deps, userId: string | undefined, username: string | undefined, style: unknown): Promise<DiceResponse> {
+/** Test-Knopf (Playtest, nur Mods): der nächste Zug hat diesen Stil (null: keinen) und, wenn holo, Holo */
+export async function diceTestShiny(d: Deps, userId: string | undefined, username: string | undefined, style: unknown, holo: unknown = false): Promise<DiceResponse> {
   const uid = needUser(userId);
   if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
   const k = STYLES.find((x) => x.k === style)?.k ?? null;
   if (style !== null && !k) throw new GameError('bad_request', 'Unknown style.');
   return withLock(d, playerLock(uid), async () => {
     const s = await loadDice(d, uid);
-    if (k) s.forceShiny = k;
-    else delete s.forceShiny;
+    if (k) s.forceStyle = k;
+    else delete s.forceStyle;
+    if (holo === true) s.forceHolo = true;
+    else delete s.forceHolo;
     await saveDice(d, uid, s);
     return { ...respond(d, s), tester: true };
   });
@@ -344,7 +361,7 @@ export async function diceWash(d: Deps, userId: string | undefined, id: unknown,
     if (s.bag.includes(id)) throw new GameError('bad_request', 'This die is in your deck. Take it out first.');
     if (s.dice.length <= KEEP_MIN) throw new GameError('bad_request', `Keep at least ${KEEP_MIN} dice for your deck.`);
     // Ein Shiny nur nach Rückfrage (festgelegt am 30.10.2026)
-    if (die.style && confirm !== true) throw new GameError('bad_request', 'This one is shiny. Confirm to wash it out.');
+    if (die.holo && confirm !== true) throw new GameError('bad_request', 'This one is holo. Confirm to wash it out.');
     const key = dieSpecies(die);
     const rarity = rarityOfDie(die);
     s.dice = s.dice.filter((x) => x !== die);

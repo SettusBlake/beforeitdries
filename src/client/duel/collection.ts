@@ -5,9 +5,10 @@
 import type { DiceResponse } from '../../shared/api';
 import { PAPER } from '../../shared/data';
 import { dayKey } from '../../shared/day';
-import { dieMonster, dieSpecies, drawLocked, GLAZE_COST, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { dieMonster, dieSpecies, drawLocked, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
-import { speciesLabel } from '../../shared/monster';
+import { monsterSeed, speciesLabel } from '../../shared/monster';
+import { addHolo } from '../lib/holo';
 import { looseKey, looseNow, painted, paintedNow } from '../lib/painter';
 import { navigateToPost } from '@devvit/web/client';
 import { api } from '../lib/api';
@@ -49,7 +50,7 @@ let review = 0;
 let swapIn: string | null = null;
 /** Würfel, dessen Auswaschen schon einmal angetippt wurde (zweiter Tipp wäscht) */
 let washArmed: string | null = null;
-/** Shiny: nach dem zweiten Tipp noch eine Rückfrage, erst der dritte wäscht */
+/** Holo: nach dem zweiten Tipp noch eine Rückfrage, erst der dritte wäscht */
 let washShiny: string | null = null;
 
 /* ---------- Bilder der Würfel: nebenbei gemalt, fertige sofort ---------- */
@@ -64,7 +65,7 @@ function art(d: DieRec, px: number, prio = 0, deco = false): HTMLCanvasElement {
     out.getContext('2d')!.drawImage(c, 0, 0, w, w);
     out.classList.remove('wet');
   };
-  // Bilder vom Ziehen gibt es nur in Aquarell, ein Shiny malt sich selbst
+  // Bilder vom Ziehen gibt es nur in Aquarell, ein Stil malt sich selbst
   const now = paintedNow(key) ?? (d.style ? null : looseNow(looseKey(d.id, d), out.width));
   if (now) draw(now);
   else {
@@ -73,6 +74,20 @@ function art(d: DieRec, px: number, prio = 0, deco = false): HTMLCanvasElement {
   }
   return out;
 }
+/**
+ * Holo: Folie über das Bild legen (Rahmen um das Canvas). host bekommt Licht und Regenbogenrand, tilt: kippt mit dem Finger.
+ * Ohne Holo bleibt das Canvas, wie es ist
+ */
+function holoArt(c: HTMLCanvasElement, d: DieRec, host?: HTMLElement, tilt = false): HTMLElement {
+  if (!d.holo) return c;
+  const f = el('div', 'hwrap');
+  f.append(c);
+  addHolo(f, monsterSeed(d.sheet, d.idx), host ?? f, tilt);
+  return f;
+}
+const foilLabel = (d: DieRec) => FOILS.find((f) => f.k === foilOf(monsterSeed(d.sheet, d.idx)))!.label;
+/** Kurz für Sammlung und Übersicht: „✦ Holo“, der Stil oder beides */
+const markText = (d: DieRec) => [d.holo ? '✦ Holo' : '', d.style ? styleDef(d.style).label : ''].filter(Boolean).join(' · ');
 /** Würfel als Einheit, mit dem Namen der Art, sobald die Community ihn vergeben hat */
 const unitOfDie = (d: DieRec): Unit => {
   const u = dieUnit(dieMonster(d), d.mods);
@@ -135,16 +150,21 @@ function render(): void {
   ($('painted-ok') as HTMLButtonElement).disabled = busy;
   $('blank-test').hidden = !tester;
   ($('blank-test') as HTMLButtonElement).disabled = busy;
-  // Test-Knopf: der nächste Zug ist Shiny im gewählten Stil
+  // Test-Knopf: der nächste Zug mit dem gewählten Stil und, getrennt davon, mit Holo
   const ts = $('shiny-test');
   ts.hidden = !tester;
   if (tester) {
-    ts.replaceChildren(el('span', '', 'Playtest · mods only · next dip shiny:'));
+    ts.replaceChildren(el('span', '', 'Playtest · mods only · next dip:'));
+    const holo = el('button', 'chip holo' + (s.forceHolo ? ' on' : ''), '✦ Holo') as HTMLButtonElement;
+    holo.type = 'button';
+    holo.disabled = busy;
+    holo.addEventListener('click', () => void testShiny(s.forceStyle ?? null, !s.forceHolo));
+    ts.append(holo);
     for (const st of STYLES) {
-      const b = el('button', 'chip' + (s.forceShiny === st.k ? ' on' : ''), st.label) as HTMLButtonElement;
+      const b = el('button', 'chip' + (s.forceStyle === st.k ? ' on' : ''), st.label) as HTMLButtonElement;
       b.type = 'button';
       b.disabled = busy;
-      b.addEventListener('click', () => void testShiny(s.forceShiny === st.k ? null : st.k));
+      b.addEventListener('click', () => void testShiny(s.forceStyle === st.k ? null : st.k, !!s.forceHolo));
       ts.append(b);
     }
   }
@@ -159,6 +179,7 @@ function render(): void {
     if (d) {
       const u = unitOfDie(d);
       b.style.setProperty('--c', rarityDef(u.rarity).col);
+      if (d.holo) b.classList.add('holo-rim');
       b.append(art(d, 46, 3), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 13)));
       b.title = u.name;
     } else b.append(el('span', 'plus', '+'));
@@ -174,20 +195,21 @@ function render(): void {
   const coll = $('coll');
   coll.replaceChildren();
   const sorted = [...s.dice].sort((a, b) => rarityIndex(unitOfDie(b).rarity) - rarityIndex(unitOfDie(a).rarity) || b.at - a.at);
-  const shinies = s.dice.filter((x) => x.style).length;
-  $('coll-count').textContent = `${s.dice.length} dice · ${new Set(s.dice.map(dieSpecies)).size} species` + (shinies ? ` · ${shinies} shiny` : '');
+  const holos = s.dice.filter((x) => x.holo).length,
+    styled = s.dice.filter((x) => x.style).length;
+  $('coll-count').textContent = `${s.dice.length} dice · ${new Set(s.dice.map(dieSpecies)).size} species` + (holos ? ` · ${holos} holo` : '') + (styled ? ` · ${styled} ${styled > 1 ? 'styles' : 'style'}` : '');
   for (const d of sorted) {
     const u = unitOfDie(d);
     const r = rarityDef(u.rarity);
-    const c = el('button', `dcard r-${u.rarity}` + (s.bag.includes(d.id) ? ' inbag' : '') + (d.style ? ' shiny' : '')) as HTMLButtonElement;
+    const c = el('button', `dcard r-${u.rarity}` + (s.bag.includes(d.id) ? ' inbag' : '') + (d.style || d.holo ? ' shiny' : '')) as HTMLButtonElement;
     c.type = 'button';
     c.dataset.id = d.id;
     c.style.setProperty('--c', r.col);
     const g = s.glaze[dieSpecies(d)] ?? 0;
-    c.append(art(d, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', shortName(u)), el('small', '', r.label + (g ? ` · ${g} glaze` : '')));
+    c.append(holoArt(art(d, 64), d, c), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', shortName(u)), el('small', '', r.label + (g ? ` · ${g} glaze` : '')));
     if (d.no) c.append(el('span', 'serial', serialText(d.no)));
     if (d.draw) c.append(html('span', 'drawn', BRUSH));
-    if (d.style) c.append(el('span', 'shinymark', `✦ ${styleDef(d.style).label}`));
+    if (d.style || d.holo) c.append(el('span', 'shinymark' + (d.holo ? ' holo' : ''), markText(d)));
     if (s.bag.includes(d.id)) c.append(el('span', 'bagmark', 'deck'));
     c.addEventListener('click', () => openDie(d));
     coll.append(c);
@@ -250,20 +272,24 @@ function openDie(d: DieRec): void {
   box.replaceChildren();
   const top = el('div', 'card-top');
   const info = el('div', 'card-id');
-  // Shiny: groß mit Rahmen, Text und Schild des Stils
-  const big = art(d, d.style ? 150 : 88, 5, !!d.style);
-  big.className = 'dieart' + (d.style ? ' shiny' : '');
-  big.style.setProperty('--c', r.col);
+  // Stil und Holo: groß, ein Stil mit Rahmen, Text und Schild. Holo kippt mit dem Finger
+  const wide = !!(d.style || d.holo);
+  const pic = art(d, wide ? 150 : 88, 5, !!d.style);
+  pic.className = 'dieart' + (wide ? ' shiny' : '');
+  pic.style.setProperty('--c', r.col);
+  const big = holoArt(pic, d, undefined, true);
+  if (d.holo) big.classList.add('dieart-holo');
   info.append(
     el('b', '', u.name),
     html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b class="rlabel" style="color:${r.col}">${r.label}</b>`),
     el('small', '', `${PAPER[u.m.paper].n} · ${speciesLabel(u.m)}`),
     ...(speciesNamedBy(u.m) ? [el('small', 'named-line', `Species named by u/${speciesNamedBy(u.m)}`)] : []),
     html('small', 'serial-line', (d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind') + (d.draw ? ` · <span class="drawn">${BRUSH} drawn by you</span>` : '')),
-    ...(d.style ? [el('small', 'shiny-line', `✦ Shiny · ${styleDef(d.style).label} · ${styleDef(d.style).odds}`)] : []),
+    ...(d.holo ? [el('small', 'shiny-line holo', `✦ Holo · ${foilLabel(d)} · ${HOLO_ODDS}`)] : []),
+    ...(d.style ? [el('small', 'shiny-line', `Style · ${styleDef(d.style).label} · ${styleDef(d.style).odds}`)] : []),
   );
-  // Ein Shiny zeigt sein großes Bild über der ganzen Breite
-  if (d.style) top.classList.add('shiny');
+  // Stil und Holo zeigen ihr großes Bild über der ganzen Breite
+  if (wide) top.classList.add('shiny');
   top.append(big, info);
   const net = html('div', 'card-net', netSvg(u.net, u.faces, 26));
   // Seiten mit Lasur: ein einfaches Symbol wird doppelt
@@ -342,8 +368,8 @@ function openDie(d: DieRec): void {
   if (!s.bag.includes(d.id)) {
     const n = washGlaze(u.rarity);
     const label =
-      washShiny === d.id && d.style
-        ? `It is shiny (${styleDef(d.style).label}). Tap once more to wash it out`
+      washShiny === d.id && d.holo
+        ? `It is holo. Tap once more to wash it out`
         : washArmed === d.id
           ? `Tap again: wash out for +${n} glaze`
           : `Wash out · +${n} glaze`;
@@ -358,8 +384,8 @@ function openDie(d: DieRec): void {
         sfx.tap();
         return openDie(d);
       }
-      // Ein Shiny nur nach Rückfrage: ein dritter Tipp
-      if (d.style && washShiny !== d.id) {
+      // Holo nur nach Rückfrage: ein dritter Tipp
+      if (d.holo && washShiny !== d.id) {
         washShiny = d.id;
         sfx.tap();
         return openDie(d);
@@ -492,7 +518,8 @@ function toReveal(p: PullResult): RevealPull {
     no: p.die.no ?? 0,
     id: p.die.id,
     hand: p.hand,
-    ...(p.shinyD10 ? { shinyD10: p.shinyD10 } : {}),
+    gold: p.gold,
+    ...(p.goldD100 ? { goldD100: p.goldD100 } : {}),
     ...(p.styleRoll ? { styleRoll: p.styleRoll } : {}),
     ...(p.lifted ? { lifted: p.lifted } : {}),
   };
@@ -570,7 +597,8 @@ function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
     if (p.die.draw) lines.push(`Your drawing, painted as ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
     else lines.push(p.dup ? `Another ${speciesLabel(u.m)}, but no other blot looks like this one (${serialText(p.die.no)}).` : `A new species for you: ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
     if (p.blank) lines.push('The die showed 1: you also found a blank canvas.');
-    if (p.die.style) lines.unshift(`✦ Shiny! ${styleDef(p.die.style).label}, ${styleDef(p.die.style).odds}.${p.lifted ? ` It lifted the die from ${rarityDef(p.rarity).label} to ${rarityDef(p.lifted).label}.` : ''}`);
+    if (p.die.style) lines.unshift(`New style: ${styleDef(p.die.style).label}, ${styleDef(p.die.style).odds}.`);
+    if (p.die.holo) lines.unshift(`✦ Holo! ${foilLabel(p.die)}, ${HOLO_ODDS}.${p.lifted ? ` It lifted the die from ${rarityDef(p.rarity).label} to ${rarityDef(p.lifted).label}.` : ''}`);
     const ok = el('button', 'primary', 'Done') as HTMLButtonElement;
     ok.type = 'button';
     ok.id = 'dip-next';
@@ -606,15 +634,15 @@ function summary(pulls: PullResult[]): Promise<void> {
     const grid = el('div', 'dsum');
     for (const p of pulls) {
       const u = unitOfDie(p.die);
-      // Ein Shiny zeigt die gehobene Seltenheit
+      // Holo zeigt die gehobene Seltenheit
       const r = rarityDef(p.lifted ?? p.rarity);
       const c = el('div', `dcard r-${r.k}`);
       c.style.setProperty('--c', r.col);
-      c.append(art(p.die, 64), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}${p.lifted ? ' · lifted' : ''}${p.blank ? ' · +canvas' : ''}`));
+      c.append(holoArt(art(p.die, 64), p.die, c), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', u.name), el('small', '', `${r.label} · ${p.pity ? 'shield' : `d${p.d100}`}${p.lifted ? ' · lifted' : ''}${p.blank ? ' · +canvas' : ''}`));
       if (!p.dup) c.append(el('span', 'bagmark new', 'new'));
-      if (p.die.style) {
+      if (p.die.style || p.die.holo) {
         c.classList.add('shiny');
-        c.append(el('span', 'shinymark', `✦ ${styleDef(p.die.style).label}`));
+        c.append(el('span', 'shinymark' + (p.die.holo ? ' holo' : ''), markText(p.die)));
       }
       grid.append(c);
     }
@@ -673,13 +701,13 @@ async function seen(): Promise<void> {
   busy = false;
   render();
 }
-/** Test-Knopf (Playtest, nur Mods): der nächste Zug ist Shiny (nochmal tippen nimmt es zurück) */
-async function testShiny(style: StyleId | null): Promise<void> {
+/** Test-Knopf (Playtest, nur Mods): Stil und Holo für den nächsten Zug (nochmal tippen nimmt es zurück) */
+async function testShiny(style: StyleId | null, holo: boolean): Promise<void> {
   if (busy) return;
   busy = true;
   sfx.tap();
   try {
-    apply(await api.diceTestShiny(style));
+    apply(await api.diceTestShiny(style, holo));
   } catch (e) {
     hooks.error(e);
   }

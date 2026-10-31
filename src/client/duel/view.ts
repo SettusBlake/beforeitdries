@@ -4,6 +4,7 @@
  */
 import { deformN, ellipsePts, grainTex } from '../renderer/watercolor';
 import { painted, paintedNow } from '../lib/painter';
+import { holoBake } from '../lib/holo';
 import { PIG } from '../../shared/data';
 import { RNG, hashStr } from '../../shared/rng';
 import { iconImage } from './icons';
@@ -248,7 +249,8 @@ function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLC
     void painted(bareKey(u, size), u.m, size, { dpr, paper: false }, 2);
     return null;
   }
-  const bare = clearHaze(raw);
+  // Holo: die Folie steht im Duell still, nur auf dem Monster
+  const bare = u.m.holo ? holoBake(clearHaze(raw), u.m.seed, { shape: true }) : clearHaze(raw);
   const S = bare.width;
   const mk = () => {
     const c = document.createElement('canvas');
@@ -712,6 +714,18 @@ function drawUnit(u: VUnit, t: number): void {
       ctx.ellipse(x, baseY, erx + 4 + g, ery + 2 + g * 0.45, 0, 0, 7);
       ctx.stroke();
       if (Math.random() < 0.15) V.parts.push({ x: x + (Math.random() - 0.5) * rx * 2, y: baseY - Math.random() * cell, vx: 0, vy: -40, g: 0, r: 2, t0: t, life: 700, col: 'rgba(255,214,90,.95)' });
+    }
+  }
+  // Holo: Regenbogenring um den Sockel, langsam drehend
+  if (u.state === 'sheet' && unitById(u.id)?.m.holo) {
+    const g = ctx.createConicGradient ? ctx.createConicGradient(t / 1400, x, baseY) : null;
+    if (g) {
+      [0, 60, 120, 200, 280, 340, 360].forEach((h, i) => g.addColorStop(i / 6, `hsl(${h} 90% 62%)`));
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(x, baseY, rx + 10, ry + 6, 0, 0, 7);
+      ctx.stroke();
     }
   }
   if (u.shield > 0) {

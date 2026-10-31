@@ -7,10 +7,10 @@ import { renderStyled } from '../renderer/shiny';
 import type { RenderOptions } from '../renderer/watercolor';
 import { paintSteps } from '../renderer/watercolor';
 
-/** deco: bei Shinys Rahmen, Texte und Schild (nur große Bilder) */
+/** deco: bei Stilen Rahmen, Texte und Schild (nur große Bilder) */
 export type PaintOptions = RenderOptions & { deco?: boolean };
 
-/** Shiny: in einem Stück im eigenen Stil. Ohne Papier freigestellt (Duell) */
+/** Stil: in einem Stück in der eigenen Malweise. Ohne Papier freigestellt (Duell) */
 function* styledSteps(canvas: HTMLCanvasElement, m: Monster, cssSize: number, opts: PaintOptions): Generator<void, void> {
   yield;
   renderStyled(canvas, m, m.style!, cssSize, { dpr: opts.dpr, deco: opts.deco ?? false, cutout: opts.paper === false });

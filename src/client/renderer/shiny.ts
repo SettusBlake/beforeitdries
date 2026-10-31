@@ -1,17 +1,18 @@
 /*
- * Shiny im Stil malen: Einstieg für alle dreizehn Stile. Pencil, Comic, Bestiary Plate und Oil stehen in styles.ts,
- * Anime (neu seit 30.10.2026) und die acht Stile aus docs/entwuerfe/stile-mehr-plan.md in styles-more.ts.
+ * Monster im Stil malen: Einstieg für alle fünfzehn Stile. Pencil, Comic, Bestiary Plate und Oil stehen in styles.ts,
+ * Anime (neu seit 30.10.2026), die acht Stile aus docs/entwuerfe/stile-mehr-plan.md, Graffiti und Art Nouveau in styles-more.ts.
+ * Holo (die Folie) kommt darüber, siehe src/client/lib/holo.ts
  */
 import type { StyleId } from '../../shared/dice';
 import type { Monster } from '../../shared/monster';
 import { RNG } from '../../shared/rng';
 import { cutout, paintClassic } from './styles';
-import { anime2, blueprint, crayon, mosaic, neon, papercut, pixel, stained, ukiyoe } from './styles-more';
+import { anime2, blueprint, crayon, graffiti, mosaic, neon, nouveau, papercut, pixel, stained, ukiyoe } from './styles-more';
 
 /** Anime spielt je nach Monster im Himmel oder vor Speedlines (fest aus dem Seed) */
 export const animeScene = (m: Monster): 'sky' | 'focus' => (RNG(m.seed + 909)() < 0.5 ? 'sky' : 'focus');
 /** Stile, deren Figur über den Umriss hinaus leuchtet oder Bildpunkte hat: beim Freistellen etwas mehr Rand */
-const RIM: Partial<Record<StyleId, number>> = { pixel: 0.028, neon: 0.03, stained: 0.02, mosaic: 0.025 };
+const RIM: Partial<Record<StyleId, number>> = { pixel: 0.028, neon: 0.03, stained: 0.02, mosaic: 0.025, graffiti: 0.035 };
 
 /**
  * Malt ein Shiny im Stil. deco: Rahmen, Texte und Schild (nur groß). Das Monster ist für jede Größe dasselbe.
@@ -61,6 +62,12 @@ export function renderStyled(canvas: HTMLCanvasElement, m: Monster, style: Style
       break;
     case 'mosaic':
       mosaic(ctx, mm, S, deco);
+      break;
+    case 'graffiti':
+      graffiti(ctx, mm, S, deco);
+      break;
+    case 'nouveau':
+      nouveau(ctx, mm, S, deco);
       break;
   }
   if (opts.cutout) cutout(ctx, mm, S, RIM[style]);

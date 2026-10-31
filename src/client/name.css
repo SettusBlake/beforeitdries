@@ -22,3 +22,6 @@ h1.named { color: var(--sepia); }
 .quote { margin: 0; max-width: 30ch; font: 500 1.2rem/1.15 var(--f-hand); color: var(--sepia); }
 .quote small { display: block; font: 600 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
 @media (max-height: 420px) { .quote { display: none; } }
+.n-holo { border-radius: 12px; padding: 4px; background: conic-gradient(from var(--hue, 0deg), #ff6b6b, #ffd36b, #8cff9e, #6bd5ff, #b46bff, #ff6b6b); box-shadow: 0 16px 30px -14px rgba(60,40,120,.6); }
+.n-holo > canvas { display: block; border-radius: 9px; }
+.n-holo .holo-foil, .n-holo .holo-sheen, .n-holo .holo-glare, .n-holo::after { inset: 4px; border-radius: 9px; }

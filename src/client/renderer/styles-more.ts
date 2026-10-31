@@ -703,7 +703,7 @@ export function pixel(ctx: Ctx, m: Monster, S: number, deco: boolean): void {
     ctx.fillText(m.name.toUpperCase(), x0 + u * 2, y0 + u * 3.2);
     ctx.font = `700 ${u * 1.6}px "JetBrains Mono", monospace`;
     ctx.fillStyle = '#ffd34d';
-    ctx.fillText(`★ SHINY  ${serialOf(m)}`, x0 + u * 2, y0 + u * 5.4);
+    ctx.fillText(`No. ${serialOf(m).slice(1)}`, x0 + u * 2, y0 + u * 5.4);
   }
 }
 
@@ -1818,7 +1818,7 @@ export function mosaic(ctx: Ctx, m: Monster, S: number, deco: boolean): void {
 }
 
 /* =====================================================================
- * Graffiti (Entwurf 31.10.2026): Sprühfarbe auf Beton. Alte übermalte Tags, Sprühnebel, 3D-Schatten,
+ * Graffiti (gezeichnet 31.10.2026, im Spiel seit 31.10.2026): Sprühfarbe auf Beton. Alte übermalte Tags, Sprühnebel, 3D-Schatten,
  * doppelte Kontur, Verlauf in der Füllung, Glanzstriche, Laufnasen, Name als Bubble-Schrift mit Krone
  * ===================================================================== */
 /** Form in einer Farbe aus einer Maske (Maske bleibt unverändert) */
@@ -2142,7 +2142,7 @@ function graffitiTag(ctx: Ctx, m: Monster, S: number, C: C3, LIGHT: C3, DARK: C3
 }
 
 /* =====================================================================
- * Art Nouveau (Entwurf 31.10.2026): Jugendstil-Karte wie ein Plakat um 1900. Großer Nimbus mit Ringen und
+ * Art Nouveau (gezeichnet 31.10.2026, im Spiel seit 31.10.2026): Jugendstil-Karte wie ein Plakat um 1900. Großer Nimbus mit Ringen und
  * Strahlen, Lilien und Ranken mit Peitschenschwung, gedämpfte Farben, braune Linie mit Druck, Rahmen und Titelfeld
  * ===================================================================== */
 const NV = { ink: '#4a3424', cream: '#efe4c9', gold: '#c9a24b', paleGold: '#ead7a2', sage: '#93a98a', teal: '#5f8f8a', rose: '#d4a29a' };

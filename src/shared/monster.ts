@@ -65,8 +65,10 @@ export interface Monster {
   gen?: 2;
   /** Selbst gemalt: die Striche als Text (src/shared/drawn.ts), ersetzen die Form */
   draw?: string;
-  /** Shiny: anderer Malstil statt Aquarell */
+  /** Stil: andere Malweise statt Aquarell */
   style?: StyleId;
+  /** Holo: Folie über dem Bild (das Muster kommt aus dem Seed, foilOf in dice.ts) */
+  holo?: 1;
 }
 
 export function makeName(r: Rand): string {

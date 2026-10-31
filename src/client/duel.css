@@ -478,3 +478,19 @@ canvas.wet { background: #ece6d8; animation: wetpulse 1.1s ease-in-out infinite;
 .testrow { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; font: 600 10.5px var(--f-mono); color: var(--muted); }
 .testrow .chip { border: 1px dashed var(--muted); background: transparent; border-radius: 999px; padding: 4px 9px; font: 600 11px var(--f-mono); color: var(--muted); cursor: pointer; }
 .testrow .chip.on { background: #e6bf58; border-color: #b8860b; color: #3c2808; border-style: solid; }
+
+/* ---------- Holo in der Würfelsammlung (Kern der Folie in src/client/lib/holo.css) ---------- */
+/* Sammlung: kleine Kachel, Regenbogenrand statt Rand in der Seltenheit */
+.dcard.holo { border: 2px solid transparent; border-top-width: 4px; background: linear-gradient(#fff, #fff) padding-box, var(--ring) border-box; animation: none; }
+.dcard .hwrap { width: 64px; height: 64px; }
+.dcard .hwrap > canvas { width: 100%; height: 100%; }
+.dcard .holo-foil { -webkit-mask-size: 26px; mask-size: 26px; }
+.shinymark.holo { color: #3a2a6b; background: linear-gradient(90deg, #ffd6e7, #fff3b0, #c8f7d8, #c9e8ff, #e3d2ff); }
+/* Würfelkarte: groß, kippt mit dem Finger */
+.card-top .hwrap.dieart-holo { width: 150px; height: 150px; border-radius: 10px; flex: none; box-shadow: 0 10px 24px -10px rgba(60,40,120,.55); padding: 3px; background: var(--ring); }
+.card-top .hwrap.dieart-holo > canvas { width: 100%; height: 100%; border-radius: 8px; box-shadow: none; }
+.card-top .hwrap.dieart-holo .holo-foil, .card-top .hwrap.dieart-holo .holo-sheen, .card-top .hwrap.dieart-holo .holo-glare, .card-top .hwrap.dieart-holo::after { inset: 3px; border-radius: 8px; }
+.shiny-line.holo { color: #5a3fa6; font-weight: 800; }
+/* Deck: Regenbogenring */
+.bslot.holo-rim { background: conic-gradient(#ff6b6b, #ffd36b, #8cff9e, #6bd5ff, #b46bff, #ff6b6b); border-style: solid; border-color: transparent; }
+@media (prefers-reduced-motion: reduce) { .holo-tilt { transform: none; } }

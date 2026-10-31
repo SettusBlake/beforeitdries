@@ -138,7 +138,8 @@ app.post(
 app.post(
   '/api/dice/test-shiny',
   wrap(async (req, res) => {
-    res.json(await diceTestShiny(await deps(), context.userId, await username(), (req.body as { style?: unknown } | undefined)?.style ?? null));
+    const b = req.body as { style?: unknown; holo?: unknown } | undefined;
+    res.json(await diceTestShiny(await deps(), context.userId, await username(), b?.style ?? null, b?.holo ?? false));
   }),
 );
 app.post(

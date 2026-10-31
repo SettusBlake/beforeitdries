@@ -1,0 +1,13 @@
+/* Holo (31.10.2026): Folie über dem Bild, Licht wandert oder folgt dem Finger (src/client/lib/holo.ts) */
+.holo, .holo-face { --rainbow: hsl(0 95% 62%) 0%, hsl(40 95% 60%) 5%, hsl(80 95% 58%) 10%, hsl(160 90% 55%) 15%, hsl(205 95% 60%) 20%, hsl(265 90% 66%) 25%, hsl(330 90% 64%) 30%, hsl(360 95% 62%) 35%; --ring: conic-gradient(from var(--hue, 0deg), #ff6b6b, #ffd36b, #8cff9e, #6bd5ff, #b46bff, #ff6b6b); }
+.hwrap { position: relative; display: block; line-height: 0; border-radius: 8px; }
+.holo-face { position: relative; isolation: isolate; overflow: hidden; }
+.holo-face > canvas { display: block; }
+.holo-foil, .holo-sheen, .holo-glare, .holo-face::after { position: absolute; inset: 0; pointer-events: none; border-radius: inherit; }
+.holo-foil { mix-blend-mode: color-dodge; opacity: .8; background-image: repeating-linear-gradient(115deg, var(--rainbow)); background-size: 320% 320%; background-position: var(--mx, 50%) var(--my, 50%); -webkit-mask-image: var(--mask); mask-image: var(--mask); -webkit-mask-size: 56px; mask-size: 56px; }
+.holo-sheen { mix-blend-mode: multiply; opacity: .2; background-image: repeating-linear-gradient(65deg, var(--rainbow)); background-size: 240% 240%; background-position: calc(100% - var(--mx, 50%)) var(--my, 50%); }
+.holo-face::after { content: ""; mix-blend-mode: soft-light; opacity: .5; background-image: repeating-linear-gradient(65deg, var(--rainbow)); background-size: 240% 240%; background-position: calc(100% - var(--mx, 50%)) var(--my, 50%); }
+.holo-glare { mix-blend-mode: overlay; background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.8), rgba(255,255,255,.18) 22%, rgba(255,255,255,0) 55%); }
+.holo-tilt { transform: perspective(900px) rotateY(var(--rx, 0deg)) rotateX(var(--ry, 0deg)); }
+.holo-tilt .holo-face, .holo-tilt.holo-face { touch-action: none; cursor: grab; }
+@media (prefers-reduced-motion: reduce) { .holo-tilt { transform: none; } }

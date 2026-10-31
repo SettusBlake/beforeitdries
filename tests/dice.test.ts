@@ -5,7 +5,7 @@ import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTes
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
-import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollShiny, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
+import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollHand, foilOf, FOILS, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
 import { PAPER } from '../src/shared/data';
 import { monsterSeed, statRows } from '../src/shared/monster';
 import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
@@ -307,53 +307,95 @@ describe('Würfelsammlung', () => {
     expect(res.tester).toBe(true);
   });
 
-  it('Shiny: Hand-W100 zeigt 100, dann W10 zeigt 10 (1 zu 1000), ein W20 wählt den Stil', () => {
+  it('Hand: weißer W100 zeigt 100, dann wählt ein W20 den Stil (1 zu 100), goldener W10 und W100 bringen Holo (1 zu 1000)', () => {
     const seq = (xs: number[]) => {
       let i = 0;
       return () => xs[i++]!;
     };
-    expect(rollShiny(seq([42]))).toEqual({ hand: 43 });
-    expect(rollShiny(seq([99, 3]))).toEqual({ hand: 100, d10: 4 });
-    expect(rollShiny(seq([99, 9, 0]))).toEqual({ hand: 100, d10: 10, styleRoll: 1, style: 'pencil' });
-    expect(rollShiny(seq([99, 9, 19]))).toEqual({ hand: 100, d10: 10, styleRoll: 20, style: 'mosaic' });
-    // Jede Seite des W20 gehört genau einem Stil, sieben Stile mit 2 Seiten, sechs mit 1
+    expect(rollHand(seq([42, 3]))).toEqual({ hand: 43, gold: 4 });
+    expect(rollHand(seq([99, 3, 0]))).toEqual({ hand: 100, gold: 4, styleRoll: 1, style: 'pencil' });
+    expect(rollHand(seq([5, 9, 41]))).toEqual({ hand: 6, gold: 10, goldD100: 42 });
+    expect(rollHand(seq([5, 9, 99]))).toEqual({ hand: 6, gold: 10, goldD100: 100, holo: true });
+    expect(rollHand(seq([99, 9, 19, 99]))).toEqual({ hand: 100, gold: 10, styleRoll: 20, style: 'nouveau', goldD100: 100, holo: true });
+    // Jede Seite des W20 gehört genau einem Stil, fünf Stile mit 2 Seiten, zehn mit 1
     const faces = Array.from({ length: STYLE_DIE }, (_, i) => styleFromRoll(i + 1));
     for (const st of STYLES) expect(faces.filter((k) => k === st.k)).toHaveLength(st.to - st.from + 1);
+    expect(STYLES).toHaveLength(15);
     expect(STYLES.reduce((a, st) => a + st.to - st.from + 1, 0)).toBe(STYLE_DIE);
-    expect(STYLES.filter((st) => st.to > st.from)).toHaveLength(7);
-    for (const st of STYLES) expect(st.odds).toBe(st.to > st.from ? '1 in 10 000' : '1 in 20 000');
+    expect(STYLES.filter((st) => st.to > st.from).map((st) => st.k)).toEqual(['pencil', 'comic', 'anime', 'pixel', 'neon']);
+    for (const st of STYLES) expect(st.odds).toBe(st.to > st.from ? '1 in 1000' : '1 in 2000');
     const r = RNG(77);
     const rand = () => (r() * 4294967296) >>> 0;
-    let shiny = 0;
-    for (let i = 0; i < 200000; i++) if (rollShiny(rand).style) shiny++;
-    // Erwartet 200, deutlich daneben wäre ein Fehler
-    expect(shiny).toBeGreaterThan(130);
-    expect(shiny).toBeLessThan(280);
+    let style = 0,
+      holo = 0;
+    for (let i = 0; i < 200000; i++) {
+      const h = rollHand(rand);
+      if (h.style) style++;
+      if (h.holo) holo++;
+    }
+    // Erwartet 2000 und 200, deutlich daneben wäre ein Fehler
+    expect(style).toBeGreaterThan(1800);
+    expect(style).toBeLessThan(2200);
+    expect(holo).toBeGreaterThan(130);
+    expect(holo).toBeLessThan(280);
+    // Das Folienmuster kommt aus dem Seed
+    expect(new Set(Array.from({ length: 64 }, (_, i) => foilOf(i * 7919)))).toEqual(new Set(FOILS.map((f) => f.k)));
   });
 
-  it('jeder Zug zeigt die Hand, Shiny steht im Würfel, Auswaschen eines Shiny nur mit Bestätigung', async () => {
+  it('jeder Zug zeigt die Hand, Stil und Holo stehen im Würfel, Auswaschen nur bei Holo mit Bestätigung', async () => {
     const d = setup(88);
     const res = await dicePull(d, USER, 'starter');
     for (const p of res.pulls) {
       expect(p.hand).toBeGreaterThanOrEqual(1);
       expect(p.hand).toBeLessThanOrEqual(100);
-      expect(!!p.die.style).toBe(p.hand === 100 && p.shinyD10 === 10);
+      expect(p.gold).toBeGreaterThanOrEqual(1);
+      expect(p.gold).toBeLessThanOrEqual(10);
+      expect(!!p.die.style).toBe(p.hand === 100);
+      expect(!!p.die.holo).toBe(p.gold === 10 && p.goldD100 === 100);
     }
     await addPigment(d, 2000);
     await dicePull(d, USER, 'ten');
     const s = await loadDice(d, USER);
-    const die = s.dice.find((x) => !s.bag.includes(x.id))!;
-    die.style = 'oil';
+    const [die, plain] = s.dice.filter((x) => !s.bag.includes(x.id));
+    die!.style = 'oil';
+    die!.holo = 1;
+    plain!.style = 'neon';
+    delete plain!.holo;
     await saveDice(d, USER, s);
-    expect(dieMonster(die).style).toBe('oil');
-    expect(await code(diceWash(d, USER, die.id))).toBe('bad_request');
-    const w = await diceWash(d, USER, die.id, true);
-    expect(w.dice.dice.some((x) => x.id === die.id)).toBe(false);
-    const rec = JSON.parse((await d.redis.hGet(K.recycled, String(monsterSeed(die.sheet, die.idx))))!) as { die: { style?: string } };
+    expect(dieMonster(die!).style).toBe('oil');
+    expect(dieMonster(die!).holo).toBe(1);
+    // Ein Stil allein ist kein Shiny mehr: ohne Rückfrage
+    expect((await diceWash(d, USER, plain!.id)).dice.dice.some((x) => x.id === plain!.id)).toBe(false);
+    expect(await code(diceWash(d, USER, die!.id))).toBe('bad_request');
+    const w = await diceWash(d, USER, die!.id, true);
+    expect(w.dice.dice.some((x) => x.id === die!.id)).toBe(false);
+    const rec = JSON.parse((await d.redis.hGet(K.recycled, String(monsterSeed(die!.sheet, die!.idx))))!) as { die: { style?: string; holo?: number } };
     expect(rec.die.style).toBe('oil');
+    expect(rec.die.holo).toBe(1);
   });
 
-  it('Test-Knopf: der nächste Zug ist Shiny im gewählten Stil, nur einmal, nur für Mods im Playtest', async () => {
+  it('bisherige Shinys (Stand 1) behalten den Stil und bekommen Holo, neue Stile nicht', async () => {
+    const d = setup(31);
+    await dicePull(d, USER, 'starter');
+    const s = await loadDice(d, USER);
+    s.dice[0]!.style = 'comic';
+    s.v = 1;
+    Object.assign(s, { forceShiny: 'oil' });
+    await d.redis.set(K.dice(USER), JSON.stringify(s));
+    const t = await loadDice(d, USER);
+    expect(t.v).toBe(2);
+    expect(t.dice[0]!.holo).toBe(1);
+    // Jeder Würfel mit Stil war ein Shiny, die anderen bleiben ohne Holo
+    expect(t.dice.every((x) => !!x.holo === !!x.style)).toBe(true);
+    expect('forceShiny' in t).toBe(false);
+    // Ein Stil, der nach dem Umzug kommt, bleibt ohne Holo
+    const later = t.dice.find((x) => !x.style)!;
+    later.style = 'pixel';
+    await saveDice(d, USER, t);
+    expect((await loadDice(d, USER)).dice.find((x) => x.id === later.id)!.holo).toBeUndefined();
+  });
+
+  it('Test-Knopf: Stil und Holo getrennt wählbar, nur einmal, nur für Mods im Playtest', async () => {
     const reddit = new FakeReddit();
     reddit.mods.push('Vegavild');
     const d = { ...setup(99), reddit, appVersion: '0.0.1.57' };
@@ -361,26 +403,37 @@ describe('Würfelsammlung', () => {
     expect(await code(diceTestShiny(d, USER, 'someone', 'oil'))).toBe('forbidden');
     expect(await code(diceTestShiny({ ...d, appVersion: '0.0.2' }, USER, 'Vegavild', 'oil'))).toBe('forbidden');
     expect(await code(diceTestShiny(d, USER, 'Vegavild', 'watercolour'))).toBe('bad_request');
-    expect((await diceTestShiny(d, USER, 'Vegavild', 'oil')).dice.forceShiny).toBe('oil');
+    expect((await diceTestShiny(d, USER, 'Vegavild', 'oil')).dice.forceStyle).toBe('oil');
     const one = (await dicePull(d, USER, 'free')).pulls[0]!;
     expect(one.hand).toBe(100);
-    expect(one.shinyD10).toBe(10);
-    expect(one.styleRoll).toBe(15);
+    expect(one.styleRoll).toBe(13);
     expect(one.die.style).toBe('oil');
-    expect((await loadDice(d, USER)).forceShiny).toBeUndefined();
+    expect(one.die.holo).toBeUndefined();
+    expect(one.lifted).toBeUndefined();
+    expect((await loadDice(d, USER)).forceStyle).toBeUndefined();
+    // Nur Holo, ohne Stil
+    await addPigment(d, 1000);
+    await diceTestShiny(d, USER, 'Vegavild', null, true);
+    const two = (await dicePull(d, USER, 'one')).pulls[0]!;
+    expect(two.gold).toBe(10);
+    expect(two.goldD100).toBe(100);
+    expect(two.die.holo).toBe(1);
+    expect(two.die.style).toBeUndefined();
     // Zurücknehmen geht auch
-    await diceTestShiny(d, USER, 'Vegavild', 'comic');
-    expect((await diceTestShiny(d, USER, 'Vegavild', null)).dice.forceShiny).toBeUndefined();
+    await diceTestShiny(d, USER, 'Vegavild', 'comic', true);
+    const off = (await diceTestShiny(d, USER, 'Vegavild', null)).dice;
+    expect(off.forceStyle).toBeUndefined();
+    expect(off.forceHolo).toBeUndefined();
   });
 
-  it('Shiny hebt Papier und Seltenheit eine Stufe, Werte und Seiten wie bei dieser Seltenheit, Legendary bleibt', async () => {
+  it('Holo hebt Papier und Seltenheit eine Stufe, Werte und Seiten wie bei dieser Seltenheit, Legendary bleibt', async () => {
     const d = setup(123);
     await dicePull(d, USER, 'starter');
     await addPigment(d, 100 * PULL_COST);
     const seen = new Set<string>();
     for (let i = 0; i < 80; i++) {
       const s = await loadDice(d, USER);
-      s.forceShiny = 'comic';
+      s.forceHolo = true;
       const before = { ...s.pity };
       await saveDice(d, USER, s);
       const p = (await dicePull(d, USER, 'one')).pulls[0]!;

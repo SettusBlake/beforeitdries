@@ -11,6 +11,7 @@ import { dieMonster, rarityDef, rarityOf, serialText, styleDef } from '../shared
 import { speciesLabel } from '../shared/monster';
 import { api } from './lib/api';
 import { renderStyled } from './renderer/shiny';
+import { addHolo } from './lib/holo';
 import { renderMonster } from './renderer/watercolor';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -30,7 +31,15 @@ function art(n: NamingInfo): void {
     c.className = 'shiny';
     renderStyled(c, m, m.style, px, { dpr, deco: true, cutout: false });
   } else renderMonster(c, m, px, { dpr });
-  box.replaceChildren(c);
+  if (!m.holo) return void box.replaceChildren(c);
+  // Holo: die Folie über dem Bild, kippt mit dem Finger
+  const f = document.createElement('div');
+  f.className = 'n-holo';
+  f.style.width = f.style.height = `${px}px`;
+  c.style.width = c.style.height = '100%';
+  f.append(c);
+  addHolo(f, m.seed, f, true);
+  box.replaceChildren(f);
 }
 
 function left(ms: number): string {
@@ -49,7 +58,7 @@ function show(): void {
   const m = dieMonster(n.die);
   const r = rarityDef(rarityOf(m.paper));
   document.documentElement.style.setProperty('--c', r.col);
-  const shiny = m.style ? ` · ✦ ${styleDef(m.style).label}` : '';
+  const shiny = (m.holo ? ' · ✦ Holo' : '') + (m.style ? ` · ${styleDef(m.style).label}` : '');
   $('n-meta').innerHTML = `Found by u/${n.user} · ${serialText(n.die.no)} · <b>${r.label}</b> · ${PAPER[m.paper].n}${shiny}`;
   const kind = speciesLabel(m);
   const title = $('n-title');

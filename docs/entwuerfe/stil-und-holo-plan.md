@@ -1,6 +1,6 @@
 # Plan: Stil und Holo getrennt
 
-Stand 31.10.2026, Fassung 1. Wartet auf Freigabe.
+Stand 31.10.2026, Fassung 2. Freigegeben am 31.10.2026 mit allen Empfehlungen (Fragen 1 bis 6 „ja“). Gebaut, Playtest v0.0.1.83, Bild docs/entwuerfe/holo-im-spiel.png.
 
 Rückmeldung 31.10.2026 zu docs/entwuerfe/stile-mehr-plan.md (Fassung 3):
 - Graffiti und Jugendstil-Karte ins Spiel: ja.
@@ -66,6 +66,16 @@ Bei etwa jedem zehnten Zug rollt also ein zweiter goldener Würfel: kurze Spannu
 1. Server: zwei Würfe, Würfel-Feld `holo` (mit Muster aus dem Seed), bisherige Shinys bekommen Holo, Seltenheit hebt nur Holo, Test-Knopf, Tests.
 2. Graffiti und Jugendstil in den Renderer, W20 mit 15 Stilen, Werkzeuge.
 3. Holo auf Karte, Sammlung, Deck, Duell und beim Ziehen. Upload und Bild.
+
+## Gebaut (31.10.2026)
+
+- **Würfe:** `rollHand` in src/shared/dice.ts: weißer W100 (100: W20 für den Stil), goldener W10 (10: goldener W100, 100: Holo). PullResult `hand`, `styleRoll`, `gold`, `goldD100`, `lifted`. Würfel-Felder `style` und `holo`, Folie aus dem Seed (`foilOf`).
+- **Stile:** 15 auf dem W20 (`STYLES`), Pencil, Comic, Anime, Pixel, Neon je 2 Seiten (1 zu 1000), die übrigen zehn je 1 Seite (1 zu 2000). Graffiti und Art Nouveau im Renderer (src/client/renderer/shiny.ts), Werkzeuge Sprühdose und Feder.
+- **Umzug:** Stand 2 der Sammlung. Würfel mit Stil aus Stand 1 bekommen Holo, alles andere bleibt. Nur Holo hebt die Seltenheit, nur Holo fragt beim Auswaschen nach.
+- **Anzeige:** src/client/lib/holo.ts und holo.css. Würfelkarte groß mit Folie, kippt mit dem Finger, Zeilen „✦ Holo · Muster · 1 in 1000“ und „Style · Name · 1 in …“. Sammlung mit Regenbogenrand und Schild „✦ Holo“, Deck mit Regenbogenring, Übersicht nach dem Zehnerzug ebenso. Duell: Folie fest auf dem Aufkleber, drehender Regenbogenring am Sockel. Benennen-Post mit Folie.
+- **Ziehen:** Hand zeigt beide Würfel. Weiß 100: W20 mit den Stilnamen, Sepia, Werkzeug malt neu. Gold 10: goldener W100 groß, bei 100 „✦ HOLO ✦“, Sepia („It catches the light. I did not paint that.“), die Folie zieht schräg mit Lichtstreif über das Bild, dann „✦ HOLO LIFTS IT ✦“. Karte mit Regenbogenrahmen. Zehnerzug: Hand mit beiden Würfeln auf jedem Klecks, Holo vor Stil auf der großen Bühne.
+- **Test-Knopf:** „✦ Holo“ und die 15 Stile getrennt wählbar (Playtest, nur Mods).
+- Pixel zeigt auf der großen Karte die Nummer statt „★ SHINY“.
 
 ## Fragen
 

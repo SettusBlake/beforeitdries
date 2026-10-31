@@ -186,7 +186,8 @@ describe('Duell am Server', () => {
     view(await duelAct(d, USER, { k: 'roll', ids: l.slice(0, ROLL_N).map((u) => u.id) }));
     if (S.phase === 'keep') view(await duelAct(d, USER, { k: 'keep' }));
     if (S.phase === 'summon') view(await duelAct(d, USER, { k: 'skip' }));
-    if (S.joker > 0) view(await duelAct(d, USER, { k: 'joker', crest: 'step' }));
+    // Alle Joker nehmen (Kombi und Sepias Auftrag können zusammen zwei geben), sonst endet der Zug nicht von selbst
+    while (S.joker > 0) view(await duelAct(d, USER, { k: 'joker', crest: 'step' }));
     const u = S.teams[0].units.find((x) => x.state === 'sheet')!;
     const here = idx(u.x, u.y);
     const far = [...Array(COLS * ROWS).keys()].find((i) => !reach(u).has(i) && Math.max(Math.abs((i % COLS) - u.x), Math.abs(Math.floor(i / COLS) - u.y)) > 4)!;
