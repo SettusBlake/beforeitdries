@@ -91,6 +91,23 @@ export const sfx = {
     if (crit) hiss(0.02, 0.12, 'highpass', 3500, 2000, 0.12);
   },
   miss: () => hiss(0, 0.2, 'bandpass', 1200, 500, 0.06, 2),
+  /** Treffer nach Wucht (Anteil an der Deckkraft): je mehr Schaden, desto tiefer und lauter */
+  impact(share: number, crit = false): void {
+    const w = Math.max(0, Math.min(1, share));
+    tone(0, 190 - 110 * w, 45, 0.18 + 0.2 * w, 'sine', 0.2 + 0.18 * w);
+    hiss(0, 0.16 + 0.1 * w, 'lowpass', 1300 - 500 * w, 280, 0.22 + 0.16 * w);
+    hiss(0.03, 0.22, 'bandpass', 900, 2400, 0.08 + 0.06 * w, 2);
+    if (crit) {
+      hiss(0.02, 0.12, 'highpass', 3500, 2000, 0.14);
+      tone(0.01, 520, 380, 0.16, 'triangle', 0.08);
+    }
+  },
+  /** Großer Moment: tiefer Schlag mit Nachhall (Auswaschen, Herz) */
+  boom(): void {
+    tone(0, 70, 28, 0.7, 'sine', 0.42);
+    tone(0.01, 140, 60, 0.35, 'triangle', 0.12);
+    hiss(0, 0.5, 'lowpass', 600, 120, 0.3);
+  },
   guard: () => {
     tone(0, 1250, 1180, 0.18, 'triangle', 0.07);
     tone(0, 1880, 1800, 0.14, 'sine', 0.04);

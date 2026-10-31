@@ -1279,6 +1279,20 @@ export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean): num
   if (has(t, 'bloom3')) dmg *= 0.85;
   return Math.max(1, Math.round(dmg));
 }
+/**
+ * Wäscht ein normaler Treffer (ohne Krit) das Ziel aus? Für die Vorschau beim Zielen (G4): Meisterzug von Charge und Crush,
+ * ein Guard des Gegners halbiert, Twin trifft zweimal
+ */
+export function splashLethal(u: Unit, t: Unit, pig: PigmentId): boolean {
+  let dmg = baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1);
+  if (brimFull(u) && masterApplies(u, 'splash', idx(t.x, t.y))) {
+    if (u.m.bp === 'vierbeiner') dmg = dmg * 1.5 + 4;
+    else if (u.m.bp === 'krabbe') dmg *= 2;
+  }
+  dmg = Math.max(1, Math.round(dmg));
+  const first = teamOf(t).crests.guard > 0 ? Math.ceil(dmg / 2) : dmg;
+  return first + (GAIT[u.m.bp].key === 'twin' ? dmg : 0) >= t.hp;
+}
 export function splashOdds(u: Unit, t: Unit, pig: PigmentId, plus = 0, ignoreGrain = false): number {
   return pWin(bonus(u.sat) - (pig !== u.m.main ? 1 : 0) + HIT.toHit + plus, ignoreGrain ? 0 : bonus(grainOf(t))) * (1 - dodgeOf(t));
 }

@@ -73,7 +73,7 @@ let summonU: Unit | null = null,
   orient = 0,
   anchor: number | null = null;
 /** Ziehen vom Klecks: wohin der Finger zeigt, was dort passieren würde, und die Vorschau dazu */
-type Preview = { path: number[]; cells: { i: number; col: string; pct: number | null }[]; target: number | null; pct: number | null; text: string };
+type Preview = { path: number[]; cells: { i: number; col: string; pct: number | null }[]; target: number | null; pct: number | null; text: string; kill?: boolean };
 let drag: { u: Unit; start: number; over: number; moved: boolean; plan: Plan | null; pv: Preview | null } | null = null;
 /** Angetippter Klecks: der nächste Tipp ist sein Ziel (wie ein Wisch), ein Tipp auf ihn selbst ist Soak */
 let armed: Unit | null = null;
@@ -853,7 +853,7 @@ function previewBase(u: Unit, p: Plan | null): Preview | null {
   const prev = p.to !== here ? R.reachCost(u).prev : null;
   const path: number[] = [];
   if (prev) for (let c: number | undefined = p.to; c !== undefined && c !== -1; c = prev.get(c)) path.unshift(c);
-  const pv: Preview = { path, cells: [], target: null, pct: null, text: '' };
+  const pv: Preview = { path, cells: [], target: null, pct: null, text: '', kill: false };
   if (p.a === 'soak') {
     pv.text = `Soak: +${R.soakAmount(u)} opacity, rinses stains.`;
     return pv;
@@ -895,12 +895,14 @@ function previewBase(u: Unit, p: Plan | null): Preview | null {
       return pv;
     }
     const t = R.unitAt(p.at % COLS, Math.floor(p.at / COLS))!;
-    const [pig, pct, dmg] = R.atSpot(u, p.to, () => {
+    const [pig, pct, dmg, kill] = R.atSpot(u, p.to, () => {
       const g = R.bestPig(u, 'splash', p.at);
-      return [g, Math.round(R.splashOdds(u, t, g) * 100), R.baseDamage(u, t, g, R.cheb(u.x, u.y, t.x, t.y) <= 1)] as const;
+      return [g, Math.round(R.splashOdds(u, t, g) * 100), R.baseDamage(u, t, g, R.cheb(u.x, u.y, t.x, t.y) <= 1), R.splashLethal(u, t, g)] as const;
     });
     pv.pct = pct;
-    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% to hit, -${dmg}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, t.m.main)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.`;
+    // G4: reicht der Treffer, steht am Ziel WASH OUT
+    pv.kill = kill;
+    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% to hit, -${dmg}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, t.m.main)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
   }
   return pv;
 }
@@ -1128,6 +1130,15 @@ function drawOverlay(ctx: CanvasRenderingContext2D, cell: number): void {
     if (pv.target !== null) {
       ring(pv.target, 'rgba(163,58,58,1)');
       if (pv.pct !== null) label(cx(pv.target), cy(pv.target) - cell * 0.62, pv.target === S.teams[1].home ? '♥' : `${pv.pct}%`, '#a33a3a', 16);
+      // Der Treffer reicht: groß und pulsierend
+      if (pv.kill) {
+        const pulse = 1 + 0.06 * Math.sin(performance.now() / 110);
+        ctx.save();
+        ctx.translate(cx(pv.target), cy(pv.target) - cell * 0.95);
+        ctx.scale(pulse, pulse);
+        label(0, 0, 'WASH OUT', '#8e1f1f', 15);
+        ctx.restore();
+      }
     }
   }
   drawGuide(ctx, cell);

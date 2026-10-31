@@ -1,6 +1,6 @@
 # Vorschlag: mehr Wumms im Duell
 
-Stand 31.10.2026, Fassung 1. Rückmeldung 31.10.2026: Am Kampf stört vor allem „zu wenig Wumms“ (Züge fühlen sich fade an, zu wenig spürbare Treffer und echte Entscheidungen). Länge, Regelmenge und Balance sind nicht das Problem.
+Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026: G1 bis G4, S1 und S2 ja, S3 und S4 später. Teil 1 gebaut (siehe unten). Rückmeldung 31.10.2026: Am Kampf stört vor allem „zu wenig Wumms“ (Züge fühlen sich fade an, zu wenig spürbare Treffer und echte Entscheidungen). Länge, Regelmenge und Balance sind nicht das Problem.
 
 ## Gemessen
 
@@ -53,6 +53,16 @@ Teil 1 ganz (G1 bis G4), dazu **S1 und S2**. S3 und S4 erst, wenn es danach noch
 
 1. Teil 1 (G1 bis G4) direkt im Spiel, Upload. Du spielst und sagst, ob es sich besser anfühlt.
 2. S1 und S2 mit Simulation, Lern-Duell und Hilfe angepasst, Rivale bewertet Nachsetzen. Upload mit Bild.
+
+## Gebaut
+
+**Teil 1 (Gefühl), 31.10.2026, Playtest v0.0.1.93:**
+
+- Zeit des Blatts mit Stillstand und Zeitlupe (`hitStop`, `slowMo` in src/client/duel/view.ts), alles auf dem Blatt rechnet damit.
+- G1: Stillstand 60 bis 160 ms je nach Anteil an der Deckkraft (Krit länger), Ruck in Schlagrichtung (`kick`), Zahl größer und dunkler mit der Wucht, „CRIT ×1.5“ mit Goldring, Fleck bleibt auf dem Papier (`stain`), auch neben Fehlwürfen, bis die Runde trocknet.
+- G2: Auswaschen mit Zeitlupe, Zoom auf den Klecks, Banner „WASHED OUT“, Farbe quer über das Blatt als Flecken. Herz mit Zeitlupe, Zoom auf die Palette, Banner „PALETTE HIT“ oder „YOUR PALETTE!“, Fleck daneben, für jedes verlorene Herz ein Riss quer durch die Palette.
+- G3: `sfx.impact` (tiefer und lauter mit der Wucht), `sfx.boom` für Auswaschen und Herz.
+- G4: Am Ziel steht über der Chance pulsierend „WASH OUT“, wenn ein normaler Treffer reicht (`splashLethal` in rules.ts, mit Meisterzug, Guard und Twin), im Hinweis „A hit washes it out!“.
 
 ## Fragen
 

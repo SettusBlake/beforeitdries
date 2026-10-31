@@ -45,6 +45,11 @@ export const V = {
   rings: [] as Ring[],
   shots: [] as Shot[],
   shake: { t0: 0, amp: 0 },
+  /** Ruck in Schlagrichtung (G1) und kurzer Zoom auf große Momente (G2) */
+  kick: { t0: 0, dx: 0, dy: 0, amp: 0 },
+  zoom: { t0: 0, dur: 1, x: 0, y: 0, amp: 0 },
+  /** Spritzer, die auf dem Papier liegen bleiben, bis die Runde trocknet */
+  stains: [] as Stain[],
   flashRed: 0,
   crack: [0, 0],
   eraser: null as null | { row: number; t0: number; dur: number },
@@ -66,7 +71,40 @@ let bg: HTMLCanvasElement | null = null;
 const blobCache = new Map<string, HTMLCanvasElement>();
 const stickerCache = new Map<string, { img: HTMLCanvasElement; sil: HTMLCanvasElement }>();
 
-const now = () => performance.now();
+/*
+ * Zeit des Blatts (Wumms, docs/entwuerfe/wumms-vorschlag.md): steht beim Aufprall kurz still (Hit-Stop) und läuft
+ * bei großen Momenten langsamer (Zeitlupe). Alles, was sich auf dem Blatt bewegt, rechnet mit dieser Zeit
+ */
+let realLast = performance.now(),
+  virt = realLast;
+const clock = { freezeUntil: 0, slowUntil: 0, slowRate: 1 };
+const now = () => {
+  const r = performance.now();
+  const d = r - realLast;
+  realLast = r;
+  virt += d * (r < clock.freezeUntil ? 0 : r < clock.slowUntil ? clock.slowRate : 1);
+  return virt;
+};
+/** Kurz stillstehen, damit ein Treffer sitzt */
+function hitStop(ms: number): void {
+  now();
+  clock.freezeUntil = Math.max(clock.freezeUntil, performance.now() + ms / V.speed);
+}
+/** Zeitlupe für große Momente */
+function slowMo(ms: number, rate: number): void {
+  now();
+  clock.slowUntil = performance.now() + ms / V.speed;
+  clock.slowRate = rate;
+}
+/** Das Blatt ruckt in Schlagrichtung */
+function kick(dx: number, dy: number, amp: number): void {
+  const l = Math.max(0.001, Math.hypot(dx, dy));
+  V.kick = { t0: now(), dx: dx / l, dy: dy / l, amp };
+}
+/** Kurz auf eine Stelle zoomen */
+function zoomAt(x: number, y: number, amp: number, dur: number): void {
+  V.zoom = { t0: now(), dur, x, y, amp };
+}
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const easeOutBack = (x: number) => 1 + 2.4 * Math.pow(x - 1, 3) + 1.4 * Math.pow(x - 1, 2);
 const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
@@ -127,6 +165,9 @@ export function reset(): void {
   V.eraser = null;
   V.focus = null;
   V.crack = [0, 0];
+  V.stains = [];
+  V.zoom.amp = 0;
+  V.kick.amp = 0;
   blobCache.clear();
 }
 
@@ -330,6 +371,21 @@ function draw(): void {
     const a = V.shake.amp * (1 - sp);
     ctx.translate((Math.random() * 2 - 1) * a, (Math.random() * 2 - 1) * a);
   }
+  // Ruck in Schlagrichtung, federt zurück
+  const kp = clamp01((t - V.kick.t0) / 280);
+  if (kp < 1 && V.kick.amp) {
+    const o = V.kick.amp * Math.pow(1 - kp, 2) * Math.cos(kp * Math.PI * 1.5);
+    ctx.translate(V.kick.dx * o, V.kick.dy * o);
+  }
+  // Zoom auf große Momente: schnell hinein, kurz halten, langsam zurück
+  const zp = clamp01((t - V.zoom.t0) / V.zoom.dur);
+  if (zp < 1 && V.zoom.amp) {
+    const env = zp < 0.18 ? easeOut(zp / 0.18) : zp > 0.65 ? 1 - easeInOut((zp - 0.65) / 0.35) : 1;
+    const z = 1 + V.zoom.amp * env;
+    ctx.translate(V.zoom.x, V.zoom.y);
+    ctx.scale(z, z);
+    ctx.translate(-V.zoom.x, -V.zoom.y);
+  }
   ctx.drawImage(paperBg(), 0, 0, cell * COLS, cell * ROWS);
   ctx.strokeStyle = 'rgba(30,25,20,.2)';
   ctx.lineWidth = 1;
@@ -359,6 +415,19 @@ function draw(): void {
       const q = (p - 0.45) / 0.55;
       drawBlob(i, c, 0.4 + 0.6 * easeOutBack(q), Math.min(1, q * 1.5));
     }
+  });
+  // Spritzer auf dem Papier, bis die Runde trocknet
+  V.stains = V.stains.filter((st) => {
+    const fade = st.fade ? clamp01((t - st.fade) / 700) : 0;
+    if (fade >= 1) return false;
+    if (t < st.t0) return true;
+    const g = easeOutBack(clamp01((t - st.t0) / 160));
+    const img = stainImg(st.col, st.seed);
+    const r = st.r * (0.4 + 0.6 * g);
+    ctx.globalAlpha = 1 - fade;
+    ctx.drawImage(img, st.x - r, st.y - r, r * 2, r * 2);
+    ctx.globalAlpha = 1;
+    return true;
   });
   ctx.globalCompositeOperation = 'source-over';
   // Gebiete mit feinem, durchgehendem Rand in der Farbe der Seite (wie Länder auf einer Karte), auch am Rand des Blatts geschlossen
@@ -603,6 +672,26 @@ function drawPalette(side: Side, t: number): void {
   ctx.beginPath();
   ctx.arc(x + cell * 0.21, y + cell * 0.11, cell * 0.07, 0, 7);
   ctx.fill();
+  // Ein Riss quer durch die Palette für jedes verlorene Herz
+  ctx.save();
+  ctx.strokeStyle = `rgba(${col},.75)`;
+  ctx.lineWidth = Math.max(1.2, cell * 0.025);
+  ctx.lineJoin = 'round';
+  for (let k = 0; k < HEARTS - hearts; k++) {
+    const r = RNG(side * 31 + k * 7);
+    const a0 = -0.6 + k * 1.9 + r() * 0.4;
+    ctx.beginPath();
+    let px = x + Math.cos(a0) * cell * 0.44,
+      py = y + Math.sin(a0) * cell * 0.36;
+    ctx.moveTo(px, py);
+    for (let j = 0; j < 4; j++) {
+      px += (x - px) * 0.35 + (r() - 0.5) * cell * 0.12;
+      py += (y - py) * 0.35 + (r() - 0.5) * cell * 0.12;
+      ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
   for (let k = 0; k < HEARTS; k++) {
     const hx = x - cell * 0.22 + k * cell * 0.17,
       hy = y - cell * 0.07 + (k === 1 ? -cell * 0.07 : 0);
@@ -884,6 +973,47 @@ function ring(x: number, y: number, r0: number, r1: number, col: string, life: n
 function shake(amp: number): void {
   V.shake = { t0: now(), amp };
 }
+type Stain = { x: number; y: number; r: number; col: string; seed: number; t0: number; fade?: number };
+const stainCache = new Map<string, HTMLCanvasElement>();
+/** Ein Spritzer als Fleck: unregelmäßige Pfütze mit Tropfen drumherum (Farbe mit Deckung, wird multipliziert) */
+function stainImg(col: string, seed: number): HTMLCanvasElement {
+  const key = `${col}:${seed % 24}`;
+  const hit = stainCache.get(key);
+  if (hit) return hit;
+  const n = 96;
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const x = c.getContext('2d')!;
+  const r = RNG(seed % 24 + 7);
+  x.fillStyle = col;
+  for (let k = 0; k < 3; k++) {
+    const pts = deformN(ellipsePts({ x: n / 2, y: n / 2, rx: n * (0.22 - k * 0.04), ry: n * (0.2 - k * 0.03), rot: r() * 3 }, 1, r, 12), r, 0.35, 3);
+    x.beginPath();
+    x.moveTo(pts[0]![0], pts[0]![1]);
+    for (const q of pts) x.lineTo(q[0], q[1]);
+    x.closePath();
+    x.fill();
+  }
+  for (let k = 0; k < 9; k++) {
+    const a = r() * Math.PI * 2,
+      d = n * (0.26 + r() * 0.22);
+    x.beginPath();
+    x.arc(n / 2 + Math.cos(a) * d, n / 2 + Math.sin(a) * d, n * (0.012 + r() * 0.03), 0, 7);
+    x.fill();
+  }
+  if (stainCache.size > 60) stainCache.clear();
+  stainCache.set(key, c);
+  return c;
+}
+function stain(x: number, y: number, r: number, col: string, delay = 0): void {
+  V.stains.push({ x, y, r, col, seed: Math.floor(Math.random() * 1e6), t0: now() + delay });
+  if (V.stains.length > 40) V.stains.shift();
+}
+/** Die Runde trocknet: Flecken verblassen */
+function dryStains(): void {
+  const t = now();
+  for (const st of V.stains) st.fade ??= t;
+}
 const unitPos = (id: number): [number, number] => {
   const u = V.units.get(id);
   return u ? [(u.dx + 0.5) * cell, (u.dy + 0.5) * cell - (u.lift + 0.2) * cell] : [0, 0];
@@ -956,6 +1086,7 @@ export async function playEvent(e: Ev): Promise<void> {
       await wait(700);
       return;
     case 'round':
+      dryStains();
       hooks.banner(`Round ${e.round}`, 'round');
       sfx.turn();
       await wait(800);
@@ -1119,14 +1250,23 @@ export async function playEvent(e: Ev): Promise<void> {
       if (m) text(x1, y1 + cell * 0.42, `${+m[1]! + +m[2]!} vs ${+m[3]! + +m[4]!}`, '#5f6474', 12, 900);
       if (e.res === 'miss' || e.res === 'dodge') {
         splatter(x1 + (Math.random() - 0.5) * cell * 0.6, y1 + cell * 0.3, col, 6, 0.6);
+        // Die Farbe landet daneben auf dem Papier
+        stain(x1 + (Math.random() - 0.5) * cell * 0.7, y1 + cell * 0.35, cell * 0.2, rgbCss(e.rgb, 0.3));
         text(x1, y1 - cell * 0.2, e.res === 'miss' ? 'miss' : 'dodged', '#6b6f7c', 15);
         sfx.miss();
         if (e.res === 'dodge' && target) await tween(240, (p) => (target.dx = Math.round(target.dx) + Math.sin(p * Math.PI * 2) * 0.12));
         await wait(220);
         return;
       }
-      splatter(x1, y1, col, e.res === 'crit' ? 26 : 16, e.res === 'crit' ? 1.5 : 1.1);
-      ring(x1, y1, cell * 0.15, cell * 0.8, col, 500, 4);
+      // Wie hart der Treffer sitzt: Anteil an der Deckkraft des Ziels (Palette zählt wie ein harter Treffer)
+      const crit = e.res === 'crit';
+      const share = e.text === 'palette' ? 0.8 : target ? Math.min(1, e.dmg / Math.max(1, target.max)) : 0.4;
+      splatter(x1, y1, col, crit ? 30 : 14 + Math.round(share * 14), crit ? 1.6 : 1 + share * 0.5);
+      ring(x1, y1, cell * 0.15, cell * (0.7 + share * 0.5), col, 500, 4 + share * 3);
+      // G1: Stillstand beim Aufprall, Ruck in Schlagrichtung, Fleck bleibt liegen
+      hitStop((60 + 100 * share) * (crit ? 1.3 : 1));
+      kick(x1 - x0, y1 - y0, cell * (0.03 + 0.07 * share) * (crit ? 1.5 : 1));
+      stain(x1 + (Math.random() - 0.5) * cell * 0.2, y1 + cell * 0.12, cell * (0.3 + 0.28 * share) * (crit ? 1.3 : 1), rgbCss(e.rgb, 0.42));
       if (target) {
         // Rückstoß weg vom Schützen, gestaucht
         target.flash = 0.9;
@@ -1152,14 +1292,18 @@ export async function playEvent(e: Ev): Promise<void> {
           text(x1, y1 - cell * 0.75, 'guard', '#5f6474', 13, 800);
           sfx.guard();
         }
-        text(x1, y1 - cell * 0.15, `-${e.dmg}`, e.res === 'crit' ? '#b8860b' : '#a33a3a', e.res === 'crit' ? 28 : 21);
-        if (e.res === 'crit') {
-          text(x1, y1 - cell * 0.75, 'CRIT', '#b8860b', 15, 900);
-          shake(11);
-        }
+        // Zahl nach Wucht: groß und dunkel, wenn der Treffer viel nimmt
+        const size = Math.round((20 + 20 * share) * (crit ? 1.25 : 1));
+        const tone = crit ? '#b8860b' : share > 0.6 ? '#8e1f1f' : share > 0.35 ? '#a33a3a' : '#b0573a';
+        text(x1, y1 - cell * 0.15, `-${e.dmg}`, tone, size, 1200);
+        if (crit) {
+          text(x1, y1 - cell * 0.85, 'CRIT ×1.5', '#b8860b', 17, 1100);
+          ring(x1, y1, cell * 0.3, cell * 1.3, 'rgba(201,150,30,.9)', 650, 5);
+          shake(12);
+        } else if (share > 0.5) shake(6 + share * 4);
       }
-      sfx.hit(e.res === 'crit');
-      await wait(e.res === 'crit' ? 720 : 520);
+      sfx.impact(share, crit);
+      await wait(crit ? 760 : 480 + share * 160);
       return;
     }
     case 'hp': {
@@ -1188,19 +1332,32 @@ export async function playEvent(e: Ev): Promise<void> {
       // Aufblähen und zittern, dann platzen: Tropfen in der Farbe dessen, der getroffen hat
       const col = rgbCss(e.by !== null ? unitColor(e.by) : unitColor(e.id), 0.85);
       const own = rgbCss(unitColor(e.id), 0.7);
+      // G2: Zeitlupe und Zoom auf den Klecks, bevor er platzt
+      slowMo(1100, 0.35);
+      zoomAt(x, y, 0.16, 1500);
       await tween(380, (p) => {
         v.scale = 1 + 0.32 * p;
         v.rot = Math.sin(p * 40) * 0.08 * p;
         v.flash = 0.5 * p;
       });
+      hitStop(140);
       sfx.wash();
-      shake(9);
-      text(x, y - cell * 0.4, 'burst!', '#6e4b33', 18, 1300);
-      ring(x, y, cell * 0.3, cell * 1.6, col, 600, 6);
-      for (let k = 0; k < 26; k++) {
-        const a = (k / 26) * Math.PI * 2 + Math.random() * 0.2,
-          sp = 120 + Math.random() * 160;
-        V.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, g: 260, r: 2.5 + Math.random() * 3, t0: now(), life: 700 + Math.random() * 300, col: k % 3 ? col : own });
+      sfx.boom();
+      shake(14);
+      hooks.banner('WASHED OUT', 'big');
+      ring(x, y, cell * 0.3, cell * 2.2, col, 750, 8);
+      ring(x, y, cell * 0.2, cell * 1.3, own, 600, 4);
+      for (let k = 0; k < 44; k++) {
+        const a = (k / 44) * Math.PI * 2 + Math.random() * 0.2,
+          sp = 140 + Math.random() * 260;
+        V.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, g: 260, r: 2.5 + Math.random() * 4, t0: now(), life: 800 + Math.random() * 400, col: k % 3 ? col : own });
+      }
+      // Die Farbe spritzt quer über das Blatt und bleibt liegen
+      stain(x, y + cell * 0.1, cell * 0.75, rgbCss(e.by !== null ? unitColor(e.by) : unitColor(e.id), 0.45));
+      for (let k = 0; k < 5; k++) {
+        const a = Math.random() * Math.PI * 2,
+          d = cell * (0.7 + Math.random() * 1.3);
+        stain(x + Math.cos(a) * d, y + Math.sin(a) * d, cell * (0.12 + Math.random() * 0.16), rgbCss(k % 2 ? unitColor(e.id) : e.by !== null ? unitColor(e.by) : unitColor(e.id), 0.4), 80 + k * 50);
       }
       await tween(260, (p) => {
         v.alpha = 1 - p;
@@ -1334,7 +1491,14 @@ export async function playEvent(e: Ev): Promise<void> {
       V.crack[e.side - 1] = now();
       if (V.teams[e.side - 1]) V.teams[e.side - 1]!.hearts = e.hearts;
       hooks.hud();
-      shake(12);
+      // G2: Zeitlupe und Zoom auf die Palette, Banner, Fleck daneben
+      slowMo(900, 0.4);
+      zoomAt(cx(team.home), cy(team.home), 0.12, 1300);
+      hitStop(130);
+      hooks.banner(e.side === 1 ? 'YOUR PALETTE!' : 'PALETTE HIT', 'big');
+      sfx.boom();
+      stain(cx(team.home) + (Math.random() - 0.5) * cell * 0.6, cy(team.home) + cell * 0.2, cell * 0.45, e.side === 1 ? 'rgba(43,63,163,.35)' : 'rgba(163,58,58,.35)');
+      shake(16);
       if (e.side === 1) V.flashRed = now();
       text(cx(team.home), cy(team.home) - cell * 0.3, '-♥', e.side === 1 ? '#2b3fa3' : '#a33a3a', 34, 1400);
       splatter(cx(team.home), cy(team.home), e.side === 1 ? 'rgba(43,63,163,.8)' : 'rgba(163,58,58,.8)', 24, 1.3);
