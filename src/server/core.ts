@@ -25,6 +25,9 @@ export interface RedisLike {
   zAdd(key: string, ...members: { member: string; score: number }[]): Promise<number>;
   zCard(key: string): Promise<number>;
   zRange(key: string, start: number | string, stop: number | string, options?: { reverse?: boolean; by: 'score' | 'lex' | 'rank' }): Promise<{ member: string; score: number }[]>;
+  zRem(key: string, members: string[]): Promise<number>;
+  zScore(key: string, member: string): Promise<number | undefined>;
+  hIncrBy(key: string, field: string, value: number): Promise<number>;
 }
 
 export interface CommentLike {

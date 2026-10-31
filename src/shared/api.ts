@@ -111,7 +111,7 @@ export type ErrorCode = 'login' | 'no_day' | 'dried' | 'not_found' | 'forbidden'
  * Stand des Duell-Ablaufs (Aktionen, Phasen, Ereignisse). Bei jeder Änderung erhöhen: Der Client schickt ihn mit,
  * der Server lehnt alte Oberflächen ab und bittet, den Post neu zu öffnen (sonst passen Anzeige und Regeln nicht zusammen)
  */
-export const DUEL_PROTOCOL = 10;
+export const DUEL_PROTOCOL = 11;
 export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {
@@ -137,6 +137,37 @@ export interface DiceResponse {
   /** Mod des Subreddits: sieht die Prüfliste der Zeichnungen, review = so viele warten (kommt mit dem Laden der Sammlung) */
   mod?: boolean;
   review?: number;
+  /** Dein Deck in der Galerie (kommt mit dem Laden der Sammlung, nach Abholen und Schalter) */
+  gallery?: GalleryStatus;
+}
+/** Bilanz eines Galerie-Decks: gewonnen, verloren, unentschieden */
+export type GalleryRecord = { w: number; l: number; d: number };
+/** Dein Deck in der Galerie: hängt es, Bilanz, und was seit dem letzten Abholen passiert ist */
+export interface GalleryStatus {
+  hung: boolean;
+  off: boolean;
+  rec: GalleryRecord;
+  /** Seit dem letzten Abholen: Duelle aus Sicht deines Decks, Pigment und die Namen der letzten Herausforderer */
+  inbox: (GalleryRecord & { pig: number; who: string[] }) | null;
+}
+/** Ein Deck aus der Galerie zur Vorschau. Zeichnungen nur, wenn ein Mod sie freigegeben hat */
+export interface GalleryView {
+  name: string;
+  dice: DieRec[];
+  power: number;
+  /** Stärke deines Decks zum Vergleich */
+  mine: number;
+  rec: GalleryRecord;
+  /** Aufgehängt (Ende des letzten Duells des Besitzers) */
+  at: number;
+  /** Noch erlaubte Tausche („Another deck“) */
+  swaps: number;
+  /** Test-Schalter: das eigene Deck */
+  self?: boolean;
+}
+export interface GalleryResponse {
+  /** null: kein passendes Deck in der Galerie */
+  foe: GalleryView | null;
 }
 /** Benennen: Zustand eines „What do you see?“-Posts */
 export type NamingStatus = 'open' | 'named' | 'empty' | 'cancelled';

@@ -88,7 +88,7 @@ export function takeMedium(side: Side, id: MediumId): void {
  */
 export function startOffer(resume: Phase): boolean {
   if (S.tutorial > 0 || S.over) return false;
-  const ro = (S.teams[1].media?.length ?? 0) < MEDIA_MAX ? makeOffer(2, MEDIA.map((m) => m.id)) : [];
+  const ro = (S.teams[1].media?.length ?? 0) < MEDIA_MAX ? makeOffer(2, S.rivalMedia.length ? S.rivalMedia : MEDIA.map((m) => m.id)) : [];
   if (ro.length) takeMedium(2, aiMedium(ro));
   const offer = (S.teams[0].media?.length ?? 0) < MEDIA_MAX ? makeOffer(1, S.unlocked) : [];
   if (!offer.length) return false;
@@ -101,7 +101,10 @@ export const offerRound = (round: number): boolean => MEDIA_ROUNDS.includes(roun
 
 export type Side = 1 | 2;
 export type Phase = 'opening' | 'medium' | 'roll' | 'keep' | 'summon' | 'act' | 'over';
-export type Level = 'apprentice' | 'journeyman' | 'master';
+/** gallery: Deck eines anderen Spielers, mit echten Werten (docs/entwuerfe/galerie-duell-plan.md) */
+export type Level = 'apprentice' | 'journeyman' | 'master' | 'gallery';
+/** Galerie-Duell: was die Karte eines Würfels des Rivalen zusätzlich zeigt (gleiche Reihenfolge wie die Kleckse) */
+export type FoeDie = { no?: number; glaze?: number; patina?: number; drawn?: 1 };
 export type Action = 'stamp' | 'splash' | 'soak' | 'ability' | 'none';
 export type Crest = 'step' | 'splash' | 'guard' | 'glow';
 type StatK = 'flo' | 'opa' | 'sat' | 'grn' | 'glw';
@@ -205,13 +208,16 @@ export const CRESTS: { k: Crest; label: string; stat: StatK; col: string; use: s
 const crestStat = (u: Unit, c: Crest): number => (c === 'guard' ? Math.max(u.grn, u.opa) : u[crestDef(c).stat]);
 export const crestDef = (k: Crest) => CRESTS.find((c) => c.k === k)!;
 
-/* Rivale: bedenkt nur eine Handvoll Züge (0 = alle), Lehrling und Geselle mit schwächeren Klecksen, der Meister mit stärkeren */
+/*
+ * Rivale: bedenkt nur eine Handvoll Züge (0 = alle), Lehrling und Geselle mit schwächeren Klecksen, der Meister mit stärkeren.
+ * Galerie: das Deck eines anderen Spielers mit echten Werten, der Rivale denkt wie der Meister (festgelegt am 31.10.2026)
+ */
 export const TUNE = {
-  look: { apprentice: 3, journeyman: 15, master: 0 } as Record<Level, number>,
-  hp: { apprentice: 0.7, journeyman: 0.85, master: 1.25 } as Record<Level, number>,
-  stat: { apprentice: 0.65, journeyman: 0.85, master: 1.15 } as Record<Level, number>,
+  look: { apprentice: 3, journeyman: 15, master: 0, gallery: 0 } as Record<Level, number>,
+  hp: { apprentice: 0.7, journeyman: 0.85, master: 1.25, gallery: 1 } as Record<Level, number>,
+  stat: { apprentice: 0.65, journeyman: 0.85, master: 1.15, gallery: 1 } as Record<Level, number>,
   /** Zusätzliche Symbole zum Start (der Meister ist stärker als du, festgelegt am 29.10.2026) */
-  extra: { apprentice: {}, journeyman: {}, master: { guard: 2, glow: 2 } } as Record<Level, Partial<Record<Crest, number>>>,
+  extra: { apprentice: {}, journeyman: {}, master: { guard: 2, glow: 2 }, gallery: {} } as Record<Level, Partial<Record<Crest, number>>>,
   /** Neuwürfe pro Zug und ob Kombis zählen (zum Vergleichen in der Simulation) */
   rerolls: 1,
   combos: true,
@@ -500,6 +506,14 @@ export const S = {
   paintSeed: 0,
   /** Würfel aus der Sammlung zu deinen Klecksen (gleiche Reihenfolge), bleibt am Server */
   dieIds: [] as string[],
+  /** Galerie-Duell: Name des Besitzers (leer: kein Galerie-Duell) und je Würfel des Rivalen, was seine Karte zeigt */
+  foeName: '',
+  foeDice: [] as (FoeDie | null)[],
+  /** Galerie-Duell, nur am Server: Spieler, dem das Deck gehört, und je Würfel der Schlüssel seiner Zeichnung (zum Melden) */
+  foeId: '',
+  foeKeys: [] as (string | null)[],
+  /** Malmittel, aus denen der Rivale wählt (leer: alle). Im Galerie-Duell die des Besitzers */
+  rivalMedia: [] as MediumId[],
   phase: 'opening' as Phase,
   lastRoll: [] as { id: number; fi: number }[],
   /** Joker aus dem letzten Wurf, die noch nicht als Stern oder Symbol verbraucht sind (Würfelseiten und Kombi-Joker) */
@@ -600,7 +614,7 @@ export const FACE_HELP: Record<'joker' | 'gold', string> = {
 };
 
 /** Neues Duell. Beutel sind je 6 Monster, der Seed bleibt am Server. */
-export function newGame(seed: number, level: Level, mine: Monster[], theirs: Monster[], paintSeed: number, mineMods: FaceMod[][] = []): void {
+export function newGame(seed: number, level: Level, mine: Monster[], theirs: Monster[], paintSeed: number, mineMods: FaceMod[][] = [], theirsMods: FaceMod[][] = []): void {
   S.gameSeed = seed >>> 0;
   S.level = level;
   S.rng = (seed ^ 0xabcdef) >>> 0;
@@ -618,6 +632,11 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.heartsTurn = 0;
   S.tutorial = 0;
   S.dieIds = [];
+  S.foeName = '';
+  S.foeDice = [];
+  S.foeId = '';
+  S.foeKeys = [];
+  S.rivalMedia = [];
   uid = 0;
   S.cells = Array.from({ length: COLS * ROWS }, emptyCell);
   S.round = 1;
@@ -637,7 +656,8 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
     // Stufe aus der Stärke, Seiten aus Werten, Seltenheit und Lasuren
     t.units.forEach((u, k) => {
       u.lv = levelOf(u);
-      u.faces = facesFor(u, t.side === 1 ? (mineMods[k] ?? []) : []);
+      // Lasuren und Patina: deine Würfel, im Galerie-Duell auch die des Rivalen
+      u.faces = facesFor(u, (t.side === 1 ? mineMods[k] : theirsMods[k]) ?? []);
     });
     const h = S.cells[t.home]!;
     h.home = t.side;

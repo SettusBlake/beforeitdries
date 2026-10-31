@@ -56,6 +56,7 @@ import {
   type Combo,
   type Crest,
   type Ev,
+  type FoeDie,
   type Level,
   type Phase,
   type Rolled,
@@ -113,9 +114,13 @@ export type DuelState = {
   log: { t: string; c: string }[];
   /** Lern-Duell bis zu dieser Runde (0 = aus) */
   tutorial: number;
+  /** Galerie-Duell: Besitzer des Decks (leer: kein Galerie-Duell) und je Würfel des Rivalen, was seine Karte zeigt */
+  foeName?: string;
+  foeDice?: (FoeDie | null)[];
 };
-/** Was der Server speichert */
-export type DuelSave = DuelState & { rng: number; gameSeed: number; dieIds?: string[] };
+/** Was der Server speichert: dazu Würfelzufall, Würfel-IDs, Besitzer des Galerie-Decks samt Zeichnungen, Malmittel des Rivalen */
+export type DuelSave = DuelState & { rng: number; gameSeed: number; dieIds?: string[]; foeId?: string; foeKeys?: (string | null)[]; rivalMedia?: MediumId[] };
+type Hidden = 'rng' | 'gameSeed' | 'dieIds' | 'foeId' | 'foeKeys' | 'rivalMedia';
 
 export class DuelError extends Error {}
 const bad = (msg: string): never => {
@@ -149,14 +154,17 @@ export function publicState(): DuelState {
     stamp: S.stamp,
     log: S.log.slice(0, 40),
     tutorial: S.tutorial,
+    ...(S.foeName ? { foeName: S.foeName, foeDice: S.foeDice } : {}),
   };
 }
 export function saveState(): string {
   const s: DuelSave = { ...publicState(), rng: S.rng, gameSeed: S.gameSeed, dieIds: S.dieIds };
+  if (S.foeId) Object.assign(s, { foeId: S.foeId, foeKeys: S.foeKeys });
+  if (S.rivalMedia.length) s.rivalMedia = S.rivalMedia;
   return JSON.stringify(s);
 }
 /** Zustand übernehmen (Server: gespeicherter Stand, Client: Stand vom Server) */
-export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSeed' | 'dieIds'>>): void {
+export function loadState(s: DuelState & Partial<Pick<DuelSave, Hidden>>): void {
   S.cells = s.cells;
   S.teams = [s.teams[0]!, s.teams[1]!];
   S.round = s.round;
@@ -183,6 +191,11 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, 'rng' | 'gameSee
   S.rng = s.rng ?? 0;
   S.gameSeed = s.gameSeed ?? 0;
   S.dieIds = s.dieIds ?? [];
+  S.foeName = s.foeName ?? '';
+  S.foeDice = s.foeDice ?? [];
+  S.foeId = s.foeId ?? '';
+  S.foeKeys = s.foeKeys ?? [];
+  S.rivalMedia = s.rivalMedia ?? [];
   S.events = [];
 }
 /** Wie oft jeder deiner Würfel in diesem Duell geworfen wurde (für die Patina, nur am Server bekannt) */

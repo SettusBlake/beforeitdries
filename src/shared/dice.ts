@@ -117,6 +117,10 @@ export const GLAZE_COST = 3;
 export const PITY: Record<'rare' | 'epic' | 'legendary', number> = { rare: 10, epic: 40, legendary: 90 };
 /** Pigment fürs Duell (höchstens perDay belohnte Duelle am Tag), fürs Lern-Duell einmal und später fürs Benennen einer Art */
 export const REWARD = { win: 60, draw: 40, loss: 25, perDay: 5, tutorial: 200, name: 50 };
+/** Gebühr für den Besitzer eines Galerie-Decks je Duell aus seiner Sicht, höchstens perDay am Tag (festgelegt am 31.10.2026) */
+export const GALLERY_FEE = { win: 15, draw: 8, loss: 3, perDay: 60 };
+/** Galerie: Gegner mit ähnlicher Stärke (erst 10 %, dann 25 % Abstand), aktiv heißt in den letzten 14 Tagen gespielt */
+export const GALLERY = { near: [0.1, 0.25], activeDays: 14, swaps: 1 };
 
 /** Sammlung eines Spielers. Liegt als JSON in Redis, hat keine Geheimnisse und geht so an den Client */
 export type DiceSave = {
@@ -154,6 +158,10 @@ export type DiceSave = {
   drawLock?: number | 'mod';
   /** Tag (UTC) des letzten „What do you see?“-Posts: höchstens einer pro Tag */
   nameDay?: string;
+  /** Deck nicht in der Galerie aufhängen (Schalter im Menü) */
+  galleryOff?: true;
+  /** Test-Schalter (Playtest, nur Mods): Galerie-Duelle gegen das eigene Deck und Archiv, die Gebühr geht an dich */
+  testSelf?: true;
 };
 export function emptyDice(): DiceSave {
   return { v: 2, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };

@@ -7,6 +7,7 @@ import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
 import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash } from './dice';
 import { reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
+import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf } from './gallery';
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
 import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
@@ -75,8 +76,8 @@ app.post(
   '/api/duel/start',
   wrap(async (req, res) => {
     sameProtocol(req);
-    const body = (req.body ?? {}) as { level?: unknown; tutorial?: unknown };
-    res.json(await duelStart(await deps(), context.userId, body.level, body.tutorial === true));
+    const body = (req.body ?? {}) as { level?: unknown; tutorial?: unknown; gallery?: unknown };
+    res.json(await duelStart(await deps(), context.userId, body.level, body.tutorial === true, body.gallery === true));
   }),
 );
 
@@ -84,7 +85,37 @@ app.post(
   '/api/duel/act',
   wrap(async (req, res) => {
     sameProtocol(req);
-    res.json(await duelAct(await deps(), context.userId, (req.body as { action?: unknown } | undefined)?.action));
+    res.json(await duelAct(await deps(), context.userId, (req.body as { action?: unknown } | undefined)?.action, await username()));
+  }),
+);
+
+/* ---------- Galerie: Decks anderer Spieler ---------- */
+
+app.post(
+  '/api/gallery/find',
+  wrap(async (req, res) => {
+    res.json(await galleryFind(await deps(), context.userId, await username(), (req.body as { another?: unknown } | undefined)?.another));
+  }),
+);
+
+app.post(
+  '/api/gallery/collect',
+  wrap(async (_req, res) => {
+    res.json(await galleryCollect(await deps(), context.userId));
+  }),
+);
+
+app.post(
+  '/api/gallery/hang',
+  wrap(async (req, res) => {
+    res.json(await galleryHang(await deps(), context.userId, (req.body as { on?: unknown } | undefined)?.on));
+  }),
+);
+
+app.post(
+  '/api/gallery/test-self',
+  wrap(async (req, res) => {
+    res.json(await galleryTestSelf(await deps(), context.userId, await username(), (req.body as { on?: unknown } | undefined)?.on));
   }),
 );
 
@@ -102,7 +133,10 @@ app.get(
 app.get(
   '/api/dice',
   wrap(async (_req, res) => {
-    res.json(await diceGet(await deps(), context.userId, await username()));
+    const d = await deps();
+    const r = await diceGet(d, context.userId, await username());
+    // Dazu, wie dein Deck in der Galerie läuft
+    res.json({ ...r, gallery: await galleryStatus(d, context.userId!, r.dice) });
   }),
 );
 

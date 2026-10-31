@@ -7,10 +7,11 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, loadDice, saveDice, wearDice } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
 import { reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
+import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
 import { K } from '../src/server/keys';
 import { ensurePlayPost, playInfo } from '../src/server/play';
@@ -71,15 +72,18 @@ createServer(async (req, res) => {
       for await (const c of req) raw += c;
       const b = JSON.parse(raw || '{}');
       if (url.pathname === '/api/duel') return send(200, await duelGet(d, asUser));
-      if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true));
-      if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action));
+      if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true, b.gallery === true));
+      if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action, USER.name));
     }
     if (url.pathname === '/api/play') return send(200, await playInfo(d, asUser));
     if (url.pathname.startsWith('/api/dice')) {
       let raw = '';
       for await (const c of req) raw += c;
       const b = JSON.parse(raw || '{}');
-      if (url.pathname === '/api/dice') return send(200, await diceGet(d, asUser, USER.name));
+      if (url.pathname === '/api/dice') {
+        const r = await diceGet(d, asUser, USER.name);
+        return send(200, { ...r, gallery: await galleryStatus(d, USER.id, r.dice) });
+      }
       if (url.pathname === '/api/dice/test-blank') return send(200, await diceTestBlank(d, asUser, USER.name));
       if (url.pathname === '/api/dice/test-pigment') return send(200, await diceTestPigment(d, asUser, USER.name));
       if (url.pathname === '/api/dice/test-shiny') return send(200, await diceTestShiny(d, asUser, USER.name, b.style ?? null, b.holo ?? false));
@@ -94,6 +98,27 @@ createServer(async (req, res) => {
         lastNaming = r.postId;
         return send(200, r);
       }
+    }
+    if (url.pathname.startsWith('/api/gallery')) {
+      let raw = '';
+      for await (const c of req) raw += c;
+      const b = JSON.parse(raw || '{}');
+      if (url.pathname === '/api/gallery/find') return send(200, await galleryFind(d, asUser, USER.name, b.another));
+      if (url.pathname === '/api/gallery/collect') return send(200, await galleryCollect(d, asUser));
+      if (url.pathname === '/api/gallery/hang') return send(200, await galleryHang(d, asUser, b.on));
+      if (url.pathname === '/api/gallery/test-self') return send(200, await galleryTestSelf(d, asUser, USER.name, b.on));
+    }
+    // Nur in der Vorschau: n andere Spieler hängen ihr Deck in die Galerie, inbox=k: dein Deck wurde k-mal herausgefordert
+    if (url.pathname === '/dev/gallery') {
+      const n = Number(url.searchParams.get('n') ?? 4);
+      for (let i = 1; i <= n; i++) {
+        const uid = `t2_gallery${i}`;
+        await bagForDuel(d, uid);
+        await hangDeck(d, uid, ['inkwell', 'oldbrush', 'wet_on_wet', 'gamboge_girl', 'sizing', 'deckle_edge'][(i - 1) % 6]! + (i > 6 ? i : ''), await loadDice(d, uid));
+      }
+      const k = Number(url.searchParams.get('inbox') ?? 0);
+      for (let i = 0; i < k; i++) await payOwner({ ...d, now: d.now + i }, USER.id, ([2, 2, 1, 0, 2, 1] as const)[i % 6]!, `painter_${i + 1}`);
+      return send(200, { hung: n, inbox: k });
     }
     if (url.pathname === '/api/species') return send(200, await speciesNames(d));
     if (url.pathname === '/api/naming') return send(200, await namingGet(d, url.searchParams.get('post') ?? lastNaming));

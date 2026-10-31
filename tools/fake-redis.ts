@@ -74,8 +74,25 @@ export class FakeRedis implements RedisLike {
   async zCard(key: string) {
     return this.zsets.get(key)?.size ?? 0;
   }
+  async zRem(key: string, members: string[]) {
+    const z = this.zsets.get(key);
+    let n = 0;
+    for (const m of members) if (z?.delete(m)) n++;
+    return n;
+  }
+  async zScore(key: string, member: string) {
+    return this.zsets.get(key)?.get(member);
+  }
+  async hIncrBy(key: string, field: string, value: number) {
+    const h = this.hash(key);
+    const n = Number(h.get(field) ?? 0) + value;
+    h.set(field, String(n));
+    return n;
+  }
   async zRange(key: string, start: number | string, stop: number | string, options?: { reverse?: boolean; by: 'score' | 'lex' | 'rank' }) {
     const all = [...(this.zsets.get(key) ?? [])].map(([member, score]) => ({ member, score })).sort((a, b) => a.score - b.score || a.member.localeCompare(b.member));
+    // Nach Punkten: start und stop sind die kleinste und größte Punktzahl
+    if (options?.by === 'score') return all.filter((x) => x.score >= Number(start) && x.score <= Number(stop));
     if (options?.reverse) all.reverse();
     const n = all.length,
       s = Number(start),

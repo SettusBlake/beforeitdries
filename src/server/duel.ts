@@ -9,6 +9,7 @@ import { BAG, drain, mk, newGame, S, type Level } from '../shared/duel/rules';
 import { startTutorial, TUTORIAL_SEED, tutorialBags } from '../shared/duel/tutorial';
 import { GameError, withLock, type Deps } from './core';
 import { bagForDuel, loadDice, payDuel, playerLock } from './dice';
+import { hangDeck, payOwner, takePick } from './gallery';
 import { START_MEDIA } from '../shared/duel/media';
 import { K } from './keys';
 
@@ -35,19 +36,40 @@ export async function duelGet(d: Deps, userId: string | undefined): Promise<Duel
   return freeze({ state: publicState(), events: [] });
 }
 
-export async function duelStart(d: Deps, userId: string | undefined, level: unknown, tutorial = false): Promise<DuelResponse> {
+/**
+ * Neues Duell. gallery: gegen das Deck, das der Spieler in der Galerie gefunden hat (galleryFind),
+ * mit dessen echten Werten, Lasuren, Patina und Malmitteln
+ */
+export async function duelStart(d: Deps, userId: string | undefined, level: unknown, tutorial = false, gallery = false): Promise<DuelResponse> {
   const uid = needUser(userId);
   const lv = LEVELS.find((l) => l === level) ?? 'apprentice';
   return withLock(d, playerLock(uid), async () => {
     // Der Beutel kommt aus der Würfelsammlung (vor newGame, weil danach kein await mehr kommen darf)
     const bag = tutorial ? [] : await bagForDuel(d, uid);
     const unlocked = tutorial ? START_MEDIA : ((await loadDice(d, uid)).media ?? START_MEDIA);
+    const foe = gallery && !tutorial ? await takePick(d, uid) : null;
     if (tutorial) {
       // Lern-Duell: fester Seed und feste Beutel, Sepia gibt die ersten Runden vor
       // Die Formen sind nur Bild: auch das Lern-Duell zeigt die neuen (Generation 2), die Regeln bleiben gleich
       const [mine, theirs] = tutorialBags().map((b) => b.map((m) => ({ ...m, gen: 2 as const })));
       newGame(TUTORIAL_SEED, 'apprentice', mine!, theirs!, TUTORIAL_SEED);
       startTutorial();
+    } else if (foe) {
+      newGame(
+        d.rand(),
+        'gallery',
+        bag.map((b) => dieMonster(b)),
+        foe.theirs,
+        d.rand(),
+        bag.map((b) => b.mods),
+        foe.mods,
+      );
+      S.dieIds = bag.map((b) => b.id);
+      S.foeName = foe.name || 'a nameless painter';
+      S.foeDice = foe.foe;
+      S.foeId = foe.owner;
+      S.foeKeys = foe.keys;
+      S.rivalMedia = [...foe.media];
     } else {
       const rival = Array.from({ length: BAG }, () => ({ ...mk(`rival-${d.rand().toString(36)}`, d.rand() % 12), gen: 2 as const }));
       newGame(
@@ -71,7 +93,7 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
   });
 }
 
-export async function duelAct(d: Deps, userId: string | undefined, action: unknown): Promise<DuelResponse> {
+export async function duelAct(d: Deps, userId: string | undefined, action: unknown, username?: string): Promise<DuelResponse> {
   const uid = needUser(userId);
   if (!action || typeof action !== 'object' || typeof (action as { k?: unknown }).k !== 'string') throw new GameError('bad_request', 'Unknown action.');
   return withLock(d, playerLock(uid), async () => {
@@ -89,10 +111,18 @@ export async function duelAct(d: Deps, userId: string | undefined, action: unkno
     }
     const blob = saveState();
     const done = !wasOver && out.state!.over;
+    const tutorial = out.state!.tutorial > 0;
+    const worn = tutorial ? [] : wornDice();
+    // Besitzer des Galerie-Decks (vor dem ersten await festhalten, danach kann S schon einem anderen Duell gehören)
+    const owner = S.foeId;
     await d.redis.set(K.duel(uid), blob);
     await d.redis.zAdd(K.duelPlayers, { member: uid, score: d.now });
-    // Pigment fürs Duell, genau einmal beim Ende
-    if (done) out.reward = await payDuel(d, uid, out.state!.winner, out.state!.tutorial > 0, out.state!.tutorial > 0 ? [] : wornDice());
+    // Pigment fürs Duell, genau einmal beim Ende. Danach hängt dein Deck in der Galerie, der Besitzer des Galerie-Decks bekommt seine Gebühr
+    if (done) {
+      out.reward = await payDuel(d, uid, out.state!.winner, tutorial, worn);
+      if (!tutorial) await hangDeck(d, uid, username, await loadDice(d, uid));
+      if (owner) await payOwner(d, owner, out.state!.winner, username);
+    }
     return out;
   });
 }

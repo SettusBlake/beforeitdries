@@ -1,6 +1,6 @@
 # Plan: Galerie-Duell (andere Spieler im Duell)
 
-Stand 31.10.2026, Fassung 1. Gewünscht am 31.10.2026 („mach 1, schreib den plan“). Wartet auf Freigabe.
+Stand 31.10.2026, Fassung 1. Gewünscht am 31.10.2026 („mach 1, schreib den plan“). Freigegeben am 31.10.2026 („alles ja“, alle sieben Fragen). Schritt 1 gebaut (siehe unten).
 
 Entwurf: docs/entwuerfe/galerie-duell-entwurf.png (Attrappe auf der echten Vorschau, Quelle tools/mockup/galerie-entwurf.cjs).
 
@@ -94,6 +94,17 @@ Allein im Test-Subreddit gibt es keine fremden Decks und kein fremdes Archiv. De
 2. **Bedienung und Melden:** Knopf und Vorschau, Name im Duell, Karte mit Besitzer, Ergebnis, Sepias Bericht in „Your dice“, Schalter im Menü, „Report drawing“ und „reported“ in Review drawings. Upload mit Bild.
 3. **Archiv-Würfel** im normalen Duell mit ausgeblichenem Rand und Karte. Upload mit Bild.
 
+## Gebaut
+
+**Schritt 1 (Server), 31.10.2026, Playtest v0.0.1.87:**
+
+- Abzug nach jedem fertigen Duell (nicht im Lern-Duell): `hangDeck` in src/server/gallery.ts, Redis `gallery:{Spieler}` und `gallery:power`.
+- Suche `galleryFind` (/api/gallery/find, `another` für den Tausch): erst 10 %, dann 25 % Abstand, dann die fünf nächsten, aktive Spieler zuerst, nie das eigene, heute schon gespielte nicht. Das gefundene Deck bleibt bis zum Duell (`gallery:me:{Spieler}`).
+- Galerie-Duell: /api/duel/start mit `gallery: true`, Stufe `gallery` (echte Werte, Rivale denkt alle Züge), Lasur und Patina auch beim Rivalen, er wählt aus den Malmitteln des Besitzers. Zeichnungen nur mit Freigabe (`drawn:ok`). Duell-Stand mit `foeName` und `foeDice` (Seriennummer, Lasur, Patina, gemalt), Besitzer nur am Server.
+- Gebühr `payOwner` (15, 8, 3, höchstens 60 am Tag) und Bilanz, Abholen `galleryCollect` (/api/gallery/collect), Schalter `galleryHang` (/api/gallery/hang), Test-Schalter `galleryTestSelf` (/api/gallery/test-self, Playtest, nur Mods). Stand kommt mit /api/dice als `gallery`.
+- DUEL_PROTOCOL 11. Tests in tests/gallery.test.ts. Vorschau: /dev/gallery?n=4&inbox=3.
+- **Simulation** (200 Duelle, gleiche Stärke, beide Seiten mit echten Werten): Spielt der Spieler wie der Computer mit allen Zügen, gewinnt er 68 % (verliert 32 %). Spielt er etwas schwächer (Computer mit 3 Zügen), 50 %. Zum Vergleich gegen den Master: 46 % und 38 %. Der Computer denkt schon alle Züge, weiter einstellen lässt sich daran nichts. Der Vorteil kommt vom ersten Zug jeder Runde. Frage dazu unten.
+
 ## Später (nicht in diesem Plan)
 
 - Herausforderung als Post oder Kommentar (Galerie-Duelle als Posts aus „Später, nicht im MVP“).
@@ -109,3 +120,7 @@ Allein im Test-Subreddit gibt es keine fremden Decks und kein fremdes Archiv. De
 5. Bis zu 2 Archiv-Würfel beim Rivalen im normalen Duell, mit ausgeblichenem Rand? (Empfehlung: ja)
 6. Melden: eine Meldung blendet die Zeichnung sofort für andere aus, bis ein Mod entscheidet, höchstens 5 Meldungen pro Spieler am Tag? (Empfehlung: ja)
 7. Test-Schalter für Mods im Playtest (eigenes Deck und Archiv als Gegner)? (Empfehlung: ja)
+
+Neue Frage nach Schritt 1:
+
+8. Ein gleich starkes Galerie-Deck verliert gegen einen Spieler, der so gut spielt wie der Computer, etwa 2 von 3 Duellen. So lassen (wer gut spielt, gewinnt öfter) oder dem Galerie-Deck einen kleinen Heimvorteil geben, z. B. 1 Guard und 1 Glow zum Start? (Empfehlung: erst so lassen und nach deinen eigenen Duellen entscheiden)

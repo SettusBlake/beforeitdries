@@ -1,7 +1,8 @@
 /*
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
  * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at,
- * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, naming:posts, naming:open).
+ * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, naming:posts, naming:open, gallery:power, gallery:record).
+ * Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id}, gallery:inbox:{id}) folgen aus dice:players.
  */
 export const K = {
   /** Hash: seed, humidity, postId, bp, main, createdAt, named */
@@ -56,4 +57,14 @@ export const K = {
   namingPosts: 'naming:posts',
   /** Hash: Art → Post, solange ihr Post läuft (je Art nur einer) */
   namingOpen: 'naming:open',
+  /** JSON des Galerie-Abzugs eines Spielers (GallerySnap): sein Deck am Ende seines letzten fertigen Duells */
+  gallery: (userId: string) => `gallery:${userId}`,
+  /** Sorted Set der Decks, die in der Galerie hängen, Score = Stärke (Suche nach ähnlicher Stärke) */
+  galleryPower: 'gallery:power',
+  /** JSON: Galerie-Stand des Herausforderers (GalleryMe): gefundenes Deck, Tausch, Gegner des Tages */
+  galleryMe: (userId: string) => `gallery:me:${userId}`,
+  /** Hash: was das Deck eines Spielers in der Galerie erlebt hat, bis er es abholt (w, l, d, pig, p:{Tag}, who:{Zeit}) */
+  galleryInbox: (userId: string) => `gallery:inbox:${userId}`,
+  /** Hash: Bilanz der Galerie-Decks, Felder {userId}:w, {userId}:l, {userId}:d */
+  galleryRecord: 'gallery:record',
 } as const;
