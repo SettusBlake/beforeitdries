@@ -2,7 +2,7 @@
  * Würfelsammlung im Client: Ziehen mit offenem W100, Beutel packen, Würfel auswaschen, Lasur auf Würfelseiten.
  * Alle Würfe kommen vom Server, hier wird nur gezeigt und angetippt. Jedes Monster gibt es nur einmal (Seriennummer).
  */
-import { statBlock, STATS2 } from './statcard';
+import { statBlock } from './statcard';
 import type { DiceResponse } from '../../shared/api';
 import { PAPER } from '../../shared/data';
 import { dayKey } from '../../shared/day';
@@ -392,16 +392,6 @@ function openDie(d: DieRec): void {
     `<b>Patina ${pl}/${PATINA.length}</b> · ` +
       (pl < PATINA.length ? `${rolls}/${PATINA[pl]} rolls in duels. At ${PATINA.join(', ')} rolls a random face gets better.` : `${rolls} rolls in duels. Well worn: three faces grew with use.`),
   );
-  const stats = el('div', 'card-stats');
-  for (const [k, n] of [
-    ['SAT', u.sat],
-    ['OPA', u.opa],
-    ['GRN', u.grn],
-    ['FLO', u.flo],
-    ['GLW', u.glw],
-    ['LFT', u.lf],
-  ] as [string, number][])
-    stats.append(html('span', '', `<small>${k}</small><b>${n}</b>`));
   const ab = ABILITY[u.m.bp];
   const lines = el('div', 'card-lines');
   lines.append(html('p', '', `<b>Die</b> ${u.faces.map(faceText).join(', ')}`));
@@ -466,7 +456,8 @@ function openDie(d: DieRec): void {
     });
     wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It leaves your collection, ${speciesLabel(u.m)} gains ${n} glaze. Blots that drift to the margins sometimes come back.`));
   }
-  box.append(top, net, faces, gl, pat, row, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), STATS2 ? statBlock(u, false) : stats, lines, wash);
+  // Werte und alles fürs Duell vor dem Benennen (festgelegt am 31.10.2026)
+  box.append(top, net, faces, gl, pat, row, statBlock(u, false), lines, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), wash);
   $('inspect').hidden = false;
 }
 /** Art ohne Namen: als „What do you see?“-Post teilen (einer am Tag), oder den laufenden Post öffnen */

@@ -1233,7 +1233,17 @@ export async function playEvent(e: Ev): Promise<void> {
         setCell(s.i, s.c, 'flip', k * 120, 560, e.faces[k]);
         window.setTimeout(() => sfx.flip(k), (k * 120) / V.speed);
       });
-      await wait(e.cells.length * 120 + 380);
+      // Überstehende Seiten tropfen ab: Farbe läuft über das fremde Feld hinunter und malt nichts
+      const drip = rgbCss(e.cells[0]!.c.rgb, 0.85);
+      (e.drop ?? []).forEach((d, k) => {
+        window.setTimeout(() => {
+          const t = now();
+          for (let j = 0; j < 7; j++)
+            V.parts.push({ x: cx(d.i) + (Math.random() - 0.5) * cell * 0.6, y: cy(d.i) - cell * 0.25 + Math.random() * cell * 0.2, vx: (Math.random() - 0.5) * 16, vy: 10 + Math.random() * 40, g: 420, r: 1.8 + Math.random() * 2.2, t0: t, life: 600 + Math.random() * 250, col: drip });
+          ring(cx(d.i), cy(d.i), cell * 0.15, cell * 0.45, drip, 420, 2);
+        }, ((e.cells.length + k) * 120) / V.speed);
+      });
+      await wait((e.cells.length + (e.drop?.length ?? 0)) * 120 + 380);
       let v = V.units.get(e.id);
       const u = unitById(e.id)!;
       if (!v) {

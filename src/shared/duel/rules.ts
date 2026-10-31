@@ -182,7 +182,8 @@ export type Ev =
   | { k: 'apply'; side: Side; crests: Record<Crest, number>; combo: Combo | null; joker: number; task?: Task | null }
   /** Eine Seite hat ein Malmittel gewählt */
   | { k: 'medium'; side: Side; id: MediumId }
-  | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[] }
+  /** drop: Seiten eines überstehenden Netzes, die abtropfen (malen nichts) */
+  | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[]; drop?: { i: number; face: Face }[] }
   | { k: 'move'; id: number; path: number[]; trail: CellSnap[] }
   | { k: 'stamp'; id: number; wet: boolean; cells: (CellSnap & { r: StampRes })[] }
   | { k: 'shot'; id: number; at: number; res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit'; dmg: number; guard: boolean; rgb: RGB; text: string; mult?: number }
@@ -222,8 +223,9 @@ export const crestDef = (k: Crest) => CRESTS.find((c) => c.k === k)!;
  */
 export const TUNE = {
   look: { apprentice: 3, journeyman: 15, master: 0, gallery: 0 } as Record<Level, number>,
-  hp: { apprentice: 0.7, journeyman: 0.85, master: 1.25, gallery: 1 } as Record<Level, number>,
-  stat: { apprentice: 0.65, journeyman: 0.85, master: 1.15, gallery: 1 } as Record<Level, number>,
+  /** Meister nachgestimmt am 31.10.2026 (vorher 1.25 und 1.15), weil mit überstehenden Netzen beide Seiten öfter beschwören */
+  hp: { apprentice: 0.7, journeyman: 0.85, master: 1.1, gallery: 1 } as Record<Level, number>,
+  stat: { apprentice: 0.65, journeyman: 0.85, master: 1.08, gallery: 1 } as Record<Level, number>,
   /** Zusätzliche Symbole zum Start (der Meister ist stärker als du, festgelegt am 29.10.2026) */
   extra: { apprentice: {}, journeyman: {}, master: { guard: 2, glow: 2 }, gallery: {} } as Record<Level, Partial<Record<Crest, number>>>,
   /** Neuwürfe pro Zug und ob Kombis zählen (zum Vergleichen in der Simulation) */
@@ -236,6 +238,8 @@ export const TUNE = {
   /** Wumms (31.10.2026): Streifschuss statt Fehlwurf (S1) und Nachsetzen nach dem Auswaschen (S2), zum Vergleichen in der Simulation */
   graze: true,
   again: true,
+  /** Beschwören (31.10.2026, docs/entwuerfe/beschwoeren-vorschlag.md): das Netz darf über fremde Farbe, Kleckse und Paletten ragen */
+  overhang: true,
   /** Spielweise je Seite (nur zum Vergleichen in der Simulation): Wert eines Herzens, Drang zur fremden Palette, Gewicht des Malens */
   ai: { heart: [8, 8], advance: [0.25, 0.25], paint: [1, 1] } as { heart: [number, number]; advance: [number, number]; paint: [number, number] },
 };
@@ -988,6 +992,21 @@ export function summonable(t: Team, rolled: Rolled[]): Unit[] {
     .map((r) => r.u);
 }
 
+/**
+ * Warum ein geworfener Stern nicht beschwören kann (festgelegt am 31.10.2026, Hinweis am Würfel): full heißt schon drei Kleckse
+ * auf dem Blatt, short fehlende Sterne, room kein Platz für das Netz. null: kein Stern oder er kann
+ */
+export type SummonWhy = { k: 'full' } | { k: 'short'; n: number } | { k: 'room' };
+export function summonWhy(t: Team, rolled: Rolled[], r: Rolled): SummonWhy | null {
+  if (!isStar(r.face) || r.u.state !== 'bag') return null;
+  if (onSheet(t).length >= ON_SHEET) return { k: 'full' };
+  const have = rolled.filter((o) => o !== r && isStar(o.face)).reduce((a, o) => a + starValue(o.face), 0) + S.starBonus + 3 * S.freeJoker;
+  if (have < r.u.lv) return { k: 'short', n: r.u.lv - have };
+  if (!placements(r.u).length) return { k: 'room' };
+  return null;
+}
+export const whyText = (w: SummonWhy): string => (w.k === 'full' ? 'sheet full' : w.k === 'short' ? `short ★${w.n}` : 'no room');
+
 /* Würfelnetz: 8 Lagen (4 Drehungen, gespiegelt), Anker ist die Zelle mit den meisten Nachbarn */
 export function netCore(net: P[]): number {
   let best = 0,
@@ -1032,14 +1051,38 @@ export function validNet(side: Side, list: number[]): boolean {
   }
   return touch;
 }
-export function placements(u: Unit): { o: number; at: number; list: number[] }[] {
-  const out: { o: number; at: number; list: number[] }[] = [];
+/** Mindestens so viele Felder malt ein überstehendes Netz */
+export const NET_MIN = 3;
+/** Ein Feld, auf das eine Seite des Netzes malen darf: frei oder eigene Farbe, ohne Klecks, keine Palette */
+function netFree(side: Side, i: number): boolean {
+  const c = S.cells[i]!;
+  return !c.home && (c.owner === 0 || c.owner === side) && !unitAt(i % COLS, Math.floor(i / COLS));
+}
+export type Placement = { o: number; at: number; list: number[]; over: number[] };
+/**
+ * Wo ein Netz aufklappt (festgelegt am 31.10.2026, docs/entwuerfe/beschwoeren-vorschlag.md). Passt es ganz, malt es alle sechs Felder.
+ * Sonst darf es über fremde Farbe, Kleckse und Paletten ragen, nicht über den Blattrand: gemalt werden nur freie und eigene Felder
+ * (list, mindestens NET_MIN, am eigenen Gebiet), der Klecks steht auf dem Anker, der dazugehören muss. Die überstehenden Seiten (over) tropfen ab
+ */
+export function netPlace(u: Unit, o: number, at: number): Placement | null {
+  const full = netAt(u, o, at);
+  if (!full) return null;
+  if (validNet(u.side, full)) return { o, at, list: full, over: [] };
+  if (!TUNE.overhang || !netFree(u.side, at)) return null;
+  const list = full.filter((i) => netFree(u.side, i));
+  if (list.length < NET_MIN || !validNet(u.side, list)) return null;
+  return { o, at, list, over: full.filter((i) => !list.includes(i)) };
+}
+/** Alle Lagen eines Netzes: erst die, die ganz passen, dann die überstehenden */
+export function placements(u: Unit): Placement[] {
+  const whole: Placement[] = [],
+    part: Placement[] = [];
   for (let o = 0; o < 8; o++)
     for (let at = 0; at < COLS * ROWS; at++) {
-      const list = netAt(u, o, at);
-      if (list && validNet(u.side, list)) out.push({ o, at, list });
+      const p = netPlace(u, o, at);
+      if (p) (p.over.length ? part : whole).push(p);
     }
-  return out;
+  return [...whole, ...part];
 }
 /** Aufklappen: Reihenfolge der Felder vom Anker aus, wie ein Würfel, der Seite für Seite umklappt */
 function unfoldOrder(list: number[], at: number): number[] {
@@ -1052,7 +1095,9 @@ function unfoldOrder(list: number[], at: number): number[] {
   return out;
 }
 export function doSummon(u: Unit, o: number, at: number): string {
-  const list = netAt(u, o, at)!;
+  const p = netPlace(u, o, at)!;
+  const full = netAt(u, o, at)!;
+  const list = p.list;
   for (const i of list) paintCell(S.cells[i]!, u, u.m.main, true);
   u.state = 'sheet';
   u.x = at % COLS;
@@ -1062,9 +1107,11 @@ export function doSummon(u: Unit, o: number, at: number): string {
   u.acted = false;
   count(`${u.side}summon`);
   const order = unfoldOrder(list, at);
-  // Die Seite des Würfels zu jedem Feld (gleiche Reihenfolge wie das Netz)
-  emit({ k: 'summon', side: u.side, id: u.id, x: u.x, y: u.y, cells: order.map(snap), faces: order.map((i) => u.faces[list.indexOf(i)]!) });
-  const s = `unfolded ${u.name} (★${u.lv}): six cells of wet ${PIG[u.m.main].n}`;
+  // Die Seite des Würfels zu jedem Feld (gleiche Reihenfolge wie das Netz). Überstehende Seiten tropfen ab
+  const face = (i: number) => u.faces[full.indexOf(i)]!;
+  emit({ k: 'summon', side: u.side, id: u.id, x: u.x, y: u.y, cells: order.map(snap), faces: order.map(face), drop: p.over.map((i) => ({ i, face: face(i) })) });
+  const n = ['no', 'one', 'two', 'three', 'four', 'five', 'six'][list.length] ?? String(list.length);
+  const s = `unfolded ${u.name} (★${u.lv}): ${n} cells of wet ${PIG[u.m.main].n}${p.over.length ? `, ${p.over.length} side${p.over.length > 1 ? 's' : ''} dripped off` : ''}`;
   pourGlow(teamOf(u));
   return s;
 }

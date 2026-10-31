@@ -3,7 +3,7 @@
  * Der Server prüft und würfelt jede Aktion und schickt Ereignisse zurück, der Client spielt sie ab.
  * Regelabfragen (Reichweite, Chancen, Netze) laufen lokal auf dem Stand vom Server.
  */
-import { statBlock, STATS2 } from './duel/statcard';
+import { statBlock } from './duel/statcard';
 import './lib/fonts';
 import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
@@ -330,6 +330,19 @@ async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
     sfx.combo('rainbow');
     renderStatus();
     await View.wait(800);
+  }
+  // Sterne, die nicht beschwören können, sagen warum (festgelegt am 31.10.2026): fehlende Sterne, kein Platz, Blatt voll
+  if (e.side === 1 && S.turn === 1) {
+    let pause = false;
+    for (const r of lastRolled()) {
+      const w = R.summonWhy(me(), lastRolled(), r);
+      const d = stageDice.get(r.u.id);
+      if (!w || !d) continue;
+      d.box.append(el('em', 'why', R.whyText(w)));
+      // Ein volles Blatt kennt man schon, dafür nicht extra warten
+      if (w.k !== 'full') pause = true;
+    }
+    if (pause) await View.wait(900);
   }
   // Symbole fliegen in den Vorrat: von den Würfelseiten, dazu der Gewinn der Kombi
   const flights: [HTMLElement, Face][] = [];
@@ -743,7 +756,9 @@ function renderCtx(): void {
       b.type = 'button';
       b.disabled = !ok;
       b.dataset.id = String(r.u.id);
-      b.append(html('span', 'rf', iconSvg(r.face, 26)), portraitEl(r.u.id, 22), el('small', '', R.faceText(r.face)));
+      // Ein Stern, der nicht beschwören kann, sagt, warum (festgelegt am 31.10.2026)
+      const why = ok ? null : R.summonWhy(me(), lastRolled(), r);
+      b.append(html('span', 'rf', iconSvg(r.face, 26)), portraitEl(r.u.id, 22), el('small', why ? 'why' : '', why ? R.whyText(why) : R.faceText(r.face)));
       b.addEventListener('click', () => {
         if (!allowedEl(b)) return;
         sfx.tap();
@@ -825,9 +840,8 @@ function renderGo(): void {
     if (summonU) {
       aux.hidden = false;
       aux.textContent = 'Turn';
-      const list = anchor !== null ? R.netAt(summonU, orient, anchor) : null;
       go.textContent = 'Unfold';
-      go.disabled = !(list && R.validNet(1, list));
+      go.disabled = !(anchor !== null && R.netPlace(summonU, orient, anchor));
     } else go.textContent = 'Pick a die';
     return;
   }
@@ -1070,20 +1084,43 @@ function drawOverlay(ctx: CanvasRenderingContext2D, cell: number): void {
   if (placing()) {
     const u = summonU!;
     for (let at = 0; at < COLS * R.ROWS; at++) {
-      const list = R.netAt(u, orient, at);
-      if (list && R.validNet(1, list) && at !== anchor) dot(at, 'rgba(43,63,163,.5)', 0.1);
+      if (at !== anchor && R.netPlace(u, orient, at)) dot(at, 'rgba(43,63,163,.5)', 0.1);
     }
     if (anchor !== null) {
       const list = R.netAt(u, orient, anchor);
       if (list) {
-        const ok = R.validNet(1, list);
+        // Ganz oder überstehend: gemalte Felder gefüllt, überstehende Seiten nur gestrichelt und blass (sie tropfen ab)
+        const pl = R.netPlace(u, orient, anchor);
         ctx.setLineDash([6, 4]);
         ctx.lineWidth = 2.5;
         list.forEach((i, k) => {
           const x = (i % COLS) * cell,
             y = Math.floor(i / COLS) * cell;
-          ctx.fillStyle = ok ? `rgba(${PIG[u.m.main].rgb},.3)` : 'rgba(163,58,58,.18)';
-          ctx.strokeStyle = ok ? 'rgba(43,63,163,.95)' : 'rgba(163,58,58,.9)';
+          const over = !!pl && pl.over.includes(i);
+          if (over) {
+            // Übersteht: nur gestrichelter Rand und eine blasse Seite mit Tropfen darunter, gemalt wird hier nichts
+            ctx.strokeStyle = 'rgba(255,255,255,.95)';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(x + 5, y + 5, cell - 10, cell - 10);
+            ctx.strokeStyle = 'rgba(43,63,163,.9)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + 5, y + 5, cell - 10, cell - 10);
+            ctx.lineWidth = 2.5;
+            ctx.globalAlpha = 0.4;
+            const img = faceImg(u.faces[k]!);
+            if (img.complete) ctx.drawImage(img, x + cell * 0.32, y + cell * 0.26, cell * 0.36, cell * 0.36);
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = `rgb(${PIG[u.m.main].rgb})`;
+            ctx.beginPath();
+            ctx.moveTo(x + cell * 0.5, y + cell * 0.66);
+            ctx.quadraticCurveTo(x + cell * 0.58, y + cell * 0.78, x + cell * 0.5, y + cell * 0.82);
+            ctx.quadraticCurveTo(x + cell * 0.42, y + cell * 0.78, x + cell * 0.5, y + cell * 0.66);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            return;
+          }
+          ctx.fillStyle = !pl ? 'rgba(163,58,58,.18)' : `rgba(${PIG[u.m.main].rgb},.3)`;
+          ctx.strokeStyle = pl ? 'rgba(43,63,163,.95)' : 'rgba(163,58,58,.9)';
           ctx.fillRect(x + 3, y + 3, cell - 6, cell - 6);
           ctx.strokeRect(x + 3, y + 3, cell - 6, cell - 6);
           const img = faceImg(u.faces[k]!);
@@ -1192,8 +1229,8 @@ function bestAnchor(u: Unit): number | null {
   let best: number | null = null,
     bv = -Infinity;
   for (let at = 0; at < COLS * R.ROWS; at++) {
-    const list = R.netAt(u, orient, at);
-    if (!list || !R.validNet(1, list)) continue;
+    const list = R.netPlace(u, orient, at)?.list;
+    if (!list) continue;
     const v = list.filter((i) => S.cells[i]!.owner === 0).length - R.cheb(at % COLS, Math.floor(at / COLS), h % COLS, Math.floor(h / COLS)) * 0.8;
     if (v > bv) {
       bv = v;
@@ -1435,12 +1472,11 @@ function tapCell(i: number): void {
   if (tut() && guideNow.cell !== i && guideNow.from !== i) return nudge();
   if (placing()) {
     // Tipp aufs Netz klappt auf, Tipp auf einen anderen Punkt verschiebt es dorthin
-    const list = anchor !== null ? R.netAt(summonU!, orient, anchor) : null;
-    if (list && list.includes(i) && R.validNet(1, list)) return void unfold();
+    const pl = anchor !== null ? R.netPlace(summonU!, orient, anchor) : null;
+    if (pl && (pl.list.includes(i) || pl.over.includes(i))) return void unfold();
     for (let k = 0; k < 8; k++) {
       const o = (orient + k) % 8;
-      const l2 = R.netAt(summonU!, o, i);
-      if (l2 && R.validNet(1, l2)) {
+      if (R.netPlace(summonU!, o, i)) {
         orient = o;
         anchor = i;
         sfx.tap();
@@ -1511,8 +1547,7 @@ function pickSummon(u: Unit): void {
 }
 async function unfold(): Promise<void> {
   if (!summonU || anchor === null || busy) return;
-  const list = R.netAt(summonU, orient, anchor);
-  if (!list || !R.validNet(1, list)) return;
+  if (!R.netPlace(summonU, orient, anchor)) return;
   const a: DuelAction = { k: phase() === 'opening' ? 'open' : 'summon', id: summonU.id, o: orient, at: anchor };
   summonU = null;
   anchor = null;
@@ -1576,8 +1611,7 @@ $('aux').addEventListener('click', () => {
   sfx.tap();
   if (placing()) {
     orient = (orient + 1) % 8;
-    const list = anchor !== null ? R.netAt(summonU!, orient, anchor) : null;
-    if (!list || !R.validNet(1, list)) anchor = bestAnchor(summonU!);
+    if (anchor === null || !R.netPlace(summonU!, orient, anchor)) anchor = bestAnchor(summonU!);
   }
   renderAll();
 });
@@ -1608,16 +1642,6 @@ function openInspect(u: Unit): void {
   }
   top.append(portraitEl(u.id, 64), info);
   const net = html('div', 'card-net', netSvg(u.net, u.faces, 26));
-  const stats = el('div', 'card-stats');
-  for (const [k, n] of [
-    ['SAT', u.sat],
-    ['OPA', u.opa],
-    ['GRN', u.grn],
-    ['FLO', u.flo],
-    ['GLW', u.glw],
-    ['LFT', u.lf],
-  ] as [string, number][])
-    stats.append(html('span', '', `<small>${k}</small><b>${n}</b>`));
   const ab = ABILITY[u.m.bp];
   const lines = el('div', 'card-lines');
   lines.append(
@@ -1640,7 +1664,7 @@ function openInspect(u: Unit): void {
     const bits = [fd?.no ? serialText(fd.no) : '', fd?.glaze ? `glaze ${fd.glaze}` : '', fd?.patina ? `patina ${fd.patina}/3` : ''].filter(Boolean);
     box.append(html('p', 'gal-owner', `From <b>${esc(foeTag(S.foeName))}</b>'s deck${bits.length ? ' · ' + bits.join(' · ') : ''}`));
   }
-  box.append(net, STATS2 ? statBlock(u, true) : stats, lines);
+  box.append(net, statBlock(u, true), lines);
   if (fd?.drawn) {
     const rb = el('button', 'gal-report', reported.has(k) ? 'Reported' : 'Report drawing') as HTMLButtonElement;
     rb.type = 'button';

@@ -170,6 +170,22 @@ createServer(async (req, res) => {
       }
       return send(200, { phase: res.state?.phase });
     }
+    // Nur in der Vorschau: fremde Farbe überall außer direkt am eigenen Gebiet (zum Ansehen überstehender Netze)
+    if (url.pathname === '/dev/crowd') {
+      const raw = await redis.get(K.duel(USER.id));
+      if (!raw) return send(404, { error: 'no duel' });
+      const save = JSON.parse(raw);
+      const cells = save.cells as { owner: number; home: number }[];
+      const rival = cells.find((c) => c.owner === 2 && !c.home);
+      if (!rival) return send(404, { error: 'no rival paint' });
+      const W = 6;
+      const near = (i: number) => [i - 1, i + 1, i - W, i + W].some((j) => j >= 0 && j < cells.length && (Math.abs((j % W) - (i % W)) <= 1) && cells[j]!.owner === 1);
+      cells.forEach((c, i) => {
+        if (c.owner === 0 && !c.home && !near(i)) cells[i] = { ...rival };
+      });
+      await redis.set(K.duel(USER.id), JSON.stringify(save));
+      return send(200, { ok: true });
+    }
     // Nur in der Vorschau: Kleckse des Rivalen auf dem Blatt fast leer (zum Ansehen von WASH OUT und AGAIN)
     if (url.pathname === '/dev/weak') {
       const raw = await redis.get(K.duel(USER.id));

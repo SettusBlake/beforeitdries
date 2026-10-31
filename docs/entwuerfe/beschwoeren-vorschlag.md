@@ -1,6 +1,6 @@
 # Vorschlag: öfter beschwören
 
-Stand 31.10.2026, Fassung 1. Wartet auf Freigabe.
+Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026 („alles Empfehlung“). Gebaut (siehe unten).
 
 Rückmeldung 31.10.2026: Es kommt zu selten vor, dass man ein neues Monster beschwören kann.
 
@@ -90,7 +90,28 @@ Mehr Kleckse heißt mehr Treffer und mehr Auswaschen, also auch mehr Wumms. Die 
 1. **Regeln P:** mit Tests und Simulation, Meister nachstimmen.
 2. **Anzeige:** überstehende Seiten, Abtropfen, Hinweis U. Upload mit Bild.
 
-## Fragen
+## Gebaut (31.10.2026, Playtest v0.0.1.101, Bild docs/entwuerfe/beschwoeren-im-spiel.png)
+
+- **Regel:** `netPlace` in src/shared/duel/rules.ts (Schalter `TUNE.overhang`, `NET_MIN` 3). `placements` liefert erst die ganzen Netze, dann die überstehenden. Der Server prüft dieselbe Regel.
+- **Meister:** Lebenskraft × 1,1, Werte × 1,08 (`TUNE.hp`, `TUNE.stat`).
+- **Anzeige:**
+  - Beim Platzieren sind überstehende Seiten gestrichelt, blass und mit Tropfen.
+  - Beim Aufklappen tropfen sie ab (Ereignis `summon` mit `drop`).
+  - Im Log steht „… dripped off“.
+- **U:** `summonWhy` in rules.ts. Der Grund steht unter dem Würfel auf der Würfelbühne und auf den Würfeln in der Beschwörphase.
+  - „short ★n“ und „no room“ halten die Bühne kurz an, „sheet full“ nicht.
+- **Regeln im Menü** ergänzt. DUEL_PROTOCOL 14.
+- **Tests:** tests/beschwoeren.test.ts. Das Lern-Duell läuft unverändert durch (Test in tests/duel.test.ts).
+- **Simulation** (300 Duelle je Gegner, nach dem Bau):
+
+| Gegner | Siegquote | Beschwörungen nach dem Start (du / Rivale) |
+|---|---|---|
+| Lehrling | 99 % | 2,1 / 2,4 |
+| Geselle | 93 % | 2,5 / 2,8 |
+| Meister | 43 % | 3,6 / 3,1 |
+| Galerie | 65 % | 3,3 / 3,2 |
+
+## Fragen (beantwortet am 31.10.2026: alle wie empfohlen)
 
 1. P so bauen? (Empfehlung: ja)
 2. Mindestens 3 gemalte Felder? (Empfehlung: ja, sonst stünde ein Klecks fast ohne eigene Farbe da)

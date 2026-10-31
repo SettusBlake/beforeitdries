@@ -1,13 +1,10 @@
 /*
- * Werte auf der Karte in Spielworten (Entwurf, docs/entwuerfe/karte-werte-vorschlag.md): je Wert eine Zeile mit Name, Zahl,
- * Balken (Anteil aller Kleckse, die weniger haben) und Wirkung, Antippen erklärt die Rechnung. Dazu Stufe und Farbe.
- * Im Spiel aus, bis der Vorschlag freigegeben ist (Schalter STATS2)
+ * Werte auf der Karte in Spielworten (festgelegt am 31.10.2026, docs/entwuerfe/karte-werte-vorschlag.md): je Wert eine Zeile
+ * mit Name, Zahl, Balken (Anteil aller Kleckse, die weniger haben) und Wirkung, Antippen erklärt die Rechnung. Dazu Stufe und Farbe
  */
 import { CRESTS } from '../../shared/duel/rules';
 import type { Unit } from '../../shared/duel/rules';
 import { colourInfo, levelInfo, statRows, type StatKey } from '../../shared/duel/statinfo';
-
-export const STATS2 = false;
 
 const COL: Record<StatKey, string> = {
   sat: CRESTS.find((c) => c.k === 'splash')!.col,

@@ -88,6 +88,8 @@ button { font: inherit; color: inherit; }
 .stage-die small { font: 700 12px var(--f-mono); color: var(--muted); min-height: 1.2em; }
 .stage-die.landed small { color: var(--ink); }
 .stage-die.star small { color: var(--you); }
+.stage-die .why { margin-top: -6px; padding: 1px 7px; border-radius: 999px; background: #fbe9e4; font: 700 11px var(--f-mono); font-style: normal; color: #a3402a; animation: up .25s ease; }
+.rchip small.why { color: #a3402a; font-weight: 700; }
 .die3 { position: relative; transform-style: preserve-3d; }
 .d3bounce, .d3cube { position: absolute; inset: 0; transform-style: preserve-3d; }
 .d3shadow { position: absolute; left: 10%; right: 10%; bottom: -12px; height: 10px; border-radius: 50%; background: rgba(30,25,20,.35); filter: blur(3px); }
@@ -242,15 +244,13 @@ button { font: inherit; color: inherit; }
 .card-top canvas { width: 64px; height: 64px; border-radius: 50%; box-shadow: 0 0 0 2px var(--line); flex: none; }
 .card-id { display: grid; gap: 3px; min-width: 0; }
 .card-id b { font-size: 17px; }
-.card-id .lv { display: inline-flex; align-items: center; gap: 3px; font: 11px var(--f-mono); color: var(--muted); }
+/* Block statt Flex: sonst wird jedes Textstück ein eigenes Kästchen und bricht auf dem Handy wild um */
+.card-id .lv { display: block; font: 11px/1.45 var(--f-mono); color: var(--muted); }
+.card-id .lv svg { vertical-align: -2px; margin-right: 3px; }
 .card-id small { font: 11px var(--f-mono); color: var(--muted); }
 .card-hp { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; width: 160px; }
 .card-hp i { display: block; height: 100%; background: var(--ink); }
 .card-net { display: flex; justify-content: center; margin: 12px 0 8px; }
-.card-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; text-align: center; }
-.card-stats span { background: #f3f1ea; border-radius: 6px; padding: 3px 0; display: grid; }
-.card-stats small { font: 9.5px var(--f-mono); color: var(--muted); }
-.card-stats b { font: 700 13px var(--f-mono); }
 .sinfo { display: grid; gap: 4px; margin-top: 10px; }
 .sinfo button { display: grid; grid-template-columns: 112px minmax(0, 1fr); column-gap: 10px; align-items: center; width: 100%; text-align: left; border: 0; border-radius: 9px; background: #f6f4ee; padding: 6px 9px; font: inherit; color: inherit; cursor: pointer; }
 .sinfo .slv { grid-template-columns: 1fr; background: transparent; padding: 0 2px 2px; font-size: 13px; color: var(--muted); }

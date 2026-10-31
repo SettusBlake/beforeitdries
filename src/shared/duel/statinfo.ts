@@ -1,11 +1,12 @@
 /*
- * Was die Werte eines Kleckses im Duell bewirken, in Spielworten (Entwurf, docs/entwuerfe/karte-werte-vorschlag.md).
+ * Was die Werte eines Kleckses im Duell bewirken, in Spielworten (festgelegt am 31.10.2026, docs/entwuerfe/karte-werte-vorschlag.md).
  * Gerechnet wird gegen einen durchschnittlichen Klecks (Median aus 20 000 Zügen, gemessen am 31.10.2026),
  * im Duell mit dem, was gerade gilt (Stufe des Rivalen, Set-Bonus, Eigenschaften). Nur Anzeige, die Regeln stehen in rules.ts
  */
 import { PIG, PIGMENTS, type PigmentId } from '../data';
 import { relation } from '../glaze';
-import { baseDamage, FAMILY, FAMILY_TEXT, GAIT, has, HIT, LEVEL_POWER, moveRange, power, pWin, type Family, type Unit } from './rules';
+import { statRows as monsterStats } from '../monster';
+import { baseDamage, FAMILY, FAMILY_TEXT, GAIT, has, HIT, LEVEL_POWER, moveRange, pWin, type Family, type Unit } from './rules';
 
 export type StatKey = 'sat' | 'opa' | 'grn' | 'flo' | 'glw' | 'lf';
 export const STAT_KEYS: StatKey[] = ['sat', 'opa', 'grn', 'flo', 'glw', 'lf'];
@@ -98,11 +99,16 @@ export function statRows(u: Unit, live: boolean): StatRow[] {
   return STAT_KEYS.map((k) => ({ k, label: STAT_LABEL[k], v: statOf(u, k), share: share(k, statOf(u, k)), parts: parts[k], help: help[k] }));
 }
 
-/** Stufe aus der Summe der fünf Duell-Werte (Lichtechtheit zählt nicht) */
+/**
+ * Stufe aus der Summe der fünf Duell-Werte (Lichtechtheit zählt nicht). Gezählt werden die Werte des Würfels selbst:
+ * beim Rivalen des Computers sind sie im Duell je nach Stufe des Rivalen verändert, seine Stufe bleibt aber die seines Würfels
+ */
 export function levelInfo(u: Unit): { lv: number; total: number; next: number | null; help: string } {
+  const base = Object.fromEntries(monsterStats(u.m).map((r) => [r.k, r.total]));
+  const total = (base.saettigung ?? 0) + (base.deckkraft ?? 0) + (base.koernung ?? 0) + (base.fluss ?? 0) + (base.leuchten ?? 0);
   return {
     lv: u.lv,
-    total: power(u),
+    total,
     next: u.lv < 3 ? LEVEL_POWER[u.lv - 1]! : null,
     help: `Saturation, Opacity, Grain, Flow and Glow add up to its level: ${LEVEL_POWER[0]} for Level 2, ${LEVEL_POWER[1]} for Level 3. A higher level needs more stars to summon, and its own star faces count more.`,
   };

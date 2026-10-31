@@ -30,7 +30,7 @@ import {
   endRound,
   idx,
   logAdd,
-  netAt,
+  netPlace,
   onSheet,
   reach,
   rollDice,
@@ -46,7 +46,6 @@ import {
   TUNE,
   CRESTS,
   unitById,
-  validNet,
   COLS,
   ROWS,
   type Action,
@@ -248,8 +247,7 @@ export function perform(a: DuelAction): Ev[] {
     const u = own(id);
     if (u.state !== 'bag') bad('That die is not in the bag.');
     if (!isInt(o, 0, 7) || !isInt(at, 0, COLS * ROWS - 1)) bad('Bad placement.');
-    const list = netAt(u, o as number, at as number);
-    if (!list || !validNet(1, list)) bad('The net does not fit there.');
+    if (!netPlace(u, o as number, at as number)) bad('The net does not fit there.');
     return u;
   };
   switch (a.k) {

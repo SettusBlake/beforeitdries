@@ -1,12 +1,12 @@
 # Vorschlag: Werte auf der Würfelkarte in Spielworten
 
-Stand 31.10.2026, Fassung 1. Wartet auf Freigabe.
+Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026 („alles Empfehlung“). Gebaut (siehe unten).
 
 Anlass (31.10.2026): Frage „Haben Monster unterschiedliche Werte, die das Spiel beeinflussen?“ Ja, alle sechs Werte wirken im Duell. Die Karte zeigt aber nur Kürzel mit Zahl (SAT 29, OPA 24 …). Was sie bewirken, steht verstreut in den Regeln im Menü.
 
 Entwurf: docs/entwuerfe/karte-werte-entwurf.png (heute, Vorschlag in der Sammlung, aufgeklappte Erklärung, Karte im Duell).
 
-Der Entwurf steckt im Code, ist im Spiel aber aus (Schalter `STATS2` in src/client/duel/statcard.ts, Rechnung in src/shared/duel/statinfo.ts).
+Code: src/client/duel/statcard.ts (Anzeige), src/shared/duel/statinfo.ts (Rechnung).
 
 ## Gemessen: wie verschieden die Werte sind
 
@@ -78,7 +78,15 @@ Regeln und Werte ändern sich nicht, es ist nur Anzeige. DUEL_PROTOCOL bleibt be
 
 Ein Schritt: Schalter an, Kopfzeile im Duell beheben, auf 360 Pixeln prüfen, Upload mit Bild.
 
-## Fragen
+## Gebaut (31.10.2026, Playtest v0.0.1.101, Bild docs/entwuerfe/beschwoeren-im-spiel.png)
+
+- A bis E wie beschrieben, auf der Würfelkarte in der Sammlung und auf der Karte im Duell. Die alten Kürzel sind weg.
+- In der Sammlung steht alles fürs Duell (Werte, Stufe, Farbe, Set, Würfel, Gangart, Meisterzug, Eigenschaften) vor dem Benennen-Feld.
+- Gegner in der Rechnung ist überall der durchschnittliche Klecks. Im Duell zählen Set-Bonus und die Stufe des Rivalen mit.
+- Die Stufen-Zeile zählt die Werte des Würfels selbst. Beim Rivalen des Computers sind die Werte im Duell verändert, seine Stufe bleibt die seines Würfels.
+- Kopfzeile der Karte im Duell bricht nicht mehr wild um.
+
+## Fragen (beantwortet am 31.10.2026: alle wie empfohlen)
 
 1. A bis E so? (Empfehlung: ja)
 2. Wirkung gegen einen durchschnittlichen Klecks, im Duell auch? Die Alternative wäre, im Duell gegen die echten Kleckse des Gegners zu rechnen. (Empfehlung: durchschnittlich, dann ist es überall gleich vergleichbar. Der Vergleich mit einem Ziel kommt später)
