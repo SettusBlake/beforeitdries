@@ -21,7 +21,7 @@ function el(tag: string, cls = '', text = ''): HTMLElement {
   return e;
 }
 const dpr = () => Math.min(2, window.devicePixelRatio || 1);
-const pig = (n: number) => `<i class="pigi"></i>${n.toLocaleString('en')}`;
+export const pig = (n: number) => `<i class="pigi"></i>${n.toLocaleString('en')}`;
 const unitOf = (d: DieRec) => dieUnit(dieMonster(d), d.mods);
 const DAY = 86_400_000;
 
@@ -39,6 +39,8 @@ export const setTradeStatus = (s: TradeStatus | undefined): void => {
 };
 export const tradeStatusNow = (): TradeStatus | null => status;
 export const marketGate = (): TradeGate | null => last?.gate ?? status?.gate ?? null;
+/** Verkäufer im Markt, als Vorschläge für einen Tausch */
+export const marketSellers = (): string[] => [...new Set((last?.items ?? []).map((x) => x.seller).filter(Boolean))];
 
 /* ---------- Herkunft ---------- */
 const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -204,7 +206,7 @@ export function buyBox(item: MarketItem, mine: number, done: () => void): HTMLEl
 
 /* ---------- Markt-Fenster ---------- */
 /** Bild eines fremden Würfels (Schlüssel mit dem Seed: IDs gibt es bei jedem Spieler) */
-function tile(d: DieRec, i: number): HTMLElement {
+export function tile(d: DieRec, i: number): HTMLElement {
   const u = unitOf(d);
   const box = el('button', 'gd' + (d.holo ? ' holo-rim' : '')) as HTMLButtonElement;
   box.type = 'button';

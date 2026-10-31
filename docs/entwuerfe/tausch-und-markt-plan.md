@@ -1,6 +1,6 @@
 # Plan: Würfel tauschen (A) und verkaufen (B)
 
-Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026 („alles Empfehlung“). Schritt 1 und 2 gebaut (siehe unten).
+Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026 („alles Empfehlung“). Alle drei Schritte gebaut (siehe unten).
 
 Anlass (31.10.2026): Frage „Tauschen und verkaufen geht?“. Gewählt: A direkter Tausch und B Markt, mit Schutz vor Zweitkonten.
 
@@ -149,6 +149,19 @@ Entwurf: docs/entwuerfe/tausch-markt-entwurf.png (Attrappen in der echten Vorsch
 - **Herkunft** auf jeder Karte, die schon die Hand gewechselt hat.
 - **Test-Knöpfe** (Playtest, nur Mods): „+3 test listings in the market“, „a test buyer buys my cheapest listing“.
 - **Behoben:** Bilder vom Ziehen hängen an der Würfel-ID. Fremde Würfel bekamen sonst das Bild eines eigenen mit derselben ID.
+
+### Schritt 3, Tausch (31.10.2026, Playtest v0.0.1.107, Bild docs/entwuerfe/tausch-im-spiel.png)
+
+- **Your dice:** Knopf „Trades“ mit Zähler der offenen Angebote an dich.
+- **Tausch-Fenster** (src/client/duel/trade.ts):
+  - Angebote an dich mit „Accept“ und „Decline“, deine eigenen mit „Take it back“. Jeweils zweiter Tipp, bei Holo und Legendary mit deutlicher Warnung.
+  - Antippen eines Würfels zeigt seine Karte.
+- **Neuer Tausch:**
+  - u/Name eintippen oder einen Vorschlag antippen (Verkäufer im Markt, Partner der letzten Angebote).
+  - Dann bis zu 3 Würfel des anderen und bis zu 3 eigene wählen, dazu Pigment in 25er-Schritten bis 500.
+  - Eine Zeile fasst zusammen, „Send offer“ mit zweitem Tipp.
+- **Abweichung vom Plan:** Der Schalter für die private Nachricht steht im Tausch-Fenster statt im Duell-Menü, dort sucht man ihn.
+- **Test-Knopf** (Playtest, nur Mods): „a test painter offers me a trade“. Angebote an Test-Händler nehmen diese sofort an.
 
 ## Fragen (beantwortet am 31.10.2026: alle wie empfohlen)
 

@@ -605,3 +605,33 @@ canvas.faded, .rd.drift canvas { filter: saturate(.5) brightness(1.08) contrast(
 .trow.sell small { font-size: 12px; color: var(--muted); text-align: center; }
 .prov { margin: 10px 0 2px; padding: 8px 10px; border-radius: 10px; background: #eef1f7; font-size: 13px; line-height: 1.4; }
 .prov b { color: #2c3550; }
+
+/* ---------- Tausch ---------- */
+#trades .sheet, #tradenew .sheet { max-height: 92vh; overflow-y: auto; }
+#tradenew { z-index: 22; }
+#tr-new { margin: 6px 0 10px; }
+#tr-list .empty, #tn-body .empty { color: var(--muted); font-size: 13px; text-align: center; margin: 12px 0; }
+.offer { border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin: 8px 0; background: #fffdf8; display: grid; gap: 6px; }
+.offer.in { border-color: #c9b07a; box-shadow: inset 0 0 0 1px #efe2bf; }
+.offer .ohead { margin: 0; font-size: 13.5px; }
+.offer .oside .eyebrow { margin: 0 0 4px; }
+.offer .oarrow { justify-self: center; color: var(--muted); font: 700 18px var(--f-body); line-height: 1; }
+.offer .gal-btns { margin-top: 4px; }
+.tgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.tgrid .gd { position: relative; aspect-ratio: 1; background: #fffdf8; border: 1px solid var(--line); border-bottom: 4px solid var(--c); border-radius: 10px; display: grid; place-items: center; overflow: hidden; padding: 0; cursor: pointer; }
+.tgrid .gd canvas, .tgrid .gd .hwrap { width: 92%; height: 92%; }
+.tgrid .gd .rar { position: absolute; right: 3px; top: 2px; font: 700 8.5px var(--f-mono); color: var(--c); }
+.tgrid .gd .lvb { position: absolute; left: 3px; top: 2px; }
+.tpig { display: inline-flex; gap: 5px; align-items: center; justify-self: start; font: 700 14px var(--f-mono); background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; }
+.tpig .pigi, .tn-pig .pigi { width: 10px; height: 13px; }
+.trmsg { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.trmsg input { width: 20px; height: 20px; }
+.tn-find { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; margin: 8px 0 4px; }
+.tn-find span { font: 700 16px var(--f-mono); color: var(--muted); }
+.tn-find input { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; font: 600 16px var(--f-body); background: #fff; color: var(--ink); min-width: 0; }
+.mk-grid.pick .gd.on { box-shadow: 0 0 0 3px var(--you, #2b3fa3); transform: translateY(-2px); }
+.mk-grid.pick .gd small { position: absolute; left: 3px; right: 3px; bottom: 1px; font: 9px var(--f-mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.tn-pig { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.tn-pig .stepper b { font: 800 20px var(--f-mono); color: var(--ink); }
+.tn-sum { margin: 10px 0 6px; font-size: 13px; text-align: center; min-height: 1.2em; }
+#tn-send { width: 100%; max-width: none; }

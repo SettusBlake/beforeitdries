@@ -18,6 +18,7 @@ import { initDraw, openDraw } from './draw';
 import { initReview, openReview } from './review';
 import { foeTag, galleryStatus, inboxText, setGalleryStatus } from './gallery';
 import { buyBox, initMarket, marketGate, openMarket, provText, sellBox, setMarket, setTradeStatus, tradeStatusNow } from './market';
+import { initTrades, openTrades, showTrades } from './trade';
 import { setColorChoice } from './colors';
 import { iconSvg, netSvg } from './icons';
 import type { Reveal, RevealPull } from './gacha/reveal';
@@ -163,6 +164,11 @@ function render(): void {
   // Markt: wie viele Würfel es gibt, wie viele von dir drin sind
   const ts = tradeStatusNow();
   $('market-sub').textContent = ts ? (ts.listed ? `${ts.listed} of yours for sale` : ts.market ? `${ts.market} dice for sale` : 'dice for pigment') : 'dice for pigment';
+  $('trades-n').hidden = !ts?.offers;
+  $('trades-n').textContent = String(ts?.offers ?? 0);
+  $('trades-sub').textContent = ts?.offers ? `${ts.offers} offer${ts.offers > 1 ? 's' : ''} waiting` : 'dice for dice';
+  $('trade-test').hidden = !tester;
+  ($('trade-test') as HTMLButtonElement).disabled = busy;
   $('market-test').hidden = !tester;
   ($('market-test') as HTMLButtonElement).disabled = busy;
   $('market-buy-test').hidden = !tester;
@@ -348,7 +354,7 @@ async function packBag(ids: string[]): Promise<void> {
 
 /* ---------- Karte eines Würfels, mit Lasur ---------- */
 /** Würfelkarte. item: ein Würfel aus dem Markt (fremd oder dein Eintrag), dann ohne Deck, Lasur und Auswaschen, mit Kaufen */
-function openDie(d: DieRec, item?: MarketItem): void {
+function openDie(d: DieRec, item?: MarketItem | 'view'): void {
   if (!save) return;
   sfx.tap();
   const foreign = !!item;
@@ -478,9 +484,9 @@ function openDie(d: DieRec, item?: MarketItem): void {
   // Herkunft: durch wessen Hände der Würfel ging
   const prov = d.hist?.length ? [html('p', 'prov', provText(d))] : [];
   if (item) {
-    // Aus dem Markt: kaufen oder den eigenen Eintrag zurücknehmen
-    const buy = buyBox(item, s.pigment, () => ($('inspect').hidden = true));
-    box.append(top, ...prov, buy, net, faces, pat, statBlock(u, false), lines);
+    // Aus dem Markt: kaufen oder den eigenen Eintrag zurücknehmen. Aus einem Angebot: nur ansehen
+    const buy = item === 'view' ? [] : [buyBox(item, s.pigment, () => ($('inspect').hidden = true))];
+    box.append(top, ...prov, ...buy, net, faces, pat, statBlock(u, false), lines);
     $('inspect').hidden = false;
     return;
   }
@@ -811,6 +817,23 @@ async function seen(): Promise<void> {
   busy = false;
   render();
 }
+/** Test-Knopf Tausch (Playtest, nur Mods): ein Test-Händler bietet dir einen Tausch an */
+async function testTrade(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  render();
+  try {
+    const r = await api.tradeTestOffer();
+    busy = false;
+    await load();
+    showTrades(r);
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
 /** Test-Knöpfe Markt (Playtest, nur Mods): drei Test-Händler stellen ein, oder einer kauft deinen günstigsten Eintrag */
 async function testMarket(buy: boolean): Promise<void> {
   if (busy) return;
@@ -909,6 +932,17 @@ export function initDice(h: Hooks): void {
     error: (e) => hooks.error(e),
   });
   $('market-b').addEventListener('click', openMarket);
+  initTrades({
+    view: (d) => openDie(d, 'view'),
+    dice: (r) => {
+      apply({ ...r, tester, mod, review });
+      void load();
+    },
+    save: () => save,
+    error: (e) => hooks.error(e),
+  });
+  $('trades-b').addEventListener('click', openTrades);
+  $('trade-test').addEventListener('click', () => void testTrade());
   $('market-test').addEventListener('click', () => void testMarket(false));
   $('market-buy-test').addEventListener('click', () => void testMarket(true));
   $('blank-b').addEventListener('click', openBlank);

@@ -80,7 +80,7 @@
     <div class="sepia-say note galnote" id="gallery-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="gallery-say"></p><p class="gal-who" id="gallery-who"></p><button type="button" class="tool" id="gallery-ok">Collect</button></div>
     <div class="sepia-say note" id="painted-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="painted-say"></p><button type="button" class="tool" id="painted-ok">OK</button></div>
     <div class="sepia-say note" id="news-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="news-say"></p><button type="button" class="tool" id="news-ok">OK</button></div>
-    <div class="mkrow" id="mkrow"><button type="button" class="mkbtn" id="market-b"><b>Market</b><small id="market-sub">dice for pigment</small></button></div>
+    <div class="mkrow" id="mkrow"><button type="button" class="mkbtn" id="market-b"><b>Market</b><small id="market-sub">dice for pigment</small></button><button type="button" class="mkbtn" id="trades-b"><b>Trades</b><small id="trades-sub">dice for dice</small><span class="badge" id="trades-n" hidden>0</span></button></div>
     <section class="dbox dip">
       <p class="eyebrow">Dip the brush</p>
       <div id="dip-btns"></div>
@@ -93,6 +93,7 @@
       <button type="button" class="testbtn" id="gallery-test" hidden>Playtest · mods only: gallery uses my own deck: off</button>
       <button type="button" class="testbtn" id="market-test" hidden>Playtest · mods only: +3 test listings in the market</button>
       <button type="button" class="testbtn" id="market-buy-test" hidden>Playtest · mods only: a test buyer buys my cheapest listing</button>
+      <button type="button" class="testbtn" id="trade-test" hidden>Playtest · mods only: a test painter offers me a trade</button>
       <div class="testrow" id="shiny-test" hidden></div>
       <button type="button" class="modbtn" id="review-b" hidden><b>Review drawings</b><small>mods only</small><span id="review-b-n">0</span></button>
     </section>
@@ -255,6 +256,31 @@
     <div class="gal-grid mk-grid" id="mk-grid"></div>
     <div id="mk-mine-box" hidden><p class="eyebrow">Your listings</p><div class="gal-grid mk-grid" id="mk-mine"></div></div>
     <p class="mknote" id="mk-note"></p>
+  </div>
+</div>
+
+<div class="overlay" id="trades" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="tr-close">✕</button>
+    <p class="eyebrow">Trades</p>
+    <h2>Dice for dice</h2>
+    <p class="mk-gate" id="tr-gate" hidden></p>
+    <button type="button" class="primary" id="tr-new">New trade</button>
+    <div id="tr-list"></div>
+    <label class="trmsg"><input type="checkbox" id="tr-msg" /> Send me a Reddit message when someone offers a trade</label>
+    <p class="mknote" id="tr-note"></p>
+  </div>
+</div>
+
+<div class="overlay" id="tradenew" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="tn-close">✕</button>
+    <p class="eyebrow">New trade</p>
+    <div class="tn-find"><span>u/</span><input type="text" id="tn-name" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="reddit name" /><button type="button" class="ghost" id="tn-look">Look</button></div>
+    <div class="mkfilt" id="tn-sug"></div>
+    <div id="tn-body"></div>
+    <p class="tn-sum" id="tn-sum"></p>
+    <button type="button" class="primary" id="tn-send" disabled>Send offer</button>
   </div>
 </div>
 
