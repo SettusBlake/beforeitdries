@@ -1,8 +1,9 @@
 /*
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
  * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at,
- * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, drawn:reports, naming:posts, naming:open, gallery:power, gallery:record).
- * Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id}, gallery:inbox:{id}) folgen aus dice:players.
+ * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, drawn:reports, naming:posts, naming:open, gallery:power, gallery:record,
+ * names, market, market:at, market:sales, trades). Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id},
+ * gallery:inbox:{id}, deliver:{id}, market:by:{id}, trade:in:{id}, trade:out:{id}) folgen aus dice:players.
  */
 export const K = {
   /** Hash: seed, humidity, postId, bp, main, createdAt, named */
@@ -71,4 +72,28 @@ export const K = {
   galleryRecord: 'gallery:record',
   /** Zähler der Test-Decks (Playtest, nur Mods): Spieler-IDs test:deck{n} */
   galleryTestN: 'gallery:testn',
+  /** Hash: Reddit-Name klein → Spieler-ID (für Tauschangebote per u/Name), gefüllt bei jedem Besuch */
+  names: 'names',
+  /** Hash: Spieler-ID → Reddit-Name, wie er geschrieben wird */
+  nameOf: 'names:of',
+  /** Hash: Lieferungen an einen Spieler (Würfel, Pigment, Nachricht), abgeholt unter seiner Sperre beim nächsten Laden */
+  deliver: (userId: string) => `deliver:${userId}`,
+  /** Hash: Markt-Eintrag (MarketRec) je ID. Der Würfel liegt darin, bis er verkauft oder zurück ist */
+  market: 'market',
+  /** Sorted Set der Markt-Einträge, Score = eingestellt */
+  marketAt: 'market:at',
+  /** Sorted Set der Einträge eines Verkäufers, Score = eingestellt */
+  marketBy: (userId: string) => `market:by:${userId}`,
+  /** Zähler der Markt-Einträge */
+  marketN: 'market:n',
+  /** Sorted Set der letzten Verkäufe (JSON mit Seltenheit und Preis), Score = Zeit */
+  marketSales: 'market:sales',
+  /** Hash: Tauschangebot (TradeRec) je ID. Die Würfel und das Pigment des Absenders liegen darin, bis es endet */
+  trades: 'trades',
+  /** Sorted Sets der Angebote an einen Spieler und von ihm, Score = Ablauf */
+  tradeIn: (userId: string) => `trade:in:${userId}`,
+  tradeOut: (userId: string) => `trade:out:${userId}`,
+  tradeN: 'trade:n',
+  /** Zähler der Test-Händler (Playtest, nur Mods): Spieler-IDs test:trader{n} */
+  tradeTestN: 'trade:testn',
 } as const;

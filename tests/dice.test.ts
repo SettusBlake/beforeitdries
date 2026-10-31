@@ -397,7 +397,7 @@ describe('Würfelsammlung', () => {
     Object.assign(s, { forceShiny: 'oil' });
     await d.redis.set(K.dice(USER), JSON.stringify(s));
     const t = await loadDice(d, USER);
-    expect(t.v).toBe(2);
+    expect(t.v).toBe(3);
     expect(t.dice[0]!.holo).toBe(1);
     // Jeder Würfel mit Stil war ein Shiny, die anderen bleiben ohne Holo
     expect(t.dice.every((x) => !!x.holo === !!x.style)).toBe(true);

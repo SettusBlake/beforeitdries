@@ -53,7 +53,17 @@ export async function loadDice(d: Pick<Deps, 'redis' | 'now'>, uid: string): Pro
   const s = raw ? { ...emptyDice(), ...(JSON.parse(raw) as DiceSave) } : emptyDice();
   weeklyBlank(s, d.now);
   migrateHolo(s);
+  migrateBound(s);
   return s;
+}
+/**
+ * Stand 2 auf 3 (31.10.2026): Startwürfel sind gebunden. Die freien Startzüge kommen zuerst, ihre Würfel heißen d1 bis d9.
+ * Gespeichert wird mit der nächsten Änderung
+ */
+function migrateBound(s: DiceSave): void {
+  if (s.v === 3) return;
+  for (const die of s.dice) if (/^d[1-9]$/.test(die.id)) die.bound = 1;
+  s.v = 3;
 }
 /**
  * Stand 1 auf 2 (31.10.2026): bis dahin war jeder Stil ein Shiny aus dem Wurf 1 zu 1000. Diese Würfel behalten
@@ -108,7 +118,7 @@ async function claim(d: Pick<Deps, 'redis'>, uid: string, die: DieRec): Promise<
   return ok;
 }
 /** Neue Würfel eines Zugs eintragen. Ist ein Seed schon vergeben, wird das Monster mit derselben Seltenheit neu gewürfelt */
-async function claimPulls(d: Deps, uid: string, pulls: PullResult[]): Promise<void> {
+export async function claimPulls(d: Deps, uid: string, pulls: PullResult[]): Promise<void> {
   for (const p of pulls) {
     for (let k = 0; k < 20 && !(await claim(d, uid, p.die)); k++) Object.assign(p.die, rollMonster(d, p.rarity, null));
     if (!p.die.no) throw new GameError('server', 'The brush slipped. Try again.', 500);
@@ -117,7 +127,7 @@ async function claimPulls(d: Deps, uid: string, pulls: PullResult[]): Promise<vo
 const rarityOfDie = (r: DieRec): Rarity => dieUnit(dieMonster(r)).rarity;
 
 /** Ein Zug: W100 offen würfeln, Schutz vor Pech prüfen, Monster erzeugen, Doppelte zu Lasur machen */
-function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): PullResult {
+export function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): PullResult {
   s.pulls++;
   s.pity.rare++;
   s.pity.epic++;
@@ -146,6 +156,8 @@ function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): Pu
   // Startzüge bringen immer neue Arten, damit der Beutel voll wird
   const owned = new Set(s.dice.map(dieSpecies));
   const die = dieFor(d, s, rarity, starter ? owned : null);
+  // Startwürfel bleiben beim Spieler (Tausch und Markt, festgelegt am 31.10.2026)
+  if (starter) die.bound = 1;
   const key = dieSpecies(die);
   // Jeder Zug bleibt als eigenes Monster, auch bei einer Art, die man schon hat
   s.dice.push(die);
@@ -210,12 +222,14 @@ export async function diceGet(d: Deps, userId: string | undefined, username?: st
   });
 }
 
-/** Sepia hat gesagt, welche Zeichnungen übermalt wurden: der Hinweis kommt nicht wieder */
+/** Sepia hat gesagt, welche Zeichnungen übermalt wurden und was Markt und Tausch gebracht haben: die Hinweise kommen nicht wieder */
 export async function diceSeen(d: Deps, userId: string | undefined): Promise<DiceResponse> {
   const uid = needUser(userId);
   return withLock(d, playerLock(uid), async () => {
     const s = await loadDice(d, uid);
     delete s.paintedOver;
+    // Sepias Nachrichten zu Markt und Tausch sind gelesen
+    delete s.news;
     await saveDice(d, uid, s);
     return respond(d, s);
   });
@@ -473,8 +487,9 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
   reward.total = s.pigment;
   const patina = wearDice(d, s, worn);
   if (patina.length) reward.patina = patina;
-  // Jedes fertige Duell schaltet das nächste Malmittel frei
+  // Jedes fertige Duell schaltet das nächste Malmittel frei und zählt fürs Handeln
   if (!tutorial) {
+    s.duels = (s.duels ?? 0) + 1;
     const have = s.media ?? [...START_MEDIA];
     const next = UNLOCK_ORDER.find((m) => !have.includes(m));
     if (next) {

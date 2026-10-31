@@ -5,7 +5,7 @@ import type { LogEntry } from './glaze';
 import type { Monster } from './monster';
 import type { DuelState } from './duel/play';
 import type { Ev, Face } from './duel/rules';
-import type { DiceSave, DieRec, PullResult } from './dice';
+import type { DiceSave, DieRec, PullResult, Rarity } from './dice';
 import type { ColorId } from './colors';
 
 /** Gespeichert unter monster:{id}. Nur Seed, Würfe und Zustand, nie das Bild. */
@@ -140,7 +140,39 @@ export interface DiceResponse {
   review?: number;
   /** Dein Deck in der Galerie (kommt mit dem Laden der Sammlung, nach Abholen und Schalter) */
   gallery?: GalleryStatus;
+  /** Markt und Tausch: offene Angebote an dich, deine Einträge im Markt, Einträge insgesamt (kommt mit dem Laden der Sammlung) */
+  trade?: TradeStatus;
 }
+/** Darf dieser Spieler handeln? why: der Grund, wenn nicht */
+export type TradeGate = { ok: boolean; why?: string };
+export type TradeStatus = { offers: number; listed: number; market: number; gate: TradeGate };
+/** Ein Würfel im Markt. mine: dein eigener Eintrag */
+export type MarketItem = { id: string; seller: string; die: DieRec; price: number; at: number; until: number; rarity: Rarity; mine?: true };
+export type MarketFilter = 'all' | 'rare' | 'holo' | 'style' | 'drawn';
+export type MarketSort = 'new' | 'cheap' | 'dear';
+export interface MarketResponse {
+  items: MarketItem[];
+  /** Deine Einträge, auch abgelaufene, bis sie zurück sind */
+  mine: MarketItem[];
+  /** Richtwert je Seltenheit (priceKey): mittlere Hälfte der Verkäufe der letzten 7 Tage, sonst aus dem Ziehen */
+  hint: Record<string, [number, number]>;
+  /** Wie viele Verkäufe dahinterstehen (0: Richtwert aus dem Ziehen) */
+  hintN: Record<string, number>;
+  gate: TradeGate;
+  buys: number;
+  /** Deine Sammlung nach Verkaufen, Kaufen oder Zurückziehen */
+  dice?: DiceResponse;
+}
+/** Ein Tauschangebot. dir: an dich (in) oder von dir (out) */
+export type TradeOffer = { id: string; from: string; to: string; give: DieRec[]; pig: number; want: DieRec[]; at: number; until: number; dir: 'in' | 'out' };
+export interface TradeResponse {
+  offers: TradeOffer[];
+  gate: TradeGate;
+  trades: number;
+  dice?: DiceResponse;
+}
+/** Die handelbaren Würfel eines anderen Spielers */
+export type TradeCollection = { name: string; dice: DieRec[]; can: boolean; why?: string };
 /** Bilanz eines Galerie-Decks: gewonnen, verloren, unentschieden */
 export type GalleryRecord = { w: number; l: number; d: number };
 /** Dein Deck in der Galerie: hängt es, Bilanz, und was seit dem letzten Abholen passiert ist */

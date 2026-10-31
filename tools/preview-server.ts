@@ -10,6 +10,7 @@ import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMons
 import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
+import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from '../src/server/market';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
@@ -85,8 +86,9 @@ createServer(async (req, res) => {
       for await (const c of req) raw += c;
       const b = JSON.parse(raw || '{}');
       if (url.pathname === '/api/dice') {
+        const trade = await tradeStatus(d, asUser, USER.name);
         const r = await diceGet(d, asUser, USER.name);
-        return send(200, { ...r, gallery: await galleryStatus(d, USER.id, r.dice) });
+        return send(200, { ...r, gallery: await galleryStatus(d, USER.id, r.dice), trade });
       }
       if (url.pathname === '/api/dice/color') return send(200, await diceColor(d, asUser, b.color, b.color2));
       if (url.pathname === '/api/dice/test-blank') return send(200, await diceTestBlank(d, asUser, USER.name));
@@ -113,6 +115,30 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/gallery/hang') return send(200, await galleryHang(d, asUser, b.on));
       if (url.pathname === '/api/gallery/test-decks') return send(200, await galleryTestDecks(d, asUser, USER.name));
       if (url.pathname === '/api/gallery/test-self') return send(200, await galleryTestSelf(d, asUser, USER.name, b.on));
+    }
+    if (url.pathname.startsWith('/api/market') || url.pathname.startsWith('/api/trade')) {
+      let raw = '';
+      for await (const c of req) raw += c;
+      const b = JSON.parse(raw || '{}');
+      const n = USER.name;
+      const routes: Record<string, () => Promise<unknown>> = {
+        '/api/market/list': () => marketList(d, asUser, n, b.filter, b.sort),
+        '/api/market/sell': () => marketSell(d, asUser, n, b.id, b.price, b.confirm),
+        '/api/market/unlist': () => marketUnlist(d, asUser, n, b.id),
+        '/api/market/buy': () => marketBuy(d, asUser, n, b.id),
+        '/api/market/test-list': () => marketTestList(d, asUser, n),
+        '/api/market/test-buy': () => marketTestBuy(d, asUser, n),
+        '/api/trade/list': () => tradeList(d, asUser, n),
+        '/api/trade/collection': () => tradeCollection(d, asUser, b.name),
+        '/api/trade/offer': () => tradeOffer(d, asUser, n, b.to, b.give, b.pig, b.want, b.confirm),
+        '/api/trade/accept': () => tradeAccept(d, asUser, n, b.id, b.confirm),
+        '/api/trade/decline': () => tradeDecline(d, asUser, n, b.id),
+        '/api/trade/cancel': () => tradeCancel(d, asUser, n, b.id),
+        '/api/trade/msg': () => tradeMsg(d, asUser, n, b.on),
+        '/api/trade/test-offer': () => tradeTestOffer(d, asUser, n),
+      };
+      const f = routes[url.pathname];
+      if (f) return send(200, await f());
     }
     if (url.pathname === '/api/drawn/report') {
       let raw = '';

@@ -8,6 +8,7 @@ import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, d
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf } from './gallery';
+import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
 import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
@@ -156,9 +157,12 @@ app.get(
   '/api/dice',
   wrap(async (_req, res) => {
     const d = await deps();
-    const r = await diceGet(d, context.userId, await username());
+    const name = await username();
+    // Erst Lieferungen aus Markt und Tausch abholen, dann die Sammlung laden
+    const trade = await tradeStatus(d, context.userId, name);
+    const r = await diceGet(d, context.userId, name);
     // Dazu, wie dein Deck in der Galerie läuft
-    res.json({ ...r, gallery: await galleryStatus(d, context.userId!, r.dice) });
+    res.json({ ...r, gallery: await galleryStatus(d, context.userId!, r.dice), trade });
   }),
 );
 
@@ -222,6 +226,32 @@ app.post(
     res.json(await diceSeen(await deps(), context.userId));
   }),
 );
+
+/* ---------- Markt und Tausch (docs/entwuerfe/tausch-und-markt-plan.md) ---------- */
+
+type Body = Record<string, unknown>;
+const body = (req: Request): Body => (req.body ?? {}) as Body;
+const route = (path: string, fn: (d: Deps, uid: string | undefined, name: string | undefined, b: Body) => Promise<unknown>) =>
+  app.post(
+    path,
+    wrap(async (req, res) => {
+      res.json(await fn(await deps(), context.userId, await username(), body(req)));
+    }),
+  );
+route('/api/market/list', (d, u, n, b) => marketList(d, u, n, b.filter, b.sort));
+route('/api/market/sell', (d, u, n, b) => marketSell(d, u, n, b.id, b.price, b.confirm));
+route('/api/market/unlist', (d, u, n, b) => marketUnlist(d, u, n, b.id));
+route('/api/market/buy', (d, u, n, b) => marketBuy(d, u, n, b.id));
+route('/api/market/test-list', (d, u, n) => marketTestList(d, u, n));
+route('/api/market/test-buy', (d, u, n) => marketTestBuy(d, u, n));
+route('/api/trade/list', (d, u, n) => tradeList(d, u, n));
+route('/api/trade/collection', (d, u, _n, b) => tradeCollection(d, u, b.name));
+route('/api/trade/offer', (d, u, n, b) => tradeOffer(d, u, n, b.to, b.give, b.pig, b.want, b.confirm));
+route('/api/trade/accept', (d, u, n, b) => tradeAccept(d, u, n, b.id, b.confirm));
+route('/api/trade/decline', (d, u, n, b) => tradeDecline(d, u, n, b.id));
+route('/api/trade/cancel', (d, u, n, b) => tradeCancel(d, u, n, b.id));
+route('/api/trade/msg', (d, u, n, b) => tradeMsg(d, u, n, b.on));
+route('/api/trade/test-offer', (d, u, n) => tradeTestOffer(d, u, n));
 
 /* ---------- Benennen: „What do you see?“-Posts ---------- */
 

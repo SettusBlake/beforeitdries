@@ -33,7 +33,62 @@ export const PATINA = [10, 30, 60];
  * Ein Würfel in der Sammlung: Bogen-Seed und Nummer des Monsters, seltenes Papier, Lasuren auf Seiten.
  * no ist die Seriennummer über alle Spieler, der Seed des Monsters gehört nur diesem Würfel (Register am Server).
  */
-export type DieRec = { id: string; sheet: string; idx: number; paper?: PaperId; mods: FaceMod[]; at: number; no?: number; gen?: 2; draw?: string; style?: StyleId; holo?: 1; rolls?: number; patina?: number };
+export type DieRec = {
+  id: string;
+  sheet: string;
+  idx: number;
+  paper?: PaperId;
+  mods: FaceMod[];
+  at: number;
+  no?: number;
+  gen?: 2;
+  draw?: string;
+  style?: StyleId;
+  holo?: 1;
+  rolls?: number;
+  patina?: number;
+  /** Startwürfel: bleibt beim Spieler, nicht tausch- oder verkaufbar (festgelegt am 31.10.2026) */
+  bound?: 1;
+  /** Herkunft: durch wessen Hände der Würfel ging (höchstens TRADE.histMax Einträge) */
+  hist?: Hist[];
+};
+/** Ein Eintrag der Herkunft: gezogen, getauscht oder gekauft, von wem, wann, für wie viel */
+export type Hist = { u: string; at: number; how: 'pull' | 'trade' | 'market'; p?: number };
+/**
+ * Tausch und Markt (festgelegt am 31.10.2026, docs/entwuerfe/tausch-und-markt-plan.md). Nur gegen Pigment, nie gegen Geld
+ * oder Reddit Gold. Handeln ab einem Reddit-Konto von minDays Tagen und minDuels fertigen Duellen
+ */
+export const TRADE = {
+  minDuels: 5,
+  minDays: 7,
+  /** Tausche am Tag (Angebot schicken oder annehmen) und Käufe am Tag */
+  perDay: 3,
+  buysPerDay: 5,
+  /** offene Angebote, Würfel im Markt, Würfel je Seite, Pigment je Angebot */
+  openOffers: 5,
+  listings: 5,
+  maxDice: 3,
+  maxPig: 500,
+  /** Laufzeit von Angeboten und Markt-Einträgen */
+  days: 3,
+  /** Gebühr im Markt: ein Zehntel verschwindet */
+  fee: 0.1,
+  minPrice: 10,
+  maxPrice: 50_000,
+  histMax: 10,
+};
+/** Gebühr und Erlös eines Verkaufs */
+export const marketFee = (price: number): number => Math.max(1, Math.floor(price * TRADE.fee));
+/** Richtwert, solange es keine Verkäufe gibt: aus dem Ziehen (ein Zug 100 Pigment), Holo dreifach, Stil doppelt */
+export const PRICE_BAND: Record<Rarity, [number, number]> = { common: [40, 90], uncommon: [80, 180], rare: [300, 520], epic: [1800, 2600], legendary: [8000, 12000] };
+export const priceKey = (r: Rarity, holo: boolean, style: boolean): string => `${r}${holo ? ':h' : ''}${style ? ':s' : ''}`;
+export function defaultBand(r: Rarity, holo: boolean, style: boolean): [number, number] {
+  const k = (holo ? 3 : 1) * (style ? 2 : 1);
+  const [a, b] = PRICE_BAND[r];
+  return [a * k, b * k];
+}
+/** Nachricht für Sepia: verkauft, getauscht, abgelehnt, zurück. Sie sagt es einmal beim Öffnen von „Your dice“ */
+export type News = { k: 'sold' | 'traded' | 'declined' | 'back' | 'offer'; text: string; at: number; pig?: number };
 
 /** Stil: eine andere Malweise statt Aquarell, nur Aussehen (seit 31.10.2026 getrennt von Holo) */
 export type StyleId = 'pencil' | 'comic' | 'plate' | 'anime' | 'oil' | 'pixel' | 'ukiyoe' | 'stained' | 'neon' | 'blueprint' | 'crayon' | 'papercut' | 'mosaic' | 'graffiti' | 'nouveau';
@@ -125,8 +180,8 @@ export const GALLERY = { near: [0.1, 0.25], activeDays: 14, swaps: 1, reportsPer
 
 /** Sammlung eines Spielers. Liegt als JSON in Redis, hat keine Geheimnisse und geht so an den Client */
 export type DiceSave = {
-  /** 2: Stil und Holo getrennt (31.10.2026). Stände mit 1 werden beim Laden umgezogen */
-  v: 1 | 2;
+  /** 2: Stil und Holo getrennt (31.10.2026). 3: Startwürfel gebunden (31.10.2026). Ältere Stände werden beim Laden umgezogen */
+  v: 1 | 2 | 3;
   dice: DieRec[];
   /** IDs der Würfel im Beutel, höchstens 6 */
   bag: string[];
@@ -166,9 +221,23 @@ export type DiceSave = {
   /** Spielfarbe und Ausweichfarbe im Duell (fehlt: Ultramarine und Viridian) */
   color?: ColorId;
   color2?: ColorId;
+  /** Fertige Duelle ohne Lern-Duell (gezählt seit 31.10.2026), Handeln ab TRADE.minDuels */
+  duels?: number;
+  /** Anlage des Reddit-Kontos (Zeit), einmal nachgesehen */
+  born?: number;
+  /** Tausche und Käufe am Tag tradeDay */
+  tradeDay?: string;
+  tradeN?: number;
+  buyN?: number;
+  /** Private Nachricht der App bei einem Angebot (im Menü einschaltbar, Standard aus) */
+  tradeMsg?: true;
+  /** Was Sepia beim nächsten Öffnen sagt (Verkäufe, Tausche, Rückgaben) */
+  news?: News[];
+  /** Schon abgeholte Lieferungen (gegen doppeltes Abholen) */
+  postSeen?: string[];
 };
 export function emptyDice(): DiceSave {
-  return { v: 2, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };
+  return { v: 3, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };
 }
 export type PullKind = 'starter' | 'free' | 'one' | 'ten';
 /** Ein Zug: der offene W100, die Seltenheit und das neue Monster. Jeder Zug bleibt als eigener Würfel */

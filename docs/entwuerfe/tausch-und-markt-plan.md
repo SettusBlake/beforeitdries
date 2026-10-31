@@ -1,6 +1,6 @@
 # Plan: Würfel tauschen (A) und verkaufen (B)
 
-Stand 31.10.2026, Fassung 1. Wartet auf Freigabe.
+Stand 31.10.2026, Fassung 1. Freigegeben am 31.10.2026 („alles Empfehlung“). Schritt 1 gebaut (siehe unten).
 
 Anlass (31.10.2026): Frage „Tauschen und verkaufen geht?“. Gewählt: A direkter Tausch und B Markt, mit Schutz vor Zweitkonten.
 
@@ -123,7 +123,23 @@ Entwurf: docs/entwuerfe/tausch-markt-entwurf.png (Attrappen in der echten Vorsch
    - Herkunft auf der Karte, Nachricht-Schalter im Menü
    - Upload mit Bild
 
-## Fragen
+## Gebaut
+
+### Schritt 1, Server (31.10.2026, Playtest v0.0.1.103)
+
+- **Code:** src/server/market.ts mit Markt, Tausch, Lieferungen, Schutzregeln und Test-Händlern. Grenzwerte in `TRADE` in src/shared/dice.ts, Tests in tests/market.test.ts.
+- **Würfel unterwegs:** Würfel und Pigment im Markt oder in einem Angebot liegen dort, nicht in der Sammlung. Was ein anderer bekommt, geht als Lieferung (`deliver:{Spieler}`) und wird bei seinem nächsten Öffnen von „Your dice“ unter seiner Sperre abgeholt. So wartet kein Spieler auf einen anderen.
+- **Startwürfel:** gebunden (Würfel-Feld `bound`). Bisherige Stände: d1 bis d9 (Spielstand 3).
+- **Duelle:** zählen ab jetzt (`duels`). Das Kontoalter fragt der Server einmal bei Reddit nach (`born`).
+- **Herkunft:** `hist`. Freigaben von Zeichnungen wandern mit, das Seed-Register zeigt den neuen Besitzer.
+- **Sepias Nachrichten:** stehen in `news` und verschwinden nach dem Lesen.
+- **Routen:**
+  - Markt: `/api/market/list`, `sell`, `unlist`, `buy`
+  - Tausch: `/api/trade/list`, `collection`, `offer`, `accept`, `decline`, `cancel`, `msg`
+  - Test-Händler: `test-list`, `test-buy`, `test-offer` (nur Playtest, nur Mods). Test-Händler nehmen Angebote an sie sofort an.
+- **Noch ohne Bedienung**, die kommt in Schritt 2 (Markt) und 3 (Tausch).
+
+## Fragen (beantwortet am 31.10.2026: alle wie empfohlen)
 
 1. Startwürfel gebunden? (Empfehlung: ja)
 2. Handeln ab einem Reddit-Konto von 7 Tagen und 5 fertigen Duellen? (Empfehlung: ja)

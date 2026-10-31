@@ -32,6 +32,15 @@ export class FakeReddit implements RedditLike {
     const list = this.mods.filter((m) => !opts.username || m.toLowerCase() === opts.username.toLowerCase());
     return { all: async () => list.map((username) => ({ username })) };
   }
+  /** Anlage der Konten (fehlt: ein Jahr alt) */
+  born = new Map<string, number>();
+  async getUserById(id: `t2_${string}`) {
+    return { createdAt: new Date(this.born.get(id) ?? Date.parse('2025-10-01T00:00:00Z')) };
+  }
+  messages: { to: string; subject: string; text: string }[] = [];
+  async sendPrivateMessage(opts: { to: string; subject: string; text: string }) {
+    this.messages.push(opts);
+  }
   addComment(postId: string, authorName: string, body: string, score: number, extra: Partial<CommentLike> = {}) {
     const list = this.comments.get(postId) ?? [];
     list.push({ id: `t1_c${++this.n}`, parentId: postId, body, score, authorName, authorId: `t2_${authorName}`, removed: false, createdAt: new Date(1e12 + this.n * 1000), ...extra });

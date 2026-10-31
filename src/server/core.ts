@@ -55,6 +55,10 @@ export interface RedditLike {
   submitComment(opts: { id: `t3_${string}`; text: string }): Promise<unknown>;
   /** Mit username: ist dieser Spieler Mod? (leere Liste, wenn nicht) */
   getModerators(opts: { subredditName: string; username?: string }): { all(): Promise<{ username: string }[]> };
+  /** Konto eines Spielers (Alter fürs Handeln). Fehlt in alten Attrappen */
+  getUserById?(id: `t2_${string}`): Promise<{ createdAt: Date } | undefined>;
+  /** Private Nachricht der App (nur an Spieler, die das eingeschaltet haben) */
+  sendPrivateMessage?(opts: { to: string; subject: string; text: string }): Promise<void>;
 }
 
 export interface Deps {
