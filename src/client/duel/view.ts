@@ -45,6 +45,34 @@ export const LOOK2 = (() => {
     return false;
   }
 })();
+/**
+ * Spielfarben (Entwurf 31.10.2026): jede Seite malt ihr Gebiet in ihrer Farbe, das Pigment eines Feldes zeigt ein Tropfen in der Ecke.
+ * Standard Ultramarin gegen Karmin
+ */
+export const TEAM: [number[], number[]] = [
+  [43, 63, 163],
+  [163, 58, 58],
+];
+// Nur für den Entwurf: Farben aus localStorage bid-colors (r,g,b;r,g,b)
+try {
+  const raw = localStorage.getItem('bid-colors');
+  if (raw) {
+    const [a, b] = raw.split(';').map((x) => x.split(',').map(Number));
+    if (a?.length === 3 && b?.length === 3) {
+      TEAM[0] = a;
+      TEAM[1] = b;
+    }
+  }
+} catch {
+  /* egal */
+}
+export function setTeamColors(a: number[], b: number[]): void {
+  TEAM[0] = a;
+  TEAM[1] = b;
+  blobCache.clear();
+  stickerCache.clear();
+}
+const teamCss = (side: Side, a = 1) => rgbCss(TEAM[side - 1]!, a);
 let hatch: { cell: number; pat: CanvasPattern } | null = null;
 /** Schraffur für das Gebiet des Rivalen: feine rote Diagonalen */
 function hatchPattern(): CanvasPattern {
@@ -371,7 +399,7 @@ function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLC
     const [team, tx] = mk();
     tx.drawImage(sil, 0, 0);
     tx.globalCompositeOperation = 'source-in';
-    tx.fillStyle = u.side === 1 ? '#2b3fa3' : '#a33a3a';
+    tx.fillStyle = teamCss(u.side);
     tx.fillRect(0, 0, S, S);
     for (let k = 0; k < 16; k++) {
       const a = (k / 16) * Math.PI * 2;
@@ -389,11 +417,41 @@ function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLC
   return out;
 }
 function drawBlob(i: number, c: Cell, scale: number, alpha: number): void {
-  const b = blob(i, c);
+  const team = LOOK2 && (c.owner === 1 || c.owner === 2);
+  const b = blob(i, team ? { ...c, rgb: TEAM[c.owner - 1] as unknown as Cell['rgb'] } : c);
   const s = cell * 1.7 * scale;
   ctx.globalAlpha = alpha;
   ctx.drawImage(b, cx(i) - s / 2, cy(i) - s / 2, s, s);
   ctx.globalAlpha = 1;
+  // Welches Pigment auf dem Feld liegt (zählt für Lasur, Verlaufen und Schlamm): kleiner Tropfen in der Ecke
+  if (team && c.hue && scale > 0.95) pigmentDrops.push(i);
+}
+const pigmentDrops: number[] = [];
+function drawPigmentDrops(): void {
+  const r = Math.max(3, cell * 0.085);
+  for (const i of pigmentDrops) {
+    const c = V.cells[i];
+    if (!c?.hue) continue;
+    const x = (i % COLS) * cell + r + 3,
+      y = Math.floor(i / COLS) * cell + r + 3;
+    ctx.fillStyle = 'rgba(251,250,246,.95)';
+    ctx.beginPath();
+    ctx.arc(x, y, r + 1.5, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = `rgb(${PIG[c.hue].rgb.join(',')})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 7);
+    ctx.fill();
+    // Zweite Schicht (Lasur): Ring um den Tropfen
+    if (c.layer) {
+      ctx.strokeStyle = `rgb(${PIG[c.hue].rgb.join(',')})`;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 3, 0, 7);
+      ctx.stroke();
+    }
+  }
+  pigmentDrops.length = 0;
 }
 
 /* ---------- Zeichnen ---------- */
@@ -514,24 +572,15 @@ function draw(): void {
     ctx.lineWidth = lw + 1.5;
     ctx.stroke();
     path();
-    ctx.strokeStyle = s === 0 ? 'rgba(43,63,163,.62)' : 'rgba(163,58,58,.62)';
+    ctx.strokeStyle = LOOK2 ? teamCss((s + 1) as Side, 0.75) : s === 0 ? 'rgba(43,63,163,.62)' : 'rgba(163,58,58,.62)';
     ctx.lineWidth = lw;
     ctx.stroke();
   });
   ctx.lineCap = 'butt';
-  // Entwurf Übersicht: Gebiet des Rivalen schraffiert, eigenes bleibt klar
-  if (LOOK2) {
-    ctx.save();
-    ctx.fillStyle = hatchPattern();
-    ctx.globalAlpha = 0.55;
-    V.cells.forEach((c, i) => {
-      if (c.owner !== 2 || c.home) return;
-      const a = V.anims.get(i);
-      if (a && t < a.t0 + a.dur * 0.5) return;
-      ctx.fillRect((i % COLS) * cell, Math.floor(i / COLS) * cell, cell, cell);
-    });
-    ctx.restore();
-  }
+  // Entwurf Übersicht: Pigment der Felder als Tropfen in der Ecke (das Gebiet selbst ist in der Spielfarbe gemalt)
+  if (LOOK2) drawPigmentDrops();
+  else pigmentDrops.length = 0;
+  void hatchPattern;
   // Nasse Farbe glänzt
   V.cells.forEach((c, i) => {
     if (c.wet <= 0 || c.owner === 0 || c.home) return;
@@ -709,7 +758,7 @@ function drawPalette(side: Side, t: number): void {
     ctx.strokeStyle = 'rgba(251,250,246,.95)';
     const label = side === 1 ? 'YOU' : 'RIVAL';
     ctx.strokeText(label, lx, ly);
-    ctx.fillStyle = side === 1 ? '#2b3fa3' : '#a33a3a';
+    ctx.fillStyle = LOOK2 ? teamCss(side) : side === 1 ? '#2b3fa3' : '#a33a3a';
     ctx.fillText(label, lx, ly);
     ctx.restore();
   }
@@ -718,7 +767,7 @@ function drawPalette(side: Side, t: number): void {
   const wob = crack < 1 ? Math.sin(t / 25) * 3 * (1 - crack) : 0;
   const x = cx(team.home) + wob,
     y = cy(team.home);
-  const col = side === 1 ? '43,63,163' : '163,58,58';
+  const col = LOOK2 ? TEAM[side - 1]!.join(',') : side === 1 ? '43,63,163' : '163,58,58';
   // Bewacht: ein eigener Klecks steht direkt daneben
   const hx = team.home % COLS,
     hy = Math.floor(team.home / COLS);
@@ -846,7 +895,7 @@ function drawUnit(u: VUnit, t: number): void {
   const s = u.scale * breathe;
   const size = Math.round(cell * BIG);
   const sel = hooks.selected() === u.id;
-  const col = u.side === 1 ? [43, 63, 163] : [163, 58, 58];
+  const col = LOOK2 ? TEAM[u.side - 1]! : u.side === 1 ? [43, 63, 163] : [163, 58, 58];
   // Sockel in der Farbe der Seite: so sieht man auf einen Blick, wem der Klecks gehört
   const baseY = groundY + cell * 0.24;
   const rx = cell * 0.4 * u.scale * u.sqx,
@@ -979,7 +1028,7 @@ function drawUnit(u: VUnit, t: number): void {
   ctx.fillRect(bx - 1, by - 1, bw + 2, 6);
   ctx.fillStyle = 'rgba(230,120,110,.9)';
   ctx.fillRect(bx, by, bw * clamp01(u.hpShown / u.max), 4);
-  ctx.fillStyle = u.side === 1 ? '#2b3fa3' : '#a33a3a';
+  ctx.fillStyle = LOOK2 ? teamCss(u.side) : u.side === 1 ? '#2b3fa3' : '#a33a3a';
   ctx.fillRect(bx, by, bw * clamp01(Math.min(u.hp, u.hpShown) / u.max), 4);
   // Zeichen oben am Klecks: Fleck oder Wurzeln rechts, fertig links
   const topY = baseY - lift - size * 0.62;
