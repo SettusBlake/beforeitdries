@@ -3,6 +3,7 @@
  * Der Server prüft und würfelt jede Aktion und schickt Ereignisse zurück, der Client spielt sie ab.
  * Regelabfragen (Reichweite, Chancen, Netze) laufen lokal auf dem Stand vom Server.
  */
+import { statBlock, STATS2 } from './duel/statcard';
 import './lib/fonts';
 import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
@@ -1639,7 +1640,7 @@ function openInspect(u: Unit): void {
     const bits = [fd?.no ? serialText(fd.no) : '', fd?.glaze ? `glaze ${fd.glaze}` : '', fd?.patina ? `patina ${fd.patina}/3` : ''].filter(Boolean);
     box.append(html('p', 'gal-owner', `From <b>${esc(foeTag(S.foeName))}</b>'s deck${bits.length ? ' · ' + bits.join(' · ') : ''}`));
   }
-  box.append(net, stats, lines);
+  box.append(net, STATS2 ? statBlock(u, true) : stats, lines);
   if (fd?.drawn) {
     const rb = el('button', 'gal-report', reported.has(k) ? 'Reported' : 'Report drawing') as HTMLButtonElement;
     rb.type = 'button';

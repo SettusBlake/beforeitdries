@@ -2,6 +2,7 @@
  * Würfelsammlung im Client: Ziehen mit offenem W100, Beutel packen, Würfel auswaschen, Lasur auf Würfelseiten.
  * Alle Würfe kommen vom Server, hier wird nur gezeigt und angetippt. Jedes Monster gibt es nur einmal (Seriennummer).
  */
+import { statBlock, STATS2 } from './statcard';
 import type { DiceResponse } from '../../shared/api';
 import { PAPER } from '../../shared/data';
 import { dayKey } from '../../shared/day';
@@ -465,7 +466,7 @@ function openDie(d: DieRec): void {
     });
     wash.append(wb, el('small', '', s.dice.length <= KEEP_MIN ? `Keep at least ${KEEP_MIN} dice for your deck.` : `It leaves your collection, ${speciesLabel(u.m)} gains ${n} glaze. Blots that drift to the margins sometimes come back.`));
   }
-  box.append(top, net, faces, gl, pat, row, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), stats, lines, wash);
+  box.append(top, net, faces, gl, pat, row, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), STATS2 ? statBlock(u, false) : stats, lines, wash);
   $('inspect').hidden = false;
 }
 /** Art ohne Namen: als „What do you see?“-Post teilen (einer am Tag), oder den laufenden Post öffnen */
