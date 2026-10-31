@@ -201,6 +201,7 @@ function showLogin(): void {
 View.setup(board, {
   overlay: drawOverlay,
   acted: (id) => S.turn === 1 && phase() === 'act' && !!R.unitById(id)?.acted,
+  ready: (id) => S.turn === 1 && phase() === 'act' && !busy && !S.over && !R.unitById(id)?.acted,
   selected: () => (phase() === 'act' ? (drag?.u.id ?? armed?.id ?? aiming?.id ?? null) : null),
   hud: () => {
     renderTop();
@@ -609,6 +610,16 @@ function renderTop(): void {
   $('score-you').textContent = String(a + R.HEART_BONUS * V.teams[0]!.hearts);
   $('score-rival').textContent = String(b + R.HEART_BONUS * V.teams[1]!.hearts);
   $('rival-name').textContent = S.foeName ? foeTag(S.foeName) : 'Rival';
+  // Entwurf Übersicht: beide Siegwege unter dem Stand, Herzen bei der jeweiligen Seite
+  if (View.LOOK2) {
+    let g = document.getElementById('goal');
+    if (!g) {
+      g = el('div', 'goal');
+      g.id = 'goal';
+      document.querySelector('#game .top')!.after(g);
+    }
+    g.innerHTML = `<span class="w">Win: <b>more paper</b> when it dries, or <b>break all 3 hearts</b> of their palette</span>`;
+  }
   const tot = COLS * R.ROWS - 2;
   $('bar-you').style.width = (a / tot) * 100 + '%';
   $('bar-mud').style.width = (m / tot) * 100 + '%';

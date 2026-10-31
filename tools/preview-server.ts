@@ -14,7 +14,7 @@ import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
 import { loadState } from '../src/shared/duel/play';
-import { placements, rollable, ROLL_N, S } from '../src/shared/duel/rules';
+import { placements, rollable, ROLL_N, S, suggest } from '../src/shared/duel/rules';
 import { K } from '../src/server/keys';
 import { ensurePlayPost, playInfo } from '../src/server/play';
 import { dayKey } from '../src/shared/day';
@@ -141,6 +141,32 @@ createServer(async (req, res) => {
         res = await duelAct(d, USER.id, a, USER.name);
       }
       return send(200, { over: res.state?.over, winner: res.state?.winner, reward: res.reward });
+    }
+    // Nur in der Vorschau: im eigenen Zug bis zum Handeln weiter und einen Klecks handeln lassen (Sepias Vorschlag)
+    if (url.pathname === '/dev/act') {
+      let res = await duelGet(d, USER.id);
+      for (let g = 0; g < 20 && res.state && !res.state.over; g++) {
+        loadState(res.state);
+        const ph = S.phase;
+        if (S.turn !== 1 && ph !== 'medium') break;
+        if (ph === 'act' && S.joker === 0) {
+          const sg = suggest(1);
+          if (sg) res = await duelAct(d, USER.id, { k: 'go', id: sg.u.id, to: sg.to, a: sg.a, at: sg.at }, USER.name);
+          break;
+        }
+        const a =
+          ph === 'medium'
+            ? { k: 'medium', id: S.offer[0] }
+            : ph === 'roll'
+              ? { k: 'roll', ids: rollable(S.teams[0]).slice(0, ROLL_N).map((u) => u.id) }
+              : ph === 'keep'
+                ? { k: 'keep' }
+                : ph === 'summon'
+                  ? { k: 'skip' }
+                  : { k: 'joker', crest: 'splash' };
+        res = await duelAct(d, USER.id, a, USER.name);
+      }
+      return send(200, { phase: res.state?.phase });
     }
     // Nur in der Vorschau: Kleckse des Rivalen auf dem Blatt fast leer (zum Ansehen von WASH OUT und AGAIN)
     if (url.pathname === '/dev/weak') {

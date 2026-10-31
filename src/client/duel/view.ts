@@ -23,6 +23,8 @@ type Shot = { x0: number; y0: number; x1: number; y1: number; t0: number; dur: n
 export type Hooks = {
   overlay: (ctx: CanvasRenderingContext2D, cell: number) => void;
   acted: (id: number) => boolean;
+  /** Eigener Klecks, der in diesem Zug noch handeln kann (nur im eigenen Zug) */
+  ready: (id: number) => boolean;
   selected: () => number | null;
   hud: () => void;
   banner: (text: string, kind: 'turn' | 'round' | 'ability' | 'big') => void;
@@ -32,6 +34,38 @@ export type Hooks = {
   apply: (e: Extract<Ev, { k: 'apply' }>) => Promise<void>;
 };
 
+/**
+ * Entwurf Übersicht (docs/entwuerfe/uebersicht-vorschlag.md, noch nicht freigegeben): nur mit localStorage bid-look2 = 1.
+ * Gebiet des Rivalen schraffiert, Aufkleber mit Rand in der Farbe der Seite, wer noch kann, pulsiert, wer fertig ist, wird blass
+ */
+export const LOOK2 = (() => {
+  try {
+    return localStorage.getItem('bid-look2') === '1';
+  } catch {
+    return false;
+  }
+})();
+let hatch: { cell: number; pat: CanvasPattern } | null = null;
+/** Schraffur für das Gebiet des Rivalen: feine rote Diagonalen */
+function hatchPattern(): CanvasPattern {
+  if (hatch && hatch.cell === cell) return hatch.pat;
+  const n = Math.max(8, Math.round(cell / 5));
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const x = c.getContext('2d')!;
+  x.strokeStyle = 'rgba(150,40,40,.75)';
+  x.lineWidth = Math.max(1.2, n / 7);
+  x.beginPath();
+  x.moveTo(-1, n + 1);
+  x.lineTo(n + 1, -1);
+  x.moveTo(-1, 1);
+  x.lineTo(1, -1);
+  x.moveTo(n - 1, n + 1);
+  x.lineTo(n + 1, n - 1);
+  x.stroke();
+  hatch = { cell, pat: ctx.createPattern(c, 'repeat')! };
+  return hatch.pat;
+}
 export const V = {
   cells: [] as Cell[],
   units: new Map<number, VUnit>(),
@@ -332,6 +366,18 @@ function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLC
   ix.drawImage(sil, 0, e * 1.6);
   ix.filter = 'none';
   ix.globalAlpha = 1;
+  if (LOOK2) {
+    // Äußerer Rand in Blau oder Rot: wem der Klecks gehört, sieht man am ganzen Umriss
+    const [team, tx] = mk();
+    tx.drawImage(sil, 0, 0);
+    tx.globalCompositeOperation = 'source-in';
+    tx.fillStyle = u.side === 1 ? '#2b3fa3' : '#a33a3a';
+    tx.fillRect(0, 0, S, S);
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      ix.drawImage(team, Math.cos(a) * e * 2.1, Math.sin(a) * e * 2.1);
+    }
+  }
   for (let k = 0; k < 12; k++) {
     const a = (k / 12) * Math.PI * 2;
     ix.drawImage(sil, Math.cos(a) * e, Math.sin(a) * e);
@@ -424,7 +470,7 @@ function draw(): void {
     const g = easeOutBack(clamp01((t - st.t0) / 160));
     const img = stainImg(st.col, st.seed);
     const r = st.r * (0.4 + 0.6 * g);
-    ctx.globalAlpha = 1 - fade;
+    ctx.globalAlpha = (1 - fade) * (LOOK2 ? 0.55 : 1);
     ctx.drawImage(img, st.x - r, st.y - r, r * 2, r * 2);
     ctx.globalAlpha = 1;
     return true;
@@ -473,6 +519,19 @@ function draw(): void {
     ctx.stroke();
   });
   ctx.lineCap = 'butt';
+  // Entwurf Übersicht: Gebiet des Rivalen schraffiert, eigenes bleibt klar
+  if (LOOK2) {
+    ctx.save();
+    ctx.fillStyle = hatchPattern();
+    ctx.globalAlpha = 0.55;
+    V.cells.forEach((c, i) => {
+      if (c.owner !== 2 || c.home) return;
+      const a = V.anims.get(i);
+      if (a && t < a.t0 + a.dur * 0.5) return;
+      ctx.fillRect((i % COLS) * cell, Math.floor(i / COLS) * cell, cell, cell);
+    });
+    ctx.restore();
+  }
   // Nasse Farbe glänzt
   V.cells.forEach((c, i) => {
     if (c.wet <= 0 || c.owner === 0 || c.home) return;
@@ -639,6 +698,21 @@ function heart(x: number, y: number, s: number, col: string): void {
 function drawPalette(side: Side, t: number): void {
   const team = S.teams[side - 1];
   if (!team) return;
+  if (LOOK2) {
+    // Beschriftung rechts neben der Palette
+    const lx = cx(team.home) + cell * 0.52,
+      ly = cy(team.home) + cell * 0.06;
+    ctx.save();
+    ctx.font = `800 ${Math.max(9, Math.round(cell * 0.16))}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'left';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(251,250,246,.95)';
+    const label = side === 1 ? 'YOU' : 'RIVAL';
+    ctx.strokeText(label, lx, ly);
+    ctx.fillStyle = side === 1 ? '#2b3fa3' : '#a33a3a';
+    ctx.fillText(label, lx, ly);
+    ctx.restore();
+  }
   const hearts = V.teams[side - 1]?.hearts ?? HEARTS;
   const crack = clamp01((t - V.crack[side - 1]!) / 700);
   const wob = crack < 1 ? Math.sin(t / 25) * 3 * (1 - crack) : 0;
@@ -846,6 +920,20 @@ function drawUnit(u: VUnit, t: number): void {
     ctx.stroke();
     ctx.setLineDash([]);
   }
+  // Entwurf Übersicht: wer im eigenen Zug noch handeln kann, bekommt einen pulsierenden Ring
+  const ready = LOOK2 && u.side === 1 && u.state === 'sheet' && hooks.ready(u.id);
+  const done = LOOK2 && u.side === 1 && hooks.acted(u.id);
+  if (ready) {
+    const g = 0.5 + 0.5 * Math.sin(t / 220);
+    ctx.strokeStyle = `rgba(255,255,255,${0.6 + 0.4 * g})`;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(x, baseY, rx + 12 + g * 4, ry + 7 + g * 2, 0, 0, 7);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(43,63,163,${0.7 + 0.3 * g})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
   // Der Klecks steht auf dem Sockel und ragt nach oben ins nächste Feld
   const st = sticker(u.id, size);
   ctx.save();
@@ -865,7 +953,12 @@ function drawUnit(u: VUnit, t: number): void {
       ctx.shadowColor = `rgba(255,190,40,${0.8 + 0.2 * Math.sin(t / 150)})`;
       ctx.shadowBlur = 22;
     }
+    if (done) {
+      ctx.filter = 'saturate(0.25) brightness(1.08)';
+      ctx.globalAlpha *= 0.62;
+    }
     ctx.drawImage(st.img, -size / 2, -size * 0.84, size, size);
+    ctx.filter = 'none';
     ctx.shadowBlur = 0;
     ctx.shadowColor = 'transparent';
   }

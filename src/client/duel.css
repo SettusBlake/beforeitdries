@@ -534,3 +534,7 @@ canvas.wet { background: #ece6d8; animation: wetpulse 1.1s ease-in-out infinite;
 /* Archiv-Würfel: ausgeblichen, zum Rand hin blasser */
 canvas.faded, .rd.drift canvas { filter: saturate(.5) brightness(1.08) contrast(.92); -webkit-mask: radial-gradient(circle at 50% 46%, #000 50%, rgba(0, 0, 0, .4) 80%); mask: radial-gradient(circle at 50% 46%, #000 50%, rgba(0, 0, 0, .4) 80%); }
 .rd.drift { border-style: dashed; }
+.goal { display: flex; justify-content: center; font: 600 11px var(--f-body); color: var(--muted); padding: 0 2px; }
+.goal b { color: var(--ink); }
+.goal .y { color: var(--you); } .goal .r { color: var(--rival); } .goal i { font-style: normal; opacity: .25; }
+.goal .w { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

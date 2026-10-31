@@ -235,6 +235,8 @@ export const TUNE = {
   /** Wumms (31.10.2026): Streifschuss statt Fehlwurf (S1) und Nachsetzen nach dem Auswaschen (S2), zum Vergleichen in der Simulation */
   graze: true,
   again: true,
+  /** Spielweise je Seite (nur zum Vergleichen in der Simulation): Wert eines Herzens, Drang zur fremden Palette, Gewicht des Malens */
+  ai: { heart: [8, 8], advance: [0.25, 0.25], paint: [1, 1] } as { heart: [number, number]; advance: [number, number]; paint: [number, number] },
 };
 
 const PATTERNS: Record<BlueprintId, P[]> = {
@@ -2183,7 +2185,7 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
       u.x = to % COLS;
       u.y = Math.floor(to / COLS);
       const cHere = S.cells[to]!;
-      let pos = -danger(u, u.x, u.y) + 0.25 * (d0 - homeDist(u, u.x, u.y)) - ((rc.cost.get(to) ?? 0) > base ? CREST_COST.step : 0);
+      let pos = -danger(u, u.x, u.y) + TUNE.ai.advance[side - 1]! * (d0 - homeDist(u, u.x, u.y)) - ((rc.cost.get(to) ?? 0) > base ? CREST_COST.step : 0);
       if (cHere.owner === side && cHere.wet > 0) pos += 0.4;
       // Die eigene Palette bewachen, wenn Gegner in der Nähe sind
       const h = team.home;
@@ -2206,7 +2208,7 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
       for (let at = 0; at < COLS * ROWS; at++) {
         if (!canPaintAt(u, at)) continue;
         const pig = bestPig(u, 'stamp', at);
-        add(evalPaint(u, pig, at), 'stamp', pig, at);
+        add(evalPaint(u, pig, at) * TUNE.ai.paint[side - 1]!, 'stamp', pig, at);
       }
       if (HIT.freeSplash || team.crests.splash > 0)
         for (const t of splashTargets(u)) {
@@ -2215,7 +2217,7 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
           const dmg = baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1);
           add(splashExpect(u, t, pig) * hits * (dmg * 0.9 + killBonus(t, dmg * hits)) + (t.stain ? 0 : relation(pig, t.m.main) === 'komplementaer' ? 1 : 0) - (HIT.freeSplash ? 0 : CREST_COST.splash), 'splash', pig, idx(t.x, t.y));
         }
-      if (paletteOpen(u)) add(foeTeam(u).hearts <= 1 ? 100 : 8, 'splash', u.m.main, foeTeam(u).home);
+      if (paletteOpen(u)) add(foeTeam(u).hearts <= 1 ? 100 : TUNE.ai.heart[side - 1]!, 'splash', u.m.main, foeTeam(u).home);
       if (u.hp < u.max) add(soakAmount(u) * 0.35 + (u.hp < u.max * 0.35 ? 2 : 0), 'soak', u.m.main, null);
       if (moving) add(0, 'none', u.m.main, null);
     }
