@@ -159,6 +159,8 @@ function render(): void {
     $('gallery-ok').textContent = gs.inbox.pig ? `Collect +${gs.inbox.pig} pigment` : 'OK';
     ($('gallery-ok') as HTMLButtonElement).disabled = busy;
   }
+  $('gallery-decks-test').hidden = !tester;
+  ($('gallery-decks-test') as HTMLButtonElement).disabled = busy;
   $('gallery-test').hidden = !tester;
   $('gallery-test').textContent = `Playtest · mods only: gallery uses my own deck: ${s.testSelf ? 'on' : 'off'}`;
   ($('gallery-test') as HTMLButtonElement).disabled = busy;
@@ -265,6 +267,23 @@ async function collectGallery(): Promise<void> {
     const r = await api.galleryCollect();
     apply(r);
     if (r.collected) sfx.crest(2);
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
+/** Test-Knopf (Playtest, nur Mods): zwei Test-Decks in die Galerie */
+async function testDecks(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  const b = $('gallery-decks-test');
+  try {
+    const r = await api.galleryTestDecks();
+    // Der Schalter „eigenes Deck“ ist dabei aus gegangen
+    if (save) Reflect.deleteProperty(save, 'testSelf');
+    b.textContent = `Hung: ${r.made.map((n) => n.replace('Test ', '')).join(', ')} ✓ (tap for 2 more)`;
   } catch (e) {
     hooks.error(e);
   }
@@ -826,6 +845,7 @@ export function initDice(h: Hooks): void {
   $('pigment-test').addEventListener('click', () => void testPigment());
   $('gallery-ok').addEventListener('click', () => void collectGallery());
   $('gallery-test').addEventListener('click', () => void testGallery());
+  $('gallery-decks-test').addEventListener('click', () => void testDecks());
   $('dice-back').addEventListener('click', () => {
     sfx.tap();
     swapIn = null;

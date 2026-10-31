@@ -7,7 +7,7 @@ import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
 import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash } from './dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
-import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf } from './gallery';
+import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf } from './gallery';
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
 import { ensurePlayPost, playInfo } from './play';
 import { secureUint32 } from './rand';
@@ -124,6 +124,13 @@ app.post(
   '/api/gallery/hang',
   wrap(async (req, res) => {
     res.json(await galleryHang(await deps(), context.userId, (req.body as { on?: unknown } | undefined)?.on));
+  }),
+);
+
+app.post(
+  '/api/gallery/test-decks',
+  wrap(async (_req, res) => {
+    res.json(await galleryTestDecks(await deps(), context.userId, await username()));
   }),
 );
 

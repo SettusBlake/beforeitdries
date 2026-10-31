@@ -69,4 +69,6 @@ export const K = {
   galleryInbox: (userId: string) => `gallery:inbox:${userId}`,
   /** Hash: Bilanz der Galerie-Decks, Felder {userId}:w, {userId}:l, {userId}:d */
   galleryRecord: 'gallery:record',
+  /** Zähler der Test-Decks (Playtest, nur Mods): Spieler-IDs test:deck{n} */
+  galleryTestN: 'gallery:testn',
 } as const;

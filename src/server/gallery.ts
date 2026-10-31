@@ -10,7 +10,7 @@ import { dieMonster, GALLERY, GALLERY_FEE, type DiceSave, type DieRec, type Face
 import { START_MEDIA, type MediumId } from '../shared/duel/media';
 import { BAG, dieUnit, power, type FoeDie } from '../shared/duel/rules';
 import type { Monster } from '../shared/monster';
-import type { ColorId } from '../shared/colors';
+import { TEAM_COLORS, type ColorId } from '../shared/colors';
 import { GameError, withLock, type Deps } from './core';
 import { bagForDuel, isTester, loadDice, needUser, playerLock, respond, saveDice, type Recycled } from './dice';
 import { K } from './keys';
@@ -277,6 +277,45 @@ export async function galleryHang(d: Deps, userId: string | undefined, on: unkno
     await saveDice(d, uid, s);
     return { ...respond(d, s), gallery: await galleryStatus(d, uid, s) };
   });
+}
+
+/** Test-Knopf (Playtest, nur Mods): so viele Test-Decks hängt ein Tipp in die Galerie */
+export const TEST_DECKS = 2;
+const TEST_NAMES = ['Inkwell', 'Oldbrush', 'Wet on Wet', 'Gamboge', 'Deckle Edge', 'Sizing', 'Cold Press', 'Hot Press'];
+/**
+ * Test-Decks in die Galerie hängen (gewünscht am 31.10.2026): erfundene Maler mit den freien Startzügen als Deck,
+ * Spieler-IDs test:deck{n}, Namen ohne u/ („Test Inkwell“), jede Farbe anders. Der Schalter „eigenes Deck“ geht dabei aus
+ */
+export async function galleryTestDecks(d: Deps, userId: string | undefined, username: string | undefined): Promise<{ made: string[] }> {
+  const uid = needUser(userId);
+  if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  const made: string[] = [];
+  for (let k = 0; k < TEST_DECKS; k++) {
+    const n = await d.redis.incrBy(K.galleryTestN, 1);
+    const id = `test:deck${n}`;
+    const name = `Test ${TEST_NAMES[(n - 1) % TEST_NAMES.length]}`;
+    await withLock(d, playerLock(id), async () => {
+      await bagForDuel(d, id);
+      const s = await loadDice(d, id);
+      s.color = TEAM_COLORS[(n * 5) % TEAM_COLORS.length]!.k;
+      await saveDice(d, id, s);
+      await hangDeck(d, id, name, s);
+    });
+    made.push(name);
+  }
+  await withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    if (s.testSelf) {
+      Reflect.deleteProperty(s, 'testSelf');
+      await saveDice(d, uid, s);
+    }
+    // Ein schon gefundenes Deck gilt nicht mehr, die Suche findet die neuen
+    const me = await loadMe(d, uid);
+    Reflect.deleteProperty(me, 'pick');
+    me.swaps = 0;
+    await saveMe(d, uid, me);
+  });
+  return { made };
 }
 
 /** Test-Schalter (Playtest, nur Mods): Galerie-Duelle gegen das eigene Deck, die Gebühr geht an dich */

@@ -59,6 +59,7 @@ export const api = {
   galleryFind: (another = false) => call<GalleryResponse>('/api/gallery/find', { another }),
   galleryCollect: () => call<DiceResponse & { gallery: GalleryStatus; collected: number }>('/api/gallery/collect', {}),
   galleryHang: (on: boolean) => call<DiceResponse & { gallery: GalleryStatus }>('/api/gallery/hang', { on }),
+  galleryTestDecks: () => call<{ made: string[] }>('/api/gallery/test-decks', {}),
   galleryTestSelf: (on: boolean) => call<DiceResponse & { gallery: GalleryStatus }>('/api/gallery/test-self', { on }),
   diceColor: (color: ColorId, color2: ColorId) => call<DiceResponse>('/api/dice/color', { color, color2 }),
   drawReport: (slot: number) => call<{ reported: number; left: number }>('/api/drawn/report', { slot }),

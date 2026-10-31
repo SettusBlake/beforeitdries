@@ -11,7 +11,7 @@ import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBla
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
-import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
+import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
 import { loadState } from '../src/shared/duel/play';
 import { placements, rollable, ROLL_N, S, suggest } from '../src/shared/duel/rules';
@@ -111,6 +111,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/gallery/find') return send(200, await galleryFind(d, asUser, USER.name, b.another));
       if (url.pathname === '/api/gallery/collect') return send(200, await galleryCollect(d, asUser));
       if (url.pathname === '/api/gallery/hang') return send(200, await galleryHang(d, asUser, b.on));
+      if (url.pathname === '/api/gallery/test-decks') return send(200, await galleryTestDecks(d, asUser, USER.name));
       if (url.pathname === '/api/gallery/test-self') return send(200, await galleryTestSelf(d, asUser, USER.name, b.on));
     }
     if (url.pathname === '/api/drawn/report') {

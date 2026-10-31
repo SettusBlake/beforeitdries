@@ -4,7 +4,7 @@ import { GameError, type Deps } from '../src/server/core';
 import { bagForDuel, diceGet, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelStart } from '../src/server/duel';
 import { reportDrawing, reviewList, reviewOk } from '../src/server/drawings';
-import { deckPower, galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
+import { galleryTestDecks, deckPower, galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { K } from '../src/server/keys';
 import type { DuelResponse } from '../src/shared/api';
 import { dieMonster, GALLERY_FEE } from '../src/shared/dice';
@@ -272,6 +272,22 @@ describe('Galerie-Duell', () => {
       }
     }
     expect(sawDrawn).toBe(true);
+  });
+
+  it('Test-Decks: nur Mods im Playtest, zwei erfundene Maler hängen in der Galerie', async () => {
+    const reddit = new FakeReddit();
+    const d = { ...setup(13), reddit, appVersion: '0.0.1.99' };
+    expect(await code(galleryTestDecks(d, A, 'Vegavild'))).toBe('forbidden');
+    reddit.mods.push('Vegavild');
+    await galleryTestSelf(d, A, 'Vegavild', true);
+    const r = await galleryTestDecks(d, A, 'Vegavild');
+    expect(r.made).toEqual(['Test Inkwell', 'Test Oldbrush']);
+    expect((await loadDice(d, A)).testSelf).toBeUndefined();
+    expect(await d.redis.zScore(K.galleryPower, 'test:deck1')).toBeGreaterThan(0);
+    const f = await galleryFind(d, A, 'Vegavild');
+    expect(f.foe?.name.startsWith('Test ')).toBe(true);
+    expect(f.foe?.dice).toHaveLength(9);
+    expect((await galleryTestDecks(d, A, 'Vegavild')).made).toEqual(['Test Wet on Wet', 'Test Gamboge']);
   });
 
   it('Test-Schalter: nur Mods im Playtest, dann das eigene Deck', async () => {
