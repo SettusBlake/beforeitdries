@@ -1,6 +1,7 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
 import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type GlazeResponse, type InitResponse, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type SpeciesResponse } from '../../shared/api';
 import type { PullKind, StyleId } from '../../shared/dice';
+import type { ColorId } from '../../shared/colors';
 import type { DuelAction } from '../../shared/duel/play';
 import type { Level } from '../../shared/duel/rules';
 import type { PigmentId } from '../../shared/data';
@@ -59,6 +60,7 @@ export const api = {
   galleryCollect: () => call<DiceResponse & { gallery: GalleryStatus; collected: number }>('/api/gallery/collect', {}),
   galleryHang: (on: boolean) => call<DiceResponse & { gallery: GalleryStatus }>('/api/gallery/hang', { on }),
   galleryTestSelf: (on: boolean) => call<DiceResponse & { gallery: GalleryStatus }>('/api/gallery/test-self', { on }),
+  diceColor: (color: ColorId, color2: ColorId) => call<DiceResponse>('/api/dice/color', { color, color2 }),
   drawReport: (slot: number) => call<{ reported: number; left: number }>('/api/drawn/report', { slot }),
 };
 

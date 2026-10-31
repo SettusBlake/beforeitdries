@@ -538,3 +538,20 @@ canvas.faded, .rd.drift canvas { filter: saturate(.5) brightness(1.08) contrast(
 .goal b { color: var(--ink); }
 .goal .y { color: var(--you); } .goal .r { color: var(--rival); } .goal i { font-style: normal; opacity: .25; }
 .goal .w { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Spielfarben ---------- */
+.drow { display: flex; gap: 8px; width: 100%; max-width: 330px; margin-top: -6px; }
+.drow .ghost.wide { margin-top: 0; flex: 1; }
+.cdot { flex: none; width: 48px; min-height: 44px; border: 1px solid var(--ink); border-radius: 12px; background: transparent; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.cdot i, .cmenu i { display: block; width: 24px; height: 24px; border-radius: 50%; background: conic-gradient(var(--c1, #2b3fa3) 0 75%, var(--c2, #1f7a5a) 75% 100%); box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(29,33,48,.25); }
+.cmenu { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.cmenu i { width: 20px; height: 20px; }
+#colors .sheet { max-height: 90vh; }
+.clbl { margin: 10px 0 4px; font: 700 11px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.clbl b { color: var(--ink); letter-spacing: 0; text-transform: none; font: 700 13px var(--f-body); }
+.cgrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.cpick { aspect-ratio: 1; width: 100%; border-radius: 50%; border: 0; background: var(--c); box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(29,33,48,.18); cursor: pointer; padding: 0; }
+.cpick.on { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ink); }
+.cpick.other { opacity: .45; }
+.cnote { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.gal-color { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 8px; vertical-align: 2px; box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(29,33,48,.2); }

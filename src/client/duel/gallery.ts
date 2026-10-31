@@ -7,6 +7,7 @@ import { dieMonster, rarityDef, serialText, styleDef, type DieRec } from '../../
 import { dieUnit } from '../../shared/duel/rules';
 import { monsterSeed } from '../../shared/monster';
 import { addHolo } from '../lib/holo';
+import { colorDef, COLOR_DEFAULT } from '../../shared/colors';
 import { painted } from '../lib/painter';
 import { api, ApiError } from '../lib/api';
 import { iconSvg } from './icons';
@@ -123,6 +124,11 @@ function render(say?: string): void {
   }
   const tag = foeTag(v.name);
   $('gal-name').textContent = v.self ? 'Your own deck (test)' : `${tag}'s deck`;
+  // Spielfarbe des Besitzers: in ihr malt das Deck im Duell
+  const dot = el('i', 'gal-color');
+  dot.style.background = `rgb(${colorDef(v.color ?? COLOR_DEFAULT).rgb.join(',')})`;
+  dot.title = `paints in ${colorDef(v.color ?? COLOR_DEFAULT).label}`;
+  $('gal-name').prepend(dot);
   $('gal-sub').textContent = `Hung ${ago(v.at)} · ${v.rec.w} won · ${v.rec.l} lost` + (v.rec.d ? ` · ${v.rec.d} drawn` : '');
   v.dice.forEach((d, i) => grid.append(tile(d, i)));
   $('gal-pow').innerHTML = `Strength <b>${v.power.toLocaleString('en')}</b> · yours ${v.mine.toLocaleString('en')} · <b>${strength(v.power, v.mine)}</b>`;

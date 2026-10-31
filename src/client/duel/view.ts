@@ -35,65 +35,23 @@ export type Hooks = {
 };
 
 /**
- * Entwurf Übersicht (docs/entwuerfe/uebersicht-vorschlag.md, noch nicht freigegeben): nur mit localStorage bid-look2 = 1.
- * Gebiet des Rivalen schraffiert, Aufkleber mit Rand in der Farbe der Seite, wer noch kann, pulsiert, wer fertig ist, wird blass
+ * Übersicht (festgelegt am 31.10.2026, docs/entwuerfe/uebersicht-vorschlag.md): jede Seite malt ihr Gebiet in ihrer Spielfarbe,
+ * das Pigment zeigt ein Tropfen in der Ecke, Aufkleber mit Rand in der Spielfarbe, wer noch kann, pulsiert, wer fertig ist, wird blass
  */
-export const LOOK2 = (() => {
-  try {
-    return localStorage.getItem('bid-look2') === '1';
-  } catch {
-    return false;
-  }
-})();
-/**
- * Spielfarben (Entwurf 31.10.2026): jede Seite malt ihr Gebiet in ihrer Farbe, das Pigment eines Feldes zeigt ein Tropfen in der Ecke.
- * Standard Ultramarin gegen Karmin
- */
+export const LOOK2 = true;
+/** Spielfarben der beiden Seiten (du, Rivale), kommen aus dem Duell-Stand */
 export const TEAM: [number[], number[]] = [
   [43, 63, 163],
   [163, 58, 58],
 ];
-// Nur für den Entwurf: Farben aus localStorage bid-colors (r,g,b;r,g,b)
-try {
-  const raw = localStorage.getItem('bid-colors');
-  if (raw) {
-    const [a, b] = raw.split(';').map((x) => x.split(',').map(Number));
-    if (a?.length === 3 && b?.length === 3) {
-      TEAM[0] = a;
-      TEAM[1] = b;
-    }
-  }
-} catch {
-  /* egal */
-}
 export function setTeamColors(a: number[], b: number[]): void {
+  if (TEAM[0].join() === a.join() && TEAM[1].join() === b.join()) return;
   TEAM[0] = a;
   TEAM[1] = b;
   blobCache.clear();
   stickerCache.clear();
 }
 const teamCss = (side: Side, a = 1) => rgbCss(TEAM[side - 1]!, a);
-let hatch: { cell: number; pat: CanvasPattern } | null = null;
-/** Schraffur für das Gebiet des Rivalen: feine rote Diagonalen */
-function hatchPattern(): CanvasPattern {
-  if (hatch && hatch.cell === cell) return hatch.pat;
-  const n = Math.max(8, Math.round(cell / 5));
-  const c = document.createElement('canvas');
-  c.width = c.height = n;
-  const x = c.getContext('2d')!;
-  x.strokeStyle = 'rgba(150,40,40,.75)';
-  x.lineWidth = Math.max(1.2, n / 7);
-  x.beginPath();
-  x.moveTo(-1, n + 1);
-  x.lineTo(n + 1, -1);
-  x.moveTo(-1, 1);
-  x.lineTo(1, -1);
-  x.moveTo(n - 1, n + 1);
-  x.lineTo(n + 1, n - 1);
-  x.stroke();
-  hatch = { cell, pat: ctx.createPattern(c, 'repeat')! };
-  return hatch.pat;
-}
 export const V = {
   cells: [] as Cell[],
   units: new Map<number, VUnit>(),
@@ -578,9 +536,7 @@ function draw(): void {
   });
   ctx.lineCap = 'butt';
   // Entwurf Übersicht: Pigment der Felder als Tropfen in der Ecke (das Gebiet selbst ist in der Spielfarbe gemalt)
-  if (LOOK2) drawPigmentDrops();
-  else pigmentDrops.length = 0;
-  void hatchPattern;
+  drawPigmentDrops();
   // Nasse Farbe glänzt
   V.cells.forEach((c, i) => {
     if (c.wet <= 0 || c.owner === 0 || c.home) return;

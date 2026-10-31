@@ -23,6 +23,9 @@ import { iconSvg, netSvg } from './duel/icons';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
 import { diceBadge, initDice, openDice } from './duel/collection';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
+import { initColors, openColors } from './duel/colors';
+import { colorDef } from '../shared/colors';
+import { applyDiceResponse } from './duel/collection';
 import * as View from './duel/view';
 import { V } from './duel/view';
 
@@ -618,7 +621,7 @@ function renderTop(): void {
       g.id = 'goal';
       document.querySelector('#game .top')!.after(g);
     }
-    g.innerHTML = `<span class="w">Win: <b>more paper</b> when it dries, or <b>break all 3 hearts</b> of their palette</span>`;
+    g.innerHTML = `<span class="w">Win: <b>more paper</b> when it dries, or <b>break their 3 hearts</b></span>`;
   }
   const tot = COLS * R.ROWS - 2;
   $('bar-you').style.width = (a / tot) * 100 + '%';
@@ -1008,8 +1011,17 @@ function renderAbil(): void {
     box.append(b);
   }
 }
+/** Spielfarben aus dem Duell-Stand: Blatt, Aufkleber und die Farben oben (--you, --rival) */
+function applyColors(): void {
+  const [a, b] = S.colors.map((k) => colorDef(k).rgb);
+  View.setTeamColors(a!, b!);
+  const g = $('game');
+  g.style.setProperty('--you', `rgb(${a!.join(',')})`);
+  g.style.setProperty('--rival', `rgb(${b!.join(',')})`);
+}
 function renderAll(): void {
   if (screen !== 'game' || !S.teams.length) return;
+  applyColors();
   renderTop();
   renderPool();
   renderStatus();
@@ -1863,6 +1875,17 @@ $('gallery-b').addEventListener('click', () => {
   void openGallery();
 });
 initGallery({ start: () => void startDuel(false, true), error: onError });
+initColors({ saved: (r) => applyDiceResponse(r), error: onError });
+$('colors-t').addEventListener('click', () => {
+  initAudio();
+  sfx.tap();
+  openColors();
+});
+$('colors-m').addEventListener('click', () => {
+  sfx.tap();
+  $('menu').hidden = true;
+  openColors();
+});
 $('gallery-m').addEventListener('click', () => {
   sfx.tap();
   const on = !!galleryStatus()?.off;

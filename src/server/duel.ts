@@ -11,6 +11,7 @@ import { startTutorial, TUTORIAL_SEED, tutorialBags } from '../shared/duel/tutor
 import { GameError, withLock, type Deps } from './core';
 import { bagForDuel, isTester, loadDice, payDuel, playerLock } from './dice';
 import { driftDice, hangDeck, payOwner, takePick } from './gallery';
+import { COLOR_DEFAULT, COLOR_RIVAL, duelColors } from '../shared/colors';
 import { START_MEDIA } from '../shared/duel/media';
 import { K } from './keys';
 
@@ -100,6 +101,8 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
     }
     // Malmittel zur Wahl kommen aus den freigeschalteten (vorher geladen, nach newGame kein await mehr)
     S.unlocked = [...unlocked];
+    // Spielfarben: der Gegner behält seine, du nimmst deine oder die Ausweichfarbe
+    S.colors = duelColors(mine?.color, mine?.color2, foe ? (foe.color ?? COLOR_DEFAULT) : COLOR_RIVAL);
     const events = [...drain(), ...openDuel()];
     const out = freeze({ state: publicState(), events });
     const blob = saveState();

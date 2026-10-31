@@ -21,7 +21,10 @@
   <button type="button" class="primary" id="start">Start duel</button>
   <button type="button" class="primary gal-btn" id="gallery-b">Gallery duel</button>
   <p class="gal-note" id="gal-note" hidden></p>
-  <button type="button" class="ghost wide" id="dice-t">Your dice <span class="badge" id="dice-badge" hidden></span></button>
+  <div class="drow">
+    <button type="button" class="ghost wide" id="dice-t">Your dice <span class="badge" id="dice-badge" hidden></span></button>
+    <button type="button" class="cdot" id="colors-t" aria-label="Your colours"><i></i></button>
+  </div>
   <div class="trow">
     <button type="button" class="ghost" id="how-t">How to play</button>
     <button type="button" class="ghost" id="sound-t">Sound: on</button>
@@ -158,6 +161,7 @@
       <button type="button" class="ghost" id="new-m">New duel</button>
       <button type="button" class="ghost" id="dice-m">Your dice</button>
       <button type="button" class="ghost" id="gallery-m">Gallery: my deck hangs</button>
+      <button type="button" class="ghost cmenu" id="colors-m"><i></i><span>Colours: <b id="colors-m-name"></b></span></button>
       <button type="button" class="ghost" id="title-m">Back to title</button>
     </div>
   </div>
@@ -203,6 +207,19 @@
   <div class="sheet">
     <button type="button" class="close" id="inspect-close">✕</button>
     <div id="inspect-body"></div>
+  </div>
+</div>
+
+<div class="overlay" id="colors" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="colors-close">✕</button>
+    <h2>Your colours</h2>
+    <p class="clbl">Your colour · <b id="colors-1-name"></b></p>
+    <div class="cgrid" id="colors-1"></div>
+    <p class="cnote">You paint the sheet in it. Your blots, your palette and your score wear it too.</p>
+    <p class="clbl">Backup colour · <b id="colors-2-name"></b></p>
+    <div class="cgrid" id="colors-2"></div>
+    <p class="cnote">Used when your rival paints in a colour too close to yours. The house rival paints in Carmine, gallery decks in their painter's colour.</p>
   </div>
 </div>
 

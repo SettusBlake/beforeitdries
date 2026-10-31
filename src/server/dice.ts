@@ -39,6 +39,7 @@ import { BAG, dieUnit, isCrestFace, patinaFaces } from '../shared/duel/rules';
 import { humidityFor, makeMonster, monsterSeed, speciesKey } from '../shared/monster';
 import { GameError, isMod, withLock, type Deps } from './core';
 import { K } from './keys';
+import { isColor } from '../shared/colors';
 
 export function needUser(userId: string | undefined): string {
   if (!userId) throw new GameError('login', 'Log in to collect dice.', 401);
@@ -246,6 +247,20 @@ export async function diceTestBlank(d: Deps, userId: string | undefined, usernam
     s.blank = (s.blank ?? 0) + 1;
     await saveDice(d, uid, s);
     return { ...respond(d, s), tester: true };
+  });
+}
+
+/** Spielfarbe und Ausweichfarbe wählen (Menü), zwei verschiedene aus TEAM_COLORS */
+export async function diceColor(d: Deps, userId: string | undefined, color: unknown, color2: unknown): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (!isColor(color) || !isColor(color2)) throw new GameError('bad_request', 'Unknown colour.');
+  if (color === color2) throw new GameError('bad_request', 'Pick two different colours.');
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    s.color = color;
+    s.color2 = color2;
+    await saveDice(d, uid, s);
+    return respond(d, s);
   });
 }
 

@@ -10,12 +10,13 @@ import { dieMonster, GALLERY, GALLERY_FEE, type DiceSave, type DieRec, type Face
 import { START_MEDIA, type MediumId } from '../shared/duel/media';
 import { BAG, dieUnit, power, type FoeDie } from '../shared/duel/rules';
 import type { Monster } from '../shared/monster';
+import type { ColorId } from '../shared/colors';
 import { GameError, withLock, type Deps } from './core';
 import { bagForDuel, isTester, loadDice, needUser, playerLock, respond, saveDice, type Recycled } from './dice';
 import { K } from './keys';
 
 /** Abzug eines Decks in der Galerie */
-export type GallerySnap = { name: string; dice: DieRec[]; media: MediumId[]; power: number; at: number };
+export type GallerySnap = { name: string; dice: DieRec[]; media: MediumId[]; power: number; at: number; color?: ColorId };
 /** Galerie-Stand des Herausforderers: gefundenes Deck, wie oft getauscht, wen er heute schon hatte */
 export type GalleryMe = { day: string; faced: string[]; pick?: string; swaps: number; reported?: number };
 
@@ -44,7 +45,7 @@ const bagDice = (s: DiceSave): DieRec[] => s.bag.map((id) => s.dice.find((x) => 
 export async function hangDeck(d: Deps, uid: string, name: string | undefined, s: DiceSave): Promise<void> {
   const dice = bagDice(s);
   if (dice.length < BAG) return;
-  const snap: GallerySnap = { name: name ?? '', dice: JSON.parse(JSON.stringify(dice)) as DieRec[], media: s.media ?? [...START_MEDIA], power: deckPower(dice), at: d.now };
+  const snap: GallerySnap = { name: name ?? '', dice: JSON.parse(JSON.stringify(dice)) as DieRec[], media: s.media ?? [...START_MEDIA], power: deckPower(dice), at: d.now, ...(s.color ? { color: s.color } : {}) };
   await d.redis.set(K.gallery(uid), JSON.stringify(snap));
   if (!s.galleryOff) await d.redis.zAdd(K.galleryPower, { member: uid, score: snap.power });
 }
@@ -124,6 +125,7 @@ async function viewOf(d: Deps, owner: string, snap: GallerySnap, mine: number, m
     at: snap.at,
     swaps: Math.max(0, GALLERY.swaps - me.swaps),
     ...(self ? { self: true } : {}),
+    ...(snap.color ? { color: snap.color } : {}),
   };
 }
 
@@ -169,7 +171,7 @@ export async function galleryFind(d: Deps, userId: string | undefined, username:
 export async function takePick(
   d: Deps,
   uid: string,
-): Promise<{ owner: string; name: string; theirs: Monster[]; mods: FaceMod[][]; foe: (FoeDie | null)[]; keys: (string | null)[]; media: MediumId[] }> {
+): Promise<{ owner: string; name: string; theirs: Monster[]; mods: FaceMod[][]; foe: (FoeDie | null)[]; keys: (string | null)[]; media: MediumId[]; color?: ColorId }> {
   const me = await loadMe(d, uid);
   if (!me.pick) throw new GameError('bad_request', 'Find a deck in the gallery first.');
   const owner = me.pick;
@@ -195,6 +197,7 @@ export async function takePick(
     foe: dice.map((x) => ({ ...(x.no ? { no: x.no } : {}), glaze: (x.mods ?? []).filter((m) => !m.p).length, patina: x.patina ?? 0, ...(x.draw ? { drawn: 1 as const } : {}) })),
     keys: dice.map((x) => (x.draw ? `${owner}:${x.id}` : null)),
     media: snap.media,
+    ...(snap.color ? { color: snap.color } : {}),
   };
 }
 

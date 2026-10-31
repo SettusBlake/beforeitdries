@@ -6,6 +6,7 @@ import type { Monster } from './monster';
 import type { DuelState } from './duel/play';
 import type { Ev, Face } from './duel/rules';
 import type { DiceSave, DieRec, PullResult } from './dice';
+import type { ColorId } from './colors';
 
 /** Gespeichert unter monster:{id}. Nur Seed, Würfe und Zustand, nie das Bild. */
 export interface MonsterRecord extends Monster {
@@ -111,7 +112,7 @@ export type ErrorCode = 'login' | 'no_day' | 'dried' | 'not_found' | 'forbidden'
  * Stand des Duell-Ablaufs (Aktionen, Phasen, Ereignisse). Bei jeder Änderung erhöhen: Der Client schickt ihn mit,
  * der Server lehnt alte Oberflächen ab und bittet, den Post neu zu öffnen (sonst passen Anzeige und Regeln nicht zusammen)
  */
-export const DUEL_PROTOCOL = 12;
+export const DUEL_PROTOCOL = 13;
 export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {
@@ -164,6 +165,8 @@ export interface GalleryView {
   swaps: number;
   /** Test-Schalter: das eigene Deck */
   self?: boolean;
+  /** Spielfarbe des Besitzers */
+  color?: ColorId;
 }
 export interface GalleryResponse {
   /** null: kein passendes Deck in der Galerie */

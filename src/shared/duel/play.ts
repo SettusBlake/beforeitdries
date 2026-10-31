@@ -5,6 +5,7 @@
  */
 import { sameAction, tutorialAction, tutorialActive } from './tutorial';
 import { isMedium, START_MEDIA, type MediumId } from './media';
+import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
 import {
   ABILITY,
   aiHold,
@@ -117,6 +118,8 @@ export type DuelState = {
   /** Galerie-Duell: Besitzer des Decks (leer: kein Galerie-Duell) und je Würfel des Rivalen, was seine Karte zeigt */
   foeName?: string;
   foeDice?: (FoeDie | null)[];
+  /** Spielfarben: du, Rivale */
+  colors?: [ColorId, ColorId];
 };
 /** Was der Server speichert: dazu Würfelzufall, Würfel-IDs, Besitzer des Galerie-Decks samt Zeichnungen, Malmittel des Rivalen */
 export type DuelSave = DuelState & { rng: number; gameSeed: number; dieIds?: string[]; foeId?: string; foeKeys?: (string | null)[]; rivalMedia?: MediumId[] };
@@ -156,6 +159,7 @@ export function publicState(): DuelState {
     tutorial: S.tutorial,
     ...(S.foeName ? { foeName: S.foeName } : {}),
     ...(S.foeDice.some(Boolean) ? { foeDice: S.foeDice } : {}),
+    colors: S.colors,
   };
 }
 export function saveState(): string {
@@ -198,6 +202,7 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, Hidden>>): void 
   S.foeId = s.foeId ?? '';
   S.foeKeys = s.foeKeys ?? [];
   S.rivalMedia = s.rivalMedia ?? [];
+  S.colors = s.colors ?? [COLOR_DEFAULT, COLOR_RIVAL];
   S.events = [];
 }
 /** Wie oft jeder deiner Würfel in diesem Duell geworfen wurde (für die Patina, nur am Server bekannt) */

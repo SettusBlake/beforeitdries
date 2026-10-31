@@ -1,6 +1,6 @@
 # Vorschlag: Übersicht im Duell und klarer Siegweg
 
-Stand 31.10.2026, Fassung 2. Wartet auf Freigabe der neuen Punkte (Spielfarbe).
+Stand 31.10.2026, Fassung 2. Freigegeben am 31.10.2026 („eher 16 Farben, rest ok“). Gebaut (siehe unten).
 
 Rückmeldung 31.10.2026: Das Spielfeld ist recht unübersichtlich. Man erkennt nicht, wer was machen kann und wer der Gegner ist. Unklar ist auch, ob es effektiver ist, die Palette zu zerstören, als das Spielfeld voll zu malen.
 
@@ -42,7 +42,7 @@ Simulation, je 200 Duelle. Der Spieler spielt wie der Computer, aber mit drei Sp
 - **Pigment als Tropfen:** Welches Pigment auf einem Feld liegt, zeigt ein kleiner Tropfen in der Ecke, bei einer zweiten Schicht (Lasur) mit Ring. Das braucht es, weil Lasur, Verlaufen und Schlamm weiter am Pigment hängen. Schlamm bleibt braun.
 - **Alles in der Spielfarbe:** Gebiet, Gebietsrand, Rand der Kleckse, Sockel, Lebensbalken, Palette, Herzen, Stand oben.
 - **Auswahl im Menü:** „Your colour“ und „Backup colour“ als Farbpunkte, gespeichert im Spielstand am Server.
-- **Farben zur Wahl (8):** Ultramarine, Carmine, Viridian, Cadmium, Violet, Cerulean, Sepia, Rose. Standard: du Ultramarine, Ausweichfarbe Viridian.
+- **Farben zur Wahl (16, festgelegt am 31.10.2026):** Ultramarine, Carmine, Viridian, Cadmium, Violet, Cerulean, Sepia, Opera Rose, Lemon, Sap Green, Indigo, Turquoise, Burnt Sienna, Magenta, Payne's Grey, Coral. Standard: du Ultramarine, Ausweichfarbe Viridian.
 - **Gegner:** Der Computer-Rivale malt immer in Carmine. Im Galerie-Duell malt der andere Spieler in seiner Farbe. Ist die Farbe des Gegners deiner zu ähnlich, spielst du mit deiner Ausweichfarbe. Ist auch die zu ähnlich, nimmt das Spiel die nächste freie Farbe.
 - **Später:** Stile für die Farbkleckse (z. B. Tusche, Kreide) kommen an dieselbe Stelle im Menü. Nicht in diesem Schritt.
 
@@ -57,6 +57,14 @@ Simulation, je 200 Duelle. Der Spieler spielt wie der Computer, aber mit drei Sp
 
 1. Server: Spielfarbe und Ausweichfarbe im Spielstand (`color`, `color2`), Farbe im Galerie-Abzug, Auflösung bei ähnlichen Farben, Tests.
 2. Anzeige: A bis E an (Schalter `LOOK2` weg), Menü mit Farbpunkten, Stand und Herzen in den Spielfarben, Prüfung auf 360 Pixel. Upload mit Bild.
+
+## Gebaut (31.10.2026, Playtest v0.0.1.97, Bild docs/entwuerfe/spielfarbe-im-spiel.png)
+
+- **Farben:** src/shared/colors.ts (`TEAM_COLORS` mit 16 Farben, `duelColors`, ähnlich heißt Abstand unter 110 nach der Redmean-Formel). Spielstand-Felder `color` und `color2`, Wahl über /api/dice/color (zwei verschiedene Farben). Galerie-Abzug mit der Farbe des Besitzers (ohne Wahl Ultramarine), Vorschau zeigt sie als Punkt vor dem Namen.
+- **Duell:** Server legt `colors` im Duell-Stand fest (du, Gegner). Computer-Rivale Carmine, Galerie-Deck in der Farbe seines Besitzers, du in deiner Farbe, sonst Ausweichfarbe, sonst die nächste freie. DUEL_PROTOCOL 13.
+- **Anzeige:** Gebiet in der Spielfarbe, Pigment als Tropfen in der Ecke (Ring bei Lasur), Gebietsrand, Rand der Kleckse, Sockel, Lebensbalken, Palette und Stand oben in den Spielfarben. Wer noch kann, pulsiert, wer fertig ist, wird blass. Zeile „Win: more paper when it dries, or break their 3 hearts“, Paletten mit YOU und RIVAL. Flecken halb so kräftig.
+- **Auswahl:** Farbpunkt neben „Your dice“ und „Colours“ im Menü öffnen dieselbe Auswahl (src/client/duel/colors.ts). Gleiche Farbe in beiden Reihen tauscht sie.
+- Später: Stile für die Farbkleckse an derselben Stelle.
 
 ## Fragen
 

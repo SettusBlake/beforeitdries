@@ -10,6 +10,7 @@ import { humidityFor, makeMonster, statRows, type Monster } from '../monster';
 import { RNG, type Rand } from '../rng';
 import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
 import { MEDIA, MEDIA_MAX, MEDIA_PREF, MEDIA_ROUNDS, START_MEDIA, mediumDef, type MediumId } from './media';
+import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
 
 /* ---------- Regeln (alle Zahlen hier) ---------- */
 /** Blatt 6 breit, 8 hoch: auf dem Handy größere Felder als 7 × 7 bei fast gleicher Fläche (festgelegt am 29.10.2026) */
@@ -526,6 +527,8 @@ export const S = {
   foeKeys: [] as (string | null)[],
   /** Malmittel, aus denen der Rivale wählt (leer: alle). Im Galerie-Duell die des Besitzers */
   rivalMedia: [] as MediumId[],
+  /** Spielfarben der beiden Seiten (Übersicht, festgelegt am 31.10.2026), nur für die Anzeige */
+  colors: [COLOR_DEFAULT, COLOR_RIVAL] as [ColorId, ColorId],
   phase: 'opening' as Phase,
   lastRoll: [] as { id: number; fi: number }[],
   /** Joker aus dem letzten Wurf, die noch nicht als Stern oder Symbol verbraucht sind (Würfelseiten und Kombi-Joker) */
@@ -649,6 +652,7 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.foeId = '';
   S.foeKeys = [];
   S.rivalMedia = [];
+  S.colors = [COLOR_DEFAULT, COLOR_RIVAL];
   uid = 0;
   S.cells = Array.from({ length: COLS * ROWS }, emptyCell);
   S.round = 1;

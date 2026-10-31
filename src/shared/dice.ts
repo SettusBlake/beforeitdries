@@ -3,6 +3,7 @@
  * Legendary sind seltene Papiere, die nur hier vergeben werden. Chancen, Schutz vor Pech und Preise stehen hier.
  */
 import type { PaperId } from './data';
+import type { ColorId } from './colors';
 import type { MediumId } from './duel/media';
 import { humidityFor, makeMonster, speciesKey, type Monster } from './monster';
 
@@ -162,6 +163,9 @@ export type DiceSave = {
   galleryOff?: true;
   /** Test-Schalter (Playtest, nur Mods): Galerie-Duelle gegen das eigene Deck und Archiv, die Gebühr geht an dich */
   testSelf?: true;
+  /** Spielfarbe und Ausweichfarbe im Duell (fehlt: Ultramarine und Viridian) */
+  color?: ColorId;
+  color2?: ColorId;
 };
 export function emptyDice(): DiceSave {
   return { v: 2, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };

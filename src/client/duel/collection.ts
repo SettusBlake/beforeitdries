@@ -16,6 +16,7 @@ import { loadSpecies, namingPost, speciesName, speciesNamedBy } from '../lib/spe
 import { initDraw, openDraw } from './draw';
 import { initReview, openReview } from './review';
 import { foeTag, galleryStatus, inboxText, setGalleryStatus } from './gallery';
+import { setColorChoice } from './colors';
 import { iconSvg, netSvg } from './icons';
 import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
@@ -242,8 +243,13 @@ async function load(): Promise<void> {
     hooks.error(e);
   }
 }
+/** Antwort von außen übernehmen (z. B. nach der Farbwahl) */
+export function applyDiceResponse(r: DiceResponse): void {
+  apply(r);
+}
 function apply(r: DiceResponse): void {
   save = r.dice;
+  setColorChoice(r.dice.color, r.dice.color2);
   freeReady = r.freeReady;
   if (r.tester !== undefined) tester = r.tester;
   setGalleryStatus(r.gallery);
@@ -846,6 +852,7 @@ export async function diceBadge(): Promise<string> {
     void loadSpecies();
     review = r.review ?? 0;
     setGalleryStatus(r.gallery);
+    setColorChoice(r.dice.color, r.dice.color2);
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.freeReady) return 'free dip';
     if (r.dice.blank) return 'blank canvas';
