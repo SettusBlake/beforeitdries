@@ -5,7 +5,7 @@ import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
 import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
 import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
 import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash } from './dice';
-import { reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
+import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf } from './gallery';
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
@@ -90,6 +90,13 @@ app.post(
 );
 
 /* ---------- Galerie: Decks anderer Spieler ---------- */
+
+app.post(
+  '/api/drawn/report',
+  wrap(async (req, res) => {
+    res.json(await reportDrawing(await deps(), context.userId, (req.body as { slot?: unknown } | undefined)?.slot));
+  }),
+);
 
 app.post(
   '/api/gallery/find',

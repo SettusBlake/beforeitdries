@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
 import { diceGet, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelStart } from '../src/server/duel';
+import { reportDrawing, reviewList, reviewOk } from '../src/server/drawings';
 import { deckPower, galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { K } from '../src/server/keys';
 import type { DuelResponse } from '../src/shared/api';
@@ -191,6 +192,42 @@ describe('Galerie-Duell', () => {
       await d.redis.zAdd(K.galleryPower, { member: u, score: p });
     }
     for (let i = 0; i < 5; i++) expect((await galleryFind({ ...d, now: d.now + i * 86_400_000 }, B, 'me')).foe?.name).toBe('t2_near');
+  });
+
+  it('Melden blendet eine Zeichnung aus, bis ein Mod entscheidet', async () => {
+    const reddit = new FakeReddit();
+    reddit.mods.push('Vegavild');
+    const d = { ...setup(8), reddit };
+    await playOut(d, A, 'inkwell', await duelStart(d, A, 'apprentice'));
+    const sa = await loadDice(d, A);
+    const die = sa.dice.find((x) => x.id === sa.bag[2])!;
+    die.draw = encodeDrawing({ mirror: true, face: null, strokes: [[[0.5, 0.2], [0.3, 0.3], [0.2, 0.5], [0.3, 0.7], [0.5, 0.8]]] });
+    await saveDice(d, A, sa);
+    await hangDeck(d, A, 'inkwell', sa);
+    const key = `${A}:${die.id}`;
+    await d.redis.hSet(K.drawnOk, { [key]: JSON.stringify({ key, uid: A, user: 'inkwell', id: die.id, no: die.no, seed: 1, draw: die.draw, at: d.now, by: 'Vegavild', when: d.now }) });
+    await galleryFind(d, B, 'b');
+    const st = (await duelStart(d, B, 'apprentice', false, true)).state!;
+    expect(st.foeDice![2]!.drawn).toBe(1);
+    // Nur Würfel mit Zeichnung lassen sich melden
+    expect(await code(reportDrawing(d, B, 0))).toBe('bad_request');
+    expect(await reportDrawing(d, B, 2)).toEqual({ reported: 1, left: 4 });
+    // Dieselbe Zeichnung zählt je Spieler einmal
+    expect((await reportDrawing(d, B, 2)).reported).toBe(1);
+    expect(await d.redis.hGet(K.drawnOk, key)).toBeUndefined();
+    const list = await reviewList(d, 'Vegavild');
+    expect(list.items[0]?.key).toBe(key);
+    expect(list.items[0]?.reported).toBe(1);
+    // Andere sehen sie jetzt nicht mehr
+    expect((await galleryFind({ ...d, now: d.now + 86_400_000 }, 't2_third', 'c')).foe?.dice[2]?.draw).toBeUndefined();
+    // Mod gibt frei: sichtbar, eine weitere Meldung blendet sie nicht mehr aus, sie kommt nur wieder in die Liste
+    await reviewOk(d, 'Vegavild', key);
+    expect(await d.redis.hGet(K.drawnOk, key)).toBeDefined();
+    await galleryFind(d, 't2_third', 'c');
+    await duelStart(d, 't2_third', 'apprentice', false, true);
+    expect((await reportDrawing(d, 't2_third', 2)).reported).toBe(2);
+    expect(await d.redis.hGet(K.drawnOk, key)).toBeDefined();
+    expect((await reviewList(d, 'Vegavild')).items[0]?.reported).toBe(2);
   });
 
   it('Test-Schalter: nur Mods im Playtest, dann das eigene Deck', async () => {

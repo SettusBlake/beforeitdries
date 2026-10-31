@@ -1,6 +1,6 @@
 # Plan: Galerie-Duell (andere Spieler im Duell)
 
-Stand 31.10.2026, Fassung 1. Gewünscht am 31.10.2026 („mach 1, schreib den plan“). Freigegeben am 31.10.2026 („alles ja“, alle sieben Fragen). Schritt 1 gebaut (siehe unten).
+Stand 31.10.2026, Fassung 1. Gewünscht am 31.10.2026 („mach 1, schreib den plan“). Freigegeben am 31.10.2026 („alles ja“, alle sieben Fragen). Schritte 1 und 2 gebaut (siehe unten).
 
 Entwurf: docs/entwuerfe/galerie-duell-entwurf.png (Attrappe auf der echten Vorschau, Quelle tools/mockup/galerie-entwurf.cjs).
 
@@ -104,6 +104,16 @@ Allein im Test-Subreddit gibt es keine fremden Decks und kein fremdes Archiv. De
 - Gebühr `payOwner` (15, 8, 3, höchstens 60 am Tag) und Bilanz, Abholen `galleryCollect` (/api/gallery/collect), Schalter `galleryHang` (/api/gallery/hang), Test-Schalter `galleryTestSelf` (/api/gallery/test-self, Playtest, nur Mods). Stand kommt mit /api/dice als `gallery`.
 - DUEL_PROTOCOL 11. Tests in tests/gallery.test.ts. Vorschau: /dev/gallery?n=4&inbox=3.
 - **Simulation** (200 Duelle, gleiche Stärke, beide Seiten mit echten Werten): Spielt der Spieler wie der Computer mit allen Zügen, gewinnt er 68 % (verliert 32 %). Spielt er etwas schwächer (Computer mit 3 Zügen), 50 %. Zum Vergleich gegen den Master: 46 % und 38 %. Der Computer denkt schon alle Züge, weiter einstellen lässt sich daran nichts. Der Vorteil kommt vom ersten Zug jeder Runde. Frage dazu unten.
+
+**Schritt 2 (Bedienung und Melden), 31.10.2026, Playtest v0.0.1.89, Bild docs/entwuerfe/galerie-im-spiel.png:**
+
+- Startbild: „Gallery duel“ unter „Start duel“, darunter der Stand deines Decks (gewonnen, verloren, „news in Your dice“).
+- Vorschau (src/client/duel/gallery.ts): Name, aufgehängt vor, Bilanz, 9 Würfel mit Seriennummer, Holo-Rand und Stil, Stärke im Vergleich mit Leiste, Sepia, „Duel u/name“ und einmal „Another deck“. Leere Galerie: Sepia sagt es.
+- Duell: Name statt „Rival“, Banner „u/name's deck plays“. Karte eines gegnerischen Würfels mit Besitzer, Seriennummer, Lasur und Patina, bei gemalten Monstern „Report drawing“ (zweiter Tipp meldet).
+- Ergebnis: „You beat u/name's deck“ usw., Zeile zur Gebühr, eigene Sätze von Sepia. „Again“ öffnet die Galerie wieder.
+- Your dice: Sepias Bericht mit den letzten Herausforderern und „Collect +X pigment“. Menü: „Gallery: my deck hangs / is down“. Test-Schalter für Mods im Playtest.
+- Melden (`reportDrawing` in src/server/drawings.ts, /api/drawn/report, Redis `drawn:reports`): je Spieler und Zeichnung einmal, höchstens 5 am Tag. Ohne Freigabe nach einer Meldung sofort für andere ausgeblendet. „Review drawings“ zeigt gemeldete zuerst mit „Reported ×N“, OK zeigt sie wieder, danach kommt sie bei weiteren Meldungen nur in die Liste.
+- Vorschau: /dev/gallery?n=1&inbox=4&draw=1 (ein Deck mit freigegebener Zeichnung, vier Herausforderungen an dein Deck), /dev/finish spielt das laufende Duell zu Ende.
 
 ## Später (nicht in diesem Plan)
 

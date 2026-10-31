@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GlazeResponse, type InitResponse, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type SpeciesResponse } from '../../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type GlazeResponse, type InitResponse, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type SpeciesResponse } from '../../shared/api';
 import type { PullKind, StyleId } from '../../shared/dice';
 import type { DuelAction } from '../../shared/duel/play';
 import type { Level } from '../../shared/duel/rules';
@@ -35,7 +35,7 @@ export const api = {
   catchBlot: () => call<CatchResponse>('/api/catch', {}),
   glaze: (id: string, pigment: PigmentId) => call<GlazeResponse>('/api/glaze', { id, pigment }),
   duel: () => call<DuelResponse>('/api/duel'),
-  duelStart: (level: Level, tutorial = false) => call<DuelResponse>('/api/duel/start', { level, tutorial }),
+  duelStart: (level: Level, tutorial = false, gallery = false) => call<DuelResponse>('/api/duel/start', { level, tutorial, gallery }),
   duelAct: (action: DuelAction) => call<DuelResponse>('/api/duel/act', { action }),
   play: () => call<PlayInfo>('/api/play'),
   dice: () => call<DiceResponse>('/api/dice'),
@@ -55,6 +55,11 @@ export const api = {
   reviewOk: (key: string) => call<ReviewResponse>('/api/review/ok', { key }),
   reviewOver: (key: string) => call<ReviewResponse>('/api/review/over', { key }),
   reviewUnlock: (uid: string) => call<ReviewResponse>('/api/review/unlock', { uid }),
+  galleryFind: (another = false) => call<GalleryResponse>('/api/gallery/find', { another }),
+  galleryCollect: () => call<DiceResponse & { gallery: GalleryStatus; collected: number }>('/api/gallery/collect', {}),
+  galleryHang: (on: boolean) => call<DiceResponse & { gallery: GalleryStatus }>('/api/gallery/hang', { on }),
+  galleryTestSelf: (on: boolean) => call<DiceResponse & { gallery: GalleryStatus }>('/api/gallery/test-self', { on }),
+  drawReport: (slot: number) => call<{ reported: number; left: number }>('/api/drawn/report', { slot }),
 };
 
 /** Abstand zwischen Server- und Geräteuhr, für Trockenzeit und Tagesende */

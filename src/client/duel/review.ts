@@ -57,6 +57,8 @@ function card(it: ReviewItem): HTMLElement {
   if (pic) c.append(pic);
   const side = el('div', 'rside');
   side.append(el('b', '', `u/${it.user || '?'}`), el('small', '', `${serialText(it.no)} · ${ago(it.at)}`));
+  // Von Spielern gemeldet: steht oben, für andere ausgeblendet, bis du entscheidest
+  if (it.reported) side.append(el('span', 'reported', `Reported ×${it.reported}`));
   const ok = el('button', 'tool', 'OK') as HTMLButtonElement;
   ok.type = 'button';
   ok.disabled = busy;

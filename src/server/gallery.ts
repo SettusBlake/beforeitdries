@@ -17,7 +17,7 @@ import { K } from './keys';
 /** Abzug eines Decks in der Galerie */
 export type GallerySnap = { name: string; dice: DieRec[]; media: MediumId[]; power: number; at: number };
 /** Galerie-Stand des Herausforderers: gefundenes Deck, wie oft getauscht, wen er heute schon hatte */
-type GalleryMe = { day: string; faced: string[]; pick?: string; swaps: number };
+export type GalleryMe = { day: string; faced: string[]; pick?: string; swaps: number; reported?: number };
 
 /** Stärke eines Decks: Summe der Werte seiner Würfel (dieselben, aus denen das Duell die Stufe berechnet) */
 export const deckPower = (dice: DieRec[]): number => dice.reduce((n, x) => n + power(dieUnit(dieMonster(x), x.mods)), 0);
@@ -26,13 +26,13 @@ const DAY = 86_400_000;
 const parse = <T>(raw: string | undefined): T | null => (raw ? (JSON.parse(raw) as T) : null);
 export const loadSnap = async (d: Pick<Deps, 'redis'>, uid: string): Promise<GallerySnap | null> => parse<GallerySnap>(await d.redis.get(K.gallery(uid)));
 
-async function loadMe(d: Pick<Deps, 'redis' | 'now'>, uid: string): Promise<GalleryMe> {
+export async function loadMe(d: Pick<Deps, 'redis' | 'now'>, uid: string): Promise<GalleryMe> {
   const me = parse<GalleryMe>(await d.redis.get(K.galleryMe(uid))) ?? { day: '', faced: [], swaps: 0 };
   // Gegner des Tages gelten nur heute
-  if (me.day !== dayKey(d.now)) Object.assign(me, { day: dayKey(d.now), faced: [] });
+  if (me.day !== dayKey(d.now)) Object.assign(me, { day: dayKey(d.now), faced: [], reported: 0 });
   return me;
 }
-const saveMe = (d: Pick<Deps, 'redis'>, uid: string, me: GalleryMe) => d.redis.set(K.galleryMe(uid), JSON.stringify(me));
+export const saveMe = (d: Pick<Deps, 'redis'>, uid: string, me: GalleryMe) => d.redis.set(K.galleryMe(uid), JSON.stringify(me));
 
 /** Die Würfel im Deck, wie sie gerade sind */
 const bagDice = (s: DiceSave): DieRec[] => s.bag.map((id) => s.dice.find((x) => x.id === id)).filter((x): x is DieRec => !!x);

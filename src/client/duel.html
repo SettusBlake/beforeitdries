@@ -19,6 +19,8 @@
   <button type="button" class="primary" id="continue" hidden>Continue duel</button>
   <button type="button" class="primary" id="learn">Learn with Sepia</button>
   <button type="button" class="primary" id="start">Start duel</button>
+  <button type="button" class="primary gal-btn" id="gallery-b">Gallery duel</button>
+  <p class="gal-note" id="gal-note" hidden></p>
   <button type="button" class="ghost wide" id="dice-t">Your dice <span class="badge" id="dice-badge" hidden></span></button>
   <div class="trow">
     <button type="button" class="ghost" id="how-t">How to play</button>
@@ -31,7 +33,7 @@
     <button type="button" id="menu-btn" aria-label="Menu">☰</button>
     <div class="roundbox"><b id="round"></b><span id="dries"></span></div>
     <div class="score" aria-live="polite">
-      <div class="nums"><span class="y">You <span id="score-you">0</span></span><span class="r">Rival <span id="score-rival">0</span></span></div>
+      <div class="nums"><span class="y">You <span id="score-you">0</span></span><span class="r"><span class="rn" id="rival-name">Rival</span> <span id="score-rival">0</span></span></div>
       <div class="sbar"><i id="bar-you"></i><i id="bar-mud"></i><i id="bar-rival"></i></div>
     </div>
   </header>
@@ -72,6 +74,7 @@
     <span class="pig" title="Pigment, earned by playing"><i></i><b id="pigment">0</b></span>
   </header>
   <div class="dscroll">
+    <div class="sepia-say note galnote" id="gallery-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="gallery-say"></p><p class="gal-who" id="gallery-who"></p><button type="button" class="tool" id="gallery-ok">Collect</button></div>
     <div class="sepia-say note" id="painted-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="painted-say"></p><button type="button" class="tool" id="painted-ok">OK</button></div>
     <section class="dbox dip">
       <p class="eyebrow">Dip the brush</p>
@@ -81,6 +84,7 @@
       <button type="button" class="blankbtn" id="blank-b"><b>Blank canvas</b><small id="blank-sub"></small><span id="blank-n">0</span></button>
       <button type="button" class="testbtn" id="blank-test" hidden>Playtest · mods only: +1 blank canvas</button>
       <button type="button" class="testbtn" id="pigment-test" hidden>Playtest · mods only: +1000 pigment</button>
+      <button type="button" class="testbtn" id="gallery-test" hidden>Playtest · mods only: gallery uses my own deck: off</button>
       <div class="testrow" id="shiny-test" hidden></div>
       <button type="button" class="modbtn" id="review-b" hidden><b>Review drawings</b><small>mods only</small><span id="review-b-n">0</span></button>
     </section>
@@ -121,7 +125,7 @@
     <span class="blankn" id="review-n">…</span>
   </header>
   <div class="dscroll">
-    <p class="dhint">New drawings, oldest first. OK lets it stay. Paint over takes the drawing away: the monster gets a random shape, everything else stays. Twice in 30 days locks painting for 14 days, three times until a mod unlocks.</p>
+    <p class="dhint">Reported drawings first, then new ones, oldest first. OK lets it stay. Paint over takes the drawing away: the monster gets a random shape, everything else stays. Twice in 30 days locks painting for 14 days, three times until a mod unlocks.</p>
     <div id="review-list"></div>
     <section class="dbox" id="review-locked-box" hidden>
       <span class="eyebrow">Locked</span>
@@ -153,6 +157,7 @@
       <button type="button" class="ghost" id="log-m">What happened</button>
       <button type="button" class="ghost" id="new-m">New duel</button>
       <button type="button" class="ghost" id="dice-m">Your dice</button>
+      <button type="button" class="ghost" id="gallery-m">Gallery: my deck hangs</button>
       <button type="button" class="ghost" id="title-m">Back to title</button>
     </div>
   </div>
@@ -178,6 +183,7 @@
       <li><b>Splash</b> is free: Saturation plus a d20 against Grain plus a d20, the roll shows at the target. A hit paints the cell under the target. Complementary colours hit for 1.5 times and stain. A Guard in your pool halves a hit by itself. Two or three hits and a blot bursts, its die is lost for good.</li>
       <li><b>Abilities:</b> two Glow. A gold button appears on a blot that can use one.</li>
       <li><b>Palettes:</b> three hearts each. A blot next to the rival palette hits it with a Splash symbol: one heart, at most one per turn. A palette is safe while one of its own blots stands within two cells. Break all three and you win.</li>
+      <li><b>Gallery:</b> after every finished duel your deck hangs in the gallery. A gallery duel finds the deck of another painter of about your strength, the rival plays it with its real dice. When their deck wins, its painter earns a small fee, and so do you when yours wins. Take yours down in the menu. Drawings of others only show once a moderator has seen them, report anything that does not belong.</li>
       <li><b>The Eraser</b> wipes a row after rounds 2 and 4. After 6 rounds the paper dries: cells plus 3 per heart left.</li>
       <li><b>The gold ring and arrow</b> show what Master Sepia would do. Sepia paints plays the rest of your turn for you. Turn hints off in the menu.</li>
     </ul>
@@ -196,6 +202,23 @@
   <div class="sheet">
     <button type="button" class="close" id="inspect-close">✕</button>
     <div id="inspect-body"></div>
+  </div>
+</div>
+
+<div class="overlay" id="gallery" hidden>
+  <div class="sheet">
+    <button type="button" class="close" id="gal-close">✕</button>
+    <p class="eyebrow">Gallery</p>
+    <h2 id="gal-name">Looking at the wall…</h2>
+    <p class="gal-sub" id="gal-sub"></p>
+    <div class="gal-grid" id="gal-grid"></div>
+    <div id="gal-pow-box" hidden>
+      <p class="gal-pow" id="gal-pow"></p>
+      <div class="gal-bar"><i class="me" id="gal-me"></i><i class="foe" id="gal-foe"></i></div>
+      <div class="gal-legend"><span>weaker</span><span>yours</span><span>stronger</span></div>
+    </div>
+    <div class="sepia-say"><p class="eyebrow">Master Sepia</p><p class="hand" id="gal-say"></p></div>
+    <div class="gal-btns"><button type="button" class="primary" id="gal-go" disabled>Duel</button><button type="button" class="ghost" id="gal-another" disabled>Another deck</button></div>
   </div>
 </div>
 
@@ -223,6 +246,7 @@
     <p class="eyebrow">Duel over</p>
     <h2 id="result-title"></h2>
     <p id="result-sub"></p>
+    <p id="result-fee" hidden></p>
     <div id="result-stats"></div>
     <p id="result-reward" hidden></p>
     <p id="result-sepia"></p>

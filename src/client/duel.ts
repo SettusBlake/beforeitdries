@@ -7,7 +7,7 @@ import './lib/fonts';
 import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
 import type { DuelResponse, DuelReward } from '../shared/api';
-import { rarityDef } from '../shared/dice';
+import { rarityDef, serialText } from '../shared/dice';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -22,6 +22,7 @@ import { makeCube, tumble } from './duel/dice3d';
 import { iconSvg, netSvg } from './duel/icons';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
 import { diceBadge, initDice, openDice } from './duel/collection';
+import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
 import * as View from './duel/view';
 import { V } from './duel/view';
 
@@ -207,7 +208,7 @@ View.setup(board, {
     renderStatus();
   },
   banner: (text, kind) => {
-    showBanner(text, kind);
+    showBanner(kind === 'turn' && text === 'Rival turn' && S.foeName ? `${foeTag(S.foeName)}'s deck plays` : text, kind);
     // Neuer Zug: der Auftrag oben gehört jetzt der Seite am Zug
     if (kind === 'turn') renderStatus();
   },
@@ -607,6 +608,7 @@ function renderTop(): void {
   const [a, b, m] = R.counts(V.cells);
   $('score-you').textContent = String(a + R.HEART_BONUS * V.teams[0]!.hearts);
   $('score-rival').textContent = String(b + R.HEART_BONUS * V.teams[1]!.hearts);
+  $('rival-name').textContent = S.foeName ? foeTag(S.foeName) : 'Rival';
   const tot = COLS * R.ROWS - 2;
   $('bar-you').style.width = (a / tot) * 100 + '%';
   $('bar-mud').style.width = (m / tot) * 100 + '%';
@@ -1591,19 +1593,76 @@ function openInspect(u: Unit): void {
     html('p', '', 'Stamps, splashes, soaks and hits fill the brim, Glow pours in. Full, its next move does this on top. Bursting at least half full, it spills once more.'),
   );
   for (const t of u.traits) lines.append(html('p', 'trait', `<b>${t.label}</b> ${t.text}`));
-  box.append(top, net, stats, lines);
+  box.append(top);
+  // Galerie-Duell: wem der Würfel gehört, dazu Melden bei gemalten Monstern
+  const k = u.side === 2 ? S.teams[1].units.indexOf(u) : -1;
+  const fd = k >= 0 && S.foeName ? S.foeDice[k] : null;
+  if (k >= 0 && S.foeName) {
+    const bits = [fd?.no ? serialText(fd.no) : '', fd?.glaze ? `glaze ${fd.glaze}` : '', fd?.patina ? `patina ${fd.patina}/3` : ''].filter(Boolean);
+    box.append(html('p', 'gal-owner', `From <b>${esc(foeTag(S.foeName))}</b>'s deck${bits.length ? ' · ' + bits.join(' · ') : ''}`));
+  }
+  box.append(net, stats, lines);
+  if (fd?.drawn) {
+    const rb = el('button', 'gal-report', reported.has(k) ? 'Reported' : 'Report drawing') as HTMLButtonElement;
+    rb.type = 'button';
+    rb.disabled = reported.has(k);
+    let armedReport = false;
+    rb.addEventListener('click', () => {
+      if (!armedReport) {
+        armedReport = true;
+        rb.classList.add('armed');
+        rb.textContent = 'Tap again to report';
+        return;
+      }
+      rb.disabled = true;
+      api
+        .drawReport(k)
+        .then(() => {
+          reported.add(k);
+          rb.classList.remove('armed');
+          rb.textContent = 'Reported. A moderator will look.';
+        })
+        .catch((e) => {
+          rb.disabled = false;
+          armedReport = false;
+          rb.classList.remove('armed');
+          rb.textContent = 'Report drawing';
+          onError(e);
+        });
+    });
+    box.append(rb, el('small', '', 'For drawings that do not belong here. It disappears for others until a moderator decides.'));
+  }
   $('inspect').hidden = false;
 }
+/** Im laufenden Galerie-Duell schon gemeldete Würfel des Rivalen */
+const reported = new Set<number>();
+const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 function sepiaEnd(): string {
   if (S.winReason === 'palette broken') return S.winner === 1 ? 'You broke their palette. Messy, but effective.' : 'They broke your palette. I did say mind it.';
   if (S.winReason === 'washed out') return S.winner === 1 ? 'Not a single rival die left. Thorough.' : 'Every die washed away. We will speak about this.';
   return S.winner === 1 ? 'The paper remembers who painted it. Today, you.' : S.winner === 2 ? 'The rival covered more paper. Paper keeps score, not excuses.' : 'A draw. The paper cannot decide either.';
 }
+function sepiaGallery(): string {
+  return S.winner === 1 ? 'Their deck goes back on the wall. Slightly lighter.' : S.winner === 2 ? "Someone else's brushwork beat yours. Take notes, not offence." : 'Two painters, one sheet, no verdict.';
+}
 async function finishDuel(): Promise<void> {
   renderAll();
   await View.wait(700);
   const [a, b] = R.scores();
-  $('result-title').textContent = S.winner === 1 ? 'You win the sheet' : S.winner === 2 ? 'The rival wins the sheet' : 'A draw';
+  const foe = S.foeName ? foeTag(S.foeName) : '';
+  $('result-title').textContent = foe
+    ? S.winner === 1
+      ? `You beat ${foe}'s deck`
+      : S.winner === 2
+        ? `${foe}'s deck beat you`
+        : `A draw with ${foe}'s deck`
+    : S.winner === 1
+      ? 'You win the sheet'
+      : S.winner === 2
+        ? 'The rival wins the sheet'
+        : 'A draw';
+  $('result-fee').hidden = !foe;
+  if (foe) $('result-fee').textContent = `${foe} gets a small fee for hanging it, a bigger one when their deck wins.`;
   $('result-sub').textContent = S.winReason === 'palette broken' ? (S.winner === 1 ? 'Their palette is broken.' : 'Your palette is broken.') : S.winReason === 'washed out' ? 'All dice of one side are lost.' : `The paper dried: ${a} to ${b}.`;
   const st = $('result-stats');
   st.replaceChildren();
@@ -1615,7 +1674,7 @@ async function finishDuel(): Promise<void> {
     ['Dice lost', S.teams[0].units.filter((u) => u.state === 'gone').length, S.teams[1].units.filter((u) => u.state === 'gone').length],
   ] as [string, number, number][])
     st.append(html('div', '', `<span>${k}</span><b class="y">${x}</b><b class="r">${y}</b>`));
-  $('result-sepia').textContent = sepiaEnd();
+  $('result-sepia').textContent = S.foeName ? sepiaGallery() : sepiaEnd();
   const rw = $('result-reward');
   rw.hidden = !reward;
   if (reward)
@@ -1657,6 +1716,13 @@ async function updateBadge(): Promise<void> {
   const t = await diceBadge();
   $('dice-badge').hidden = !t;
   $('dice-badge').textContent = t;
+  galleryNote();
+}
+function galleryNote(): void {
+  const line = galleryLine();
+  $('gal-note').hidden = !line;
+  $('gal-note').innerHTML = line;
+  $('gallery-m').textContent = galleryStatus()?.off ? 'Gallery: my deck is down' : 'Gallery: my deck hangs';
 }
 function layout(): void {
   const w = $('boardwrap');
@@ -1683,7 +1749,7 @@ function resetUi(): void {
   chosen = new Set();
 }
 
-async function startDuel(tutorial = false): Promise<void> {
+async function startDuel(tutorial = false, gallery = false): Promise<void> {
   initAudio();
   resetUi();
   showScreen('game');
@@ -1695,8 +1761,9 @@ async function startDuel(tutorial = false): Promise<void> {
     lessonsSeen = new Set();
     store.set('bid-duel-lessons', '');
   }
-  showBanner(tutorial ? 'Lesson duel' : 'Paint duel', 'big');
-  const ok = await request(api.duelStart(level, tutorial), () => layout());
+  reported.clear();
+  showBanner(tutorial ? 'Lesson duel' : gallery ? 'Gallery duel' : 'Paint duel', 'big');
+  const ok = await request(api.duelStart(level, tutorial, gallery), () => layout());
   if (!ok) {
     showScreen('title');
     return;
@@ -1764,6 +1831,24 @@ for (const id of ['sound-t', 'sound-m'])
     sfx.tap();
   });
 $('start').addEventListener('click', () => void startDuel());
+$('gallery-b').addEventListener('click', () => {
+  initAudio();
+  sfx.tap();
+  void openGallery();
+});
+initGallery({ start: () => void startDuel(false, true), error: onError });
+$('gallery-m').addEventListener('click', () => {
+  sfx.tap();
+  const on = !!galleryStatus()?.off;
+  api
+    .galleryHang(on)
+    .then((r) => {
+      setGalleryStatus(r.gallery);
+      galleryNote();
+      showTicker(on ? 'Your deck hangs in the gallery again.' : 'Your deck is off the wall. Others will not find it.', 'you');
+    })
+    .catch(onError);
+});
 $('dice-t').addEventListener('click', () => {
   initAudio();
   sfx.tap();
@@ -1792,6 +1877,7 @@ $('how-m').addEventListener('click', () => {
 });
 $('menu-btn').addEventListener('click', () => {
   sfx.tap();
+  galleryNote();
   $('menu').hidden = false;
 });
 $('close-m').addEventListener('click', () => ($('menu').hidden = true));
@@ -1818,7 +1904,13 @@ $('tip-ok').addEventListener('click', () => {
   $('tip').hidden = true;
   lessonCheck();
 });
-$('again').addEventListener('click', () => void startDuel());
+// Nach einem Galerie-Duell sucht „Again“ ein neues Deck
+$('again').addEventListener('click', () => {
+  if (S.foeName) {
+    $('result').hidden = true;
+    void openGallery();
+  } else void startDuel();
+});
 $('to-title').addEventListener('click', () => {
   $('result').hidden = true;
   resumable = false;

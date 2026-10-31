@@ -1,7 +1,7 @@
 /*
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
  * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at,
- * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, naming:posts, naming:open, gallery:power, gallery:record).
+ * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, drawn:reports, naming:posts, naming:open, gallery:power, gallery:record).
  * Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id}, gallery:inbox:{id}) folgen aus dice:players.
  */
 export const K = {
@@ -49,6 +49,8 @@ export const K = {
   drawnOk: 'drawn:ok',
   /** Hash: {userId}:{Würfel-ID} → JSON der übermalten Zeichnung mit Strichen, Mod und Zeit (Protokoll für Einsprüche) */
   drawnWashed: 'drawn:washed',
+  /** Hash: {userId}:{Würfel-ID} → JSON der Meldungen einer Zeichnung (Zahl, wer, ob ein Mod sie danach freigegeben hat) */
+  drawnReports: 'drawn:reports',
   /** Hash: userId → JSON mit Name, Zeitpunkten der übermalten Zeichnungen und Sperre */
   drawnStrikes: 'drawn:strikes',
   /** JSON eines „What do you see?“-Posts (NamingInfo) */

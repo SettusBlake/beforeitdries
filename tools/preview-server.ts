@@ -8,14 +8,17 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
 import { diceBag, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
-import { reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
+import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
+import { loadState } from '../src/shared/duel/play';
+import { placements, rollable, ROLL_N, S } from '../src/shared/duel/rules';
 import { K } from '../src/server/keys';
 import { ensurePlayPost, playInfo } from '../src/server/play';
 import { dayKey } from '../src/shared/day';
+import { encodeDrawing } from '../src/shared/drawn';
 import { dieSpecies, PITY } from '../src/shared/dice';
 import { secureUint32 } from '../src/server/rand';
 import { FakeRedis } from './fake-redis';
@@ -108,13 +111,48 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/gallery/hang') return send(200, await galleryHang(d, asUser, b.on));
       if (url.pathname === '/api/gallery/test-self') return send(200, await galleryTestSelf(d, asUser, USER.name, b.on));
     }
+    if (url.pathname === '/api/drawn/report') {
+      let raw = '';
+      for await (const c of req) raw += c;
+      return send(200, await reportDrawing(d, asUser, JSON.parse(raw || '{}').slot));
+    }
+    // Nur in der Vorschau: das laufende Duell zu Ende spielen lassen (Sepia malt für dich), danach Continue zeigt das Ergebnis
+    if (url.pathname === '/dev/finish') {
+      let res = await duelGet(d, USER.id);
+      for (let g = 0; g < 400 && res.state && !res.state.over; g++) {
+        loadState(res.state);
+        const ph = S.phase;
+        const a =
+          ph === 'medium'
+            ? { k: 'medium', id: S.offer[0] }
+            : ph === 'opening'
+              ? (() => {
+                  const u = S.teams[0].units[0]!;
+                  const p = placements(u)[0]!;
+                  return { k: 'open', id: u.id, o: p.o, at: p.at };
+                })()
+              : ph === 'roll'
+                ? { k: 'roll', ids: rollable(S.teams[0]).slice(0, ROLL_N).map((u) => u.id) }
+                : { k: 'auto' };
+        res = await duelAct(d, USER.id, a, USER.name);
+      }
+      return send(200, { over: res.state?.over, winner: res.state?.winner, reward: res.reward });
+    }
     // Nur in der Vorschau: n andere Spieler hängen ihr Deck in die Galerie, inbox=k: dein Deck wurde k-mal herausgefordert
     if (url.pathname === '/dev/gallery') {
       const n = Number(url.searchParams.get('n') ?? 4);
       for (let i = 1; i <= n; i++) {
         const uid = `t2_gallery${i}`;
         await bagForDuel(d, uid);
-        await hangDeck(d, uid, ['inkwell', 'oldbrush', 'wet_on_wet', 'gamboge_girl', 'sizing', 'deckle_edge'][(i - 1) % 6]! + (i > 6 ? i : ''), await loadDice(d, uid));
+        const s = await loadDice(d, uid);
+        // draw=1: im ersten Deck ein gemaltes Monster, schon von einem Mod freigegeben (zum Ausprobieren von Report)
+        if (i === 1 && url.searchParams.has('draw')) {
+          const die = s.dice.find((x) => x.id === s.bag[0])!;
+          die.draw = encodeDrawing({ mirror: true, face: [0.5, 0.42], strokes: [[[0.5, 0.15], [0.3, 0.25], [0.22, 0.5], [0.3, 0.8], [0.5, 0.88]], [[0.32, 0.3], [0.18, 0.12]]] });
+          await saveDice(d, uid, s);
+          await d.redis.hSet(K.drawnOk, { [`${uid}:${die.id}`]: JSON.stringify({ key: `${uid}:${die.id}`, uid, user: 'inkwell', id: die.id, no: die.no, seed: 0, draw: die.draw, at: d.now, by: 'mod', when: d.now }) });
+        }
+        await hangDeck(d, uid, ['inkwell', 'oldbrush', 'wet_on_wet', 'gamboge_girl', 'sizing', 'deckle_edge'][(i - 1) % 6]! + (i > 6 ? i : ''), s);
       }
       const k = Number(url.searchParams.get('inbox') ?? 0);
       for (let i = 0; i < k; i++) await payOwner({ ...d, now: d.now + i }, USER.id, ([2, 2, 1, 0, 2, 1] as const)[i % 6]!, `painter_${i + 1}`);

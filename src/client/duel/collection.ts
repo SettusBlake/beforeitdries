@@ -15,6 +15,7 @@ import { api } from '../lib/api';
 import { loadSpecies, namingPost, speciesName, speciesNamedBy } from '../lib/species';
 import { initDraw, openDraw } from './draw';
 import { initReview, openReview } from './review';
+import { foeTag, galleryStatus, inboxText, setGalleryStatus } from './gallery';
 import { iconSvg, netSvg } from './icons';
 import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
@@ -148,6 +149,18 @@ function render(): void {
     $('painted-say').textContent = `I painted over ${nos.length > 1 ? nos.slice(0, -1).join(', ') + ' and ' + nos[nos.length - 1] : nos[0]}. Some things do not belong on my sheet.`;
   }
   ($('painted-ok') as HTMLButtonElement).disabled = busy;
+  // Was dein Deck in der Galerie erlebt hat, bis du es abholst
+  const gs = galleryStatus();
+  $('gallery-note').hidden = !gs?.inbox;
+  if (gs?.inbox) {
+    $('gallery-say').textContent = inboxText(gs);
+    $('gallery-who').textContent = gs.inbox.who.length ? `Last: ${gs.inbox.who.map(foeTag).join(', ')}` : '';
+    $('gallery-ok').textContent = gs.inbox.pig ? `Collect +${gs.inbox.pig} pigment` : 'OK';
+    ($('gallery-ok') as HTMLButtonElement).disabled = busy;
+  }
+  $('gallery-test').hidden = !tester;
+  $('gallery-test').textContent = `Playtest · mods only: gallery uses my own deck: ${s.testSelf ? 'on' : 'off'}`;
+  ($('gallery-test') as HTMLButtonElement).disabled = busy;
   $('blank-test').hidden = !tester;
   ($('blank-test') as HTMLButtonElement).disabled = busy;
   $('pigment-test').hidden = !tester;
@@ -233,6 +246,35 @@ function apply(r: DiceResponse): void {
   save = r.dice;
   freeReady = r.freeReady;
   if (r.tester !== undefined) tester = r.tester;
+  setGalleryStatus(r.gallery);
+  render();
+}
+
+/* ---------- Galerie: Bericht abholen, Test-Schalter ---------- */
+async function collectGallery(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  try {
+    const r = await api.galleryCollect();
+    apply(r);
+    if (r.collected) sfx.crest(2);
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
+async function testGallery(): Promise<void> {
+  if (busy || !save) return;
+  busy = true;
+  sfx.tap();
+  try {
+    apply(await api.galleryTestSelf(!save.testSelf));
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
   render();
 }
 
@@ -776,6 +818,8 @@ export function initDice(h: Hooks): void {
   $('blank-b').addEventListener('click', openBlank);
   $('blank-test').addEventListener('click', () => void testBlank());
   $('pigment-test').addEventListener('click', () => void testPigment());
+  $('gallery-ok').addEventListener('click', () => void collectGallery());
+  $('gallery-test').addEventListener('click', () => void testGallery());
   $('dice-back').addEventListener('click', () => {
     sfx.tap();
     swapIn = null;
@@ -801,6 +845,7 @@ export async function diceBadge(): Promise<string> {
     mod = !!r.mod;
     void loadSpecies();
     review = r.review ?? 0;
+    setGalleryStatus(r.gallery);
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.freeReady) return 'free dip';
     if (r.dice.blank) return 'blank canvas';

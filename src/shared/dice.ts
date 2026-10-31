@@ -120,7 +120,7 @@ export const REWARD = { win: 60, draw: 40, loss: 25, perDay: 5, tutorial: 200, n
 /** Gebühr für den Besitzer eines Galerie-Decks je Duell aus seiner Sicht, höchstens perDay am Tag (festgelegt am 31.10.2026) */
 export const GALLERY_FEE = { win: 15, draw: 8, loss: 3, perDay: 60 };
 /** Galerie: Gegner mit ähnlicher Stärke (erst 10 %, dann 25 % Abstand), aktiv heißt in den letzten 14 Tagen gespielt */
-export const GALLERY = { near: [0.1, 0.25], activeDays: 14, swaps: 1 };
+export const GALLERY = { near: [0.1, 0.25], activeDays: 14, swaps: 1, reportsPerDay: 5 };
 
 /** Sammlung eines Spielers. Liegt als JSON in Redis, hat keine Geheimnisse und geht so an den Client */
 export type DiceSave = {

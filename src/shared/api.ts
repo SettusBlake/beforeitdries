@@ -210,6 +210,8 @@ export interface ReviewItem {
   seed: number;
   draw: string;
   at: number;
+  /** Von Spielern gemeldet (so oft), steht oben in der Liste */
+  reported?: number;
 }
 /** Ein Spieler, der gerade nicht malen darf */
 export interface LockedPlayer {
