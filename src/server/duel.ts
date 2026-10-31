@@ -5,11 +5,12 @@
 import type { DuelResponse } from '../shared/api';
 import { DuelError, loadState, openDuel, perform, publicState, saveState, wornDice, type DuelAction, type DuelSave } from '../shared/duel/play';
 import { dieMonster } from '../shared/dice';
+import type { Monster } from '../shared/monster';
 import { BAG, drain, mk, newGame, S, type Level } from '../shared/duel/rules';
 import { startTutorial, TUTORIAL_SEED, tutorialBags } from '../shared/duel/tutorial';
 import { GameError, withLock, type Deps } from './core';
-import { bagForDuel, loadDice, payDuel, playerLock } from './dice';
-import { hangDeck, payOwner, takePick } from './gallery';
+import { bagForDuel, isTester, loadDice, payDuel, playerLock } from './dice';
+import { driftDice, hangDeck, payOwner, takePick } from './gallery';
 import { START_MEDIA } from '../shared/duel/media';
 import { K } from './keys';
 
@@ -40,14 +41,17 @@ export async function duelGet(d: Deps, userId: string | undefined): Promise<Duel
  * Neues Duell. gallery: gegen das Deck, das der Spieler in der Galerie gefunden hat (galleryFind),
  * mit dessen echten Werten, Lasuren, Patina und Malmitteln
  */
-export async function duelStart(d: Deps, userId: string | undefined, level: unknown, tutorial = false, gallery = false): Promise<DuelResponse> {
+export async function duelStart(d: Deps, userId: string | undefined, level: unknown, tutorial = false, gallery = false, username?: string): Promise<DuelResponse> {
   const uid = needUser(userId);
   const lv = LEVELS.find((l) => l === level) ?? 'apprentice';
   return withLock(d, playerLock(uid), async () => {
     // Der Beutel kommt aus der Würfelsammlung (vor newGame, weil danach kein await mehr kommen darf)
     const bag = tutorial ? [] : await bagForDuel(d, uid);
-    const unlocked = tutorial ? START_MEDIA : ((await loadDice(d, uid)).media ?? START_MEDIA);
+    const mine = tutorial ? null : await loadDice(d, uid);
+    const unlocked = mine?.media ?? START_MEDIA;
     const foe = gallery && !tutorial ? await takePick(d, uid) : null;
+    // Normales Duell: 1 oder 2 Würfel des Rivalen treiben aus dem Archiv zurück (Test-Schalter: auch die eigenen)
+    const drift = !tutorial && !foe ? await driftDice(d, uid, !!mine?.testSelf && (await isTester(d, username))) : [];
     if (tutorial) {
       // Lern-Duell: fester Seed und feste Beutel, Sepia gibt die ersten Runden vor
       // Die Formen sind nur Bild: auch das Lern-Duell zeigt die neuen (Generation 2), die Regeln bleiben gleich
@@ -71,7 +75,10 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
       S.foeKeys = foe.keys;
       S.rivalMedia = [...foe.media];
     } else {
-      const rival = Array.from({ length: BAG }, () => ({ ...mk(`rival-${d.rand().toString(36)}`, d.rand() % 12), gen: 2 as const }));
+      const rival: Monster[] = Array.from({ length: BAG }, () => ({ ...mk(`rival-${d.rand().toString(36)}`, d.rand() % 12), gen: 2 as const }));
+      // Archiv-Würfel auf die letzten Plätze, mit Lasur und Patina, die sie beim Auswaschen hatten
+      const slot = (i: number) => BAG - drift.length + i;
+      drift.forEach((x, i) => (rival[slot(i)] = dieMonster(x.die)));
       newGame(
         d.rand(),
         lv,
@@ -79,8 +86,17 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
         rival,
         d.rand(),
         bag.map((b) => b.mods),
+        rival.map((_, k) => drift[k - (BAG - drift.length)]?.die.mods ?? []),
       );
       S.dieIds = bag.map((b) => b.id);
+      S.foeDice = rival.map((_, k) => {
+        const x = drift[k - (BAG - drift.length)];
+        return x ? { ...(x.die.no ? { no: x.die.no } : {}), ...(x.die.draw ? { drawn: 1 as const } : {}), drift: x.name } : null;
+      });
+      S.foeKeys = rival.map((_, k) => {
+        const x = drift[k - (BAG - drift.length)];
+        return x?.die.draw ? `${x.from}:${x.die.id}` : null;
+      });
     }
     // Malmittel zur Wahl kommen aus den freigeschalteten (vorher geladen, nach newGame kein await mehr)
     S.unlocked = [...unlocked];

@@ -8,7 +8,7 @@ import { holoBake } from '../lib/holo';
 import { PIG } from '../../shared/data';
 import { RNG, hashStr } from '../../shared/rng';
 import { iconImage } from './icons';
-import { BRIM, COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type UnitSnap } from '../../shared/duel/rules';
+import { BRIM, COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type Unit, type UnitSnap } from '../../shared/duel/rules';
 import { sfx } from './sound';
 import { mediumDef } from '../../shared/duel/media';
 
@@ -233,6 +233,25 @@ function clearHaze(src: HTMLCanvasElement): HTMLCanvasElement {
   x.putImageData(img, 0, 0);
   return c;
 }
+/** Würfel des Rivalen, der aus dem Archiv zurückgetrieben ist */
+const drifted = (u: Unit): boolean => u.side === 2 && S.foeDice[S.teams[1].units.indexOf(u)]?.drift !== undefined;
+/** Ausgeblichen wie vom Rand des Blatts: weniger Farbe, heller, zum Rand hin durchscheinend */
+function bleach(src: HTMLCanvasElement): HTMLCanvasElement {
+  const n = src.width;
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const x = c.getContext('2d')!;
+  x.filter = 'saturate(0.45) brightness(1.1) contrast(0.9)';
+  x.drawImage(src, 0, 0);
+  x.filter = 'none';
+  x.globalCompositeOperation = 'destination-in';
+  const g = x.createRadialGradient(n / 2, n * 0.46, n * 0.22, n / 2, n * 0.46, n * 0.52);
+  g.addColorStop(0, 'rgba(0,0,0,1)');
+  g.addColorStop(1, 'rgba(0,0,0,0.45)');
+  x.fillStyle = g;
+  x.fillRect(0, 0, n, n);
+  return c;
+}
 /**
  * Ein Klecks frei stehend wie ein ausgeschnittener Aufkleber: ohne Papier, mit hellem Rand und leichtem Schatten,
  * damit er auf jeder Farbe lesbar bleibt. sil ist die helle Form allein (für Treffer-Blitze)
@@ -249,8 +268,9 @@ function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLC
     void painted(bareKey(u, size), u.m, size, { dpr, paper: false }, 2);
     return null;
   }
-  // Holo: die Folie steht im Duell still, nur auf dem Monster
-  const bare = u.m.holo ? holoBake(clearHaze(raw), u.m.seed, { shape: true }) : clearHaze(raw);
+  // Holo: die Folie steht im Duell still, nur auf dem Monster. Aus dem Archiv: ausgeblichen
+  const clean = drifted(u) ? bleach(clearHaze(raw)) : clearHaze(raw);
+  const bare = u.m.holo ? holoBake(clean, u.m.seed, { shape: true }) : clean;
   const S = bare.width;
   const mk = () => {
     const c = document.createElement('canvas');

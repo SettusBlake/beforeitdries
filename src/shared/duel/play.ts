@@ -154,12 +154,14 @@ export function publicState(): DuelState {
     stamp: S.stamp,
     log: S.log.slice(0, 40),
     tutorial: S.tutorial,
-    ...(S.foeName ? { foeName: S.foeName, foeDice: S.foeDice } : {}),
+    ...(S.foeName ? { foeName: S.foeName } : {}),
+    ...(S.foeDice.some(Boolean) ? { foeDice: S.foeDice } : {}),
   };
 }
 export function saveState(): string {
   const s: DuelSave = { ...publicState(), rng: S.rng, gameSeed: S.gameSeed, dieIds: S.dieIds };
-  if (S.foeId) Object.assign(s, { foeId: S.foeId, foeKeys: S.foeKeys });
+  if (S.foeId) s.foeId = S.foeId;
+  if (S.foeKeys.some(Boolean)) s.foeKeys = S.foeKeys;
   if (S.rivalMedia.length) s.rivalMedia = S.rivalMedia;
   return JSON.stringify(s);
 }

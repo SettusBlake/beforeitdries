@@ -77,7 +77,7 @@ app.post(
   wrap(async (req, res) => {
     sameProtocol(req);
     const body = (req.body ?? {}) as { level?: unknown; tutorial?: unknown; gallery?: unknown };
-    res.json(await duelStart(await deps(), context.userId, body.level, body.tutorial === true, body.gallery === true));
+    res.json(await duelStart(await deps(), context.userId, body.level, body.tutorial === true, body.gallery === true, await username()));
   }),
 );
 
@@ -173,7 +173,7 @@ app.post(
   '/api/dice/wash',
   wrap(async (req, res) => {
     const body = (req.body ?? {}) as { id?: unknown; confirm?: unknown };
-    res.json(await diceWash(await deps(), context.userId, body.id, body.confirm));
+    res.json(await diceWash(await deps(), context.userId, body.id, body.confirm, await username()));
   }),
 );
 app.post(

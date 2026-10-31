@@ -18,6 +18,7 @@ import { placements, rollable, ROLL_N, S } from '../src/shared/duel/rules';
 import { K } from '../src/server/keys';
 import { ensurePlayPost, playInfo } from '../src/server/play';
 import { dayKey } from '../src/shared/day';
+import { monsterSeed } from '../src/shared/monster';
 import { encodeDrawing } from '../src/shared/drawn';
 import { dieSpecies, PITY } from '../src/shared/dice';
 import { secureUint32 } from '../src/server/rand';
@@ -75,7 +76,7 @@ createServer(async (req, res) => {
       for await (const c of req) raw += c;
       const b = JSON.parse(raw || '{}');
       if (url.pathname === '/api/duel') return send(200, await duelGet(d, asUser));
-      if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true, b.gallery === true));
+      if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true, b.gallery === true, USER.name));
       if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action, USER.name));
     }
     if (url.pathname === '/api/play') return send(200, await playInfo(d, asUser));
@@ -93,7 +94,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
       if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));
-      if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id, b.confirm));
+      if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id, b.confirm, USER.name));
       if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing, USER.name));
       if (url.pathname === '/api/dice/seen') return send(200, await diceSeen(d, asUser));
       if (url.pathname === '/api/dice/share') {
@@ -119,8 +120,11 @@ createServer(async (req, res) => {
     // Nur in der Vorschau: das laufende Duell zu Ende spielen lassen (Sepia malt für dich), danach Continue zeigt das Ergebnis
     if (url.pathname === '/dev/finish') {
       let res = await duelGet(d, USER.id);
+      // round=n: nur bis Runde n (dein Zug, vor dem Wurf)
+      const stop = Number(url.searchParams.get('round') ?? 99);
       for (let g = 0; g < 400 && res.state && !res.state.over; g++) {
         loadState(res.state);
+        if (S.round >= stop && S.phase === 'roll') break;
         const ph = S.phase;
         const a =
           ph === 'medium'
@@ -153,6 +157,16 @@ createServer(async (req, res) => {
           await d.redis.hSet(K.drawnOk, { [`${uid}:${die.id}`]: JSON.stringify({ key: `${uid}:${die.id}`, uid, user: 'inkwell', id: die.id, no: die.no, seed: 0, draw: die.draw, at: d.now, by: 'mod', when: d.now }) });
         }
         await hangDeck(d, uid, ['inkwell', 'oldbrush', 'wet_on_wet', 'gamboge_girl', 'sizing', 'deckle_edge'][(i - 1) % 6]! + (i > 6 ? i : ''), s);
+      }
+      // archive=k: k Würfel des ersten Decks liegen im Archiv (ausgewaschen von inkwell), im normalen Duell treiben sie zurück
+      const ar = Number(url.searchParams.get('archive') ?? 0);
+      if (ar) {
+        const s1 = await loadDice(d, 't2_gallery1');
+        for (const die of s1.dice.slice(0, ar)) {
+          const seed = String(monsterSeed(die.sheet, die.idx));
+          await d.redis.hSet(K.recycled, { [seed]: JSON.stringify({ die, from: 't2_gallery1', at: d.now, rarity: 'common', name: 'inkwell' }) });
+          await d.redis.zAdd(K.recycledAt, { member: seed, score: d.now });
+        }
       }
       const k = Number(url.searchParams.get('inbox') ?? 0);
       for (let i = 0; i < k; i++) await payOwner({ ...d, now: d.now + i }, USER.id, ([2, 2, 1, 0, 2, 1] as const)[i % 6]!, `painter_${i + 1}`);

@@ -357,14 +357,15 @@ export async function diceGlaze(d: Deps, userId: string | undefined, id: unknown
 }
 
 /** Ein ausgewaschener Würfel im Archiv: alles, was ihn ausmacht, und woher er kommt */
-export type Recycled = { die: DieRec; from: string; at: number; rarity: Rarity };
+/** Ausgewaschener Würfel im Archiv: von wem (name seit 31.10.2026, für die Karte, wenn er beim Rivalen zurücktreibt) */
+export type Recycled = { die: DieRec; from: string; at: number; rarity: Rarity; name?: string };
 
 /**
  * Würfel auswaschen: er verlässt die Sammlung und gibt seiner Art Lasur (so viel wie ein Doppelter früher).
  * Nicht im Deck, und es bleiben immer genug Würfel für ein volles Deck. Gelöscht wird er nicht (festgelegt am 30.10.2026):
  * er kommt ins Archiv, später für Gegner und Marktplatz. Das Register zeigt recycled, als neuer Zug kommt er nie wieder.
  */
-export async function diceWash(d: Deps, userId: string | undefined, id: unknown, confirm?: unknown): Promise<DiceResponse> {
+export async function diceWash(d: Deps, userId: string | undefined, id: unknown, confirm?: unknown, username?: string): Promise<DiceResponse> {
   const uid = needUser(userId);
   if (typeof id !== 'string') throw new GameError('bad_request', 'Unknown die.');
   return withLock(d, playerLock(uid), async () => {
@@ -381,7 +382,7 @@ export async function diceWash(d: Deps, userId: string | undefined, id: unknown,
     s.glaze[key] = (s.glaze[key] ?? 0) + washGlaze(rarity);
     // Erst ins Archiv, dann aus der Sammlung: geht etwas schief, ist der Würfel lieber doppelt als weg
     const seed = String(monsterSeed(die.sheet, die.idx));
-    const rec: Recycled = { die, from: uid, at: d.now, rarity };
+    const rec: Recycled = { die, from: uid, at: d.now, rarity, ...(username ? { name: username } : {}) };
     await d.redis.hSet(K.recycled, { [seed]: JSON.stringify(rec) });
     await d.redis.zAdd(K.recycledAt, { member: seed, score: d.now });
     await d.redis.hSet(K.seeds, { [seed]: `recycled:${uid}:${die.id}` });

@@ -103,8 +103,11 @@ export type Side = 1 | 2;
 export type Phase = 'opening' | 'medium' | 'roll' | 'keep' | 'summon' | 'act' | 'over';
 /** gallery: Deck eines anderen Spielers, mit echten Werten (docs/entwuerfe/galerie-duell-plan.md) */
 export type Level = 'apprentice' | 'journeyman' | 'master' | 'gallery';
-/** Galerie-Duell: was die Karte eines Würfels des Rivalen zusätzlich zeigt (gleiche Reihenfolge wie die Kleckse) */
-export type FoeDie = { no?: number; glaze?: number; patina?: number; drawn?: 1 };
+/**
+ * Was die Karte eines Würfels des Rivalen zusätzlich zeigt (gleiche Reihenfolge wie die Kleckse): im Galerie-Duell
+ * Seriennummer, Lasur, Patina, gemalt. drift: aus dem Archiv zurückgetrieben, ausgewaschen von diesem Spieler ('' unbekannt)
+ */
+export type FoeDie = { no?: number; glaze?: number; patina?: number; drawn?: 1; drift?: string };
 export type Action = 'stamp' | 'splash' | 'soak' | 'ability' | 'none';
 export type Crest = 'step' | 'splash' | 'guard' | 'glow';
 type StatK = 'flo' | 'opa' | 'sat' | 'grn' | 'glw';
@@ -506,7 +509,7 @@ export const S = {
   paintSeed: 0,
   /** Würfel aus der Sammlung zu deinen Klecksen (gleiche Reihenfolge), bleibt am Server */
   dieIds: [] as string[],
-  /** Galerie-Duell: Name des Besitzers (leer: kein Galerie-Duell) und je Würfel des Rivalen, was seine Karte zeigt */
+  /** Galerie-Duell: Name des Besitzers (leer: kein Galerie-Duell) und je Würfel des Rivalen, was seine Karte zeigt (auch Archiv-Würfel) */
   foeName: '',
   foeDice: [] as (FoeDie | null)[],
   /** Galerie-Duell, nur am Server: Spieler, dem das Deck gehört, und je Würfel der Schlüssel seiner Zeichnung (zum Melden) */

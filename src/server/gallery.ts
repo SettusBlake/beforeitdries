@@ -11,7 +11,7 @@ import { START_MEDIA, type MediumId } from '../shared/duel/media';
 import { BAG, dieUnit, power, type FoeDie } from '../shared/duel/rules';
 import type { Monster } from '../shared/monster';
 import { GameError, withLock, type Deps } from './core';
-import { bagForDuel, isTester, loadDice, needUser, playerLock, respond, saveDice } from './dice';
+import { bagForDuel, isTester, loadDice, needUser, playerLock, respond, saveDice, type Recycled } from './dice';
 import { K } from './keys';
 
 /** Abzug eines Decks in der Galerie */
@@ -196,6 +196,31 @@ export async function takePick(
     keys: dice.map((x) => (x.draw ? `${owner}:${x.id}` : null)),
     media: snap.media,
   };
+}
+
+/** Ein Würfel aus dem Archiv, der beim Rivalen zurücktreibt */
+export type Drift = { die: DieRec; from: string; name: string };
+/**
+ * Aus dem Archiv (festgelegt am 31.10.2026): im normalen Duell bringt der Rivale 1 oder 2 ausgewaschene Monster
+ * anderer Spieler mit. Nie deine eigenen (außer mit dem Test-Schalter), Zeichnungen nur mit Freigabe
+ */
+export async function driftDice(d: Deps, uid: string, own: boolean): Promise<Drift[]> {
+  const total = await d.redis.zCard(K.recycledAt);
+  if (!total) return [];
+  const want = 1 + (d.rand() % 2);
+  const out: Drift[] = [];
+  const seen = new Set<string>();
+  for (let t = 0; t < 12 && out.length < want; t++) {
+    const k = d.rand() % total;
+    const m = (await d.redis.zRange(K.recycledAt, k, k, { by: 'rank' }))[0];
+    if (!m || seen.has(m.member)) continue;
+    seen.add(m.member);
+    const rec = parse<Recycled>(await d.redis.hGet(K.recycled, m.member));
+    if (!rec || (!own && rec.from === uid)) continue;
+    const [die] = await visibleDice(d, rec.from, [rec.die]);
+    out.push({ die: die!, from: rec.from, name: rec.name ?? (await loadSnap(d, rec.from))?.name ?? '' });
+  }
+  return out;
 }
 
 /** Gebühr und Bilanz für den Besitzer nach einem Galerie-Duell. winner aus Sicht des Herausforderers */

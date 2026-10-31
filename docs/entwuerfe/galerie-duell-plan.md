@@ -1,6 +1,6 @@
 # Plan: Galerie-Duell (andere Spieler im Duell)
 
-Stand 31.10.2026, Fassung 1. Gewünscht am 31.10.2026 („mach 1, schreib den plan“). Freigegeben am 31.10.2026 („alles ja“, alle sieben Fragen). Schritte 1 und 2 gebaut (siehe unten).
+Stand 31.10.2026, Fassung 1. Gewünscht am 31.10.2026 („mach 1, schreib den plan“). Freigegeben am 31.10.2026 („alles ja“, alle sieben Fragen). Alle drei Schritte gebaut (siehe unten), offen ist Frage 8.
 
 Entwurf: docs/entwuerfe/galerie-duell-entwurf.png (Attrappe auf der echten Vorschau, Quelle tools/mockup/galerie-entwurf.cjs).
 
@@ -114,6 +114,13 @@ Allein im Test-Subreddit gibt es keine fremden Decks und kein fremdes Archiv. De
 - Your dice: Sepias Bericht mit den letzten Herausforderern und „Collect +X pigment“. Menü: „Gallery: my deck hangs / is down“. Test-Schalter für Mods im Playtest.
 - Melden (`reportDrawing` in src/server/drawings.ts, /api/drawn/report, Redis `drawn:reports`): je Spieler und Zeichnung einmal, höchstens 5 am Tag. Ohne Freigabe nach einer Meldung sofort für andere ausgeblendet. „Review drawings“ zeigt gemeldete zuerst mit „Reported ×N“, OK zeigt sie wieder, danach kommt sie bei weiteren Meldungen nur in die Liste.
 - Vorschau: /dev/gallery?n=1&inbox=4&draw=1 (ein Deck mit freigegebener Zeichnung, vier Herausforderungen an dein Deck), /dev/finish spielt das laufende Duell zu Ende.
+
+**Schritt 3 (Archiv-Würfel), 31.10.2026, Playtest v0.0.1.91, Bild docs/entwuerfe/galerie-archiv.png:**
+
+- Im normalen Duell (Apprentice, Journeyman, Master) kommen 1 oder 2 der 9 Würfel des Rivalen aus dem Archiv (`driftDice` in src/server/gallery.ts), mit der Lasur und Patina, die sie beim Auswaschen hatten, und mit dem Auf- oder Abschlag der Stufe. Nie die eigenen (Test-Schalter: auch die eigenen), Zeichnungen nur mit Freigabe, gemalte lassen sich melden.
+- Anzeige: Würfel-Chip mit gestricheltem Rand und blassem Bild, Aufkleber auf dem Blatt ausgeblichen und zum Rand durchscheinend (`bleach` in view.ts), Karte mit „Drifted back from the margins · washed out by u/name · #Nummer“.
+- Der Name kommt seit heute beim Auswaschen ins Archiv (`name`), für ältere Einträge aus dem Galerie-Abzug, sonst „another painter“.
+- Vorschau: /dev/gallery?n=1&archive=4, /dev/finish?round=3 spielt bis Runde 3.
 
 ## Später (nicht in diesem Plan)
 

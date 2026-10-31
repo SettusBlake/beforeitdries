@@ -1,7 +1,7 @@
 /* Galerie-Duell: Abzug nach dem Duell, Suche nach ähnlicher Stärke, Duell gegen echte Würfel, Gebühr, Abholen, Schalter */
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
-import { diceGet, loadDice, saveDice } from '../src/server/dice';
+import { bagForDuel, diceGet, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelStart } from '../src/server/duel';
 import { reportDrawing, reviewList, reviewOk } from '../src/server/drawings';
 import { deckPower, galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
@@ -9,6 +9,7 @@ import { K } from '../src/server/keys';
 import type { DuelResponse } from '../src/shared/api';
 import { dieMonster, GALLERY_FEE } from '../src/shared/dice';
 import { encodeDrawing } from '../src/shared/drawn';
+import { monsterSeed } from '../src/shared/monster';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
 import { tutorialAction, tutorialActive } from '../src/shared/duel/tutorial';
 import { canMove, dieUnit, idx, placements, reach, rollable, ROLL_N, S, summonable, unitById, type Rolled } from '../src/shared/duel/rules';
@@ -228,6 +229,49 @@ describe('Galerie-Duell', () => {
     expect((await reportDrawing(d, 't2_third', 2)).reported).toBe(2);
     expect(await d.redis.hGet(K.drawnOk, key)).toBeDefined();
     expect((await reviewList(d, 'Vegavild')).items[0]?.reported).toBe(2);
+  });
+
+  it('Archiv: im normalen Duell treiben 1 oder 2 ausgewaschene Monster anderer Spieler beim Rivalen zurück', async () => {
+    const d = setup(12);
+    await bagForDuel(d, A);
+    const sa = await loadDice(d, A);
+    const [x, y] = sa.dice;
+    y!.draw = encodeDrawing({ mirror: true, face: null, strokes: [[[0.5, 0.2], [0.3, 0.3], [0.2, 0.5], [0.3, 0.7], [0.5, 0.8]]] });
+    for (const die of [x!, y!]) {
+      const seed = String(monsterSeed(die.sheet, die.idx));
+      await d.redis.hSet(K.recycled, { [seed]: JSON.stringify({ die, from: A, at: d.now, rarity: 'common', name: 'oldbrush' }) });
+      await d.redis.zAdd(K.recycledAt, { member: seed, score: d.now });
+    }
+    // Nie die eigenen
+    const own = (await duelStart(d, A, 'apprentice')).state!;
+    expect(own.foeDice).toBeUndefined();
+    // Andere bekommen sie, die Zeichnung erst nach Freigabe
+    let sawDrawn = false;
+    for (let i = 0; i < 6; i++) {
+      if (i === 3) await d.redis.hSet(K.drawnOk, { [`${A}:${y!.id}`]: '{}' });
+      const st = (await duelStart(d, B, 'apprentice')).state!;
+      loadState(st);
+      const drift = (st.foeDice ?? []).map((f, k) => [f, k] as const).filter(([f]) => f?.drift !== undefined);
+      expect(drift.length).toBeGreaterThanOrEqual(1);
+      expect(drift.length).toBeLessThanOrEqual(2);
+      for (const [f, k] of drift) {
+        expect(f!.drift).toBe('oldbrush');
+        const src = [x!, y!].find((z) => monsterSeed(z.sheet, z.idx) === S.teams[1].units[k]!.m.seed)!;
+        expect(src).toBeDefined();
+        expect(f!.no).toBe(src.no);
+        // Ohne Freigabe keine Zeichnung, danach mit Melden
+        // Nach der Meldung wieder ausgeblendet, bis ein Mod entscheidet
+        if (src === y) {
+          expect(!!S.teams[1].units[k]!.m.draw).toBe(i >= 3 && !sawDrawn);
+          if (i >= 3 && !sawDrawn) {
+            sawDrawn = true;
+            expect(f!.drawn).toBe(1);
+            expect((await reportDrawing(d, B, k)).reported).toBe(1);
+          }
+        }
+      }
+    }
+    expect(sawDrawn).toBe(true);
   });
 
   it('Test-Schalter: nur Mods im Playtest, dann das eigene Deck', async () => {

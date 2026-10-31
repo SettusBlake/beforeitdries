@@ -622,7 +622,7 @@ function renderTop(): void {
   for (const u of S.teams[1].units) {
     const v = V.units.get(u.id);
     const st = v?.state ?? 'bag';
-    const b2 = el('button', `rd st-${st} r-${u.rarity}` + (st === 'bag' && (v?.used ?? u.used) ? ' used' : '')) as HTMLButtonElement;
+    const b2 = el('button', `rd st-${st} r-${u.rarity}` + (st === 'bag' && (v?.used ?? u.used) ? ' used' : '') + (S.foeDice[S.teams[1].units.indexOf(u)]?.drift !== undefined ? ' drift' : '')) as HTMLButtonElement;
     b2.type = 'button';
     b2.style.setProperty('--c', rarityDef(u.rarity).col);
     b2.title = u.name;
@@ -1596,8 +1596,12 @@ function openInspect(u: Unit): void {
   box.append(top);
   // Galerie-Duell: wem der Würfel gehört, dazu Melden bei gemalten Monstern
   const k = u.side === 2 ? S.teams[1].units.indexOf(u) : -1;
-  const fd = k >= 0 && S.foeName ? S.foeDice[k] : null;
-  if (k >= 0 && S.foeName) {
+  const fd = k >= 0 ? (S.foeDice[k] ?? null) : null;
+  // Aus dem Archiv zurückgetrieben: ausgewaschen von einem anderen Spieler
+  if (fd && fd.drift !== undefined) {
+    top.querySelector('canvas')?.classList.add('faded');
+    box.append(html('p', 'gal-owner drift', `Drifted back from the margins · washed out by ${fd.drift ? `<b>${esc(foeTag(fd.drift))}</b>` : 'another painter'}${fd.no ? ' · ' + serialText(fd.no) : ''}`));
+  } else if (k >= 0 && S.foeName) {
     const bits = [fd?.no ? serialText(fd.no) : '', fd?.glaze ? `glaze ${fd.glaze}` : '', fd?.patina ? `patina ${fd.patina}/3` : ''].filter(Boolean);
     box.append(html('p', 'gal-owner', `From <b>${esc(foeTag(S.foeName))}</b>'s deck${bits.length ? ' · ' + bits.join(' · ') : ''}`));
   }
