@@ -1,0 +1,13 @@
+/* Würfel-Häute (Entwurf 01.11.2026): Seite als ganzes SVG, Holo-Folie über jeder Seite */
+.d3face.skin { background: none; border: 0; overflow: hidden; box-shadow: inset 0 -6px 10px rgba(30,25,20,.12); }
+.d3face.skin > svg { width: 100%; height: 100%; }
+.holo-die .d3face, .fface.holo { overflow: hidden; }
+.holo-die .d3face::after, .fface.holo::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background-image: repeating-linear-gradient(115deg, hsl(0 95% 62%) 0%, hsl(40 95% 60%) 6%, hsl(80 95% 58%) 12%, hsl(160 90% 55%) 18%, hsl(205 95% 60%) 24%, hsl(265 90% 66%) 30%, hsl(330 90% 64%) 36%, hsl(360 95% 62%) 42%);
+  background-size: 300% 300%; mix-blend-mode: color-dodge; opacity: .6; animation: holoDie 3.6s linear infinite; }
+.holo-die .d3face::before, .fface.holo::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; padding: 2.5px;
+  background: conic-gradient(from var(--hh, 0deg), #ff6b6b, #ffd36b, #8cff9e, #6bd5ff, #b46bff, #ff6b6b);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+.holo-die .d3shadow { background: radial-gradient(ellipse, rgba(180,107,255,.45), rgba(107,213,255,.25) 60%, transparent); }
+@keyframes holoDie { to { background-position: 300% 300%; } }
+@media (prefers-reduced-motion: reduce) { .holo-die .d3face::after, .fface.holo::after { animation: none; } }

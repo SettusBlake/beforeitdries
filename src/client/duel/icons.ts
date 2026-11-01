@@ -44,20 +44,23 @@ export function washSvg(c: PigmentId): string {
 export const MUD_SVG =
   '<path d="M2.2 10.6c.4-4.6 3.6-7.6 7.9-7.7 4.6-.1 7.7 3 7.7 7.2 0 4.4-3.4 7.4-7.8 7.3-4.5-.1-8.1-2.7-7.8-6.8z" fill="#74644f" fill-opacity=".88"/><circle cx="6.2" cy="8" r="1.3" fill="#5c4e3d"/><circle cx="13.4" cy="12.6" r="1.7" fill="#5c4e3d"/><text x="10" y="12.3" font-size="5.4" text-anchor="middle" fill="#efe6d6" font-family="JetBrains Mono, monospace" font-weight="700">MUD</text>';
 /** Ein Symbol verkleinert an eine Stelle der Seite */
-const small = (c: Crest, x: number, y: number, s: number) => `<g transform="translate(${x},${y}) scale(${s})">${ICON_PATH[c].replace(/"C"/g, `"${crestDef(c).col}"`)}</g>`;
+const small = (c: Crest, x: number, y: number, s: number, ink?: string) => `<g transform="translate(${x},${y}) scale(${s})">${ICON_PATH[c].replace(/"C"/g, `"${ink ?? crestDef(c).col}"`)}</g>`;
 export function iconInner(f: Face): string {
   return (f.c ? washSvg(f.c) : '') + symbolInner(f);
 }
-function symbolInner(f: Face): string {
-  const col = faceCol(f);
+/**
+ * Das Symbol einer Seite (Raster 20 × 20). ink: alle Symbole in einer Farbe (für Stil-Würfel), paper: Farbe der Zahl im Stern
+ */
+export function symbolInner(f: Face, ink?: string, paper = '#fff'): string {
+  const col = ink ?? faceCol(f);
   // Doppel-, Dreifach- und Mischseiten zeigen jedes Symbol einzeln (festgelegt am 30.10.2026: Doppelseiten sichtbar)
   if (f.k !== 'star' && f.k !== 'joker' && f.k !== 'gold') {
-    if (f.k2) return `<path d="M19 1L1 19" stroke="#cfcabd" stroke-width=".8"/>${small(f.k, -0.5, -0.5, 0.6)}${small(f.k2, 8.5, 8.5, 0.6)}`;
-    if (f.n === 2) return `${small(f.k, -0.5, -0.5, 0.62)}${small(f.k, 8, 8, 0.62)}`;
-    if (f.n >= 3) return `${small(f.k, 4.6, -0.6, 0.54)}${small(f.k, -0.4, 9, 0.54)}${small(f.k, 9.6, 9, 0.54)}`;
+    if (f.k2) return `<path d="M19 1L1 19" stroke="${ink ?? '#cfcabd'}" stroke-opacity="${ink ? 0.5 : 1}" stroke-width=".8"/>${small(f.k, -0.5, -0.5, 0.6, ink)}${small(f.k2, 8.5, 8.5, 0.6, ink)}`;
+    if (f.n === 2) return `${small(f.k, -0.5, -0.5, 0.62, ink)}${small(f.k, 8, 8, 0.62, ink)}`;
+    if (f.n >= 3) return `${small(f.k, 4.6, -0.6, 0.54, ink)}${small(f.k, -0.4, 9, 0.54, ink)}${small(f.k, 9.6, 9, 0.54, ink)}`;
   }
   let inner = ICON_PATH[f.k].replace(/"C"/g, `"${col}"`);
-  if (f.k === 'star' || f.k === 'joker') inner += `<text x="10" y="13.3" font-size="7.4" text-anchor="middle" fill="#fff" font-family="JetBrains Mono, monospace" font-weight="700">${f.k === 'joker' ? '?' : f.n}</text>`;
+  if (f.k === 'star' || f.k === 'joker') inner += `<text x="10" y="13.3" font-size="7.4" text-anchor="middle" fill="${paper}" font-family="JetBrains Mono, monospace" font-weight="700">${f.k === 'joker' ? '?' : f.n}</text>`;
   else if (f.k === 'gold') inner += `<path d="M10 6.2l1.1 2.4 2.6.3-1.9 1.8.5 2.6-2.3-1.3-2.3 1.3.5-2.6-1.9-1.8 2.6-.3z" fill="#fff4c9"/>`;
   return inner;
 }

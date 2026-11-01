@@ -1,7 +1,8 @@
 /* Echte 3D-Würfel aus CSS: sechs Seiten, rollen, springen und bleiben mit der geworfenen Seite oben liegen */
 import { iconSvg, MUD_SVG } from './icons';
 import type { Face } from '../../shared/duel/rules';
-import { PIG } from '../../shared/data';
+import { PIG, type RGB } from '../../shared/data';
+import { faceSvg, type Skin } from './faceskin';
 
 /** Lage der Seiten am Würfel und die Drehung, die eine Seite nach vorne bringt */
 const FACE_T = ['rotateY(0deg)', 'rotateY(90deg)', 'rotateY(180deg)', 'rotateY(-90deg)', 'rotateX(90deg)', 'rotateX(-90deg)'];
@@ -14,10 +15,13 @@ const SHOW: [number, number][] = [
   [90, 0],
 ];
 
-export function makeCube(faces: Face[], size: number, tint: string): HTMLElement {
+/** Haut der Seiten (Entwurf Würfel-Häute) und Holo-Folie, sonst wie bisher */
+export type CubeLook = { skin?: Skin; holo?: boolean; tint?: RGB };
+export function makeCube(faces: Face[], size: number, tint: string, look: CubeLook = {}): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.className = 'die3';
+  wrap.className = 'die3' + (look.holo ? ' holo-die' : '');
   wrap.style.width = wrap.style.height = size + 'px';
+  if (look.skin) wrap.dataset.skin = look.skin;
   const shadow = document.createElement('div');
   shadow.className = 'd3shadow';
   const bounce = document.createElement('div');
@@ -26,11 +30,14 @@ export function makeCube(faces: Face[], size: number, tint: string): HTMLElement
   cube.className = 'd3cube';
   faces.forEach((f, k) => {
     const d = document.createElement('div');
-    d.className = 'd3face' + (f.k === 'star' ? ' star' : '');
+    d.className = 'd3face' + (f.k === 'star' ? ' star' : '') + (look.skin ? ' skin' : '');
     d.style.transform = `${FACE_T[k]} translateZ(${size / 2}px)`;
-    // Rand in der Farbe der Seite (Kampf A), Sterne und Joker im Ton des Würfels
-    d.style.borderColor = f.c ? `rgb(${PIG[f.c].rgb})` : tint;
-    d.innerHTML = iconSvg(f, Math.round(size * 0.6));
+    if (look.skin) d.innerHTML = faceSvg(f, look.skin, size, look.tint);
+    else {
+      // Rand in der Farbe der Seite (Kampf A), Sterne und Joker im Ton des Würfels
+      d.style.borderColor = f.c ? `rgb(${PIG[f.c].rgb})` : tint;
+      d.innerHTML = iconSvg(f, Math.round(size * 0.6));
+    }
     cube.append(d);
   });
   bounce.append(cube);
@@ -43,8 +50,9 @@ export function setCubeFace(wrap: HTMLElement, fi: number, f: Face, mud: boolean
   const d = wrap.querySelectorAll('.d3face')[fi] as HTMLElement | undefined;
   if (!d) return;
   const px = Math.round(wrap.offsetWidth * 0.6) || 30;
+  const skin = wrap.dataset.skin as Skin | undefined;
   d.classList.toggle('mud', mud);
-  d.innerHTML = mud ? `<svg width="${px}" height="${px}" viewBox="0 0 20 20" aria-hidden="true">${MUD_SVG}</svg>` : iconSvg(f, px);
+  d.innerHTML = mud ? `<svg width="${px}" height="${px}" viewBox="0 0 20 20" aria-hidden="true">${MUD_SVG}</svg>` : skin ? faceSvg(f, skin, wrap.offsetWidth || 40) : iconSvg(f, px);
 }
 
 /** Einen Würfel rollen lassen, er bleibt auf Seite fi liegen */

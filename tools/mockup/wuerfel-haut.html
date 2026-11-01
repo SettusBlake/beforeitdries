@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/young-serif/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-700.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-700.css" />
+    <link rel="stylesheet" href="../../src/client/duel/dieskin.css" />
+    <style>
+      :root { --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --line: #cfcabd; }
+      body { margin: 0; padding: 24px; background: var(--table); font-family: Figtree, sans-serif; color: var(--ink); width: 1100px; }
+      .eyebrow { margin: 0; font: 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+      h1 { margin: 6px 0 4px; font: 400 1.9rem 'Young Serif', serif; }
+      h2 { margin: 0 0 8px; font: 400 1.25rem 'Young Serif', serif; }
+      .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .card { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .card.wide { grid-column: 1 / -1; }
+      .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; line-height: 1.4; }
+      .note b { color: var(--ink); }
+      .vrow { display: grid; grid-template-columns: 92px 84px 1fr; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px dashed var(--line); }
+      .vrow:first-of-type { border-top: 0; }
+      .vrow .lbl b { display: block; font-size: 14px; }
+      .vrow .lbl small { color: var(--muted); font-size: 12px; }
+      .faces { display: flex; gap: 6px; flex-wrap: wrap; }
+      .fface { position: relative; width: 46px; height: 46px; border-radius: 7px; overflow: hidden; box-shadow: 0 1px 3px rgba(30,25,20,.2); }
+      .fface svg { width: 46px; height: 46px; }
+      .stage { width: 84px; height: 84px; perspective: 420px; display: grid; place-items: center; }
+      .die3 { position: relative; transform-style: preserve-3d; }
+      .d3bounce, .d3cube { position: absolute; inset: 0; transform-style: preserve-3d; }
+      .d3cube { transform: rotateX(-24deg) rotateY(-34deg); }
+      .d3shadow { position: absolute; left: 10%; right: 10%; bottom: -14px; height: 10px; border-radius: 50%; background: rgba(30,25,20,.3); filter: blur(3px); }
+      .d3face { position: absolute; inset: 0; display: grid; place-items: center; background: #fffdf8; border: 2.5px solid; border-radius: 9px; backface-visibility: hidden; }
+      .pigs { display: grid; grid-template-columns: 92px repeat(8, 52px); gap: 6px 8px; align-items: center; }
+      .pigs small { font: 700 10px 'JetBrains Mono', monospace; color: var(--muted); text-align: center; }
+      .styles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+      .sty { display: grid; justify-items: center; gap: 6px; padding: 10px 6px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+      .sty .pair { display: flex; align-items: center; gap: 10px; }
+      .sty canvas { width: 58px; height: 58px; border-radius: 8px; }
+      .sty b { font-size: 13px; }
+      .sty small { font-size: 11px; color: var(--muted); }
+      .holo-row { display: flex; gap: 22px; align-items: center; }
+    </style>
+  </head>
+  <body>
+    <p class="eyebrow">Before It Dries · draft 01.11.2026 · dice skins</p>
+    <h1>Dice you can read, dice that shine</h1>
+    <p class="sub">Real dice from the game. Left: the cube as it lands on the stage. Right: all six faces.</p>
+    <div class="grid" id="grid"></div>
+    <script src="wuerfel-haut.js"></script>
+  </body>
+</html>
