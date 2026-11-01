@@ -12,7 +12,7 @@ import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '.
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from '../src/server/market';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
-import { bleachAct, bleachGet, bleachStart } from '../src/server/bleach';
+import { bleachAct, bleachGet, bleachShare, bleachStart, ensureSheetPost, sheetGet } from '../src/server/bleach';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { DUEL_PROTOCOL, PROTO_HEADER, type DuelReward } from '../src/shared/api';
 import { loadState } from '../src/shared/duel/play';
@@ -32,6 +32,8 @@ const PORT = Number(process.env.PORT ?? 5174);
 const ROOT = path.resolve(process.env.DIST ?? 'dist/client');
 const DRY_MS = Number(process.env.DRY_MS ?? 8 * 3600000);
 const USER = { id: 't2_preview', name: 'preview_painter' };
+/** Vorschau des Tagesposts am nächsten Tag (fertige Rangliste) */
+let sheetLater = false;
 
 const redis = new FakeRedis();
 const reddit = new FakeReddit();
@@ -91,7 +93,39 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/bleach') return send(200, await bleachGet(d, asUser, USER.name));
       if (url.pathname === '/api/bleach/start') return send(200, await bleachStart(d, asUser, USER.name, b.test === true));
       if (url.pathname === '/api/bleach/act') return send(200, await bleachAct(d, asUser, b.action, USER.name));
+      if (url.pathname === '/api/bleach/share') return send(200, await bleachShare(d, asUser, USER.name, b.test === true));
     }
+    // Tagespost: Vorschau zeigt den Post des Tages, mit /dev/sheet?later=1 den Stand am nächsten Tag (fertige Rangliste)
+    if (url.pathname === '/api/sheet') {
+      const post = await ensureSheetPost(d);
+      return send(200, await sheetGet(sheetLater ? { ...d, now: d.now + 86_400_000 } : d, asUser, post.id));
+    }
+    if (url.pathname === '/dev/sheet') {
+      sheetLater = url.searchParams.get('later') === '1';
+      // n Maler spielen das Tagesblatt (Sepia spielt für sie)
+      const n = Number(url.searchParams.get('n') ?? 0);
+      const names = ['inkwell', 'oldbrush', 'gumdrop', 'saltmarsh', 'umberella', 'washday', 'deckle', 'cotman', 'hake', 'sable', 'mopbrush', 'rigger'];
+      for (let k = 0; k < n; k++) {
+        const uid = `t2_sheet${Date.now()}_${k}`;
+        const s = await loadDice(d, uid);
+        s.tutorialPaid = true;
+        s.color = (['carmine', 'viridian', 'cadmium', 'violet', 'cerulean', 'sepia', 'rose', 'lemon', 'sap', 'turquoise', 'magenta', 'coral'] as const)[k % 12];
+        await saveDice(d, uid, s);
+        const dk = { ...d, now: d.now + k * 1000 };
+        let r = await bleachStart(dk, uid, names[k % names.length]);
+        loadState(r.state!);
+        const u = S.teams[0].units[0]!;
+        const p = placements(u)[0]!;
+        r = await bleachAct(dk, uid, { k: 'open', id: u.id, o: p.o, at: p.at }, names[k % names.length]);
+        for (let g = 0; g < 60 && !r.state!.over; g++) {
+          loadState(r.state!);
+          const a = S.phase === 'roll' ? { k: 'roll' as const, ids: S.teams[0].units.filter((x) => x.state === 'bag' && !x.used).slice(0, 3).map((x) => x.id) } : { k: 'auto' as const };
+          r = await bleachAct(dk, uid, a, names[k % names.length]);
+        }
+      }
+      return send(200, { later: sheetLater, played: n });
+    }
+    if (url.pathname === '/dev/comments') return send(200, reddit.appComments);
     if (url.pathname === '/api/play') return send(200, await playInfo(d, asUser));
     if (url.pathname.startsWith('/api/dice')) {
       let raw = '';

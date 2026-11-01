@@ -4,7 +4,7 @@ import type { CommentLike, RedditLike } from '../src/server/core';
 export class FakeReddit implements RedditLike {
   posts: { id: string; title: string; postData: unknown; entry?: string; sticky?: boolean }[] = [];
   comments = new Map<string, CommentLike[]>();
-  appComments: { id: string; text: string }[] = [];
+  appComments: { id: string; text: string; runAs?: 'USER' | 'APP' }[] = [];
   private n = 0;
 
   async submitCustomPost(opts: Parameters<RedditLike['submitCustomPost']>[0]) {
@@ -23,8 +23,8 @@ export class FakeReddit implements RedditLike {
   getComments(opts: { postId: `t3_${string}` }) {
     return { all: async () => [...(this.comments.get(opts.postId) ?? [])] };
   }
-  async submitComment(opts: { id: `t3_${string}`; text: string }) {
-    this.appComments.push({ id: opts.id, text: opts.text });
+  async submitComment(opts: { id: `t3_${string}`; text: string; runAs?: 'USER' | 'APP' }) {
+    this.appComments.push({ id: opts.id, text: opts.text, ...(opts.runAs ? { runAs: opts.runAs } : {}) });
     return {};
   }
   mods: string[] = [];

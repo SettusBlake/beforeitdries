@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type GlazeResponse, type InitResponse, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type GlazeResponse, type InitResponse, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type ShareSheetResponse, type SheetResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
 import type { PullKind, StyleId } from '../../shared/dice';
 import type { ColorId } from '../../shared/colors';
 import type { DuelAction } from '../../shared/duel/play';
@@ -42,6 +42,8 @@ export const api = {
   bleach: () => call<BleachInfo & { state: DuelResponse['state'] }>('/api/bleach'),
   bleachStart: (test = false) => call<DuelResponse>('/api/bleach/start', { test }),
   bleachAct: (action: DuelAction) => call<DuelResponse>('/api/bleach/act', { action }),
+  bleachShare: (test = false) => call<ShareSheetResponse>('/api/bleach/share', { test }),
+  sheet: () => call<SheetResponse>('/api/sheet'),
   play: () => call<PlayInfo>('/api/play'),
   dice: () => call<DiceResponse>('/api/dice'),
   dicePull: (kind: PullKind) => call<DiceResponse>('/api/dice/pull', { kind }),

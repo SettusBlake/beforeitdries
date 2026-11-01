@@ -1,6 +1,6 @@
 # Plan: Bleach, das Tagesblatt gegen die Bleiche vom Rand
 
-Stand 02.11.2026, Fassung 2.
+Stand 02.11.2026, Fassung 2. Schritte 1 bis 3 gebaut.
 
 - **Freigegeben** am 02.11.2026 („alles Empfehlung“, alle 8 Fragen).
 - **Schritt 1 gebaut** (Regeln, Server, Simulation, Tests, Knopf „Today’s sheet“): Playtest v0.0.1.127, Bild docs/entwuerfe/bleach-schritt1.png.
@@ -201,7 +201,14 @@ Gebaute Fassung im Einzelnen:
    - **Sepia erklärt beim ersten Mal** in drei Sätzen (einmal je Gerät).
    - **Hilfe:** neuer Abschnitt „Today’s sheet (Bleach)“.
    - DUEL_PROTOCOL 19.
-3. **Tagespost und Teilen:** Scheduler, Rangliste und beste Blätter im Post, Kommentar als Spieler.
+3. **Tagespost und Teilen:** gebaut. Bild docs/entwuerfe/tagespost-und-teilen.png.
+   - **Tagespost:** Der Scheduler (`daily-sheet`, 00:02 UTC) legt „Today’s sheet · Nov 2 · Hold the edge against the Bleach“ vom App-Konto an, Einstieg `sheet` (src/client/sheet.ts). Mod-Menü „post today's sheet now“ legt sofort einen neuen an (der neueste ist der Post des Tages, ältere zeigen dieselbe Rangliste).
+   - **Im Post, solange der Tag läuft:** Tagesfarbe, die fünf Wellen mit dem großen Pale in Welle 3, Knopf „Play today’s sheet“ (öffnet das Spiel und startet gleich das Tagesblatt, auch vom Post eines früheren Tages), danach „Continue your sheet“ oder „Open the game“, dein Platz, Top 10 mit kleinen Blättern in der Spielfarbe des Malers, Zahl der Maler. Neu geladen jede Minute.
+   - **Am nächsten Tag:** „Final board“, das beste Blatt groß, die fertige Rangliste. Gemalt aus dem Endstand, der mit jedem Ergebnis gespeichert wird (Blatt-Code, 48 Zeichen, src/shared/sheet.ts), kein Bild gespeichert.
+   - **Teilen als Kommentar:** im Ergebnis „Share as a comment“. Der erste Tipp zeigt den Kommentar (Quadrate in der Spielfarbe, Papier, Schlamm, Palette, Punkte, Platz, Herzen, ausgewaschene Pales), der zweite postet ihn mit `runAs: 'USER'` unter den Tagespost, danach „Open today’s post“. Wer das Ergebnis schon geschlossen hat, findet im Startbild „Share your sheet as a comment“ (zweiter Tipp). Höchstens einmal am Tag. Fehlt der Tagespost noch, legt das Teilen ihn an.
+   - **Abweichung:** devvit.json bekommt `scope: "user"` statt `asUser`. Laut Devvit-Schema ist `asUser` derzeit ohne Wirkung, `scope: "user"` ist der vorgesehene Weg.
+   - **Test:** Ein Testblatt (Playtest, nur Mods) lässt sich einmal je Testlauf teilen, als „Test sheet (not ranked)“.
+   - **Server:** `ensureSheetPost`, `sheetGet`, `bleachShare` in src/server/bleach.ts, Routen /api/sheet und /api/bleach/share, Redis `bleach:post:{Tag}` und `bleach:postday`. Tests in tests/bleach.test.ts.
 
 ## Fragen (beantwortet am 02.11.2026, „alles Empfehlung“)
 

@@ -48,6 +48,46 @@ export interface NamePostData {
   [key: string]: string | number;
   kind: 'name';
 }
+/** postData des Tagesposts (Bleach): der Tag, Rangliste in Redis */
+export interface SheetPostData {
+  [key: string]: string | number;
+  kind: 'sheet';
+  day: string;
+}
+/** Eine Zeile der Rangliste im Tagespost */
+export interface SheetRow {
+  rank: number;
+  name: string;
+  points: number;
+  sheet?: string;
+  col?: ColorId;
+  hearts?: number;
+  me?: boolean;
+}
+/** Was der Tagespost zeigt: heute mit Knopf und laufender Rangliste, danach die fertige mit dem besten Blatt */
+export interface SheetResponse {
+  day: string;
+  /** Der Tag läuft noch (UTC) */
+  today: boolean;
+  colour: PigmentId;
+  players: number;
+  top: SheetRow[];
+  /** Dein Platz (auch außerhalb der Top 10) */
+  me: SheetRow | null;
+  user: boolean;
+  unlocked: boolean;
+  running: boolean;
+  /** Pales je Welle und die Welle mit dem großen */
+  waves: number[];
+  bossWave: number;
+  now: number;
+}
+/** Antwort auf „Share as a comment“ */
+export interface ShareSheetResponse {
+  postId: string;
+  url: string;
+  text: string;
+}
 
 /** Kurzer Stand für das Startbild des Spiel-Posts */
 export interface PlayInfo {
@@ -139,6 +179,12 @@ export interface BleachResult {
   ranked: boolean;
   rank?: number;
   players?: number;
+  /** Endstand als Blatt-Code (src/shared/sheet.ts), daraus malt der Tagespost die kleinen Blätter */
+  sheet?: string;
+  /** Spielfarbe des Malers */
+  col?: ColorId;
+  /** Schon als Kommentar geteilt (höchstens einmal am Tag) */
+  shared?: boolean;
 }
 /** Was das Startbild zu Bleach zeigt (Tagesblatt): läuft gerade, schon gespielt, Rangliste oben */
 export interface BleachInfo {

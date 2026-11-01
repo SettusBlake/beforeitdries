@@ -4,10 +4,12 @@
  * Ein Wertungslauf je Spieler und Tag, Punkte nur vom Server, Rangliste je Tag. Wie im Duell: Laden, Aktion und
  * Speichern laufen ohne await dazwischen.
  */
-import type { BleachInfo, BleachResult, DuelResponse } from '../shared/api';
-import { BLEACH, bleachScore, newBleach, type BleachScore } from '../shared/duel/bleach';
+import type { BleachInfo, BleachResult, DuelResponse, SheetResponse, SheetRow, ShareSheetResponse } from '../shared/api';
+import { BLEACH, bleachScore, newBleach, sheetCode, type BleachScore } from '../shared/duel/bleach';
 import { DuelError, loadState, openBleach, perform, publicState, saveState, type DuelAction, type DuelSave } from '../shared/duel/play';
-import { drain, S } from '../shared/duel/rules';
+import { drain, HEARTS, S } from '../shared/duel/rules';
+import { dayLabel, shareText } from '../shared/sheet';
+import type { ColorId } from '../shared/colors';
 import { dieMonster, rarityDef, type DieRec, type FaceMod, type Rarity } from '../shared/dice';
 import { PIGMENTS, type PigmentId } from '../shared/data';
 import { dayKey } from '../shared/day';
@@ -22,8 +24,10 @@ import { K } from './keys';
 type DieLite = Pick<DieRec, 'sheet' | 'idx' | 'paper' | 'gen' | 'draw' | 'style' | 'holo' | 'no'> & { mods: FaceMod[] };
 /** Aufbau eines Tages: für alle gleich, einmal angelegt */
 export type BleachDay = { day: string; seed: number; colour: PigmentId; deck: DieLite[]; pales: { die: DieLite; name?: string }[] };
-/** Ein laufender oder fertiger Lauf */
-type Run = { day: string; test?: true; save: string };
+/** Ein laufender oder fertiger Lauf. res: Ergebnis eines fertigen Testlaufs (zum Teilen) */
+type Run = { day: string; test?: true; save: string; res?: StoredRes };
+/** Ergebnis in bleach:res:{Tag} (und beim Testlauf im Lauf selbst) */
+type StoredRes = BleachResult & { name?: string; at?: number };
 
 /** Sepias Tagesdeck: neun Würfel mit fester Mischung der Seltenheiten, damit jeder Tag ähnlich stark ist */
 const DECK_RARITIES: Rarity[] = ['common', 'common', 'common', 'uncommon', 'uncommon', 'uncommon', 'rare', 'rare', 'epic'];
@@ -106,7 +110,7 @@ export async function bleachGet(d: Deps, userId: string | undefined, username?: 
     loadState(save!);
     state = JSON.parse(JSON.stringify(publicState())) as DuelResponse['state'];
   }
-  const played = parse<BleachResult & { name?: string }>(res);
+  const played = parse<StoredRes>(res);
   const names = await Promise.all(topRaw.map((m) => d.redis.hGet(K.bleachRes(day), m.member)));
   const top = topRaw.map((m, i) => ({ name: parse<{ name?: string }>(names[i])?.name ?? 'a painter', points: Math.floor(m.score / 100000) }));
   const colour = parse<BleachDay>(await d.redis.get(K.bleachDay(day)))?.colour ?? PIGMENTS[daySeed(day) % PIGMENTS.length]!.id;
@@ -192,18 +196,22 @@ export async function bleachAct(d: Deps, userId: string | undefined, action: unk
       throw e;
     }
     const blob = saveState();
-    const done = !wasOver && S.over;
-    const score = done ? bleachScore() : null;
+    // Endstand vor dem ersten await festhalten: danach kann ein anderer Lauf S belegen
+    const fin: Final | null = !wasOver && S.over ? { score: bleachScore(), sheet: sheetCode(), col: S.colors[0], colour: S.bleach?.colour ?? 'ultra' } : null;
     const ranked = !run.test && !!S.bleach?.ranked;
-    await d.redis.set(K.bleachRun(uid), JSON.stringify({ ...run, save: blob }));
-    if (done && score) out.bleach = await finishRun(d, uid, username, run.day, score, ranked, out);
+    const next: Run = { ...run, save: blob };
+    if (fin && !ranked) next.res = { day: run.day, points: fin.score.total, parts: fin.score, ranked: false, sheet: fin.sheet, col: fin.col };
+    await d.redis.set(K.bleachRun(uid), JSON.stringify(next));
+    if (fin) out.bleach = ranked ? await finishRun(d, uid, username, run.day, fin, out) : next.res!;
     return out;
   });
 }
-/** Fertig: Ergebnis speichern, in die Rangliste, Belohnung. Nur innerhalb der Spielersperre */
-async function finishRun(d: Deps, uid: string, username: string | undefined, day: string, score: BleachScore, ranked: boolean, out: DuelResponse): Promise<BleachResult> {
-  const res: BleachResult = { day, points: score.total, parts: score, ranked };
-  if (!ranked) return res;
+/** Endstand eines Laufs, festgehalten vor dem ersten await */
+type Final = { score: BleachScore; sheet: string; col: ColorId; colour: PigmentId };
+/** Fertig: Ergebnis samt Blatt speichern, in die Rangliste, Belohnung. Nur innerhalb der Spielersperre, nur Wertungsläufe */
+async function finishRun(d: Deps, uid: string, username: string | undefined, day: string, fin: Final, out: DuelResponse): Promise<BleachResult> {
+  const score = fin.score;
+  const res: BleachResult = { day, points: score.total, parts: score, ranked: true, sheet: fin.sheet, col: fin.col };
   // Gleichstand: wer früher fertig war, steht vorn (Sekunden seit Tagesbeginn)
   const sec = Math.floor((d.now - Date.parse(`${day}T00:00:00Z`)) / 1000);
   await d.redis.zAdd(K.bleachBoard(day), { member: uid, score: score.total * 100000 + Math.max(0, 99999 - Math.min(99999, sec)) });
@@ -212,10 +220,139 @@ async function finishRun(d: Deps, uid: string, username: string | undefined, day
   res.players = await d.redis.zCard(K.bleachBoard(day));
   // Belohnung: Pigment und ein Tropfen der Tagesfarbe
   const s = await loadDice(d, uid);
-  const colour = S.bleach?.colour ?? 'ultra';
+  const colour = fin.colour;
   s.pigment += BLEACH.reward.pigment;
   s.drops = { ...s.drops, [colour]: (s.drops?.[colour] ?? 0) + BLEACH.reward.drops };
   await saveDice(d, uid, s);
   out.reward = { pigment: BLEACH.reward.pigment, why: 'bleach', total: s.pigment, drops: Array.from({ length: BLEACH.reward.drops }, () => ({ pig: colour, why: 'win' as const })) };
   return res;
+}
+
+/* ---------- Tagespost und Teilen (Schritt 3) ---------- */
+
+/** Name des Scheduler-Auftrags (devvit.json): kurz nach Mitternacht UTC */
+export const SHEET_JOB = 'daily-sheet';
+export const sheetTitle = (day: string): string => `Today’s sheet · ${dayLabel(day)} · Hold the edge against the Bleach`;
+type PostRef = { id: string; url: string };
+
+/**
+ * Tagespost anlegen, falls es für den Tag noch keinen gibt (Scheduler, Teilen). force: Mod-Menü, legt einen neuen an,
+ * der dann der Post des Tages ist (ältere zeigen weiter dieselbe Rangliste)
+ */
+export async function ensureSheetPost(d: Deps, day: string = dayKey(d.now), force = false): Promise<PostRef & { created: boolean }> {
+  const have = parse<PostRef>(await d.redis.get(K.bleachPost(day)));
+  if (have && !force) return { ...have, created: false };
+  return withLock(d, `lock:bleach:post:${day}`, async () => {
+    const again = parse<PostRef>(await d.redis.get(K.bleachPost(day)));
+    if (again && !force) return { ...again, created: false };
+    // Aufbau vorher anlegen: Farbe und Pales stehen damit fest
+    await bleachDay(d, day);
+    const post = await d.reddit.submitCustomPost({
+      subredditName: d.subredditName,
+      title: sheetTitle(day),
+      entry: 'sheet',
+      postData: { kind: 'sheet', day },
+      textFallback: { text: 'Today’s watercolour sheet: hold the edge against the Bleach. Open this post in the Reddit app or on reddit.com to play.' },
+    });
+    const ref: PostRef = { id: post.id, url: post.url };
+    await d.redis.set(K.bleachPost(day), JSON.stringify(ref));
+    await d.redis.hSet(K.bleachPostDay, { [post.id]: day });
+    console.log('Sheet post', day, post.id, post.url);
+    return { ...ref, created: true };
+  });
+}
+
+const rowOf = (rank: number, raw: string | undefined, score: number, me: boolean): SheetRow => {
+  const r = parse<StoredRes>(raw);
+  return {
+    rank,
+    name: r?.name || 'a painter',
+    points: Math.floor(score / 100000),
+    ...(r?.sheet ? { sheet: r.sheet } : {}),
+    ...(r?.col ? { col: r.col } : {}),
+    ...(r ? { hearts: r.parts.hearts } : {}),
+    ...(me ? { me: true } : {}),
+  };
+};
+
+/** Was der Tagespost zeigt: der Tag des Posts, die Top 10 mit Blättern, dein Platz, dein Stand */
+export async function sheetGet(d: Deps, userId: string | undefined, postId: string | undefined): Promise<SheetResponse> {
+  const today = dayKey(d.now);
+  const day = (postId ? await d.redis.hGet(K.bleachPostDay, postId) : undefined) || today;
+  const [players, topRaw, setup] = await Promise.all([
+    d.redis.zCard(K.bleachBoard(day)),
+    d.redis.zRange(K.bleachBoard(day), 0, 9, { by: 'rank', reverse: true }),
+    d.redis.get(K.bleachDay(day)),
+  ]);
+  const raws = await Promise.all(topRaw.map((m) => d.redis.hGet(K.bleachRes(day), m.member)));
+  const top = topRaw.map((m, i) => rowOf(i + 1, raws[i], m.score, m.member === userId));
+  let me: SheetRow | null = top.find((r) => r.me) ?? null;
+  let unlocked = false,
+    running = false;
+  if (userId) {
+    const [dice, runRaw, mine, score] = await Promise.all([loadDice(d, userId), d.redis.get(K.bleachRun(userId)), d.redis.hGet(K.bleachRes(day), userId), d.redis.zScore(K.bleachBoard(day), userId)]);
+    unlocked = unlockedFor(dice);
+    const run = parse<Run>(runRaw);
+    const save = runSave(run);
+    running = !!save && !save.over && run!.day === today && !run!.test;
+    if (!me && mine && score !== undefined && score !== null) me = rowOf((await rankOf(d, day, userId)) ?? players, mine, score, true);
+  }
+  return {
+    day,
+    today: day === today,
+    colour: parse<BleachDay>(setup)?.colour ?? PIGMENTS[daySeed(day) % PIGMENTS.length]!.id,
+    players,
+    top,
+    me,
+    user: !!userId,
+    unlocked,
+    running,
+    waves: [...BLEACH.waves],
+    bossWave: BLEACH.bossWave,
+    now: d.now,
+  };
+}
+
+/**
+ * „Share as a comment“: dein Blatt als Quadrate unter den Tagespost, im Namen des Spielers (runAs USER).
+ * Nur auf ausdrücklichen Tipp, höchstens einmal am Tag. test: Testlauf (Playtest, nur Mods), einmal je Testlauf
+ */
+export async function bleachShare(d: Deps, userId: string | undefined, username?: string, test = false): Promise<ShareSheetResponse> {
+  const uid = needUser(userId);
+  if (test && !(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  return withLock(d, playerLock(uid), async () => {
+    const day = dayKey(d.now);
+    const run = parse<Run>(await d.redis.get(K.bleachRun(uid)));
+    const res: StoredRes | null = test ? (run?.test ? (run.res ?? null) : null) : parse<StoredRes>(await d.redis.hGet(K.bleachRes(day), uid));
+    if (!res) throw new GameError('bad_request', test ? 'Finish a test sheet first.' : 'Paint today’s sheet first.');
+    if (res.shared) throw new GameError('bad_request', test ? 'You shared this test sheet already.' : 'You shared today’s sheet already. A new one comes at midnight UTC.');
+    if (!res.sheet) throw new GameError('bad_request', 'This sheet dried before sharing was possible.');
+    const players = test ? undefined : await d.redis.zCard(K.bleachBoard(day));
+    const rank = test ? undefined : await rankOf(d, day, uid);
+    const text = shareText({
+      day,
+      points: res.points,
+      ranked: !test,
+      ...(rank ? { rank } : {}),
+      ...(players ? { players } : {}),
+      hearts: res.parts.hearts,
+      heartsMax: HEARTS,
+      washed: res.parts.washed,
+      boss: res.parts.boss,
+      pales: paleTotal(),
+      sheet: res.sheet,
+      ...(res.col ? { col: res.col } : {}),
+    });
+    const post = await ensureSheetPost(d, day);
+    try {
+      await d.reddit.submitComment({ id: post.id as `t3_${string}`, text, runAs: 'USER' });
+    } catch (e) {
+      console.error('share sheet', e);
+      throw new GameError('server', 'Reddit did not take the comment. Try again in a moment.', 502);
+    }
+    res.shared = true;
+    if (test) await d.redis.set(K.bleachRun(uid), JSON.stringify({ ...run!, res }));
+    else await d.redis.hSet(K.bleachRes(day), { [uid]: JSON.stringify(res) });
+    return { postId: post.id, url: post.url, text };
+  });
 }

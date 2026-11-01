@@ -6,10 +6,11 @@
 import { statBlock } from './duel/statcard';
 import './lib/fonts';
 import './duel.css';
-import { showLoginPrompt, showToast } from '@devvit/web/client';
+import { context, navigateToPost, showLoginPrompt, showToast } from '@devvit/web/client';
 import type { BleachResult, DuelResponse, DuelReward } from '../shared/api';
 import { DROP_COST, rarityDef, serialText, TINT_MAX } from '../shared/dice';
 import { BLEACH, bleachScore, forecast, type PaleCast } from '../shared/duel/bleach';
+import { shareText } from '../shared/sheet';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -27,7 +28,7 @@ import { elementBadge, elementIcon, elementText, ringSvg } from './duel/elements
 import { elementDef } from '../shared/elements';
 import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
-import { diceBadge, initDice, openDice } from './duel/collection';
+import { closeMod, diceBadge, initDice, openDice } from './duel/collection';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
 import { initColors, openColors } from './duel/colors';
 import { colorDef } from '../shared/colors';
@@ -186,6 +187,13 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
   renderAll();
   if (S.over) void finishDuel();
   return true;
+}
+function toast(msg: string): void {
+  try {
+    showToast(msg);
+  } catch {
+    /* außerhalb von Reddit */
+  }
 }
 function onError(e: unknown): void {
   if (e instanceof ApiError && e.code === 'login') {
@@ -2263,6 +2271,8 @@ async function finishDuel(): Promise<void> {
       dropsText(reward.drops ?? []);
   if (reward?.patina?.length) setTimeout(() => sfx.upface(2), 500);
   reward = null;
+  // Bleach: das Blatt als Kommentar teilen (erster Tipp zeigt es, zweiter postet)
+  shareSetup(bl ? bleachRes : null);
   $('result').hidden = false;
   $('result').className = S.winner === 1 ? 'overlay win' : 'overlay';
   if (S.winner === 1) sfx.win();
@@ -2386,12 +2396,16 @@ async function startBleach(test = false): Promise<void> {
   }
 }
 const BLEACH_INTRO = `Something is bleaching my sheet from the top edge, and today everyone gets the same sheet and the same nine dice of mine. Every round the Pales slide ${BLEACH.steps} steps down: your paint costs them a step, a blot in the way takes a hit, and one that slips off the bottom bleaches a heart. Splash flicks a whole row, Guard catches one at the edge, and the dashed lanes show where they will be once you end your turn.`;
-/** Startbild: Knopf fürs Tagesblatt mit Stand */
-async function bleachTitle(): Promise<void> {
+/** Startbild: Knopf fürs Tagesblatt mit Stand. Gibt den Stand zurück (der Tagespost startet damit gleich das Blatt) */
+async function bleachTitle(): Promise<Awaited<ReturnType<typeof api.bleach>> | null> {
   const b = $('bleach-b') as HTMLButtonElement,
     note = $('bleach-note');
   try {
     const i = await api.bleach();
+    titleShare = i.played?.sheet && !i.played.shared ? { ...i.played, players: i.played.players ?? i.players } : null;
+    titleShareArmed = false;
+    $('bleach-share').hidden = !titleShare;
+    $('bleach-share').textContent = 'Share your sheet as a comment';
     b.hidden = false;
     $('bleach-test').hidden = !i.tester;
     b.disabled = !i.unlocked || (!!i.played && !i.running);
@@ -2404,10 +2418,84 @@ async function bleachTitle(): Promise<void> {
           : `${i.waves} waves · ${i.pales} Pales`;
     note.hidden = !i.top.length;
     note.textContent = i.top.length ? `Today: ${i.top.map((t, k) => `${k + 1}. ${t.name || 'a painter'} ${t.points}`).join(' · ')}` : '';
+    return i;
   } catch {
     b.hidden = true;
+    return null;
   }
 }
+
+/* ---------- Teilen als Kommentar (Bleach Schritt 3): nur auf ausdrücklichen Tipp, höchstens einmal am Tag ---------- */
+let shareRes: BleachResult | null = null;
+let shareArmed = false;
+let shared: { postId: string } | null = null;
+let titleShare: BleachResult | null = null;
+let titleShareArmed = false;
+/** Der Text, wie er unter dem Tagespost steht (der Server baut ihn noch einmal selbst) */
+const sharePreview = (r: BleachResult): string =>
+  shareText({ day: r.day, points: r.points, ranked: r.ranked, ...(r.rank ? { rank: r.rank } : {}), ...(r.players ? { players: r.players } : {}), hearts: r.parts.hearts, heartsMax: R.HEARTS, washed: r.parts.washed, boss: r.parts.boss, pales: BLEACH.waves.reduce((a, b) => a + b, 0), sheet: r.sheet ?? '', ...(r.col ? { col: r.col } : {}) });
+function shareSetup(r: BleachResult | null): void {
+  shareRes = r?.sheet && !r.shared ? r : null;
+  shareArmed = false;
+  shared = null;
+  const b = $('share-b');
+  b.hidden = !shareRes;
+  b.className = 'ghost share-b';
+  b.textContent = 'Share as a comment';
+  $('share-pre').hidden = true;
+}
+async function postShare(r: BleachResult): Promise<{ postId: string } | null> {
+  try {
+    const out = await api.bleachShare(!r.ranked);
+    r.shared = true;
+    sfx.tap();
+    toast('Shared under today’s sheet.');
+    return { postId: out.postId };
+  } catch (e) {
+    onError(e);
+    return null;
+  }
+}
+$('share-b').addEventListener('click', async () => {
+  const b = $('share-b') as HTMLButtonElement;
+  if (shared) return void navigateToPost(shared.postId as `t3_${string}`);
+  if (!shareRes || b.disabled) return;
+  if (!shareArmed) {
+    // Erster Tipp: so sieht der Kommentar aus
+    shareArmed = true;
+    sfx.tap();
+    const pre = $('share-pre');
+    pre.innerHTML = sharePreview(shareRes).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/ {2}\n/g, '\n');
+    pre.hidden = false;
+    b.textContent = 'Post it in your name';
+    b.className = 'primary share-b';
+    return;
+  }
+  b.disabled = true;
+  const out = await postShare(shareRes);
+  b.disabled = false;
+  if (!out) return;
+  shared = out;
+  titleShare = null;
+  b.className = 'ghost share-b';
+  b.textContent = 'Open today’s post';
+});
+$('bleach-share').addEventListener('click', async () => {
+  const b = $('bleach-share') as HTMLButtonElement;
+  if (!titleShare || b.disabled) return;
+  if (!titleShareArmed) {
+    titleShareArmed = true;
+    sfx.tap();
+    b.textContent = 'Tap again: a comment in your name';
+    return;
+  }
+  b.disabled = true;
+  const out = await postShare(titleShare);
+  b.disabled = false;
+  if (!out) return;
+  titleShare = null;
+  b.hidden = true;
+});
 async function resumeDuel(): Promise<void> {
   initAudio();
   resetUi();
@@ -2519,7 +2607,10 @@ initDice({
 });
 $('learn').addEventListener('click', () => void startDuel(true));
 $('bleach-b').addEventListener('click', () => void startBleach());
-$('bleach-test').addEventListener('click', () => void startBleach(true));
+$('bleach-test').addEventListener('click', () => {
+  closeMod();
+  void startBleach(true);
+});
 $('continue').addEventListener('click', () => void resumeDuel());
 $('how-t').addEventListener('click', () => ($('rules').hidden = false));
 $('how-m').addEventListener('click', () => {
@@ -2625,7 +2716,11 @@ setLevel(level);
 soundLabel();
 titleArt();
 showScreen('title');
-void bleachTitle();
+// Aus dem Tagespost geöffnet: gleich das Tagesblatt (oder weiterspielen), sonst das Startbild mit der Rangliste
+const fromSheet = (context?.postData as { kind?: unknown } | undefined)?.kind === 'sheet';
+void bleachTitle().then((i) => {
+  if (fromSheet && i?.unlocked && (i.running || !i.played) && screen === 'title') void startBleach();
+});
 // Namen der Arten früh holen: Duell, Sammlung und Ziehen zeigen sie
 void loadSpecies().then(() => {
   renameUnits();

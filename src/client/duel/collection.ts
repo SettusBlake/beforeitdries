@@ -147,9 +147,8 @@ function render(): void {
       : blank
         ? 'paint your own monster'
         : 'a new one every Monday · or roll a 1';
-  // Mods: Prüfliste der Zeichnungen
-  $('review-b').hidden = !mod;
-  $('review-b-n').textContent = String(review);
+  // Mods: Prüfliste der Zeichnungen und Test-Knöpfe, alles im Fenster hinter dem Werkzeug-Knopf
+  renderMod();
   // Sepia sagt einmal, welche Zeichnungen übermalt wurden
   const over = s.paintedOver ?? [];
   $('painted-note').hidden = !over.length;
@@ -169,12 +168,6 @@ function render(): void {
   $('trades-n').hidden = !ts?.offers;
   $('trades-n').textContent = String(ts?.offers ?? 0);
   $('trades-sub').textContent = ts?.offers ? `${ts.offers} offer${ts.offers > 1 ? 's' : ''} waiting` : 'dice for dice';
-  $('trade-test').hidden = !tester;
-  ($('trade-test') as HTMLButtonElement).disabled = busy;
-  $('market-test').hidden = !tester;
-  ($('market-test') as HTMLButtonElement).disabled = busy;
-  $('market-buy-test').hidden = !tester;
-  ($('market-buy-test') as HTMLButtonElement).disabled = busy;
   // Was dein Deck in der Galerie erlebt hat, bis du es abholst
   const gs = galleryStatus();
   $('gallery-note').hidden = !gs?.inbox;
@@ -183,33 +176,6 @@ function render(): void {
     $('gallery-who').textContent = gs.inbox.who.length ? `Last: ${gs.inbox.who.map(foeTag).join(', ')}` : '';
     $('gallery-ok').textContent = gs.inbox.pig ? `Collect +${gs.inbox.pig} pigment` : 'OK';
     ($('gallery-ok') as HTMLButtonElement).disabled = busy;
-  }
-  $('gallery-decks-test').hidden = !tester;
-  ($('gallery-decks-test') as HTMLButtonElement).disabled = busy;
-  $('gallery-test').hidden = !tester;
-  $('gallery-test').textContent = `Playtest · mods only: gallery uses my own deck: ${s.testSelf ? 'on' : 'off'}`;
-  ($('gallery-test') as HTMLButtonElement).disabled = busy;
-  $('blank-test').hidden = !tester;
-  ($('blank-test') as HTMLButtonElement).disabled = busy;
-  $('pigment-test').hidden = !tester;
-  ($('pigment-test') as HTMLButtonElement).disabled = busy;
-  // Test-Knopf: der nächste Zug mit dem gewählten Stil und, getrennt davon, mit Holo
-  const st = $('shiny-test');
-  st.hidden = !tester;
-  if (tester) {
-    st.replaceChildren(el('span', '', 'Playtest · mods only · next dip:'));
-    const holo = el('button', 'chip holo' + (s.forceHolo ? ' on' : ''), '✦ Holo') as HTMLButtonElement;
-    holo.type = 'button';
-    holo.disabled = busy;
-    holo.addEventListener('click', () => void testShiny(s.forceStyle ?? null, !s.forceHolo));
-    st.append(holo);
-    for (const sk of STYLES) {
-      const b = el('button', 'chip' + (s.forceStyle === sk.k ? ' on' : ''), sk.label) as HTMLButtonElement;
-      b.type = 'button';
-      b.disabled = busy;
-      b.addEventListener('click', () => void testShiny(s.forceStyle === sk.k ? null : sk.k, !!s.forceHolo));
-      st.append(b);
-    }
   }
   // Beutel
   const bag = $('bag');
@@ -868,16 +834,69 @@ function closeBlank(): void {
   $('dice').hidden = false;
   render();
 }
-/** Prüfliste der Mods */
+/* ---------- Mod-Werkzeuge: ein Fenster hinter dem Knopf oben rechts (Startbild und Your dice) ---------- */
+function renderMod(): void {
+  const any = tester || mod;
+  for (const id of ['mod-t', 'mod-d']) {
+    const g = $(id);
+    g.hidden = !any;
+    // Zeichnungen warten: Zahl am Werkzeug-Knopf
+    if (mod && review) g.dataset.n = String(review);
+    else delete g.dataset.n;
+  }
+  $('review-b').hidden = !mod;
+  $('review-b-n').textContent = String(review);
+  $('modp-play').hidden = !tester;
+  $('bleach-test').hidden = !tester;
+  $('modp-note').hidden = tester || !mod;
+  // Test-Knöpfe (nur Playtest und Mods)
+  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test']) {
+    $(id).hidden = !tester;
+    ($(id) as HTMLButtonElement).disabled = busy;
+  }
+  const s = save;
+  if (!s) return;
+  $('gallery-test').textContent = `Gallery uses my own deck: ${s.testSelf ? 'on' : 'off'}`;
+  // Test-Knopf: der nächste Zug mit dem gewählten Stil und, getrennt davon, mit Holo
+  const st = $('shiny-test');
+  st.hidden = !tester;
+  if (tester) {
+    st.replaceChildren(el('span', '', 'Next dip:'));
+    const holo = el('button', 'chip holo' + (s.forceHolo ? ' on' : ''), '✦ Holo') as HTMLButtonElement;
+    holo.type = 'button';
+    holo.disabled = busy;
+    holo.addEventListener('click', () => void testShiny(s.forceStyle ?? null, !s.forceHolo));
+    st.append(holo);
+    for (const sk of STYLES) {
+      const b = el('button', 'chip' + (s.forceStyle === sk.k ? ' on' : ''), sk.label) as HTMLButtonElement;
+      b.type = 'button';
+      b.disabled = busy;
+      b.addEventListener('click', () => void testShiny(s.forceStyle === sk.k ? null : sk.k, !!s.forceHolo));
+      st.append(b);
+    }
+  }
+}
+function openMod(): void {
+  if (!tester && !mod) return;
+  sfx.tap();
+  renderMod();
+  $('modp').hidden = false;
+}
+export const closeMod = (): void => void ($('modp').hidden = true);
+/** Prüfliste der Mods: von dort zurück, wo sie geöffnet wurde (Startbild oder Your dice) */
+let reviewFrom = 'dice';
 function openReviewScreen(): void {
   if (!mod) return;
   sfx.tap();
+  closeMod();
+  reviewFrom = $('title').hidden ? 'dice' : 'title';
+  $('title').hidden = true;
   $('dice').hidden = true;
   openReview();
 }
 function closeReview(): void {
   $('review').hidden = true;
-  $('dice').hidden = false;
+  $(reviewFrom).hidden = false;
   void load();
 }
 /** Sepias Hinweis zu übermalten Zeichnungen gelesen */
@@ -920,7 +939,7 @@ async function testMarket(buy: boolean): Promise<void> {
     setMarket(buy ? await api.marketTestBuy() : await api.marketTestList());
     busy = false;
     await load();
-    if (!buy) openMarket();
+    if (!buy) (closeMod(), openMarket());
   } catch (e) {
     hooks.error(e);
   }
@@ -996,6 +1015,12 @@ export function initDice(h: Hooks): void {
   initDraw({ paint: paintDrawing, back: closeBlank });
   initReview({ back: closeReview, error: (e) => hooks.error(e) });
   $('review-b').addEventListener('click', openReviewScreen);
+  $('mod-t').addEventListener('click', openMod);
+  $('mod-d').addEventListener('click', openMod);
+  $('modp-x').addEventListener('click', closeMod);
+  $('modp').addEventListener('click', (e) => {
+    if (e.target === $('modp')) closeMod();
+  });
   $('painted-ok').addEventListener('click', () => void seen());
   $('news-ok').addEventListener('click', () => void seen());
   initMarket({
@@ -1055,6 +1080,7 @@ export async function diceBadge(): Promise<string> {
     setGalleryStatus(r.gallery);
     setTradeStatus(r.trade);
     setColorChoice(r.dice.color, r.dice.color2);
+    renderMod();
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.freeReady) return 'free dip';
     if (r.dice.blank) return 'blank canvas';

@@ -7,7 +7,7 @@ import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
 import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceTint, diceWash } from './dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
-import { bleachAct, bleachGet, bleachStart } from './bleach';
+import { bleachAct, bleachGet, bleachShare, bleachStart, ensureSheetPost, sheetGet } from './bleach';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf } from './gallery';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
@@ -112,6 +112,20 @@ app.post(
   wrap(async (req, res) => {
     sameProtocol(req);
     res.json(await bleachAct(await deps(), context.userId, (req.body as { action?: unknown } | undefined)?.action, await username()));
+  }),
+);
+/* Teilen als Kommentar unter dem Tagespost, im Namen des Spielers (nur auf ausdrücklichen Tipp) */
+app.post(
+  '/api/bleach/share',
+  wrap(async (req, res) => {
+    res.json(await bleachShare(await deps(), context.userId, await username(), (req.body as { test?: unknown } | undefined)?.test === true));
+  }),
+);
+/* Tagespost (inline im Feed): Rangliste des Tages, zu dem der Post gehört */
+app.get(
+  '/api/sheet',
+  wrap(async (_req, res) => {
+    res.json(await sheetGet(await deps(), context.userId, context.postId));
   }),
 );
 
@@ -397,6 +411,23 @@ app.post(
   wrap(async (req, res) => {
     const target = (req.body as MenuItemRequest | undefined)?.targetId ?? '';
     res.json({ showToast: namingToast(await adoptNaming(await deps(), target, true)) } satisfies UiResponse);
+  }),
+);
+
+/* Bleach: Tagespost kurz nach Mitternacht UTC */
+app.post(
+  '/internal/scheduler/daily-sheet',
+  wrap(async (_req, res) => {
+    const r = await ensureSheetPost(await deps());
+    console.log('daily sheet', r.created ? 'created' : 'exists', r.id);
+    res.json({});
+  }),
+);
+app.post(
+  '/internal/menu/post-sheet',
+  wrap(async (_req, res) => {
+    const r = await ensureSheetPost(await deps(), undefined, true);
+    res.json({ showToast: { text: 'Today’s sheet is up.', appearance: 'success' }, navigateTo: r.url } satisfies UiResponse);
   }),
 );
 

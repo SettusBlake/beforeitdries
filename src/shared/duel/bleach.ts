@@ -9,6 +9,7 @@ import type { PigmentId } from '../data';
 import type { FaceMod } from '../dice';
 import type { Monster } from '../monster';
 import { RNG } from '../rng';
+import { cellCode } from '../sheet';
 import {
   aiOpening,
   aiTurnSteps,
@@ -347,6 +348,9 @@ export function bleachScore(): BleachScore {
   const P = BLEACH.points;
   return { cells, layers, washed, boss, hearts, total: (cells + layers) * P.cell + washed * P.pale + boss * P.boss + hearts * P.heart };
 }
+
+/** Endstand als Blatt-Code für den Tagespost und das Teilen (src/shared/sheet.ts), Reihe für Reihe von oben */
+export const sheetCode = (): string => S.cells.map(cellCode).join('');
 
 /** Viele Läufe ohne Darstellung, zum Einstimmen. look: wie viele Züge der Spieler bedenkt (0 = alle) */
 export function simulateBleach(n: number, look = 0): { runs: BleachScore[]; through: number; rounds: number; flicks: number; caught: number } {

@@ -1,11 +1,12 @@
 /* Bleach: Wellen, Zug der Bleiche, Flick, Punkte, Tagesaufbau, Wertungslauf, Rangliste, Belohnung */
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
-import { bleachAct, bleachDay, bleachGet, bleachStart } from '../src/server/bleach';
+import { bleachAct, bleachDay, bleachGet, bleachShare, bleachStart, ensureSheetPost, sheetGet } from '../src/server/bleach';
 import { loadDice, saveDice } from '../src/server/dice';
-import { BLEACH, bleachMove, bleachScore, doFlick, forecast, newBleach } from '../src/shared/duel/bleach';
+import { BLEACH, bleachMove, bleachScore, doFlick, forecast, newBleach, sheetCode } from '../src/shared/duel/bleach';
+import { emojiRows, isSheet, readCell, shareText, SHEET_COLS, SHEET_ROWS, squareOf } from '../src/shared/sheet';
 import { loadState, perform } from '../src/shared/duel/play';
-import { drain, emptyCell, idx, NO_HOME, onSheet, placements, randomBag, ROWS, S, type Unit } from '../src/shared/duel/rules';
+import { COLS, drain, emptyCell, idx, NO_HOME, onSheet, placements, randomBag, ROWS, S, type Unit } from '../src/shared/duel/rules';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -46,8 +47,8 @@ async function unlock(d: Deps, uid = USER): Promise<void> {
   await saveDice(d, uid, s);
 }
 /** Sepia spielt jeden Zug, bis das Blatt trocken ist */
-async function playOut(d: Deps, uid = USER) {
-  let res = await bleachStart(d, uid, 'painter');
+async function playOut(d: Deps, uid = USER, name = 'painter', test = false) {
+  let res = await bleachStart(d, uid, name, test);
   loadState(res.state!);
   const u = S.teams[0].units[0]!;
   const p = placements(u)[0]!;
@@ -266,5 +267,98 @@ describe('Bleach: Server', () => {
     await playOut(d);
     const next = { ...d, now: NOW + 86_400_000 };
     expect(await code(bleachStart(next, USER, 'painter'))).toBe('ok');
+  });
+});
+
+describe('Bleach: Tagespost und Teilen', () => {
+  it('Blatt-Code: 48 Zeichen, Palette, Farbe, Lasur und Schlamm, Quadrate in der Spielfarbe', () => {
+    expect([SHEET_COLS, SHEET_ROWS]).toEqual([COLS, ROWS]);
+    fresh();
+    const home = S.teams[0].home;
+    S.cells[idx(0, 7)] = { ...emptyCell(), owner: 1, hue: 'karmin', layer: 1 };
+    S.cells[idx(1, 7)] = { ...emptyCell(), owner: 3 };
+    const code = sheetCode();
+    expect(isSheet(code)).toBe(true);
+    expect(code[home]).toBe('@');
+    expect(readCell(code[idx(0, 7)]!)).toEqual({ kind: 'paint', pig: 2, glazed: true });
+    expect(readCell(code[idx(1, 7)]!).kind).toBe('mud');
+    const rows = emojiRows(code, 'carmine');
+    expect(rows).toHaveLength(ROWS);
+    expect(rows[7]!.startsWith('🟥🟫')).toBe(true);
+    expect(rows[7]).toContain('🎨');
+    expect(['ultramarine', 'carmine', 'cadmium', 'lemon', 'sap', 'violet', 'sepia', 'paynes'].map((c) => squareOf(c as Parameters<typeof squareOf>[0]))).toEqual(['🟦', '🟥', '🟧', '🟨', '🟩', '🟪', '🟫', '⬛']);
+    // Sepia als Spielfarbe: Schlamm wird dann schwarz, damit man ihn unterscheiden kann
+    expect(emojiRows(code, 'sepia')[7]!.startsWith('🟫⬛')).toBe(true);
+    const t = shareText({ day: '2026-11-02', points: 212, ranked: true, rank: 3, players: 17, hearts: 2, heartsMax: 3, washed: 8, boss: 1, pales: 14, sheet: code, col: 'carmine' });
+    expect(t).toContain('Today’s sheet · Nov 2');
+    expect(t).toContain('**212 points** · #3 of 17 · ❤️❤️🤍');
+    expect(t).toContain('9 of 14 Pales washed out, the great one too');
+    expect(t.split('\n').filter((l) => l.endsWith('  ')).length).toBeGreaterThanOrEqual(ROWS - 1);
+  });
+
+  it('Tagespost einmal am Tag (Scheduler), das Mod-Menü legt einen neuen an, der Post kennt seinen Tag', async () => {
+    const d = setup(21);
+    const reddit = d.reddit as FakeReddit;
+    const a = await ensureSheetPost(d);
+    const b = await ensureSheetPost(d);
+    expect(a.created).toBe(true);
+    expect(b.created).toBe(false);
+    expect(b.id).toBe(a.id);
+    expect(reddit.posts).toHaveLength(1);
+    expect(reddit.posts[0]!.entry).toBe('sheet');
+    expect(reddit.posts[0]!.postData).toEqual({ kind: 'sheet', day: '2026-11-02' });
+    expect(reddit.posts[0]!.title).toContain('Nov 2');
+    const c = await ensureSheetPost(d, undefined, true);
+    expect(c.id).not.toBe(a.id);
+    // Am nächsten Tag zeigt der alte Post die fertige Rangliste seines Tages
+    const later = { ...d, now: NOW + 86_400_000 };
+    const old = await sheetGet(later, undefined, a.id);
+    expect(old.day).toBe('2026-11-02');
+    expect(old.today).toBe(false);
+    expect((await sheetGet(later, undefined, 't3_unknown')).day).toBe('2026-11-03');
+  });
+
+  it('Rangliste im Post mit Blättern, dein Platz, Teilen als Kommentar im Namen des Spielers, einmal am Tag', async () => {
+    const d = setup(23);
+    const reddit = d.reddit as FakeReddit;
+    await unlock(d);
+    expect(await code(bleachShare(d, USER, 'painter'))).toBe('bad_request');
+    const end = await playOut(d);
+    expect(isSheet(end.bleach!.sheet)).toBe(true);
+    expect(end.bleach!.col).toBeTruthy();
+    const post = await ensureSheetPost(d);
+    const view = await sheetGet(d, USER, post.id);
+    expect(view.today).toBe(true);
+    expect(view.players).toBe(1);
+    expect(view.top[0]!.me).toBe(true);
+    expect(isSheet(view.top[0]!.sheet)).toBe(true);
+    expect(view.me!.rank).toBe(1);
+    expect(view.waves).toEqual(BLEACH.waves);
+    const out = await bleachShare(d, USER, 'painter');
+    expect(out.postId).toBe(post.id);
+    expect(reddit.appComments).toHaveLength(1);
+    expect(reddit.appComments[0]!.runAs).toBe('USER');
+    expect(reddit.appComments[0]!.id).toBe(post.id);
+    expect(reddit.appComments[0]!.text).toContain(`**${end.bleach!.points} points** · #1 of 1`);
+    expect(await code(bleachShare(d, USER, 'painter'))).toBe('bad_request');
+    expect((await bleachGet(d, USER, 'painter')).played!.shared).toBe(true);
+  });
+
+  it('Teilen legt den Tagespost an, falls der Scheduler noch nicht lief. Testblatt teilen nur Mods im Playtest', async () => {
+    const d = setup(25);
+    const reddit = d.reddit as FakeReddit;
+    reddit.mods.push('modder');
+    await unlock(d);
+    await playOut(d);
+    await bleachShare(d, USER, 'painter');
+    expect(reddit.posts.filter((p) => p.entry === 'sheet')).toHaveLength(1);
+    // Testblatt: anderer Lauf ohne Wertung
+    await unlock(d, 't2_mod');
+    const res = await playOut(d, 't2_mod', 'modder', true);
+    expect(res.bleach!.ranked).toBe(false);
+    expect(await code(bleachShare(d, 't2_mod', 'someone', true))).toBe('forbidden');
+    const t = await bleachShare(d, 't2_mod', 'modder', true);
+    expect(t.text).toContain('Test sheet');
+    expect(await code(bleachShare(d, 't2_mod', 'modder', true))).toBe('bad_request');
   });
 });

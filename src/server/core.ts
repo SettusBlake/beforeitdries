@@ -2,7 +2,7 @@
  * Spiellogik am Server. Alle Zufallswürfe passieren hier, der Client malt nur.
  * Abhängigkeiten werden hereingereicht, damit sich die Logik ohne Reddit testen lässt.
  */
-import type { CatchResponse, DayInfo, DayPostData, ErrorCode, GlazeResponse, MonsterRecord, NamePostData, PlayPostData, SpeciesInfo } from '../shared/api';
+import type { CatchResponse, DayInfo, DayPostData, ErrorCode, GlazeResponse, MonsterRecord, NamePostData, PlayPostData, SheetPostData, SpeciesInfo } from '../shared/api';
 import { PIG, STAT_KEYS, type PigmentId } from '../shared/data';
 import { dayKey, isDayKey, parseNameSuggestion, prettyDay } from '../shared/day';
 import { applyGlaze, MAX_GLAZES, SEPIA, sepiaStart } from '../shared/glaze';
@@ -47,12 +47,13 @@ export interface RedditLike {
     subredditName: string;
     title: string;
     entry?: string;
-    postData?: DayPostData | PlayPostData | NamePostData;
+    postData?: DayPostData | PlayPostData | NamePostData | SheetPostData;
     textFallback?: { text: string };
   }): Promise<{ id: string; url: string; permalink: string }>;
   getPostById(id: `t3_${string}`): Promise<{ sticky(position?: 1 | 2): Promise<void> }>;
   getComments(opts: { postId: `t3_${string}`; sort?: 'top'; limit?: number; pageSize?: number; depth?: number }): { all(): Promise<CommentLike[]> };
-  submitComment(opts: { id: `t3_${string}`; text: string }): Promise<unknown>;
+  /** runAs USER: im Namen des Spielers (Teilen), sonst vom App-Konto */
+  submitComment(opts: { id: `t3_${string}`; text: string; runAs?: 'USER' | 'APP' }): Promise<unknown>;
   /** Mit username: ist dieser Spieler Mod? (leere Liste, wenn nicht) */
   getModerators(opts: { subredditName: string; username?: string }): { all(): Promise<{ username: string }[]> };
   /** Konto eines Spielers (Alter fürs Handeln). Fehlt in alten Attrappen */

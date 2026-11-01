@@ -7,6 +7,7 @@
   </head>
   <body>
 <section id="title" class="screen">
+  <button type="button" class="modgear" id="mod-t" aria-label="Moderator tools" hidden>🛠</button>
   <div id="title-art" aria-hidden="true"></div>
   <p class="eyebrow">Paint duel</p>
   <h1>Before It Dries</h1>
@@ -22,7 +23,7 @@
   <button type="button" class="primary gal-btn" id="gallery-b">Gallery duel</button>
   <button type="button" class="primary bleach-btn" id="bleach-b" hidden><b>Today’s sheet</b><small id="bleach-sub"></small></button>
   <p class="gal-note" id="bleach-note" hidden></p>
-  <button type="button" class="testbtn" id="bleach-test" hidden>Playtest · mods only: new test sheet (not ranked)</button>
+  <button type="button" class="ghost share-t" id="bleach-share" hidden>Share your sheet as a comment</button>
   <p class="gal-note" id="gal-note" hidden></p>
   <div class="drow">
     <button type="button" class="ghost wide" id="dice-t">Your dice <span class="badge" id="dice-badge" hidden></span></button>
@@ -77,6 +78,7 @@
   <header class="dtop">
     <button type="button" id="dice-back" aria-label="Back">←</button>
     <h2>Your dice</h2>
+    <button type="button" class="modgear" id="mod-d" aria-label="Moderator tools" hidden>🛠</button>
     <span class="pig" title="Pigment, earned by playing"><i></i><b id="pigment">0</b></span>
   </header>
   <div class="dscroll">
@@ -90,15 +92,6 @@
       <div class="odds" id="odds"></div>
       <p class="pity" id="pity"></p>
       <button type="button" class="blankbtn" id="blank-b"><b>Blank canvas</b><small id="blank-sub"></small><span id="blank-n">0</span></button>
-      <button type="button" class="testbtn" id="blank-test" hidden>Playtest · mods only: +1 blank canvas</button>
-      <button type="button" class="testbtn" id="pigment-test" hidden>Playtest · mods only: +1000 pigment</button>
-      <button type="button" class="testbtn" id="gallery-decks-test" hidden>Playtest · mods only: +2 test decks in the gallery</button>
-      <button type="button" class="testbtn" id="gallery-test" hidden>Playtest · mods only: gallery uses my own deck: off</button>
-      <button type="button" class="testbtn" id="market-test" hidden>Playtest · mods only: +3 test listings in the market</button>
-      <button type="button" class="testbtn" id="market-buy-test" hidden>Playtest · mods only: a test buyer buys my cheapest listing</button>
-      <button type="button" class="testbtn" id="trade-test" hidden>Playtest · mods only: a test painter offers me a trade</button>
-      <div class="testrow" id="shiny-test" hidden></div>
-      <button type="button" class="modbtn" id="review-b" hidden><b>Review drawings</b><small>mods only</small><span id="review-b-n">0</span></button>
     </section>
     <section class="dbox">
       <div class="bagrow"><span class="eyebrow">Deck</span><small id="bag-hint"></small></div>
@@ -312,6 +305,24 @@
   <div class="bubble"><small>Master Sepia</small><p id="tip-text"></p><button type="button" id="tip-ok">Got it</button></div>
 </div>
 
+<div class="overlay" id="modp" hidden>
+  <div class="sheet modsheet">
+    <div class="modhead"><h2>Moderator tools</h2><button type="button" class="ghost" id="modp-x" aria-label="Close">✕</button></div>
+    <button type="button" class="modbtn" id="review-b" hidden><b>Review drawings</b><small>new and reported drawings</small><span id="review-b-n">0</span></button>
+    <p class="eyebrow modplay" id="modp-play" hidden>Playtest only · gone once published</p>
+    <button type="button" class="testbtn" id="bleach-test" hidden>New test sheet (not ranked)</button>
+    <button type="button" class="testbtn" id="blank-test" hidden>+1 blank canvas</button>
+    <button type="button" class="testbtn" id="pigment-test" hidden>+1000 pigment</button>
+    <div class="testrow" id="shiny-test" hidden></div>
+    <button type="button" class="testbtn" id="gallery-decks-test" hidden>+2 test decks in the gallery</button>
+    <button type="button" class="testbtn" id="gallery-test" hidden>Gallery uses my own deck: off</button>
+    <button type="button" class="testbtn" id="market-test" hidden>+3 test listings in the market</button>
+    <button type="button" class="testbtn" id="market-buy-test" hidden>A test buyer buys my cheapest listing</button>
+    <button type="button" class="testbtn" id="trade-test" hidden>A test painter offers me a trade</button>
+    <p class="modnote" id="modp-note" hidden>Test buttons only appear in playtest versions.</p>
+  </div>
+</div>
+
 <div class="overlay" id="result" hidden>
   <div class="sheet">
     <p class="eyebrow" id="result-eyebrow">Duel over</p>
@@ -320,6 +331,8 @@
     <p id="result-fee" hidden></p>
     <div id="result-stats"></div>
     <p id="result-reward" hidden></p>
+    <div class="share-pre" id="share-pre" hidden></div>
+    <button type="button" class="ghost share-b" id="share-b" hidden>Share as a comment</button>
     <p id="result-sepia"></p>
     <div class="trow" style="margin: 0 auto;">
       <button type="button" class="primary" id="again">Again</button>
