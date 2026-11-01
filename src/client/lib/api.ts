@@ -43,7 +43,7 @@ export const api = {
   bleachStart: (test = false) => call<DuelResponse>('/api/bleach/start', { test }),
   bleachAct: (action: DuelAction) => call<DuelResponse>('/api/bleach/act', { action }),
   bleachShare: (test = false) => call<ShareSheetResponse>('/api/bleach/share', { test }),
-  sheet: () => call<SheetResponse>('/api/sheet'),
+  sheet: (n?: number) => call<SheetResponse>(n ? `/api/sheet?n=${n}` : '/api/sheet'),
   play: () => call<PlayInfo>('/api/play'),
   dice: () => call<DiceResponse>('/api/dice'),
   dicePull: (kind: PullKind) => call<DiceResponse>('/api/dice/pull', { kind }),

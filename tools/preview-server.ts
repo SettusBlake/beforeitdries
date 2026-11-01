@@ -98,7 +98,7 @@ createServer(async (req, res) => {
     // Tagespost: Vorschau zeigt den Post des Tages, mit /dev/sheet?later=1 den Stand am nächsten Tag (fertige Rangliste)
     if (url.pathname === '/api/sheet') {
       const post = await ensureSheetPost(d);
-      return send(200, await sheetGet(sheetLater ? { ...d, now: d.now + 86_400_000 } : d, asUser, post.id));
+      return send(200, await sheetGet(sheetLater ? { ...d, now: d.now + 86_400_000 } : d, asUser, post.id, Number(url.searchParams.get("n")) || undefined));
     }
     if (url.pathname === '/dev/sheet') {
       sheetLater = url.searchParams.get('later') === '1';

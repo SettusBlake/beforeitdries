@@ -11,6 +11,8 @@ import type { BleachResult, DuelResponse, DuelReward } from '../shared/api';
 import { DROP_COST, rarityDef, serialText, TINT_MAX } from '../shared/dice';
 import { BLEACH, bleachScore, forecast, type PaleCast } from '../shared/duel/bleach';
 import { shareText } from '../shared/sheet';
+import { drawSheet } from './lib/minisheet';
+import type { SheetRow } from '../shared/api';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -2417,7 +2419,8 @@ async function bleachTitle(): Promise<Awaited<ReturnType<typeof api.bleach>> | n
           ? `${i.played.points} points${i.played.rank ? ` · #${i.played.rank} of ${i.players}` : ''}`
           : `${i.waves} waves · ${i.pales} Pales`;
     note.hidden = !i.top.length;
-    note.textContent = i.top.length ? `Today: ${i.top.map((t, k) => `${k + 1}. ${t.name || 'a painter'} ${t.points}`).join(' · ')}` : '';
+    note.innerHTML = '';
+    if (i.top.length) note.append(`Today: ${i.top.map((t, k) => `${k + 1}. ${t.name || 'a painter'} ${t.points}`).join(' · ')} · `, html('u', '', 'full board'));
     return i;
   } catch {
     b.hidden = true;
@@ -2443,6 +2446,7 @@ function shareSetup(r: BleachResult | null): void {
   b.className = 'ghost share-b';
   b.textContent = 'Share as a comment';
   $('share-pre').hidden = true;
+  $('share-note').hidden = !shareRes;
 }
 async function postShare(r: BleachResult): Promise<{ postId: string } | null> {
   try {
@@ -2456,6 +2460,36 @@ async function postShare(r: BleachResult): Promise<{ postId: string } | null> {
     return null;
   }
 }
+/* Volle Rangliste des Tages (im Tagespost nur die Besten, dort darf nichts scrollen) */
+async function openBoard(): Promise<void> {
+  sfx.tap();
+  const list = $('tboard-list');
+  list.replaceChildren(html('p', 'bgap', 'Loading…'));
+  $('tboard').hidden = false;
+  try {
+    const r = await api.sheet(50);
+    $('tboard-sub').textContent = `${r.players} ${r.players === 1 ? 'painter' : 'painters'} · closes at midnight UTC`;
+    list.replaceChildren();
+    const row = (x: SheetRow): HTMLElement => {
+      const e = html('div', 'brow' + (x.me ? ' me' : ''), '');
+      const c = document.createElement('canvas');
+      drawSheet(c, x.sheet ?? '', x.col, 5);
+      e.append(html('span', 'rk', `#${x.rank}`), c, html('span', 'nm', x.me ? 'you' : x.name && x.name !== 'a painter' ? `u/${x.name}` : 'a painter'), html('span', 'hs', '♥'.repeat(x.hearts ?? 0)), html('b', 'pt', String(x.points)));
+      return e;
+    };
+    if (!r.top.length) list.append(html('p', 'bgap', 'Nobody has painted today’s sheet yet.'));
+    for (const x of r.top) list.append(row(x));
+    if (r.me && !r.top.some((x) => x.me)) list.append(html('p', 'bgap', '…'), row(r.me));
+  } catch (e) {
+    $('tboard').hidden = true;
+    onError(e);
+  }
+}
+$('bleach-note').addEventListener('click', () => void openBoard());
+$('tboard-x').addEventListener('click', () => ($('tboard').hidden = true));
+$('tboard').addEventListener('click', (e) => {
+  if (e.target === $('tboard')) $('tboard').hidden = true;
+});
 $('share-b').addEventListener('click', async () => {
   const b = $('share-b') as HTMLButtonElement;
   if (shared) return void navigateToPost(shared.postId as `t3_${string}`);
@@ -2479,6 +2513,7 @@ $('share-b').addEventListener('click', async () => {
   titleShare = null;
   b.className = 'ghost share-b';
   b.textContent = 'Open today’s post';
+  $('share-note').textContent = 'Shared under today’s sheet.';
 });
 $('bleach-share').addEventListener('click', async () => {
   const b = $('bleach-share') as HTMLButtonElement;
@@ -2486,7 +2521,7 @@ $('bleach-share').addEventListener('click', async () => {
   if (!titleShareArmed) {
     titleShareArmed = true;
     sfx.tap();
-    b.textContent = 'Tap again: a comment in your name';
+    b.textContent = 'Tap again: a reply in your name under today’s sheet';
     return;
   }
   b.disabled = true;

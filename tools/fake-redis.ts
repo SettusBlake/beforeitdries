@@ -17,6 +17,13 @@ export class FakeRedis implements RedisLike {
     return z;
   }
 
+  async del(...keys: string[]) {
+    for (const k of keys) {
+      this.strings.delete(k);
+      this.hashes.delete(k);
+      this.zsets.delete(k);
+    }
+  }
   async get(key: string) {
     return this.strings.get(key);
   }

@@ -50,8 +50,8 @@ function best(r: SheetRow): HTMLElement {
   box.append(b);
   return box;
 }
-function row(r: SheetRow): HTMLElement {
-  const e = el('div', 'row' + (r.me ? ' me' : ''));
+function row(r: SheetRow, wide = false): HTMLElement {
+  const e = el('div', 'row' + (r.me ? ' me' : '') + (wide ? ' wide' : ''));
   e.append(mini(r, 5), el('span', 'rk', `#${r.rank}`), el('span', 'nm', r.me ? 'you' : who(r.name)), el('b', 'pt', String(r.points)));
   return e;
 }
@@ -82,13 +82,24 @@ function show(): void {
   play.className = done ? 'primary soft' : 'primary';
   const me = $('s-me');
   me.innerHTML = i.me ? `You: <b>#${i.me.rank}</b> of ${i.players} · <b>${i.me.points}</b> points` : i.today && i.running ? 'Your sheet is still wet.' : '';
-  // Rangliste: Top 10, dein Platz dazu, wenn du nicht dabei bist
+  // Rangliste: die Besten (6), dein Platz dazu, wenn du nicht dabei bist. Die volle Liste gibt es im Spiel
   const board = $('s-board');
   board.replaceChildren();
   if (!i.top.length) board.append(el('p', 's-empty', i.today ? '“Nobody has painted it yet. Go first, I will watch.” Master Sepia' : '“An empty sheet. It happens.” Master Sepia'));
   for (const r of i.top) board.append(row(r));
-  if (i.me && !i.top.some((r) => r.me)) board.append(row(i.me));
-  $('s-count').textContent = i.today && i.players ? `${i.players} ${i.players === 1 ? 'painter' : 'painters'} today · the board closes at midnight UTC` : '';
+  if (i.me && !i.top.some((r) => r.me)) board.append(row(i.me, true));
+  $('s-count').textContent = i.players > i.top.length ? `${i.players} painters · the full board is in the game` : i.today && i.players ? `${i.players} ${i.players === 1 ? 'painter' : 'painters'} today · the board closes at midnight UTC` : '';
+  fit();
+}
+/** Inline-Posts dürfen nicht scrollen: passt die Liste nicht, fallen die hinteren Plätze weg (deiner bleibt) */
+function fit(): void {
+  const board = $('s-board');
+  for (let k = 0; k < 20 && board.scrollHeight > board.clientHeight + 1; k++) {
+    const rows = [...board.querySelectorAll('.row:not(.me)')];
+    const last = rows[rows.length - 1];
+    if (!last) break;
+    last.remove();
+  }
 }
 
 async function load(): Promise<void> {
@@ -101,6 +112,7 @@ async function load(): Promise<void> {
 }
 $('s-play').addEventListener('click', (e) => requestExpandedMode(e, 'duel'));
 void load();
+window.addEventListener('resize', show);
 // Rangliste ab und zu neu holen, solange der Tag läuft
 window.setInterval(() => {
   if (info?.today) void load();

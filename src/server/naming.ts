@@ -53,11 +53,14 @@ export async function diceShare(d: Deps, userId: string | undefined, username: s
     const who = username || 'a painter';
     let post: { id: string; url: string };
     try {
+      // Im Namen des Finders (Regeln für Inhalte von Spielern): sein Monster, auch eine eigene Zeichnung, meldbar zugeordnet
       post = await d.reddit.submitCustomPost({
         subredditName: d.subredditName,
-        title: `What do you see? A new blot found by u/${who}`,
+        title: 'What do you see? Help me name this blot',
         entry: 'name',
         postData: { kind: 'name' },
+        runAs: 'USER',
+        userGeneratedContent: { text: `A watercolor blot from Before It Dries${die.draw ? ', drawn by its finder' : ''}. Comment a name for its species.` },
         textFallback: { text: 'A new watercolor blot without a name. Open this post on reddit.com or in the Reddit app to see it, then comment a name.' },
       });
     } catch (e) {
@@ -113,11 +116,12 @@ export async function adoptNaming(d: Deps, postId: string, cancel = false): Prom
     await d.redis.set(K.naming(postId), JSON.stringify(info));
     if ((await d.redis.hGet(K.namingOpen, info.key)) === postId) await d.redis.hDel(K.namingOpen, [info.key]);
   };
-  const say = async (text: string) => {
+  const say = async (text: string): Promise<string | undefined> => {
     try {
-      await d.reddit.submitComment({ id: postId as `t3_${string}`, text });
+      return (await d.reddit.submitComment({ id: postId as `t3_${string}`, text })).id;
     } catch (e) {
       console.error('naming comment', e);
+      return undefined;
     }
   };
   if (cancel) {
@@ -145,13 +149,62 @@ export async function adoptNaming(d: Deps, postId: string, cancel = false): Prom
     await d.redis.hSet(K.species(info.key), { name: c.name, namedBy: c.by, foundBy: info.user, postId, commentId: c.id, namedAt: String(d.now) });
     await d.redis.hSetNX(K.species(info.key), 'firstSeen', dayKey(info.at));
     await d.redis.zAdd(K.speciesIndex, { member: info.key, score: d.now });
-    await close('named', { name: c.name, namedBy: c.by });
+    await close('named', { name: c.name, namedBy: c.by, commentId: c.id });
     await pay(d, info.uid);
     if (c.byId) await pay(d, c.byId);
-    await say(`The Bestiary records **${c.name}** (${label}), found by u/${info.user}, named by u/${c.by}. Both get ${REWARD.name} pigment.`);
+    const sayId = await say(`The Bestiary records **${c.name}** (${label}), found by u/${info.user}, named by u/${c.by}. Both get ${REWARD.name} pigment.`);
+    if (sayId) await close('named', { sayId });
     return { status: 'named', name: c.name, namedBy: c.by };
   }
   await close('empty');
   await say('No name stuck. The blot stays nameless for now, and the next one to find it may try again. *Master Sepia*');
   return { status: 'empty' };
+}
+
+/* ---------- Löschen (Devvit-Regeln): Post oder Kommentar gelöscht, dann ihre Inhalte auch hier ---------- */
+
+/** Ein „What do you see?“-Post ist gelöscht: Eintrag weg, eine offene Benennung gibt die Art wieder frei */
+export async function namingPostGone(d: Pick<Deps, 'redis'>, postId: string): Promise<boolean> {
+  const info = parse<NamingInfo>(await d.redis.get(K.naming(postId)));
+  if (!info) return false;
+  if ((await d.redis.hGet(K.namingOpen, info.key)) === postId) await d.redis.hDel(K.namingOpen, [info.key]);
+  await d.redis.del(K.naming(postId));
+  await d.redis.zRem(K.namingPosts, [postId]);
+  return true;
+}
+
+/**
+ * Der Kommentar, der einer Art ihren Namen gab, ist gelöscht (festgelegt am 02.11.2026: die Art wird wieder offen).
+ * Name, Namensgeber und Sepias Bestiary-Kommentar verschwinden, der Name ist wieder frei, das Pigment bleibt.
+ */
+export async function nameCommentGone(d: Pick<Deps, 'redis' | 'reddit'>, commentId: string, postId: string): Promise<string | null> {
+  // Die Art finden: über den Post, sonst alle benannten Arten durchsehen (auch Namen aus alten Tagesposts)
+  const info = parse<NamingInfo>(await d.redis.get(K.naming(postId)));
+  let key: string | null = info && info.commentId === commentId ? info.key : null;
+  if (!key) {
+    const all = await d.redis.zRange(K.speciesIndex, 0, -1, { by: 'rank' });
+    for (const { member } of all) if ((await d.redis.hGet(K.species(member), 'commentId')) === commentId) key = member;
+  }
+  if (!key) return null;
+  const h = await d.redis.hGetAll(K.species(key));
+  if (h.commentId !== commentId) return null;
+  await d.redis.hDel(K.species(key), ['name', 'namedBy', 'foundBy', 'postId', 'commentId', 'namedAt', 'day']);
+  await d.redis.zRem(K.speciesIndex, [key]);
+  if (h.name && (await d.redis.hGet(K.speciesNames, h.name.toLowerCase())) === key) await d.redis.hDel(K.speciesNames, [h.name.toLowerCase()]);
+  if (info && info.key === key) {
+    if (info.sayId && d.reddit.getCommentById) {
+      try {
+        await (await d.reddit.getCommentById(info.sayId as `t1_${string}`)).delete();
+      } catch (e) {
+        console.error('delete bestiary comment', e);
+      }
+    }
+    const next: NamingInfo = { ...info, status: 'withdrawn' };
+    delete next.name;
+    delete next.namedBy;
+    delete next.commentId;
+    delete next.sayId;
+    await d.redis.set(K.naming(postId), JSON.stringify(next));
+  }
+  return key;
 }

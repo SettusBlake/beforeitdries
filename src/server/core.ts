@@ -28,7 +28,12 @@ export interface RedisLike {
   zRem(key: string, members: string[]): Promise<number>;
   zScore(key: string, member: string): Promise<number | undefined>;
   hIncrBy(key: string, field: string, value: number): Promise<number>;
+  /** Schlüssel ganz löschen (Löschpflichten) */
+  del(...keys: string[]): Promise<void>;
 }
+
+/** Ein eben geschriebener Kommentar: ID, anheften (nur App-Konto mit Mod-Rechten) */
+export type CommentRef = { id: string; distinguish?(makeSticky?: boolean): Promise<void> };
 
 export interface CommentLike {
   id: string;
@@ -49,11 +54,16 @@ export interface RedditLike {
     entry?: string;
     postData?: DayPostData | PlayPostData | NamePostData | SheetPostData;
     textFallback?: { text: string };
+    /** USER: im Namen des Spielers (Benennen), dann ist userGeneratedContent Pflicht */
+    runAs?: 'USER' | 'APP';
+    userGeneratedContent?: { text: string };
   }): Promise<{ id: string; url: string; permalink: string }>;
   getPostById(id: `t3_${string}`): Promise<{ sticky(position?: 1 | 2): Promise<void> }>;
   getComments(opts: { postId: `t3_${string}`; sort?: 'top'; limit?: number; pageSize?: number; depth?: number }): { all(): Promise<CommentLike[]> };
-  /** runAs USER: im Namen des Spielers (Teilen), sonst vom App-Konto */
-  submitComment(opts: { id: `t3_${string}`; text: string; runAs?: 'USER' | 'APP' }): Promise<unknown>;
+  /** runAs USER: im Namen des Spielers (Teilen), sonst vom App-Konto. id: Post oder Kommentar (Antwort) */
+  submitComment(opts: { id: `t3_${string}` | `t1_${string}`; text: string; runAs?: 'USER' | 'APP' }): Promise<CommentRef>;
+  /** Kommentar der App wiederfinden (zum Löschen). Fehlt in alten Attrappen */
+  getCommentById?(id: `t1_${string}`): Promise<{ delete(): Promise<void> }>;
   /** Mit username: ist dieser Spieler Mod? (leere Liste, wenn nicht) */
   getModerators(opts: { subredditName: string; username?: string }): { all(): Promise<{ username: string }[]> };
   /** Konto eines Spielers (Alter fürs Handeln). Fehlt in alten Attrappen */

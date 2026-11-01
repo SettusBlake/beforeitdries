@@ -5,6 +5,7 @@ import { diceDraw, dicePull, loadDice, saveDice } from '../src/server/dice';
 import { reviewOk } from '../src/server/drawings';
 import { K } from '../src/server/keys';
 import { adoptNaming, diceShare, NAMING_JOB, NAMING_MS, namingGet, speciesNames } from '../src/server/naming';
+import { commentGone, postGone } from '../src/server/deletion';
 import { dieSpecies, REWARD } from '../src/shared/dice';
 import { encodeDrawing } from '../src/shared/drawn';
 import { RNG } from '../src/shared/rng';
@@ -54,7 +55,9 @@ describe('Benennen', () => {
     expect(await code(diceShare(d, USER, 'finder', 'nope'))).toBe('not_found');
     const res = await diceShare(d, USER, 'finder', a!.id);
     expect(res.postId).toMatch(/^t3_/);
-    expect(d.reddit.posts.at(-1)).toMatchObject({ id: res.postId, title: 'What do you see? A new blot found by u/finder', entry: 'name' });
+    // Im Namen des Finders, mit Text für die Meldewege (Regeln für Inhalte von Spielern)
+    expect(d.reddit.posts.at(-1)).toMatchObject({ id: res.postId, title: 'What do you see? Help me name this blot', entry: 'name', runAs: 'USER' });
+    expect(d.reddit.posts.at(-1)!.ugc).toContain('Before It Dries');
     expect(d.jobs).toEqual([{ name: NAMING_JOB, runAt: new Date(d.now + NAMING_MS), data: { postId: res.postId } }]);
     const info = (await namingGet(d, res.postId)).naming!;
     expect(info).toMatchObject({ key: dieSpecies(a!), uid: USER, user: 'finder', status: 'open', ends: d.now + NAMING_MS });
@@ -134,5 +137,50 @@ describe('Benennen', () => {
     await reviewOk(d, 'Vegavild', `${USER}:${die.id}`);
     const res = await diceShare(d, USER, 'finder', die.id);
     expect((await namingGet(d, res.postId)).naming!.die.draw).toBe(die.draw);
+  });
+});
+
+describe('Benennen: Löschen (Devvit-Regeln)', () => {
+  it('Kommentar mit dem Namen gelöscht: die Art ist wieder offen, der Name frei, Sepias Kommentar weg, das Pigment bleibt', async () => {
+    const d = setup();
+    await dicePull(d, USER, 'starter');
+    const [a] = (await loadDice(d, USER)).dice;
+    const { postId } = await diceShare(d, USER, 'finder', a!.id);
+    d.reddit.addComment(postId, 'namer', 'Soggy Bishop', 20);
+    await adoptNaming({ ...d, now: d.now + NAMING_MS }, postId);
+    const key = dieSpecies(a!);
+    const named = (await namingGet(d, postId)).naming!;
+    expect(named.commentId).toBeTruthy();
+    expect(named.sayId).toBeTruthy();
+    const pig = (await loadDice(d, USER)).pigment;
+    // Ein anderer Kommentar: nichts passiert
+    expect(await commentGone(d, 't1_other', postId)).toEqual([]);
+    expect(await commentGone(d, named.commentId, postId)).toEqual([`species ${key} open again`]);
+    expect((await speciesNames(d)).names[key]).toBeUndefined();
+    expect(await d.redis.hGet(K.speciesNames, 'soggy bishop')).toBeUndefined();
+    expect((await namingGet(d, postId)).naming).toMatchObject({ status: 'withdrawn' });
+    expect((await namingGet(d, postId)).naming!.name).toBeUndefined();
+    expect(d.reddit.appComments.find((c) => c.cid === named.sayId)!.deleted).toBe(true);
+    expect((await loadDice(d, USER)).pigment).toBe(pig);
+    // Wiederholt: nichts mehr zu tun
+    expect(await commentGone(d, named.commentId!, postId)).toEqual([]);
+    // Die Art lässt sich neu teilen, der Name neu vergeben
+    const s = await loadDice(d, USER);
+    s.nameDay = '';
+    await saveDice(d, USER, s);
+    expect(await code(diceShare(d, USER, 'finder', a!.id))).toBe('ok');
+  });
+
+  it('offener Benennen-Post gelöscht: Eintrag weg, die Art ist frei, der Scheduler-Auftrag tut nichts mehr', async () => {
+    const d = setup();
+    await dicePull(d, USER, 'starter');
+    const [a] = (await loadDice(d, USER)).dice;
+    const { postId } = await diceShare(d, USER, 'finder', a!.id);
+    expect(await postGone(d, postId)).toEqual(['naming']);
+    expect((await namingGet(d, postId)).naming).toBeNull();
+    expect((await speciesNames(d)).open).toEqual({});
+    expect((await adoptNaming({ ...d, now: d.now + NAMING_MS }, postId)).status).toBe('none');
+    expect(await postGone(d, postId)).toEqual([]);
+    expect(await postGone(d, 'nonsense')).toEqual([]);
   });
 });

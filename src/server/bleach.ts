@@ -233,7 +233,37 @@ async function finishRun(d: Deps, uid: string, username: string | undefined, day
 /** Name des Scheduler-Auftrags (devvit.json): kurz nach Mitternacht UTC */
 export const SHEET_JOB = 'daily-sheet';
 export const sheetTitle = (day: string): string => `Today’s sheet · ${dayLabel(day)} · Hold the edge against the Bleach`;
-type PostRef = { id: string; url: string };
+/** Tagespost: ID, Link und der angeheftete Kommentar, unter den geteilte Blätter als Antwort kommen */
+type PostRef = { id: string; url: string; thread?: string };
+const THREAD_TEXT = '**Share your sheet here.** After your run, “Share as a comment” posts your sheet as a reply to this comment, from your own account. Only when you tap it. *Master Sepia*';
+
+/** Angehefteter Kommentar der App im Tagespost (Regeln: geteilte Ergebnisse antworten darauf). Anheften braucht Mod-Rechte, sonst bleibt er lose */
+async function openThread(d: Deps, postId: string): Promise<string | undefined> {
+  try {
+    const c = await d.reddit.submitComment({ id: postId as `t3_${string}`, text: THREAD_TEXT });
+    try {
+      await c.distinguish?.(true);
+    } catch (e) {
+      console.error('sticky share thread', e);
+    }
+    return c.id;
+  } catch (e) {
+    console.error('share thread', e);
+    return undefined;
+  }
+}
+/** Den angehefteten Kommentar nachholen (Posts von vor Schritt 1a, oder er wurde gelöscht) */
+async function ensureThread(d: Deps, day: string): Promise<PostRef> {
+  return withLock(d, `lock:bleach:post:${day}`, async () => {
+    const ref = parse<PostRef>(await d.redis.get(K.bleachPost(day)))!;
+    if (ref.thread) return ref;
+    const thread = await openThread(d, ref.id);
+    if (!thread) throw new GameError('server', 'Reddit did not take the comment. Try again in a moment.', 502);
+    const next = { ...ref, thread };
+    await d.redis.set(K.bleachPost(day), JSON.stringify(next));
+    return next;
+  });
+}
 
 /**
  * Tagespost anlegen, falls es für den Tag noch keinen gibt (Scheduler, Teilen). force: Mod-Menü, legt einen neuen an,
@@ -254,7 +284,8 @@ export async function ensureSheetPost(d: Deps, day: string = dayKey(d.now), forc
       postData: { kind: 'sheet', day },
       textFallback: { text: 'Today’s watercolour sheet: hold the edge against the Bleach. Open this post in the Reddit app or on reddit.com to play.' },
     });
-    const ref: PostRef = { id: post.id, url: post.url };
+    const thread = await openThread(d, post.id);
+    const ref: PostRef = { id: post.id, url: post.url, ...(thread ? { thread } : {}) };
     await d.redis.set(K.bleachPost(day), JSON.stringify(ref));
     await d.redis.hSet(K.bleachPostDay, { [post.id]: day });
     console.log('Sheet post', day, post.id, post.url);
@@ -275,18 +306,22 @@ const rowOf = (rank: number, raw: string | undefined, score: number, me: boolean
   };
 };
 
-/** Was der Tagespost zeigt: der Tag des Posts, die Top 10 mit Blättern, dein Platz, dein Stand */
-export async function sheetGet(d: Deps, userId: string | undefined, postId: string | undefined): Promise<SheetResponse> {
+/** Wie viele der Tagespost zeigt (ohne Scrollen, Regeln für Inline-Posts) und wie viele die volle Liste im Spiel */
+export const SHEET_TOP = 6;
+export const BOARD_MAX = 50;
+/** Was der Tagespost zeigt: der Tag des Posts, die Besten mit Blättern, dein Platz, dein Stand. n: wie viele (höchstens 50) */
+export async function sheetGet(d: Deps, userId: string | undefined, postId: string | undefined, n: number = SHEET_TOP): Promise<SheetResponse> {
+  const top = Math.max(1, Math.min(BOARD_MAX, Math.floor(n) || SHEET_TOP));
   const today = dayKey(d.now);
   const day = (postId ? await d.redis.hGet(K.bleachPostDay, postId) : undefined) || today;
   const [players, topRaw, setup] = await Promise.all([
     d.redis.zCard(K.bleachBoard(day)),
-    d.redis.zRange(K.bleachBoard(day), 0, 9, { by: 'rank', reverse: true }),
+    d.redis.zRange(K.bleachBoard(day), 0, top - 1, { by: 'rank', reverse: true }),
     d.redis.get(K.bleachDay(day)),
   ]);
   const raws = await Promise.all(topRaw.map((m) => d.redis.hGet(K.bleachRes(day), m.member)));
-  const top = topRaw.map((m, i) => rowOf(i + 1, raws[i], m.score, m.member === userId));
-  let me: SheetRow | null = top.find((r) => r.me) ?? null;
+  const rows = topRaw.map((m, i) => rowOf(i + 1, raws[i], m.score, m.member === userId));
+  let me: SheetRow | null = rows.find((r) => r.me) ?? null;
   let unlocked = false,
     running = false;
   if (userId) {
@@ -302,7 +337,7 @@ export async function sheetGet(d: Deps, userId: string | undefined, postId: stri
     today: day === today,
     colour: parse<BleachDay>(setup)?.colour ?? PIGMENTS[daySeed(day) % PIGMENTS.length]!.id,
     players,
-    top,
+    top: rows,
     me,
     user: !!userId,
     unlocked,
@@ -343,9 +378,11 @@ export async function bleachShare(d: Deps, userId: string | undefined, username?
       sheet: res.sheet,
       ...(res.col ? { col: res.col } : {}),
     });
-    const post = await ensureSheetPost(d, day);
+    let post: PostRef = await ensureSheetPost(d, day);
+    if (!post.thread) post = await ensureThread(d, day);
     try {
-      await d.reddit.submitComment({ id: post.id as `t3_${string}`, text, runAs: 'USER' });
+      // Als Antwort auf den angehefteten Kommentar, im Namen des Spielers (Regeln für geteilte Ergebnisse)
+      await d.reddit.submitComment({ id: post.thread as `t1_${string}`, text, runAs: 'USER' });
     } catch (e) {
       console.error('share sheet', e);
       throw new GameError('server', 'Reddit did not take the comment. Try again in a moment.', 502);
@@ -355,4 +392,24 @@ export async function bleachShare(d: Deps, userId: string | undefined, username?
     else await d.redis.hSet(K.bleachRes(day), { [uid]: JSON.stringify(res) });
     return { postId: post.id, url: post.url, text };
   });
+}
+
+/** Tagespost gelöscht: ist es der Post des Tages, legt der nächste Scheduler-Lauf oder das nächste Teilen einen neuen an */
+export async function sheetPostGone(d: Pick<Deps, 'redis'>, postId: string): Promise<boolean> {
+  const day = await d.redis.hGet(K.bleachPostDay, postId);
+  if (!day) return false;
+  const ref = parse<PostRef>(await d.redis.get(K.bleachPost(day)));
+  if (ref?.id === postId) await d.redis.del(K.bleachPost(day));
+  return true;
+}
+/** Angehefteter Kommentar gelöscht (z. B. von einem Mod): beim nächsten Teilen kommt ein neuer */
+export async function sheetThreadGone(d: Pick<Deps, 'redis'>, commentId: string, postId: string): Promise<boolean> {
+  const day = await d.redis.hGet(K.bleachPostDay, postId);
+  if (!day) return false;
+  const ref = parse<PostRef>(await d.redis.get(K.bleachPost(day)));
+  if (ref?.thread !== commentId) return false;
+  const { thread: _t, ...rest } = ref;
+  void _t;
+  await d.redis.set(K.bleachPost(day), JSON.stringify(rest));
+  return true;
 }

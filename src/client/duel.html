@@ -22,7 +22,7 @@
   <button type="button" class="primary" id="start">Start duel</button>
   <button type="button" class="primary gal-btn" id="gallery-b">Gallery duel</button>
   <button type="button" class="primary bleach-btn" id="bleach-b" hidden><b>Today’s sheet</b><small id="bleach-sub"></small></button>
-  <p class="gal-note" id="bleach-note" hidden></p>
+  <button type="button" class="gal-note linkish" id="bleach-note" hidden></button>
   <button type="button" class="ghost share-t" id="bleach-share" hidden>Share your sheet as a comment</button>
   <p class="gal-note" id="gal-note" hidden></p>
   <div class="drow">
@@ -305,6 +305,13 @@
   <div class="bubble"><small>Master Sepia</small><p id="tip-text"></p><button type="button" id="tip-ok">Got it</button></div>
 </div>
 
+<div class="overlay" id="tboard" hidden>
+  <div class="sheet boardsheet">
+    <div class="modhead"><h2>Today’s board</h2><button type="button" class="ghost" id="tboard-x" aria-label="Close">✕</button></div>
+    <p class="eyebrow" id="tboard-sub"></p>
+    <div class="blist" id="tboard-list"></div>
+  </div>
+</div>
 <div class="overlay" id="modp" hidden>
   <div class="sheet modsheet">
     <div class="modhead"><h2>Moderator tools</h2><button type="button" class="ghost" id="modp-x" aria-label="Close">✕</button></div>
@@ -333,6 +340,7 @@
     <p id="result-reward" hidden></p>
     <div class="share-pre" id="share-pre" hidden></div>
     <button type="button" class="ghost share-b" id="share-b" hidden>Share as a comment</button>
+    <p class="share-note" id="share-note" hidden>Posts a reply in your name under today’s sheet. Everyone can see it. Only when you tap.</p>
     <p id="result-sepia"></p>
     <div class="trow" style="margin: 0 auto;">
       <button type="button" class="primary" id="again">Again</button>

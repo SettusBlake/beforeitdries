@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
 import { bleachAct, bleachDay, bleachGet, bleachShare, bleachStart, ensureSheetPost, sheetGet } from '../src/server/bleach';
+import { commentGone, postGone } from '../src/server/deletion';
+import { K } from '../src/server/keys';
 import { loadDice, saveDice } from '../src/server/dice';
 import { BLEACH, bleachMove, bleachScore, doFlick, forecast, newBleach, sheetCode } from '../src/shared/duel/bleach';
 import { emojiRows, isSheet, readCell, shareText, SHEET_COLS, SHEET_ROWS, squareOf } from '../src/shared/sheet';
@@ -336,10 +338,15 @@ describe('Bleach: Tagespost und Teilen', () => {
     expect(view.waves).toEqual(BLEACH.waves);
     const out = await bleachShare(d, USER, 'painter');
     expect(out.postId).toBe(post.id);
-    expect(reddit.appComments).toHaveLength(1);
-    expect(reddit.appComments[0]!.runAs).toBe('USER');
-    expect(reddit.appComments[0]!.id).toBe(post.id);
-    expect(reddit.appComments[0]!.text).toContain(`**${end.bleach!.points} points** · #1 of 1`);
+    // Die App hat einen angehefteten Kommentar im Tagespost, das Blatt kommt als Antwort darauf im Namen des Spielers
+    const thread = reddit.appComments.find((c) => c.id === post.id)!;
+    expect(thread.sticky).toBe(true);
+    expect(thread.runAs).toBeUndefined();
+    expect(reddit.appComments).toHaveLength(2);
+    const reply = reddit.appComments[1]!;
+    expect(reply.runAs).toBe('USER');
+    expect(reply.id).toBe(thread.cid);
+    expect(reply.text).toContain(`**${end.bleach!.points} points** · #1 of 1`);
     expect(await code(bleachShare(d, USER, 'painter'))).toBe('bad_request');
     expect((await bleachGet(d, USER, 'painter')).played!.shared).toBe(true);
   });
@@ -360,5 +367,32 @@ describe('Bleach: Tagespost und Teilen', () => {
     const t = await bleachShare(d, 't2_mod', 'modder', true);
     expect(t.text).toContain('Test sheet');
     expect(await code(bleachShare(d, 't2_mod', 'modder', true))).toBe('bad_request');
+  });
+});
+
+describe('Bleach: Löschen und Rangliste im Post', () => {
+  it('der Tagespost zeigt 6, die volle Liste bis 50. Gelöschter Tagespost oder angehefteter Kommentar wird neu angelegt', async () => {
+    const d = setup(27);
+    const reddit = d.reddit as FakeReddit;
+    for (let k = 0; k < 8; k++) await unlock(d, `t2_p${k}`);
+    for (let k = 0; k < 8; k++) await playOut({ ...d, now: d.now + k * 1000 }, `t2_p${k}`, `p${k}`);
+    const post = await ensureSheetPost(d);
+    expect((await sheetGet(d, 't2_p7', post.id)).top).toHaveLength(6);
+    expect((await sheetGet(d, 't2_p7', post.id)).me).toBeTruthy();
+    expect((await sheetGet(d, 't2_p7', post.id, 50)).top).toHaveLength(8);
+    // Ein Mod löscht den angehefteten Kommentar: beim nächsten Teilen kommt ein neuer
+    const thread = reddit.appComments.find((c) => c.id === post.id)!;
+    expect(await commentGone(d, thread.cid, post.id)).toEqual(['share thread']);
+    await bleachShare(d, 't2_p0', 'p0');
+    const threads = reddit.appComments.filter((c) => c.id === post.id);
+    expect(threads).toHaveLength(2);
+    expect(reddit.appComments.at(-1)!.id).toBe(threads[1]!.cid);
+    // Der Tagespost wird gelöscht: die Zuordnung Post → Tag bleibt, der nächste Post wird angelegt
+    expect(await postGone(d, post.id)).toEqual(['sheet']);
+    expect(await d.redis.get(K.bleachPost('2026-11-02'))).toBeUndefined();
+    expect((await sheetGet(d, undefined, post.id)).day).toBe('2026-11-02');
+    const again = await ensureSheetPost(d);
+    expect(again.created).toBe(true);
+    expect(again.id).not.toBe(post.id);
   });
 });

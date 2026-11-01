@@ -2,14 +2,15 @@
 import type { CommentLike, RedditLike } from '../src/server/core';
 
 export class FakeReddit implements RedditLike {
-  posts: { id: string; title: string; postData: unknown; entry?: string; sticky?: boolean }[] = [];
+  posts: { id: string; title: string; postData: unknown; entry?: string; sticky?: boolean; runAs?: 'USER' | 'APP'; ugc?: string }[] = [];
   comments = new Map<string, CommentLike[]>();
-  appComments: { id: string; text: string; runAs?: 'USER' | 'APP' }[] = [];
+  /** Geschriebene Kommentare: id ist das Ziel (Post oder Kommentar), cid die neue ID */
+  appComments: { id: string; cid: string; text: string; runAs?: 'USER' | 'APP'; sticky?: boolean; deleted?: boolean }[] = [];
   private n = 0;
 
   async submitCustomPost(opts: Parameters<RedditLike['submitCustomPost']>[0]) {
     const id = `t3_fake${++this.n}`;
-    this.posts.push({ id, title: opts.title, postData: opts.postData, ...(opts.entry ? { entry: opts.entry } : {}) });
+    this.posts.push({ id, title: opts.title, postData: opts.postData, ...(opts.entry ? { entry: opts.entry } : {}), ...(opts.runAs ? { runAs: opts.runAs } : {}), ...(opts.userGeneratedContent ? { ugc: opts.userGeneratedContent.text } : {}) });
     return { id, url: `https://www.reddit.com/r/${opts.subredditName}/comments/${id.slice(3)}/`, permalink: `/r/${opts.subredditName}/comments/${id.slice(3)}/` };
   }
   async getPostById(id: `t3_${string}`) {
@@ -23,9 +24,23 @@ export class FakeReddit implements RedditLike {
   getComments(opts: { postId: `t3_${string}` }) {
     return { all: async () => [...(this.comments.get(opts.postId) ?? [])] };
   }
-  async submitComment(opts: { id: `t3_${string}`; text: string; runAs?: 'USER' | 'APP' }) {
-    this.appComments.push({ id: opts.id, text: opts.text, ...(opts.runAs ? { runAs: opts.runAs } : {}) });
-    return {};
+  async submitComment(opts: { id: `t3_${string}` | `t1_${string}`; text: string; runAs?: 'USER' | 'APP' }) {
+    const c: FakeReddit['appComments'][number] = { id: opts.id, cid: `t1_app${++this.n}`, text: opts.text, ...(opts.runAs ? { runAs: opts.runAs } : {}) };
+    this.appComments.push(c);
+    return {
+      id: c.cid,
+      distinguish: async (makeSticky?: boolean) => {
+        if (makeSticky) c.sticky = true;
+      },
+    };
+  }
+  async getCommentById(id: `t1_${string}`) {
+    return {
+      delete: async () => {
+        const c = this.appComments.find((x) => x.cid === id);
+        if (c) c.deleted = true;
+      },
+    };
   }
   mods: string[] = [];
   getModerators(opts: { subredditName: string; username?: string }) {

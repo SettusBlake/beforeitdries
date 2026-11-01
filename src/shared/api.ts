@@ -280,7 +280,8 @@ export interface GalleryResponse {
   foe: GalleryView | null;
 }
 /** Benennen: Zustand eines „What do you see?“-Posts */
-export type NamingStatus = 'open' | 'named' | 'empty' | 'cancelled';
+/** withdrawn: der Kommentar mit dem Namen wurde gelöscht, die Art ist wieder offen */
+export type NamingStatus = 'open' | 'named' | 'empty' | 'cancelled' | 'withdrawn';
 export interface NamingInfo {
   postId: string;
   /** Art (Bauplan:Pigment) */
@@ -295,6 +296,10 @@ export interface NamingInfo {
   status: NamingStatus;
   name?: string;
   namedBy?: string;
+  /** Kommentar mit dem Namen (wird er gelöscht, ist die Art wieder offen) */
+  commentId?: string;
+  /** Sepias Bestiary-Kommentar (wird mit dem Namen gelöscht) */
+  sayId?: string;
 }
 export interface NamingResponse {
   naming: NamingInfo | null;

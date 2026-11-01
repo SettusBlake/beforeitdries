@@ -27,6 +27,13 @@ Geprüft in der offiziellen Doku (reddit/devvit-docs: Launch Guide, Feature Guid
 
 In zwei Teilen: 1a Posts, Teilen und Löschen von Posts und Kommentaren, 1b gelöschte Konten.
 
+**1a gebaut (02.11.2026).** Bild docs/entwuerfe/release-regeln.png.
+- Tagespost: Top 6 mit Blättern und dein Platz, scrollt nicht (passt die Liste nicht, fallen hintere Plätze weg, bei niedrigen Posts der Erklärtext). Volle Liste bis 50 im Spiel: „full board“ unter „Today’s sheet“.
+- Teilen: Sepias angehefteter Kommentar im Tagespost („Share your sheet here“), das Blatt kommt als Antwort im Namen des Spielers. Unter dem Knopf: „Posts a reply in your name under today’s sheet. Everyone can see it. Only when you tap.“ Fehlt der angeheftete Kommentar (ältere Posts, gelöscht), kommt beim Teilen ein neuer.
+- Benennen: Post im Namen des Finders („What do you see? Help me name this blot“, `userGeneratedContent`), „What do you see?“ braucht einen zweiten Tipp mit Hinweis, dass der Post unter deinem Namen erscheint.
+- Löschen: `onPostDelete` (Benennen-Post: Eintrag weg, offene Art wieder frei; Tagespost und Spiel-Post: der nächste wird neu angelegt), `onCommentDelete` (Namens-Kommentar: Art wieder offen, Name frei, Sepias Bestiary-Kommentar gelöscht, Post zeigt „The comment that named it was deleted“; angehefteter Teilen-Kommentar: neuer beim nächsten Teilen). Code src/server/deletion.ts.
+- devvit.json: `asUser` SUBMIT_POST und SUBMIT_COMMENT, `scope: "user"`, Trigger `onPostDelete` und `onCommentDelete`.
+
 - **Tagespost ohne Scrollen:** Top 6 mit Blättern und dein Platz passen in den Post. Die ganze Liste gibt es im Spiel.
 - **Teilen nach Regel:** Die App setzt im Tagespost einen angehefteten Kommentar („Share your sheet here“). „Share as a comment“ antwortet darauf. Über dem Knopf steht: „Posts a reply as u/name under today’s sheet. Everyone can see it.“
 - **Benennen-Posts im Namen des Finders** (`runAs: 'USER'` mit `userGeneratedContent`). Der Knopf sagt vorher, dass der Post unter deinem Namen erscheint (zweiter Tipp).

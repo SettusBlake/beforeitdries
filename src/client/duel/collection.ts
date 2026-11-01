@@ -562,24 +562,41 @@ function namingRow(d: DieRec, s: DiceSave, u: Unit): HTMLElement {
   const box = el('div', 'naming');
   const open = namingPost(u.m);
   const today = s.nameDay === dayKey(Date.now());
-  const b = el('button', 'ghost name-btn', open ? 'Being named · open the post' : 'What do you see?') as HTMLButtonElement;
+  const armed = nameArmed === d.id;
+  const b = el('button', armed ? 'primary name-btn' : 'ghost name-btn', open ? 'Being named · open the post' : armed ? 'Post it in your name' : 'What do you see?') as HTMLButtonElement;
   b.type = 'button';
   b.disabled = busy || (!open && today);
+  const small = el('small', '', '');
   b.addEventListener('click', () => {
     if (open) {
       sfx.tap();
       return navigateToPost(open as `t3_${string}`);
     }
+    // Erst sagen, was passiert (ein Post in deinem Namen), dann posten (Regeln für Aktionen im Namen des Spielers)
+    if (nameArmed !== d.id) {
+      sfx.tap();
+      nameArmed = d.id;
+      b.className = 'primary name-btn';
+      b.textContent = 'Post it in your name';
+      small.textContent = NAME_POST_NOTE;
+      return;
+    }
+    nameArmed = null;
     void share(d);
   });
-  const why = open
+  small.textContent = open
     ? 'Someone found this species first. Suggest or vote for a name in the comments.'
     : today
       ? 'You shared a blot today. Share another one tomorrow.'
-      : `Unnamed species. Share it as a post: after 24 hours the top comment names it for everyone. You and the namer get ${REWARD.name} pigment.`;
-  box.append(el('b', '', 'Unnamed species'), b, el('small', '', why));
+      : armed
+        ? NAME_POST_NOTE
+        : `Unnamed species. Share it as a post: after 24 hours the top comment names it for everyone. You and the namer get ${REWARD.name} pigment.`;
+  box.append(el('b', '', 'Unnamed species'), b, small);
   return box;
 }
+/** „What do you see?“ braucht einen zweiten Tipp: der Post erscheint unter deinem Namen */
+let nameArmed: string | null = null;
+const NAME_POST_NOTE = 'This creates a post in your name in this community, with your blot. Everyone can see it and comment a name. Tap again to post.';
 /** Teilen: der Server legt den Post an, danach geht es dorthin */
 async function share(d: DieRec): Promise<void> {
   if (busy) return;
@@ -772,6 +789,16 @@ function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
       sh.type = 'button';
       sh.id = 'dip-share';
       sh.addEventListener('click', () => {
+        // Erster Tipp sagt, was passiert (ein Post in deinem Namen), der zweite teilt
+        if (sh.dataset.armed !== '1') {
+          sfx.tap();
+          sh.dataset.armed = '1';
+          sh.className = 'primary';
+          sh.textContent = 'Post it in your name';
+          const note = body.querySelector('.dnote');
+          if (note) note.textContent = NAME_POST_NOTE;
+          return;
+        }
         // Geteilt wird, wenn das Ziehen ganz fertig ist (sonst ist die Sammlung noch beschäftigt)
         shareAfter = p.die;
         done();

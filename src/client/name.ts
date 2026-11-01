@@ -79,7 +79,12 @@ function show(): void {
   } else {
     $('n-eyebrow').textContent = 'What do you see?';
     title.textContent = 'Still nameless';
-    $('n-sub').textContent = n.status === 'cancelled' ? 'The moderators closed this one. The species stays open for the next finder.' : `No name stuck this time. The next one to find a ${kind} may try again.`;
+    $('n-sub').textContent =
+      n.status === 'cancelled'
+        ? 'The moderators closed this one. The species stays open for the next finder.'
+        : n.status === 'withdrawn'
+          ? `The comment that named it was deleted, so the name went with it. The next one to find a ${kind} may try again.`
+          : `No name stuck this time. The next one to find a ${kind} may try again.`;
     $('n-time').textContent = '';
     $('n-say').innerHTML = '“Some blots keep their secrets a little longer.”<small>Master Sepia</small>';
   }

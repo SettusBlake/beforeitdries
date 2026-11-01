@@ -33,7 +33,11 @@
     "redis": true,
     "reddit": {
       "enable": true,
-      "scope": "user"
+      "scope": "user",
+      "asUser": [
+        "SUBMIT_POST",
+        "SUBMIT_COMMENT"
+      ]
     }
   },
   "menu": {
@@ -72,7 +76,9 @@
   },
   "triggers": {
     "onAppInstall": "/internal/triggers/on-app-install",
-    "onAppUpgrade": "/internal/triggers/on-app-upgrade"
+    "onAppUpgrade": "/internal/triggers/on-app-upgrade",
+    "onPostDelete": "/internal/triggers/on-post-delete",
+    "onCommentDelete": "/internal/triggers/on-comment-delete"
   },
   "scheduler": {
     "tasks": {

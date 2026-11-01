@@ -1,7 +1,7 @@
 /* Devvit-Web-Server: /api/* für die Webviews, /internal/* für Menü, Trigger und Scheduler */
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { context, createServer, getServerPort, reddit, redis, scheduler, settings } from '@devvit/web/server';
-import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
+import type { MenuItemRequest, OnCommentDeleteRequest, OnPostDeleteRequest, UiResponse } from '@devvit/web/shared';
 import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
 import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
 import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceTint, diceWash } from './dice';
@@ -12,6 +12,7 @@ import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDec
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
 import { ensurePlayPost, playInfo } from './play';
+import { commentGone, postGone } from './deletion';
 import { secureUint32 } from './rand';
 
 async function deps(): Promise<Deps> {
@@ -121,11 +122,11 @@ app.post(
     res.json(await bleachShare(await deps(), context.userId, await username(), (req.body as { test?: unknown } | undefined)?.test === true));
   }),
 );
-/* Tagespost (inline im Feed): Rangliste des Tages, zu dem der Post gehört */
+/* Tagespost (inline im Feed): Rangliste des Tages, zu dem der Post gehört. ?n=50: volle Liste im Spiel */
 app.get(
   '/api/sheet',
-  wrap(async (_req, res) => {
-    res.json(await sheetGet(await deps(), context.userId, context.postId));
+  wrap(async (req, res) => {
+    res.json(await sheetGet(await deps(), context.userId, context.postId, Number(req.query.n) || undefined));
   }),
 );
 
@@ -376,6 +377,26 @@ app.post(
     } catch (e) {
       console.error('ensurePlayPost', e);
     }
+    res.json({});
+  }),
+);
+
+/* Löschpflichten: gelöschte oder entfernte Posts und Kommentare */
+app.post(
+  '/internal/triggers/on-post-delete',
+  wrap(async (req, res) => {
+    const b = req.body as Partial<OnPostDeleteRequest> | undefined;
+    const done = await postGone(await deps(), b?.postId);
+    if (done.length) console.log('post deleted', b?.postId, done.join(', '));
+    res.json({});
+  }),
+);
+app.post(
+  '/internal/triggers/on-comment-delete',
+  wrap(async (req, res) => {
+    const b = req.body as Partial<OnCommentDeleteRequest> | undefined;
+    const done = await commentGone(await deps(), b?.commentId, b?.postId);
+    if (done.length) console.log('comment deleted', b?.commentId, done.join(', '));
     res.json({});
   }),
 );
