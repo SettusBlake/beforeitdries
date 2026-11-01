@@ -8,13 +8,14 @@ import { holoBake } from '../lib/holo';
 import { PIG } from '../../shared/data';
 import { RNG, hashStr } from '../../shared/rng';
 import { iconImage } from './icons';
+import { faceImage, holoRim, lookOf, type Look } from './faceskin';
 import { BRIM, COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type Unit, type UnitSnap } from '../../shared/duel/rules';
 import { sfx } from './sound';
 import { mediumDef } from '../../shared/duel/media';
 
 /** sqx, sqy: Stauchen und Strecken. ox, oy: Ausholen, Ausfallschritt, Rückstoß (in Feldern). rot: Kippen */
 export type VUnit = UnitSnap & { side: Side; dx: number; dy: number; lift: number; scale: number; alpha: number; flash: number; hpShown: number; busy: boolean; sqx: number; sqy: number; ox: number; oy: number; rot: number };
-type CellAnim = { t0: number; dur: number; kind: 'grow' | 'fade' | 'flip' | 'erase' | 'shine'; from?: Cell; face?: Face };
+type CellAnim = { t0: number; dur: number; kind: 'grow' | 'fade' | 'flip' | 'erase' | 'shine'; from?: Cell; face?: Face; look?: Look };
 type Particle = { x: number; y: number; vx: number; vy: number; g: number; r: number; t0: number; life: number; col: string };
 type FText = { x: number; y: number; text: string; col: string; size: number; t0: number; life: number };
 type Ring = { x: number; y: number; r0: number; r1: number; col: string; t0: number; life: number; w: number };
@@ -562,15 +563,22 @@ function draw(): void {
       ctx.globalAlpha = Math.max(0, al);
       ctx.translate(cx(i), cy(i));
       ctx.scale(1, easeOut(sy));
-      ctx.fillStyle = '#fffdf8';
-      ctx.strokeStyle = 'rgba(60,60,80,.35)';
-      ctx.lineWidth = 1.5;
-      roundRect(-cell * 0.42, -cell * 0.42, cell * 0.84, cell * 0.84, cell * 0.12);
-      ctx.fill();
-      ctx.stroke();
-      if (a.face) {
-        const img = iconImage(a.face, () => undefined);
-        if (img.complete) ctx.drawImage(img, -cell * 0.24, -cell * 0.24, cell * 0.48, cell * 0.48);
+      // Die Seite klappt in der Haut ihres Würfels auf (Würfel-Häute, 01.11.2026)
+      const img = a.face && a.look ? faceImage(a.face, a.look) : null;
+      if (img?.complete) {
+        ctx.drawImage(img, -cell * 0.42, -cell * 0.42, cell * 0.84, cell * 0.84);
+        if (a.look!.holo) holoRim(ctx, -cell * 0.42, -cell * 0.42, cell * 0.84, cell * 0.12, t);
+      } else {
+        ctx.fillStyle = '#fffdf8';
+        ctx.strokeStyle = 'rgba(60,60,80,.35)';
+        ctx.lineWidth = 1.5;
+        roundRect(-cell * 0.42, -cell * 0.42, cell * 0.84, cell * 0.84, cell * 0.12);
+        ctx.fill();
+        ctx.stroke();
+        if (a.face) {
+          const ic = iconImage(a.face, () => undefined);
+          if (ic.complete) ctx.drawImage(ic, -cell * 0.24, -cell * 0.24, cell * 0.48, cell * 0.48);
+        }
       }
       ctx.restore();
     } else if (a.kind === 'shine' && p < 1) {
@@ -1117,10 +1125,10 @@ const unitPos = (id: number): [number, number] => {
   return u ? [(u.dx + 0.5) * cell, (u.dy + 0.5) * cell - (u.lift + 0.2) * cell] : [0, 0];
 };
 const rgbCss = (rgb: readonly number[], a = 1) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
-function setCell(i: number, c: Cell, kind: CellAnim['kind'], delay: number, dur: number, face?: Face): void {
+function setCell(i: number, c: Cell, kind: CellAnim['kind'], delay: number, dur: number, face?: Face, look?: Look): void {
   const from = V.cells[i] ? { ...V.cells[i]! } : undefined;
   V.cells[i] = { ...c };
-  V.anims.set(i, { t0: now() + delay / V.speed, dur: dur / V.speed, kind, from, face });
+  V.anims.set(i, { t0: now() + delay / V.speed, dur: dur / V.speed, kind, from, face, ...(look ? { look } : {}) });
 }
 function vunitFrom(s: UnitSnap): VUnit {
   const u = unitById(s.id)!;
@@ -1229,8 +1237,10 @@ export async function playEvent(e: Ev): Promise<void> {
       await hooks.apply(e);
       return;
     case 'summon': {
+      const su = unitById(e.id);
+      const lk = su ? lookOf(su.m) : undefined;
       e.cells.forEach((s, k) => {
-        setCell(s.i, s.c, 'flip', k * 120, 560, e.faces[k]);
+        setCell(s.i, s.c, 'flip', k * 120, 560, e.faces[k], lk);
         window.setTimeout(() => sfx.flip(k), (k * 120) / V.speed);
       });
       // Überstehende Seiten tropfen ab: Farbe läuft über das fremde Feld hinunter und malt nichts

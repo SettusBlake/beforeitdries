@@ -21,6 +21,8 @@ import { api, ApiError } from './lib/api';
 import { loadSpecies, speciesName } from './lib/species';
 import { makeCube, setCubeFace, tumble } from './duel/dice3d';
 import { iconSvg, MUD_SVG, netSvg } from './duel/icons';
+import { faceImage, faceTile, holoRim, lookOf } from './duel/faceskin';
+import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
 import { diceBadge, initDice, openDice } from './duel/collection';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
@@ -232,7 +234,9 @@ function stageDie(id: number, size: number): StageDie {
   const u = R.unitById(id)!;
   const box = el('div', 'stage-die');
   box.dataset.id = String(id);
-  const cube = makeCube(u.faces, size, rgb(u.m.main));
+  // Würfel-Haut (01.11.2026): Farbe mit Kürzel, Stil des Monsters, Holo-Folie
+  const lk = lookOf(u.m);
+  const cube = makeCube(u.faces, size, rgb(u.m.main), { skin: lk.skin, holo: lk.holo, tint: lk.tint });
   box.append(cube, el('small', '', u.name.split(' ')[1] ?? u.name));
   box.addEventListener('click', () => toggleHold(id));
   const x: StageDie = { cube, box, fi: -1 };
@@ -832,7 +836,7 @@ function renderCtx(): void {
       b.dataset.id = String(r.u.id);
       // Ein Stern, der nicht beschwören kann, sagt, warum (festgelegt am 31.10.2026)
       const why = ok ? null : R.summonWhy(me(), lastRolled(), r);
-      b.append(html('span', 'rf', r.mud ? `<svg width="26" height="26" viewBox="0 0 20 20" aria-hidden="true">${MUD_SVG}</svg>` : iconSvg(r.face, 26)), portraitEl(r.u.id, 22), el('small', why ? 'why' : '', why ? R.whyText(why) : r.mud ? 'mud' : R.faceText(r.face)));
+      b.append(html('span', 'rf', r.mud ? `<svg width="26" height="26" viewBox="0 0 20 20" aria-hidden="true">${MUD_SVG}</svg>` : faceTile(r.face, lookOf(r.u.m), 28)), portraitEl(r.u.id, 22), el('small', why ? 'why' : '', why ? R.whyText(why) : r.mud ? 'mud' : R.faceText(r.face)));
       b.addEventListener('click', () => {
         if (!allowedEl(b)) return;
         sfx.tap();
@@ -1130,17 +1134,8 @@ function renderAll(): void {
 }
 
 /* ---------- Hervorhebungen auf dem Blatt ---------- */
-const faceImgs = new Map<string, HTMLImageElement>();
-function faceImg(f: Face): HTMLImageElement {
-  const k = R.faceKey(f);
-  let i = faceImgs.get(k);
-  if (!i) {
-    i = new Image();
-    i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg(f, 40).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
-    faceImgs.set(k, i);
-  }
-  return i;
-}
+/** Eine Seite in der Haut ihres Würfels (lädt nach und malt dann neu) */
+const faceImg = (u: Unit, f: Face): HTMLImageElement => faceImage(f, lookOf(u.m));
 function drawOverlay(ctx: CanvasRenderingContext2D, cell: number): void {
   if (!myTurn()) return;
   const cx = (i: number) => ((i % COLS) + 0.5) * cell,
@@ -1186,7 +1181,7 @@ function drawOverlay(ctx: CanvasRenderingContext2D, cell: number): void {
             ctx.strokeRect(x + 5, y + 5, cell - 10, cell - 10);
             ctx.lineWidth = 2.5;
             ctx.globalAlpha = 0.4;
-            const img = faceImg(u.faces[k]!);
+            const img = faceImg(u, u.faces[k]!);
             if (img.complete) ctx.drawImage(img, x + cell * 0.32, y + cell * 0.26, cell * 0.36, cell * 0.36);
             ctx.globalAlpha = 0.8;
             ctx.fillStyle = `rgb(${PIG[u.m.main].rgb})`;
@@ -1202,8 +1197,10 @@ function drawOverlay(ctx: CanvasRenderingContext2D, cell: number): void {
           ctx.strokeStyle = pl ? 'rgba(43,63,163,.95)' : 'rgba(163,58,58,.9)';
           ctx.fillRect(x + 3, y + 3, cell - 6, cell - 6);
           ctx.strokeRect(x + 3, y + 3, cell - 6, cell - 6);
-          const img = faceImg(u.faces[k]!);
-          if (img.complete) ctx.drawImage(img, x + cell * 0.3, y + cell * 0.3, cell * 0.4, cell * 0.4);
+          // Die Seite in ihrer Haut, gut lesbar auf dem Feld
+          const img = faceImg(u, u.faces[k]!);
+          if (img.complete) ctx.drawImage(img, x + cell * 0.2, y + cell * 0.2, cell * 0.6, cell * 0.6);
+          if (u.m.holo) holoRim(ctx, x + cell * 0.2, y + cell * 0.2, cell * 0.6, cell * 0.1, performance.now());
         });
         ctx.setLineDash([]);
       }
@@ -1720,7 +1717,7 @@ function openInspect(u: Unit): void {
     info.append(hp, el('small', '', `Opacity ${Math.max(0, v.hp)}/${v.max}`));
   }
   top.append(portraitEl(u.id, 64), info);
-  const net = html('div', 'card-net', netSvg(u.net, u.faces, 26));
+  const net = html('div', 'card-net', netSvg(u.net, u.faces, 30, lookOf(u.m)));
   const ab = ABILITY[u.m.bp];
   const lines = el('div', 'card-lines');
   lines.append(

@@ -3,11 +3,22 @@
 .d3face.skin > svg { width: 100%; height: 100%; }
 .holo-die .d3face, .fface.holo { overflow: hidden; }
 .holo-die .d3face::after, .fface.holo::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background-image: repeating-linear-gradient(115deg, hsl(0 95% 62%) 0%, hsl(40 95% 60%) 6%, hsl(80 95% 58%) 12%, hsl(160 90% 55%) 18%, hsl(205 95% 60%) 24%, hsl(265 90% 66%) 30%, hsl(330 90% 64%) 36%, hsl(360 95% 62%) 42%);
-  background-size: 300% 300%; mix-blend-mode: color-dodge; opacity: .6; animation: holoDie 3.6s linear infinite; }
-.holo-die .d3face::before, .fface.holo::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; padding: 2.5px;
+  background-image: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.55) 48%, transparent 58%), repeating-linear-gradient(115deg, hsl(0 95% 62%) 0%, hsl(40 95% 60%) 6%, hsl(80 95% 58%) 12%, hsl(160 90% 55%) 18%, hsl(205 95% 60%) 24%, hsl(265 90% 66%) 30%, hsl(330 90% 64%) 36%, hsl(360 95% 62%) 42%);
+  background-size: 300% 300%; mix-blend-mode: soft-light; opacity: .85; animation: holoDie 3.6s linear infinite; }
+/* Lichtstreif, der über die Folie läuft */
+.holo-die .d3face > svg, .fface.holo > svg { position: relative; }
+.holo-die .d3cube::after { content: none; }
+.holo-die .d3face::before, .fface.holo::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1; padding: 3px;
   background: conic-gradient(from var(--hh, 0deg), #ff6b6b, #ffd36b, #8cff9e, #6bd5ff, #b46bff, #ff6b6b);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
 .holo-die .d3shadow { background: radial-gradient(ellipse, rgba(180,107,255,.45), rgba(107,213,255,.25) 60%, transparent); }
 @keyframes holoDie { to { background-position: 300% 300%; } }
 @media (prefers-reduced-motion: reduce) { .holo-die .d3face::after, .fface.holo::after { animation: none; } }
+/* Kacheln mit Haut (Karte, Chips) */
+.fface { position: relative; display: inline-block; line-height: 0; border-radius: 7px; overflow: hidden; vertical-align: middle; }
+.fface > svg { width: 100%; height: 100%; }
+.d3face.skin.mud { background: #e8dfcf; }
+.face.skinned { border: 0; background: none; overflow: visible; }
+.face.skinned.can { box-shadow: 0 0 0 2px var(--gold, #c9961e), 0 0 8px rgba(201,150,30,.5); }
+.face.skinned.worn { box-shadow: 0 0 0 2px #a8763e; }
+.card-net svg { overflow: visible; }

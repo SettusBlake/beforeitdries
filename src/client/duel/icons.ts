@@ -1,6 +1,7 @@
 /* Symbole der Würfelseiten als kleines SVG, aus Code gezeichnet */
 import { crestDef, faceKey, type Crest, type Face } from '../../shared/duel/rules';
-import { PIG, type PigmentId } from '../../shared/data';
+import { PIG, type PigmentId, type RGB } from '../../shared/data';
+import { faceSvg, type Skin } from './faceskin';
 
 const ICON_PATH: Record<Face['k'], string> = {
   step: '<path d="M4 4.5l5.5 5.5-5.5 5.5M10.5 4.5l5.5 5.5-5.5 5.5" fill="none" stroke="C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -80,12 +81,13 @@ export function iconImage(f: Face, onload: () => void): HTMLImageElement {
   }
   return img;
 }
-/** Würfelnetz einer Karte mit den Seiten */
-export function netSvg(net: [number, number][], faces: Face[], cell: number): string {
+/** Würfelnetz einer Karte mit den Seiten, in der Haut des Würfels (Würfel-Häute, 01.11.2026) */
+export function netSvg(net: [number, number][], faces: Face[], cell: number, look?: { skin: Skin; tint: RGB }): string {
   const w = (Math.max(...net.map((p) => p[0])) + 1) * cell,
     h = (Math.max(...net.map((p) => p[1])) + 1) * cell;
   const parts = net.map(([x, y], k) => {
     const f = faces[k]!;
+    if (look) return faceSvg(f, look.skin, cell - 2, look.tint, [x * cell + 1, y * cell + 1]);
     return `<rect x="${x * cell + 0.5}" y="${y * cell + 0.5}" width="${cell - 1}" height="${cell - 1}" rx="2" fill="#fffdf8" stroke="#cfcabd"/><g transform="translate(${x * cell + 2},${y * cell + 2}) scale(${(cell - 4) / 20})">${iconInner(f)}</g>`;
   });
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${parts.join('')}</svg>`;

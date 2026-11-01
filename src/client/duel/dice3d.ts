@@ -22,6 +22,7 @@ export function makeCube(faces: Face[], size: number, tint: string, look: CubeLo
   wrap.className = 'die3' + (look.holo ? ' holo-die' : '');
   wrap.style.width = wrap.style.height = size + 'px';
   if (look.skin) wrap.dataset.skin = look.skin;
+  if (look.tint) wrap.dataset.tint = look.tint.join(',');
   const shadow = document.createElement('div');
   shadow.className = 'd3shadow';
   const bounce = document.createElement('div');
@@ -51,8 +52,10 @@ export function setCubeFace(wrap: HTMLElement, fi: number, f: Face, mud: boolean
   if (!d) return;
   const px = Math.round(wrap.offsetWidth * 0.6) || 30;
   const skin = wrap.dataset.skin as Skin | undefined;
+  const tp = (wrap.dataset.tint ?? '').split(',').map(Number);
+  const tint: RGB | undefined = tp.length === 3 && tp.every((v) => Number.isFinite(v)) ? [tp[0]!, tp[1]!, tp[2]!] : undefined;
   d.classList.toggle('mud', mud);
-  d.innerHTML = mud ? `<svg width="${px}" height="${px}" viewBox="0 0 20 20" aria-hidden="true">${MUD_SVG}</svg>` : skin ? faceSvg(f, skin, wrap.offsetWidth || 40) : iconSvg(f, px);
+  d.innerHTML = mud ? `<svg width="${px}" height="${px}" viewBox="0 0 20 20" aria-hidden="true">${MUD_SVG}</svg>` : skin ? faceSvg(f, skin, wrap.offsetWidth || 40, tint) : iconSvg(f, px);
 }
 
 /** Einen Würfel rollen lassen, er bleibt auf Seite fi liegen */

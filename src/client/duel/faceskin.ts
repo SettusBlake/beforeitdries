@@ -1,13 +1,13 @@
 /*
- * Würfel-Häute (Entwurf 01.11.2026, docs/entwuerfe/wuerfel-haut-vorschlag.md): wie eine Würfelseite aussieht.
- * wash: bisher (Lavierung hinter dem Symbol), paint: ganze Seite in ihrer Farbe mit ausgehobenem Licht für das Symbol,
- * tag: wie paint, dazu das Kürzel des Pigments. Dazu je Stil eine eigene Haut, für Monster mit Stil.
+ * Würfel-Häute (freigegeben am 01.11.2026, docs/entwuerfe/wuerfel-haut-vorschlag.md): wie eine Würfelseite aussieht.
+ * wash: früher (Lavierung hinter dem Symbol), paint: ganze Seite in ihrer Farbe mit ausgehobenem Licht für das Symbol,
+ * tag: wie paint, dazu das Kürzel des Pigments (gewählt, Standard). Dazu je Stil eine eigene Haut, für Monster mit Stil.
  * Holo ist keine Haut, sondern eine Folie darüber (CSS-Klasse holo-die, duel.css).
  * Jede Seite ist ein SVG im Raster 40 × 40. Defs haben feste IDs mit gleichem Inhalt, damit mehrere Seiten im Dokument
  * sich nicht stören.
  */
 import { PIG, type PigmentId, type RGB } from '../../shared/data';
-import type { Face } from '../../shared/duel/rules';
+import { faceKey, type Face } from '../../shared/duel/rules';
 import type { StyleId } from '../../shared/dice';
 import { RNG } from '../../shared/rng';
 import { faceCol, iconInner, symbolInner } from './icons';
@@ -47,8 +47,8 @@ const DEFS = {
   blur: '<filter id="fsk-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.3"/></filter>',
   c12: '<clipPath id="fsk-c12"><circle cx="20" cy="20" r="12"/></clipPath>',
 };
-const wrap = (px: number, defs: string, body: string) =>
-  `<svg width="${px}" height="${px}" viewBox="0 0 40 40" aria-hidden="true" style="display:block"><defs>${defs}</defs><clipPath id="fsk-clip"><rect x="0" y="0" width="40" height="40" rx="6.5"/></clipPath><g clip-path="url(#fsk-clip)">${body}</g></svg>`;
+const wrap = (px: number, defs: string, body: string, at?: [number, number]) =>
+  `<svg ${at ? `x="${at[0]}" y="${at[1]}" ` : ''}width="${px}" height="${px}" viewBox="0 0 40 40" aria-hidden="true"${at ? '' : ' style="display:block"'}><defs>${defs}</defs><clipPath id="fsk-clip"><rect x="0" y="0" width="40" height="40" rx="6.5"/></clipPath><g clip-path="url(#fsk-clip)">${body}</g></svg>`;
 
 /** Farbe der Seite, Sterne und Joker ohne (dann zählt der Ton des Würfels nur für den Rand) */
 const colOf = (f: Face): RGB | null => (f.c ? PIG[f.c].rgb : null);
@@ -317,8 +317,8 @@ function nouveau(f: Face): string {
   );
 }
 
-/** Eine Seite als SVG. tint: Ton des Würfels (Rand von Sternen und Jokern) */
-export function faceSvg(f: Face, skin: Skin, px: number, tint: RGB = [43, 63, 163]): string {
+/** Eine Seite als SVG. tint: Ton des Würfels (Rand von Sternen und Jokern), at: Lage in einem größeren SVG (Netz) */
+export function faceSvg(f: Face, skin: Skin, px: number, tint: RGB = [43, 63, 163], at?: [number, number]): string {
   const defs = Object.values(DEFS).join('');
   let body: string;
   switch (skin) {
@@ -377,7 +377,39 @@ export function faceSvg(f: Face, skin: Skin, px: number, tint: RGB = [43, 63, 16
       body = nouveau(f);
       break;
   }
-  return wrap(px, defs, body);
+  return wrap(px, defs, body, at);
 }
 /** Ton eines Würfels für Sterne und Joker */
 export const tintOf = (p: PigmentId | null | undefined): RGB => (p ? PIG[p].rgb : [43, 63, 163]);
+/** Haut und Ton eines Würfels aus seinem Monster: Stil-Haut, sonst ganze Seite mit Kürzel */
+export type Look = { skin: Skin; tint: RGB; holo: boolean };
+export const lookOf = (m: { main: PigmentId; style?: StyleId; holo?: 1 }): Look => ({ skin: m.style ?? 'tag', tint: PIG[m.main].rgb, holo: !!m.holo });
+/** Eine Seite als HTML-Kachel (Karte, Chips), mit Holo-Folie */
+export const faceTile = (f: Face, look: Look, px: number, cls = ''): string =>
+  `<span class="fface${look.holo ? ' holo' : ''}${cls ? ' ' + cls : ''}" style="width:${px}px;height:${px}px">${faceSvg(f, look.skin, px, look.tint)}</span>`;
+/** Eine Seite als Bild fürs Canvas (Blatt, Ziehen), zwischengespeichert */
+const imgs = new Map<string, HTMLImageElement>();
+export function faceImage(f: Face, look: Look, onload?: () => void): HTMLImageElement {
+  const key = `${look.skin}:${faceKey(f)}:${look.tint.join(',')}`;
+  let img = imgs.get(key);
+  if (!img) {
+    img = new Image();
+    if (onload) img.onload = onload;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceSvg(f, look.skin, 80, look.tint).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
+    imgs.set(key, img);
+  }
+  return img;
+}
+/** Regenbogenrand für Holo-Seiten auf dem Canvas */
+export function holoRim(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, r: number, t = 0): void {
+  if (typeof ctx.createConicGradient !== 'function') return;
+  const g = ctx.createConicGradient(t / 900, x + w / 2, y + w / 2);
+  ['#ff6b6b', '#ffd36b', '#8cff9e', '#6bd5ff', '#b46bff', '#ff6b6b'].forEach((c, k) => g.addColorStop(k / 5, c));
+  ctx.save();
+  ctx.strokeStyle = g;
+  ctx.lineWidth = Math.max(2, w * 0.07);
+  ctx.beginPath();
+  ctx.roundRect(x + 1, y + 1, w - 2, w - 2, r);
+  ctx.stroke();
+  ctx.restore();
+}

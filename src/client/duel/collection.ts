@@ -21,6 +21,7 @@ import { buyBox, initMarket, marketGate, openMarket, provText, sellBox, setMarke
 import { initTrades, openTrades, showTrades } from './trade';
 import { setColorChoice } from './colors';
 import { iconSvg, netSvg } from './icons';
+import { faceTile, lookOf } from './faceskin';
 import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
 
@@ -386,7 +387,8 @@ function openDie(d: DieRec, item?: MarketItem | 'view'): void {
   // Stil und Holo zeigen ihr großes Bild über der ganzen Breite
   if (wide) top.classList.add('shiny');
   top.append(big, info);
-  const net = html('div', 'card-net', netSvg(u.net, u.faces, 26));
+  const lk = lookOf(u.m);
+  const net = html('div', 'card-net', netSvg(u.net, u.faces, 30, lk));
   // Seiten mit Lasur: ein einfaches Symbol wird doppelt
   const faces = el('div', 'faces');
   const canGlaze = glaze >= GLAZE_COST;
@@ -398,7 +400,8 @@ function openDie(d: DieRec, item?: MarketItem | 'view'): void {
     b.disabled = !ok || busy;
     b.dataset.face = String(i);
     b.title = faceText(f);
-    b.innerHTML = iconSvg(f, 30);
+    b.classList.add('skinned');
+    b.innerHTML = faceTile(f, lk, 40);
     b.addEventListener('click', () => void glazeFace(d, i));
     faces.append(b);
   });

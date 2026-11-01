@@ -10,7 +10,7 @@ import { faceKey, type Face } from '../../../shared/duel/rules';
 import type { Monster } from '../../../shared/monster';
 import { holoBake } from '../../lib/holo';
 import { keepLoose, looseKey, paintLater } from '../../lib/painter';
-import { iconSvg } from '../icons';
+import { faceSvg, holoRim, lookOf } from '../faceskin';
 import { sfx } from '../sound';
 import { Particles, backdropCanvas, dropTex, edgeGlowCanvas, flakeTex, glowTex, noiseTex, paperCanvas, raysTex, ringTex, sparkTex } from './fx';
 
@@ -205,8 +205,9 @@ export class Reveal {
     sp.texture = t;
     sp.width = sp.height = size;
   }
-  private faceTex(f: Face): Promise<Texture> {
-    const key = faceKey(f);
+  private faceTex(f: Face, m: Monster): Promise<Texture> {
+    const look = lookOf(m);
+    const key = `${look.skin}:${look.tint.join(',')}:${faceKey(f)}`;
     const hit = this.faceCache.get(key);
     if (hit) return Promise.resolve(hit);
     return new Promise((res) => {
@@ -215,19 +216,14 @@ export class Reveal {
         const c = document.createElement('canvas');
         c.width = c.height = 96;
         const x = c.getContext('2d')!;
-        x.fillStyle = '#fffdf8';
-        x.strokeStyle = 'rgba(60,50,40,.25)';
-        x.lineWidth = 3;
-        x.beginPath();
-        x.roundRect(3, 3, 90, 90, 16);
-        x.fill();
-        x.stroke();
-        x.drawImage(img, 14, 14, 68, 68);
+        // Würfel-Haut (01.11.2026): die ganze Seite, mit Holo-Rand
+        x.drawImage(img, 3, 3, 90, 90);
+        if (look.holo) holoRim(x, 3, 3, 90, 15);
         const t = Texture.from(c);
         this.faceCache.set(key, t);
         res(t);
       };
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg(f, 68).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceSvg(f, look.skin, 90, look.tint).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
     });
   }
   private burstRing(x: number, y: number, tint: number, size: number, ms = 700, flat = 1): void {
@@ -411,7 +407,7 @@ export class Reveal {
     const g = this.geometry();
     const tint = GLOW[p.rarity];
     const pig = rgbNum(PIG[p.monster.main].rgb);
-    const faceTexP = Promise.all(p.faces.map((f) => this.faceTex(f)));
+    const faceTexP = Promise.all(p.faces.map((f) => this.faceTex(f, p.monster)));
     // Beide Bilder malen nebenbei, während Glas und Pinsel kommen: erst das neutrale, dann das echte Papier.
     // Stil und Holo sind bis zur Hand ein Aquarell wie jedes andere, ihre Bilder malen sich nebenbei mit
     const { style, holo, ...water } = p.monster;
