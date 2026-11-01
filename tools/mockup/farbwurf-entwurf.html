@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/young-serif/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-700.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-400.css" />
+    <style>
+      :root { --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --line: #cfcabd; }
+      body { margin: 0; padding: 24px; background: var(--table); font-family: Figtree, sans-serif; color: var(--ink); width: 1100px; }
+      .eyebrow { margin: 0; font: 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+      h1 { margin: 6px 0 4px; font: 400 1.9rem 'Young Serif', serif; }
+      h2 { margin: 0 0 8px; font: 400 1.25rem 'Young Serif', serif; }
+      .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .card { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .card.wide { grid-column: 1 / -1; }
+      .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; line-height: 1.4; }
+      .note b { color: var(--ink); }
+      .blot { display: grid; grid-template-columns: 64px auto 1fr; gap: 10px; align-items: center; margin: 6px 0; }
+      .blot canvas { width: 64px; height: 64px; border-radius: 10px; background: #fffdf8; box-shadow: 0 0 0 1px var(--line); }
+      .blot .nm { font-size: 13px; font-weight: 700; }
+      .blot .nm small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+      .faces { display: flex; gap: 5px; flex-wrap: wrap; }
+      .face { position: relative; width: 44px; height: 44px; border-radius: 9px; border: 1px solid var(--line); background: #fffdf8; display: grid; place-items: center; overflow: hidden; }
+      .face svg { width: 32px; height: 32px; position: relative; }
+      .face .wash { position: absolute; inset: 3px; border-radius: 7px; }
+      .face.mud { background: #8a7a64; border-color: #6e604c; }
+      .face.mud span { font: 700 9px 'JetBrains Mono', monospace; color: #f3ead8; position: relative; }
+      .face.held { box-shadow: 0 0 0 3px #2b3fa3; }
+      .face small { position: absolute; bottom: 1px; right: 3px; font: 700 8px 'JetBrains Mono', monospace; color: rgba(29,33,48,.55); }
+      .row { display: grid; grid-template-columns: 160px 1fr 72px; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px dashed var(--line); }
+      .row:first-of-type { border-top: 0; }
+      .row b { font-size: 15px; }
+      .row .fx { font-size: 13px; color: var(--muted); }
+      .row .fx b { color: var(--ink); font-size: 13px; }
+      .row .pc { font: 700 12px 'JetBrains Mono', monospace; color: var(--muted); text-align: right; }
+      .ladder { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 6px 0 10px; }
+      .rung { border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center; background: #fff; }
+      .rung .drops { font-size: 18px; letter-spacing: 2px; color: #2b6fa3; }
+      .rung b { display: block; font-size: 13px; margin-top: 2px; }
+      .rung small { font: 11px 'JetBrains Mono', monospace; color: var(--muted); }
+      .ex { display: grid; grid-template-columns: auto 30px auto 1fr; gap: 10px; align-items: center; margin: 8px 0; }
+      .ex .arrow { font: 700 20px Figtree; color: var(--muted); text-align: center; }
+      .ex p { margin: 0; font-size: 13px; color: var(--muted); }
+      .ex p b { color: var(--ink); }
+      .math { font: 700 34px 'JetBrains Mono', monospace; margin: 4px 0; }
+      .math .m { color: #b01e3e; }
+      .chainrow { display: flex; gap: 10px; font: 700 15px 'JetBrains Mono', monospace; color: var(--muted); }
+      .chainrow span b { color: #b01e3e; }
+      .drop { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font: 700 13px 'JetBrains Mono', monospace; margin: 4px 4px 4px 0; }
+      .drop i { width: 11px; height: 14px; border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%; transform: rotate(180deg); display: inline-block; }
+      .banner { display: inline-block; margin: 6px 0 2px; padding: 6px 12px; border-radius: 10px; background: #1d2130; color: #fbfaf6; font: 700 14px 'JetBrains Mono', monospace; letter-spacing: .04em; }
+    </style>
+  </head>
+  <body>
+    <p class="eyebrow">Before It Dries · draft 01.11.2026 · Kampf A</p>
+    <h1>Colour faces, colour combos, wetness</h1>
+    <p class="sub">Proposal A from the combat brainstorm. Real dice from the game; colours as they would be rolled.</p>
+    <div class="grid" id="grid"></div>
+    <script src="farbwurf-entwurf.js"></script>
+  </body>
+</html>
