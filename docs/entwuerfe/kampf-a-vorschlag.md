@@ -6,7 +6,7 @@ Stand 01.11.2026, Fassung 2.
 - **Fassung 2:** am 01.11.2026 gewählt („A stark vereinfachen“). Gebaut, Bild docs/entwuerfe/kampf-a-einfach.png.
 - **Schritt 4 (Tropfen und Umfärben):** gebaut am 01.11.2026, Bild docs/entwuerfe/tropfen-im-spiel.png. Damit ist Kampf A vollständig gebaut.
 - **Nachgestimmt am 01.11.2026** („weniger Tropfen als Loot und Umfärben etwas begrenzen“): höchstens 2 Tropfen je Duell, nur in den 5 belohnten Duellen am Tag, höchstens 2 umgefärbte Seiten je Würfel. Bild docs/entwuerfe/tropfen-begrenzt.png.
-- **Nachgestimmt am 01.11.2026** („es sollte schon ein paar Tage dauern, bis man etwas umfärben kann“): höchstens 2 Tropfen am Tag. Bild docs/entwuerfe/tropfen-pro-tag.png.
+- **Nachgestimmt am 01.11.2026** („es sollte schon ein paar Tage dauern, bis man etwas umfärben kann“): zuerst höchstens 2 Tropfen am Tag gebaut (Playtest v0.0.1.123), danach gewählt: „höhere Kosten ohne Tageslimit find ich besser“. Jetzt 5 Tropfen je Umfärbung, kein Tageslimit. Bild docs/entwuerfe/tropfen-kosten5.png.
 
 Anlass (01.11.2026): Kampf-Brainstorming, Abgleich in docs/entwuerfe/kampf-brainstorming-abgleich.md. Entschieden „Empfehlungen umsetzen“:
 - **Weg C:** erst A (Umbau im Wurf, das Duell bleibt), danach B (Modus „Bleach“).
@@ -65,16 +65,16 @@ Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken, jeder weit
 
 ### 5 Beute: Tropfen (Schritt 4, gebaut)
 
-- **Tropfen sammeln (nachgestimmt):** Ein Sieg gibt einen Tropfen, das Pigment eines eigenen Würfels aus dem Deck. Wäscht man mindestens einen Klecks des Rivalen aus, hinterlässt einer davon (gewürfelt) einen Tropfen seines Hauptpigments. Höchstens 2 Tropfen am Tag (UTC, `DROPS_PER_DAY`), der Siegtropfen kommt zuerst. Nur in den 5 belohnten Duellen am Tag, nicht im Lern-Duell. Alles gewürfelt am Server, Spielstand `dropDay` und `dropN`.
-- **Umfärben:** Auf der Würfelkarte färbt man eine Seite mit Farbe für 3 Tropfen in dieses Pigment um, auch in eines, das der Klecks sonst nicht trägt. Sterne und Joker haben keine Farbe. So baut man ein Deck, das öfter Glaze und Pure wirft.
+- **Tropfen sammeln (nachgestimmt):** Ein Sieg gibt einen Tropfen, das Pigment eines eigenen Würfels aus dem Deck. Wäscht man mindestens einen Klecks des Rivalen aus, hinterlässt einer davon (gewürfelt) einen Tropfen seines Hauptpigments. Also höchstens 2 je Duell, nur in den 5 belohnten Duellen am Tag (wie Pigment), nicht im Lern-Duell. Kein eigenes Tageslimit. Alles gewürfelt am Server.
+- **Umfärben:** Auf der Würfelkarte färbt man eine Seite mit Farbe für 5 Tropfen (`DROP_COST`, zuerst 3) in dieses Pigment um, auch in eines, das der Klecks sonst nicht trägt. Sterne und Joker haben keine Farbe. So baut man ein Deck, das öfter Glaze und Pure wirft.
 - **Höchstens 2 umgefärbte Seiten je Würfel** (`TINT_MAX`). Schon umgefärbte Seiten lassen sich weiter umfärben. Die Karte zeigt „Repainted 1/2“.
-- **Je Seite gilt die letzte Umfärbung.** Färbt man zurück in die Farbe aus dem Seed, fällt die Änderung ganz weg (kostet trotzdem 3 Tropfen) und macht einen Platz frei.
+- **Je Seite gilt die letzte Umfärbung.** Färbt man zurück in die Farbe aus dem Seed, fällt die Änderung ganz weg (kostet trotzdem 5 Tropfen) und macht einen Platz frei.
 - **Doppelt machen** bleibt bei der Lasur aus dem Auswaschen.
 - **Spielstand:** `drops`, je Pigment. Umfärbungen stehen wie Lasuren in `mods` (`to: 'c'`, `c` ist das Pigment) und gelten im Duell, im Galerie-Abzug, im Archiv, im Markt und beim Tausch. Sie zählen nicht als Lasur.
 - **Anzeige:**
-  - Ergebnis: Tropfen in ihrer Farbe, „+2 drops: Carmine, Indigo“, der Siegtropfen extra genannt. Sind die Tropfen des Tages schon da: „No more drops today: 2 a day, more tomorrow.“
-  - Your dice: Zeile „Drops“ über der Sammlung mit dem Vorrat je Pigment und wie viele heute noch kommen können.
-  - Würfelkarte: Knöpfe je Pigment mit Kürzel und Zahl, ab 3 wählbar. Ist eine Farbe gewählt, leuchten die Seiten, die sich umfärben lassen, in dieser Farbe. Antippen färbt um. Umgefärbte Seiten tragen unten links einen kleinen Tropfen. Zeile „Repainted x/2“, bei 2/2 leuchten nur noch die umgefärbten.
+  - Ergebnis: Tropfen in ihrer Farbe, „+2 drops: Carmine, Indigo“, der Siegtropfen extra genannt.
+  - Your dice: Zeile „Drops“ über der Sammlung mit dem Vorrat je Pigment.
+  - Würfelkarte: Knöpfe je Pigment mit Kürzel und Zahl, ab 5 wählbar. Ist eine Farbe gewählt, leuchten die Seiten, die sich umfärben lassen, in dieser Farbe. Antippen färbt um. Umgefärbte Seiten tragen unten links einen kleinen Tropfen. Zeile „Repainted x/2“, bei 2/2 leuchten nur noch die umgefärbten.
   - Hilfe im Duell: Zeile „Drops“.
 - **Code:** `diceTint` und `dropLoot` in src/server/dice.ts, Endpunkt /api/dice/tint, `DROP_COST` in src/shared/dice.ts, `tintFaces` in rules.ts, `duelLoot` in play.ts. Vorschau: /dev/drops?karmin=5.
 
@@ -87,19 +87,18 @@ Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken, jeder weit
 | Meister | 38 % | 2,6 | 3,0 | etwa 1,4 |
 | Galerie | 73 % | 3,1 | 3,9 | etwa 1,7 |
 
-- Jetzt höchstens 2 Tropfen am Tag, egal wie viele Duelle. Der Siegtropfen kommt aus dem eigenen Deck und hilft deshalb gezielt, der andere ist Glückssache.
+- Der Siegtropfen kommt aus dem eigenen Deck und hilft deshalb gezielt, der andere ist Glückssache.
 
 **Tage bis zur ersten Umfärbung** (Modell: Deck aus 9 Würfeln mit zufälligen Pigmenten, Siegquote 70 %, 4000 Spieler):
 
 | Regel | 5 Duelle am Tag | 2 Duelle am Tag | 1 Duell am Tag |
 |---|---|---|---|
-| erste Fassung (ohne Limit) | meist am 1. Tag | Median 3 Tage | |
-| höchstens 2 je Duell, 5 belohnte Duelle | Median 1 Tag (60 % am 1. Tag) | Median 3 Tage | |
-| **höchstens 2 am Tag (gebaut)** | Median 4 Tage, 10 % bis Tag 2, 95 % bis Tag 6 | Median 4 Tage | 35 % bis Tag 4, 78 % bis Tag 6 |
-| zum Vergleich: Kosten 5 statt 3, ohne Tageslimit | Median 3 Tage | Median 6 Tage | |
+| Kosten 3, ohne Limit | Median 1 Tag (60 % am 1. Tag) | Median 3 Tage | |
+| Kosten 3, höchstens 2 Tropfen am Tag (v0.0.1.123, verworfen) | Median 4 Tage | Median 4 Tage | Median 5 Tage |
+| **Kosten 5, ohne Tageslimit (gebaut)** | Median 3 Tage, 2 % am 1. Tag, 49 % bis Tag 2, 94 % bis Tag 3 | Median 6 Tage, 8 % bis Tag 3, 71 % bis Tag 6 | Median 11 Tage, 25 % bis Tag 8 |
 
-- Am 1. Tag geht es nie (höchstens 2 Tropfen, eine Umfärbung kostet 3).
-- Danach höchstens eine Umfärbung alle anderthalb Tage. Ein voll umgefärbtes Deck (18 Seiten, 54 Tropfen) braucht mindestens 27 Tage, eher deutlich mehr.
+- Wer mehr spielt, kommt schneller ans Ziel, gebremst durch die 5 belohnten Duelle am Tag.
+- Ein voll umgefärbtes Deck (18 Seiten) braucht 90 Tropfen, bei 5 Duellen am Tag rund 10 Tropfen täglich, also eher Wochen, weil sich die Tropfen auf die Pigmente verteilen.
 
 **Wirkung der Obergrenze je Würfel** (Deck aus 9 gemischten Würfeln, im Schnitt 3,1 Seiten mit Farbe, alles in eine Farbe umgefärbt, soweit erlaubt):
 
@@ -110,7 +109,7 @@ Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken, jeder weit
 | **höchstens 2 (gebaut)** | 34 % | 8 % |
 | ohne Grenze | 41 % | 17 % |
 
-- Der Computer-Rivale färbt nicht um, Galerie-Decks schon. Ein voll umgefärbtes Deck braucht 54 Tropfen in einer Farbe, mit 2 am Tag viele Wochen.
+- Der Computer-Rivale färbt nicht um, Galerie-Decks schon. Ein voll umgefärbtes Deck braucht 90 Tropfen in einer Farbe.
 
 ### Malmittel und Sepias Auftrag
 
@@ -145,7 +144,7 @@ Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken, jeder weit
 1. **Regeln und Server:** gebaut (Fassung 1, dann Fassung 2).
 2. **Anzeige:** gebaut.
 3. **Lern-Duell:** gebaut (Seed 267, Lern-Deck mit je zwei Ultramarin- und Carmine-Klecksen, Sepia erklärt Farben, Nässe, Glaze, Rechnung und Schlamm). Bild docs/entwuerfe/lern-duell-farbe.png.
-4. **Tropfen und Umfärben:** gebaut (Server, Würfelkarte, Ergebnis, Hilfe, Tests). Playtest v0.0.1.119, Bild docs/entwuerfe/tropfen-im-spiel.png. Nachgestimmt (weniger Tropfen, höchstens 2 Seiten je Würfel): Playtest v0.0.1.121, Bild docs/entwuerfe/tropfen-begrenzt.png. Höchstens 2 Tropfen am Tag: Playtest v0.0.1.123, Bild docs/entwuerfe/tropfen-pro-tag.png.
+4. **Tropfen und Umfärben:** gebaut (Server, Würfelkarte, Ergebnis, Hilfe, Tests). Playtest v0.0.1.119, Bild docs/entwuerfe/tropfen-im-spiel.png. Nachgestimmt (weniger Tropfen, höchstens 2 Seiten je Würfel): Playtest v0.0.1.121, Bild docs/entwuerfe/tropfen-begrenzt.png. Höchstens 2 Tropfen am Tag: Playtest v0.0.1.123 (verworfen). Kosten 5 ohne Tageslimit: Playtest v0.0.1.125, Bild docs/entwuerfe/tropfen-kosten5.png.
 
 Danach der Plan für B (Bleach).
 

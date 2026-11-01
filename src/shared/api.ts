@@ -274,6 +274,4 @@ export interface DuelReward {
   patina?: { id: string; level: number; i: number; to: 'x2' | 'x3' | 'mix'; name: string; face: Face }[];
   /** Tropfen (Kampf A Schritt 4): je ausgewaschenem Rivalen-Klecks einer seines Hauptpigments, beim Sieg einer aus dem eigenen Deck */
   drops?: { pig: PigmentId; why: 'wash' | 'win' }[];
-  /** Es hätte Tropfen gegeben, aber die für heute sind schon da (DROPS_PER_DAY) */
-  dropsFull?: true;
 }

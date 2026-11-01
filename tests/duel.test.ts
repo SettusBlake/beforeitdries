@@ -4,7 +4,6 @@ import { diceGet } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
-import { DROPS_PER_DAY } from '../src/shared/dice';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
 import { tutorialAction, tutorialActive } from '../src/shared/duel/tutorial';
 import { canMove, COLS, comboOf, counts, CRESTS, dieUnit, find, idx, reactionOf, type Cell, placements, reach, rollable, ROLL_N, ROWS, S, summonable, unitById, wetChance, type Ev, type Face, type Rolled } from '../src/shared/duel/rules';
@@ -134,7 +133,7 @@ describe('Duell am Server', () => {
     expect(fromWash).toHaveLength(washed.length ? 1 : 0);
     for (const x of fromWash) expect(washed).toContain(x.pig);
     expect(drops.filter((x) => x.why === 'win')).toHaveLength(S.winner === 1 ? 1 : 0);
-    expect(drops.length).toBeLessThanOrEqual(DROPS_PER_DAY);
+    expect(drops.length).toBeLessThanOrEqual(2);
     expect(Object.values((await diceGet(d, USER)).dice.drops ?? {}).reduce((a, n) => a + n, 0)).toBe(drops.length);
     // Patina: jeder Wurf zählt beim Würfel in der Sammlung (Neuwürfe mit), die Zahl bleibt am Server
     const thrown = S.teams[0].units.reduce((a, u) => a + (u.rolls ?? 0), 0);

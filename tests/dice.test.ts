@@ -3,10 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
 import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTestPigment, diceTestShiny, diceTint, diceWash, dropLoot, isPlaytest, loadDice, saveDice, TEST_PIGMENT } from '../src/server/dice';
 import { encodeDrawing } from '../src/shared/drawn';
-import { dayKey } from '../src/shared/day';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
-import { dieMonster, dieSpecies, DROP_COST, DROPS_PER_DAY, dropsLeft, GLAZE_COST, TINT_MAX, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollHand, foilOf, FOILS, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
+import { dieMonster, dieSpecies, DROP_COST, GLAZE_COST, TINT_MAX, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollHand, foilOf, FOILS, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
 import { PAPER, PIGMENTS } from '../src/shared/data';
 import { monsterSeed, statRows } from '../src/shared/monster';
 import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
@@ -273,32 +272,22 @@ describe('Würfelsammlung', () => {
     expect(back.dice.drops?.[was]).toBe(0);
   });
 
-  it('Tropfen als Beute: Siegtropfen aus dem eigenen Deck, einer aus den ausgewaschenen Rivalen, höchstens 2 am Tag', async () => {
+  it('Tropfen als Beute: Siegtropfen aus dem eigenen Deck, einer aus den ausgewaschenen Rivalen, höchstens 2 je Duell', async () => {
     const d = setup(42);
     const s = await loadDice(d, USER);
-    // Niederlage mit Auswaschen: ein Tropfen aus den Rivalen
     const lost = dropLoot(d, s, 2, { washed: ['karmin', 'karmin', 'ultra'], deck: ['sepia'] });
-    expect(lost.drops).toHaveLength(1);
-    expect(lost.drops[0]!.why).toBe('wash');
-    expect(['karmin', 'ultra']).toContain(lost.drops[0]!.pig);
-    expect(lost.full).toBe(false);
-    // Sieg: der Siegtropfen kommt zuerst, für den zweiten ist heute kein Platz mehr
+    expect(lost).toHaveLength(1);
+    expect(lost[0]!.why).toBe('wash');
+    expect(['karmin', 'ultra']).toContain(lost[0]!.pig);
     const won = dropLoot(d, s, 1, { washed: ['indigo'], deck: ['sepia', 'opera'] });
-    expect(won.drops).toHaveLength(DROPS_PER_DAY - 1);
-    expect(won.drops[0]!.why).toBe('win');
-    expect(['sepia', 'opera']).toContain(won.drops[0]!.pig);
-    expect(won.full).toBe(true);
-    expect(Object.values(s.drops ?? {}).reduce((a, n) => a + n, 0)).toBe(DROPS_PER_DAY);
-    expect(dropsLeft(s, dayKey(d.now))).toBe(0);
-    expect(dropLoot(d, s, 1, { washed: ['indigo'], deck: ['sepia'] })).toEqual({ drops: [], full: true });
-    // Am nächsten Tag geht es weiter
-    const next = { ...d, now: d.now + 86_400_000 };
-    expect(dropsLeft(s, dayKey(next.now))).toBe(DROPS_PER_DAY);
-    expect(dropLoot(next, s, 1, { washed: ['indigo'], deck: ['sepia'] }).drops).toEqual([
-      { pig: 'sepia', why: 'win' },
-      { pig: 'indigo', why: 'wash' },
-    ]);
-    expect(dropLoot(d, s, 0, { washed: [], deck: ['sepia'] })).toEqual({ drops: [], full: false });
+    expect(won).toHaveLength(2);
+    expect(won[0]!.why).toBe('win');
+    expect(['sepia', 'opera']).toContain(won[0]!.pig);
+    expect(won[1]).toEqual({ pig: 'indigo', why: 'wash' });
+    // Kein Tageslimit: das nächste Duell am selben Tag gibt wieder Tropfen
+    expect(dropLoot(d, s, 1, { washed: ['indigo'], deck: ['sepia'] })).toHaveLength(2);
+    expect(Object.values(s.drops ?? {}).reduce((a, n) => a + n, 0)).toBe(5);
+    expect(dropLoot(d, s, 0, { washed: [], deck: ['sepia'] })).toEqual([]);
   });
 
   it('höchstens 2 umgefärbte Seiten je Würfel, schon umgefärbte lassen sich weiter umfärben', async () => {

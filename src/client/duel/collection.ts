@@ -6,7 +6,7 @@ import { statBlock } from './statcard';
 import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
-import { dieMonster, dieSpecies, drawLocked, DROP_COST, DROPS_PER_DAY, dropsLeft, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { monsterSeed, speciesLabel } from '../../shared/monster';
 import { addHolo } from '../lib/holo';
@@ -243,10 +243,9 @@ function render(): void {
   $('coll-count').textContent = `${s.dice.length} dice · ${new Set(s.dice.map(dieSpecies)).size} species` + (holos ? ` · ${holos} holo` : '') + (styled ? ` · ${styled} ${styled > 1 ? 'styles' : 'style'}` : '');
   // Tropfen-Vorrat: antippen einer Würfelkarte färbt um
   const stock = dropStock(s);
-  const today = dropsLeft(s, dayKey(Date.now()));
   $('drops-sum').hidden = !stock.length;
   $('drops-sum').innerHTML = stock.length
-    ? `<b>Drops</b> ${stock.map((x) => `<span>${dropIcon(x.p, 14)}${PIG_TAG[x.p]} ${x.n}</span>`).join('')}<small>${today ? `${today} more can drop today` : 'No more drops today'} (${DROPS_PER_DAY} a day). Open a die to repaint a face (${DROP_COST} drops, ${TINT_MAX} faces per die).</small>`
+    ? `<b>Drops</b> ${stock.map((x) => `<span>${dropIcon(x.p, 14)}${PIG_TAG[x.p]} ${x.n}</span>`).join('')}<small>Open a die to repaint a face (${DROP_COST} drops of one pigment, ${TINT_MAX} faces per die).</small>`
     : '';
   for (const d of sorted) {
     const u = unitOfDie(d);
@@ -552,7 +551,7 @@ function dropRow(d: DieRec, s: DiceSave, used: number): HTMLElement {
   const stock = dropStock(s);
   const left = `Repainted ${used}/${TINT_MAX}` + (used >= TINT_MAX ? ': only those can change colour again.' : '.');
   if (!stock.length) {
-    box.append(html('p', 'dropline', `<b>Drops 0</b> · Win a duel for a drop of your deck's pigment, wash out a rival blot for one of its pigment. ${DROPS_PER_DAY} drops a day, ${DROP_COST} of one pigment repaint a face, ${TINT_MAX} faces per die.`));
+    box.append(html('p', 'dropline', `<b>Drops 0</b> · Win a duel for a drop of your deck's pigment, wash out a rival blot for one of its pigment. Up to two a duel, ${DROP_COST} of one pigment repaint a face, ${TINT_MAX} faces per die.`));
     return box;
   }
   const chips = el('div', 'dchips');
@@ -574,7 +573,7 @@ function dropRow(d: DieRec, s: DiceSave, used: number): HTMLElement {
     ? `Tap a face to paint it <b>${PIG[tintPig].n}</b> (${DROP_COST} drops). Tap the colour again to stop.`
     : can
       ? `Pick a colour, then tap a face to repaint it (${DROP_COST} drops). Same colours make Glaze and Pure.`
-      : `${DROP_COST} drops of one pigment repaint a face. Duels give up to ${DROPS_PER_DAY} drops a day.`;
+      : `${DROP_COST} drops of one pigment repaint a face. Duels give up to two each.`;
   box.append(el('span', 'eyebrow', 'Drops'), chips, html('p', 'dropline', `${say} <b>${left}</b>`));
   return box;
 }

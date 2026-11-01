@@ -29,14 +29,10 @@ export const rarityFromRoll = (d100: number): Rarity => (RARITIES.find((r) => d1
  * to 'c' färbt die Seite um (Tropfen, Kampf A Schritt 4): c ist das neue Pigment, gilt nach den Farben aus dem Seed
  */
 export type FaceMod = { i: number; to: 'x2' | 'x3' | 'mix' | 'c'; p?: 1; c?: PigmentId };
-/** Tropfen (Kampf A Schritt 4, freigegeben am 01.11.2026): so viele färben eine Seite um */
-export const DROP_COST = 3;
+/** Tropfen (Kampf A Schritt 4): so viele färben eine Seite um. 5 statt 3 seit 01.11.2026 (erste Umfärbung nach ein paar Tagen, ohne Tageslimit) */
+export const DROP_COST = 5;
 /** Höchstens so viele umgefärbte Seiten je Würfel (festgelegt am 01.11.2026, „umfärben etwas begrenzen“) */
 export const TINT_MAX = 2;
-/** Höchstens so viele Tropfen am Tag (UTC), festgelegt am 01.11.2026: die erste Umfärbung soll ein paar Tage dauern */
-export const DROPS_PER_DAY = 2;
-/** Tropfen, die heute noch kommen können */
-export const dropsLeft = (s: Pick<DiceSave, 'dropDay' | 'dropN'>, today: string): number => Math.max(0, DROPS_PER_DAY - (s.dropDay === today ? (s.dropN ?? 0) : 0));
 /** Patina (festgelegt am 30.10.2026): nach so vielen Würfen im Duell wird jeweils eine zufällige Seite besser */
 export const PATINA = [10, 30, 60];
 /**
@@ -247,9 +243,6 @@ export type DiceSave = {
   postSeen?: string[];
   /** Tropfen je Pigment: Beute aus Duellen, DROP_COST färben eine Seite um */
   drops?: Partial<Record<PigmentId, number>>;
-  /** Tropfen am Tag dropDay (höchstens DROPS_PER_DAY) */
-  dropDay?: string;
-  dropN?: number;
 };
 export function emptyDice(): DiceSave {
   return { v: 3, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };
