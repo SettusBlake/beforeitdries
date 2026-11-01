@@ -4,6 +4,7 @@ Stand 01.11.2026, Fassung 2.
 
 - **Fassung 1:** freigegeben am 01.11.2026 und gebaut (Playtest v0.0.1.109, Bild docs/entwuerfe/kampf-a-im-spiel.png). Rückmeldung: „viel undurchsichtiger und komplizierter“.
 - **Fassung 2:** am 01.11.2026 gewählt („A stark vereinfachen“). Gebaut, Bild docs/entwuerfe/kampf-a-einfach.png.
+- **Schritt 4 (Tropfen und Umfärben):** gebaut am 01.11.2026, Bild docs/entwuerfe/tropfen-im-spiel.png. Damit ist Kampf A vollständig gebaut.
 
 Anlass (01.11.2026): Kampf-Brainstorming, Abgleich in docs/entwuerfe/kampf-brainstorming-abgleich.md. Entschieden „Empfehlungen umsetzen“:
 - **Weg C:** erst A (Umbau im Wurf, das Duell bleibt), danach B (Modus „Bleach“).
@@ -60,12 +61,31 @@ Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken, jeder weit
 - **Combo-Banner:** Es nennt Kombi, Farbe und Multiplikator („GLAZE ×1.5“). Der Multiplikator steht bis zum Zugende oben am Stand.
 - **Jeder Spritzer** zeigt Basis, Multiplikator und Ergebnis und zählt hoch („9 ×1.5 = 14“). Die Vorschau beim Zielen nennt die Rechnung schon vorher.
 
-### 5 Beute: Tropfen (Schritt 4, noch nicht gebaut)
+### 5 Beute: Tropfen (Schritt 4, gebaut)
 
-- **Tropfen sammeln:** Jeder ausgewaschene Klecks des Rivalen hinterlässt einen Tropfen seines Hauptpigments. Ein Sieg gibt einen Tropfen dazu, das Pigment eines eigenen Würfels aus dem Deck, zufällig.
-- **Umfärben:** Auf der Würfelkarte färbt man eine Seite für 3 Tropfen in dieses Pigment um. So baut man ein Deck, das öfter Glaze und Pure wirft.
+- **Tropfen sammeln:** Jeder ausgewaschene Klecks des Rivalen hinterlässt einen Tropfen seines Hauptpigments. Ein Sieg gibt einen Tropfen dazu, das Pigment eines eigenen Würfels aus dem Deck, gewürfelt am Server. Nicht im Lern-Duell, ohne Tageslimit.
+- **Umfärben:** Auf der Würfelkarte färbt man eine Seite mit Farbe für 3 Tropfen in dieses Pigment um, auch in eines, das der Klecks sonst nicht trägt. Sterne und Joker haben keine Farbe. So baut man ein Deck, das öfter Glaze und Pure wirft.
+- **Je Seite gilt die letzte Umfärbung.** Färbt man zurück in die Farbe aus dem Seed, fällt die Änderung ganz weg (kostet trotzdem 3 Tropfen).
 - **Doppelt machen** bleibt bei der Lasur aus dem Auswaschen.
-- **Neuer Spielstand:** `drops`, je Pigment. Umfärbungen stehen wie Lasuren in `mods` und gelten auch im Galerie-Abzug und beim Tausch.
+- **Spielstand:** `drops`, je Pigment. Umfärbungen stehen wie Lasuren in `mods` (`to: 'c'`, `c` ist das Pigment) und gelten im Duell, im Galerie-Abzug, im Archiv, im Markt und beim Tausch. Sie zählen nicht als Lasur.
+- **Anzeige:**
+  - Ergebnis: Tropfen in ihrer Farbe, „+3 drops: Carmine ×2, Indigo“, der Siegtropfen extra genannt.
+  - Your dice: Zeile „Drops“ über der Sammlung mit dem Vorrat je Pigment.
+  - Würfelkarte: Knöpfe je Pigment mit Kürzel und Zahl, ab 3 wählbar. Ist eine Farbe gewählt, leuchten die Seiten, die sich umfärben lassen, in dieser Farbe. Antippen färbt um. Umgefärbte Seiten tragen unten links einen kleinen Tropfen.
+  - Hilfe im Duell: Zeile „Drops“.
+- **Code:** `diceTint` und `dropLoot` in src/server/dice.ts, Endpunkt /api/dice/tint, `DROP_COST` in src/shared/dice.ts, `tintFaces` in rules.ts, `duelLoot` in play.ts. Vorschau: /dev/drops?karmin=5.
+
+**Gemessen (200 Duelle je Gegner, der Spieler spielt wie der Computer):**
+
+| Gegner | Siegquote | ausgewaschene Rivalen je Duell | Tropfen je Duell |
+|---|---|---|---|
+| Geselle (apprentice) | 100 % | 3,3 | 4,3 |
+| Geselle (journeyman) | 95 % | 3,6 | 4,6 |
+| Meister | 38 % | 2,6 | 3,0 |
+| Galerie | 73 % | 3,1 | 3,9 |
+
+- Die Tropfen verteilen sich auf die Pigmente der Rivalen. Etwa eine Umfärbung je Duell.
+- **Obergrenze offen:** Ein ganz einfarbiges Deck würfelt Glaze in 42 % der Würfe (heute 16 %) und Pure in 17 % (heute 0,5 %). Bis dahin braucht es grob 50 bis 100 Duelle. Der Computer-Rivale färbt nicht um, Galerie-Decks schon.
 
 ### Malmittel und Sepias Auftrag
 
@@ -92,14 +112,19 @@ Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken, jeder weit
 
 ## Was sonst noch zu tun ist
 
-- **Lern-Duell (Schritt 3):** neue feste Würfe, die eine Glaze und einen Neuwurf zeigen. Sepia erklärt Farbe, Kombi und Nässe.
-- **Versionsprüfung:** DUEL_PROTOCOL 16, Speicherstand v6. Laufende Duelle aus älteren Versionen (auch Fassung 1) werden verworfen.
+- **Lern-Duell (Schritt 3):** gebaut. Feste Würfe zeigen eine Glaze und einen Neuwurf. Sepia erklärt Farbe, Kombi und Nässe.
+- **Versionsprüfung:** DUEL_PROTOCOL 16, Speicherstand v6 (mit den Elementen 17 und v7). Laufende Duelle aus älteren Versionen (auch Fassung 1) werden verworfen. Schritt 4 ändert am Duell nichts.
 
 ## Reihenfolge
 
 1. **Regeln und Server:** gebaut (Fassung 1, dann Fassung 2).
 2. **Anzeige:** gebaut.
 3. **Lern-Duell:** gebaut (Seed 267, Lern-Deck mit je zwei Ultramarin- und Carmine-Klecksen, Sepia erklärt Farben, Nässe, Glaze, Rechnung und Schlamm). Bild docs/entwuerfe/lern-duell-farbe.png.
-4. **Tropfen und Umfärben:** Server, Karte, Ergebnisbild. Upload mit Bild.
+4. **Tropfen und Umfärben:** gebaut (Server, Würfelkarte, Ergebnis, Hilfe, Tests). Playtest v0.0.1.119, Bild docs/entwuerfe/tropfen-im-spiel.png.
 
 Danach der Plan für B (Bleach).
+
+## Offene Fragen (Schritt 4)
+
+1. Obergrenze fürs Umfärben? Etwa höchstens 2 umgefärbte Seiten je Würfel, oder steigende Kosten (3, dann 5, dann 8 Tropfen). Ohne Grenze kann ein Deck über viele Duelle ganz einfarbig werden.
+2. Test-Knopf für Mods im Playtest („+3 drops of each pigment“), damit man das Umfärben ohne viele Duelle ausprobieren kann?

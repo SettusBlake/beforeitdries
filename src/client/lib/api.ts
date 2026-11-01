@@ -43,6 +43,7 @@ export const api = {
   dicePull: (kind: PullKind) => call<DiceResponse>('/api/dice/pull', { kind }),
   diceBag: (ids: string[]) => call<DiceResponse>('/api/dice/bag', { ids }),
   diceGlaze: (id: string, face: number) => call<DiceResponse>('/api/dice/glaze', { id, face }),
+  diceTint: (id: string, face: number, pig: PigmentId) => call<DiceResponse>('/api/dice/tint', { id, face, pig }),
   diceWash: (id: string, confirm = false) => call<DiceResponse>('/api/dice/wash', { id, confirm }),
   diceDraw: (drawing: string) => call<DiceResponse>('/api/dice/draw', { drawing }),
   diceTestBlank: () => call<DiceResponse>('/api/dice/test-blank', {}),

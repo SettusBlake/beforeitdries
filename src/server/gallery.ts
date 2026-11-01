@@ -194,7 +194,7 @@ export async function takePick(
     name: snap.name,
     theirs: dice.map((x) => dieMonster(x)),
     mods: dice.map((x) => x.mods ?? []),
-    foe: dice.map((x) => ({ ...(x.no ? { no: x.no } : {}), glaze: (x.mods ?? []).filter((m) => !m.p).length, patina: x.patina ?? 0, ...(x.draw ? { drawn: 1 as const } : {}) })),
+    foe: dice.map((x) => ({ ...(x.no ? { no: x.no } : {}), glaze: (x.mods ?? []).filter((m) => !m.p && m.to !== 'c').length, patina: x.patina ?? 0, ...(x.draw ? { drawn: 1 as const } : {}) })),
     keys: dice.map((x) => (x.draw ? `${owner}:${x.id}` : null)),
     media: snap.media,
     ...(snap.color ? { color: snap.color } : {}),

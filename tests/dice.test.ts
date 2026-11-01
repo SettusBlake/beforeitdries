@@ -1,12 +1,12 @@
 /* Würfelsammlung: Startzüge, offener W100, Schutz vor Pech, einzigartige Monster, Auswaschen, Beutel, Lasur auf Seiten */
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
-import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, isPlaytest, loadDice, saveDice, TEST_PIGMENT } from '../src/server/dice';
+import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTestPigment, diceTestShiny, diceTint, diceWash, dropLoot, isPlaytest, loadDice, saveDice, TEST_PIGMENT } from '../src/server/dice';
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
-import { dieMonster, dieSpecies, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollHand, foilOf, FOILS, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
-import { PAPER } from '../src/shared/data';
+import { dieMonster, dieSpecies, DROP_COST, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollHand, foilOf, FOILS, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
+import { PAPER, PIGMENTS } from '../src/shared/data';
 import { monsterSeed, statRows } from '../src/shared/monster';
 import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
 import { loadState } from '../src/shared/duel/play';
@@ -234,6 +234,58 @@ describe('Würfelsammlung', () => {
     loadState(duel.state!);
     const want = pick.map((id) => dieUnit(dieMonster(res.dice.dice.find((x) => x.id === id)!)).m.seed);
     expect(S.teams[0].units.map((u) => u.m.seed)).toEqual(want);
+  });
+
+  it('Tropfen färben eine Seite um: 3 Tropfen, nur Seiten mit Farbe, gilt im Duell, zurück in die Seed-Farbe nimmt die Änderung weg', async () => {
+    const d = setup(41);
+    await dicePull(d, USER, 'starter');
+    let s = await loadDice(d, USER);
+    const die = s.dice.find((x) => s.bag.includes(x.id))!;
+    const faces = dieUnit(dieMonster(die), die.mods).faces;
+    const fi = faces.findIndex((f) => !!f.c);
+    const bare = faces.findIndex((f) => !f.c);
+    const was = faces[fi]!.c!;
+    const other = PIGMENTS.find((p) => p.id !== was && p.id !== dieMonster(die).main)!.id;
+    expect(await code(diceTint(d, USER, die.id, fi, other))).toBe('bad_request');
+    s.drops = { [other]: DROP_COST + 1, [was]: DROP_COST };
+    await saveDice(d, USER, s);
+    expect(await code(diceTint(d, USER, die.id, fi, 'gold'))).toBe('bad_request');
+    expect(await code(diceTint(d, USER, die.id, 6, other))).toBe('bad_request');
+    expect(await code(diceTint(d, USER, 'd999', fi, other))).toBe('not_found');
+    expect(await code(diceTint(d, USER, die.id, fi, was))).toBe('bad_request');
+    if (bare >= 0) expect(await code(diceTint(d, USER, die.id, bare, other))).toBe('bad_request');
+    const res = await diceTint(d, USER, die.id, fi, other);
+    const after = res.dice.dice.find((x) => x.id === die.id)!;
+    const now = dieUnit(dieMonster(after), after.mods).faces;
+    expect(now[fi]!.c).toBe(other);
+    expect(now.filter((_, i) => i !== fi)).toEqual(faces.filter((_, i) => i !== fi));
+    expect(res.dice.drops?.[other]).toBe(1);
+    // Im Duell trägt die Seite die neue Farbe
+    const duel = await duelStart(d, USER, 'apprentice');
+    loadState(duel.state!);
+    expect(S.teams[0].units.find((u) => u.m.seed === dieMonster(die).seed)!.faces[fi]!.c).toBe(other);
+    // Zurück: keine Änderung mehr gespeichert, die Seiten sind wie vorher
+    const back = await diceTint(d, USER, die.id, fi, was);
+    const again = back.dice.dice.find((x) => x.id === die.id)!;
+    expect(again.mods.some((m) => m.to === 'c')).toBe(false);
+    expect(dieUnit(dieMonster(again), again.mods).faces).toEqual(faces);
+    expect(back.dice.drops?.[was]).toBe(0);
+  });
+
+  it('Tropfen als Beute: einer je ausgewaschenem Rivalen-Klecks, beim Sieg einer aus dem eigenen Deck', async () => {
+    const d = setup(42);
+    const s = await loadDice(d, USER);
+    const lost = dropLoot(d, s, 2, { washed: ['karmin', 'karmin', 'ultra'], deck: ['sepia'] });
+    expect(lost).toEqual([
+      { pig: 'karmin', why: 'wash' },
+      { pig: 'karmin', why: 'wash' },
+      { pig: 'ultra', why: 'wash' },
+    ]);
+    const won = dropLoot(d, s, 1, { washed: [], deck: ['sepia', 'opera'] });
+    expect(won).toHaveLength(1);
+    expect(['sepia', 'opera']).toContain(won[0]!.pig);
+    expect(s.drops).toEqual({ karmin: 2, ultra: 1, [won[0]!.pig]: 1 });
+    expect(dropLoot(d, s, 0, { washed: [], deck: ['sepia'] })).toEqual([]);
   });
 
   it('das erste Duell ohne Würfel macht die Startzüge selbst', async () => {

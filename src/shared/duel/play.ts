@@ -6,6 +6,7 @@
 import { sameAction, tutorialAction, tutorialActive } from './tutorial';
 import { isMedium, START_MEDIA, type MediumId } from './media';
 import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
+import type { PigmentId } from '../data';
 import {
   ABILITY,
   aiJokerCrest,
@@ -211,6 +212,13 @@ export function wornDice(): { id: string; n: number }[] {
     const id = S.dieIds[k];
     return id && u.rolls ? [{ id, n: u.rolls }] : [];
   });
+}
+/**
+ * Beute fürs Ende (Kampf A Schritt 4): Hauptpigment jedes ausgewaschenen Rivalen-Kleckses und die Pigmente des eigenen Decks
+ * (daraus würfelt der Server beim Sieg einen Tropfen dazu). Vor dem ersten await lesen, S kann danach einem anderen Duell gehören
+ */
+export function duelLoot(): { washed: PigmentId[]; deck: PigmentId[] } {
+  return { washed: S.teams[1].units.filter((u) => u.state === 'gone').map((u) => u.m.main), deck: S.teams[0].units.map((u) => u.m.main) };
 }
 /** Der letzte Wurf mit Würfeln und Seiten */
 export const lastRolled = (): Rolled[] => currentRoll();

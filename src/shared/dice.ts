@@ -2,7 +2,7 @@
  * Würfel als Sammelobjekt. Die Seltenheit kommt vom Papier, das jedes Monster ohnehin würfelt.
  * Legendary sind seltene Papiere, die nur hier vergeben werden. Chancen, Schutz vor Pech und Preise stehen hier.
  */
-import type { PaperId } from './data';
+import type { PaperId, PigmentId } from './data';
 import type { ColorId } from './colors';
 import type { MediumId } from './duel/media';
 import { humidityFor, makeMonster, speciesKey, type Monster } from './monster';
@@ -24,9 +24,13 @@ export function rarityOf(paper: PaperId): Rarity {
 }
 export const rarityFromRoll = (d100: number): Rarity => (RARITIES.find((r) => d100 >= r.from && d100 <= r.to) ?? RARITIES[0]!).k;
 
-/** Lasur auf einer Würfelseite: ein einfaches Symbol wird doppelt */
-/** Lasur (x2) oder Patina (p: x2, x3 oder mix) auf einer Seite, der Reihe nach angewendet */
-export type FaceMod = { i: number; to: 'x2' | 'x3' | 'mix'; p?: 1 };
+/**
+ * Änderung an einer Würfelseite, der Reihe nach angewendet: Lasur (x2) oder Patina (p: x2, x3 oder mix).
+ * to 'c' färbt die Seite um (Tropfen, Kampf A Schritt 4): c ist das neue Pigment, gilt nach den Farben aus dem Seed
+ */
+export type FaceMod = { i: number; to: 'x2' | 'x3' | 'mix' | 'c'; p?: 1; c?: PigmentId };
+/** Tropfen (Kampf A Schritt 4, freigegeben am 01.11.2026): so viele färben eine Seite um */
+export const DROP_COST = 3;
 /** Patina (festgelegt am 30.10.2026): nach so vielen Würfen im Duell wird jeweils eine zufällige Seite besser */
 export const PATINA = [10, 30, 60];
 /**
@@ -235,6 +239,8 @@ export type DiceSave = {
   news?: News[];
   /** Schon abgeholte Lieferungen (gegen doppeltes Abholen) */
   postSeen?: string[];
+  /** Tropfen je Pigment: Beute aus Duellen, DROP_COST färben eine Seite um */
+  drops?: Partial<Record<PigmentId, number>>;
 };
 export function emptyDice(): DiceSave {
   return { v: 3, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };

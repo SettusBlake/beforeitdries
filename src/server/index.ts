@@ -4,7 +4,7 @@ import { context, createServer, getServerPort, reddit, redis, scheduler, setting
 import type { MenuItemRequest, UiResponse } from '@devvit/web/shared';
 import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
 import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
-import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash } from './dice';
+import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceTint, diceWash } from './dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf } from './gallery';
@@ -180,6 +180,13 @@ app.post(
   }),
 );
 
+app.post(
+  '/api/dice/tint',
+  wrap(async (req, res) => {
+    const body = (req.body ?? {}) as { id?: unknown; face?: unknown; pig?: unknown };
+    res.json(await diceTint(await deps(), context.userId, body.id, body.face, body.pig));
+  }),
+);
 app.post(
   '/api/dice/glaze',
   wrap(async (req, res) => {

@@ -4,9 +4,9 @@
  */
 import { statBlock } from './statcard';
 import type { DiceResponse, MarketItem } from '../../shared/api';
-import { PAPER } from '../../shared/data';
+import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
-import { dieMonster, dieSpecies, drawLocked, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { dieMonster, dieSpecies, drawLocked, DROP_COST, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { monsterSeed, speciesLabel } from '../../shared/monster';
 import { addHolo } from '../lib/holo';
@@ -21,7 +21,7 @@ import { buyBox, initMarket, marketGate, openMarket, provText, sellBox, setMarke
 import { initTrades, openTrades, showTrades } from './trade';
 import { setColorChoice } from './colors';
 import { iconSvg, netSvg } from './icons';
-import { faceTile, lookOf } from './faceskin';
+import { dropIcon, faceTile, lookOf, PIG_TAG } from './faceskin';
 import { elementBadge, elementIcon, elementText } from './elements';
 import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
@@ -241,6 +241,10 @@ function render(): void {
   const holos = s.dice.filter((x) => x.holo).length,
     styled = s.dice.filter((x) => x.style).length;
   $('coll-count').textContent = `${s.dice.length} dice · ${new Set(s.dice.map(dieSpecies)).size} species` + (holos ? ` · ${holos} holo` : '') + (styled ? ` · ${styled} ${styled > 1 ? 'styles' : 'style'}` : '');
+  // Tropfen-Vorrat: antippen einer Würfelkarte färbt um
+  const stock = dropStock(s);
+  $('drops-sum').hidden = !stock.length;
+  $('drops-sum').innerHTML = stock.length ? `<b>Drops</b> ${stock.map((x) => `<span>${dropIcon(x.p, 14)}${PIG_TAG[x.p]} ${x.n}</span>`).join('')}<small>Open a die to repaint a face (${DROP_COST} drops).</small>` : '';
   for (const d of sorted) {
     const u = unitOfDie(d);
     const r = rarityDef(u.rarity);
@@ -359,6 +363,11 @@ async function packBag(ids: string[]): Promise<void> {
 function openDie(d: DieRec, item?: MarketItem | 'view'): void {
   if (!save) return;
   sfx.tap();
+  // Eine andere Karte: die gewählte Tropfen-Farbe gilt nicht mehr
+  if (tintDie !== d.id) {
+    tintDie = d.id;
+    tintPig = null;
+  }
   const foreign = !!item;
   const s = save;
   const u = unitOfDie(d);
@@ -392,22 +401,28 @@ function openDie(d: DieRec, item?: MarketItem | 'view'): void {
   top.append(big, info);
   const lk = lookOf(u.m);
   const net = html('div', 'card-net', netSvg(u.net, u.faces, 30, lk));
-  // Seiten mit Lasur: ein einfaches Symbol wird doppelt
+  // Seiten mit Lasur: ein einfaches Symbol wird doppelt. Mit gewählter Tropfen-Farbe: eine Seite mit Farbe wird umgefärbt
   const faces = el('div', 'faces');
   const canGlaze = glaze >= GLAZE_COST;
   const worn = new Set(d.mods.filter((m) => m.p).map((m) => m.i));
+  const tinted = new Set(d.mods.filter((m) => m.to === 'c').map((m) => m.i));
+  if (tintPig && (s.drops?.[tintPig] ?? 0) < DROP_COST) tintPig = null;
+  const tp = foreign ? null : tintPig;
   u.faces.forEach((f, i) => {
-    const ok = !foreign && canGlaze && isCrestFace(f) && f.n === 1 && !f.k2;
-    const b = el('button', 'face' + (ok ? ' can' : '') + (worn.has(i) ? ' worn' : '')) as HTMLButtonElement;
+    const ok = tp ? !!f.c && f.c !== tp : !foreign && canGlaze && isCrestFace(f) && f.n === 1 && !f.k2;
+    const b = el('button', 'face' + (ok ? (tp ? ' can tint' : ' can') : '') + (worn.has(i) ? ' worn' : '') + (tinted.has(i) ? ' tinted' : '')) as HTMLButtonElement;
     b.type = 'button';
     b.disabled = !ok || busy;
     b.dataset.face = String(i);
     b.title = faceText(f);
     b.classList.add('skinned');
+    if (tp) b.style.setProperty('--tc', `rgb(${PIG[tp].rgb.join(',')})`);
     b.innerHTML = faceTile(f, lk, 40);
-    b.addEventListener('click', () => void glazeFace(d, i));
+    b.addEventListener('click', () => void (tp ? tintFace(d, i, tp) : glazeFace(d, i)));
     faces.append(b);
   });
+  // Tropfen (Kampf A Schritt 4): Farbe wählen, dann eine Seite antippen
+  const drops = foreign ? null : dropRow(d, s);
   const kin = s.dice.filter((x) => x !== d && dieSpecies(x) === key).length;
   const gl = el(
     'p',
@@ -518,8 +533,58 @@ function openDie(d: DieRec, item?: MarketItem | 'view'): void {
     if (gate && !gate.ok) sell.append(el('small', '', gate.why ?? 'You cannot trade yet.'));
   }
   // Werte und alles fürs Duell vor dem Benennen (festgelegt am 31.10.2026)
-  box.append(top, ...prov, net, faces, gl, pat, row, sell, statBlock(u, false), lines, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), wash);
+  box.append(top, ...prov, net, faces, ...(tp ? [] : [gl]), ...(drops ? [drops] : []), pat, row, sell, statBlock(u, false), lines, ...(speciesName(u.m) ? [] : [namingRow(d, s, u)]), wash);
   $('inspect').hidden = false;
+}
+/** Gewählte Tropfen-Farbe auf der Würfelkarte (null: Antippen einer Seite lasiert) */
+let tintPig: PigmentId | null = null;
+let tintDie: string | null = null;
+/** Vorrat an Tropfen je Pigment, in der Reihenfolge der Pigmente */
+const dropStock = (s: DiceSave): { p: PigmentId; n: number }[] => PIGMENTS.map((p) => ({ p: p.id, n: s.drops?.[p.id] ?? 0 })).filter((x) => x.n > 0);
+/** Tropfen auf der Würfelkarte: je Farbe ein Knopf, ab DROP_COST wählbar */
+function dropRow(d: DieRec, s: DiceSave): HTMLElement {
+  const box = el('div', 'droprow');
+  const stock = dropStock(s);
+  if (!stock.length) {
+    box.append(html('p', 'dropline', `<b>Drops 0</b> · Wash out rival blots in duels: each leaves a drop of its pigment, a win one more. ${DROP_COST} drops repaint a face.`));
+    return box;
+  }
+  const chips = el('div', 'dchips');
+  for (const x of stock) {
+    const b = el('button', 'dchip' + (tintPig === x.p ? ' on' : '')) as HTMLButtonElement;
+    b.type = 'button';
+    b.disabled = busy || x.n < DROP_COST;
+    b.title = `${PIG[x.p].n}: ${x.n} drop${x.n === 1 ? '' : 's'}`;
+    b.innerHTML = `${dropIcon(x.p, 18)}<b>${PIG_TAG[x.p]}</b><span>${x.n}</span>`;
+    b.addEventListener('click', () => {
+      sfx.tap();
+      tintPig = tintPig === x.p ? null : x.p;
+      openDie(d);
+    });
+    chips.append(b);
+  }
+  const can = stock.some((x) => x.n >= DROP_COST);
+  const say = tintPig
+    ? `Tap a face to paint it <b>${PIG[tintPig].n}</b> (${DROP_COST} drops). Tap the colour again to stop.`
+    : can
+      ? `Pick a colour, then tap a face to repaint it (${DROP_COST} drops). Same colours make Glaze and Pure.`
+      : `${DROP_COST} drops of one pigment repaint a face. Wash out rival blots to collect more.`;
+  box.append(el('span', 'eyebrow', 'Drops'), chips, html('p', 'dropline', say));
+  return box;
+}
+async function tintFace(d: DieRec, i: number, pig: PigmentId): Promise<void> {
+  if (busy) return;
+  busy = true;
+  try {
+    apply(await api.diceTint(d.id, i, pig));
+    sfx.ability();
+    const nd = save?.dice.find((x) => x.id === d.id);
+    busy = false;
+    if (nd) openDie(nd);
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
 }
 /** Art ohne Namen: als „What do you see?“-Post teilen (einer am Tag), oder den laufenden Post öffnen */
 function namingRow(d: DieRec, s: DiceSave, u: Unit): HTMLElement {

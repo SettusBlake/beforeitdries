@@ -662,3 +662,23 @@ canvas.faded, .rd.drift canvas { filter: saturate(.5) brightness(1.08) contrast(
 #aux { flex-direction: column; justify-content: center; gap: 0; line-height: 1.1; }
 #aux .wetc { font: 700 10px var(--f-mono); color: var(--muted); }
 #aux .wetc.on { color: var(--water); }
+/* Tropfen (Kampf A Schritt 4): Vorrat, Farbknöpfe auf der Würfelkarte, umgefärbte Seiten */
+.dropi { flex: none; vertical-align: -3px; }
+.dropsum { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 2px 0 8px; font: 12px var(--f-mono); color: var(--ink); }
+.dropsum span { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; }
+.dropsum small { flex-basis: 100%; color: var(--muted); }
+.droprow { margin: 6px 0 8px; text-align: center; }
+.droprow .eyebrow { display: block; margin-bottom: 4px; }
+.dchips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.dchip { display: inline-flex; align-items: center; gap: 3px; min-height: 34px; padding: 3px 9px 3px 6px; border-radius: 17px; border: 1px solid var(--line); background: #fffdf8; font: 12px var(--f-mono); color: var(--ink); }
+.dchip b { font-weight: 800; }
+.dchip span { color: var(--muted); }
+.dchip.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); background: #fff; }
+.dchip:disabled { opacity: .55; }
+.dropline { margin: 5px 0 0; font: 11.5px/1.35 var(--f-mono); color: var(--muted); }
+.dropline b { color: var(--ink); }
+.face.skinned.can.tint { box-shadow: 0 0 0 2px var(--tc, #555), 0 0 9px var(--tc, #555); animation: tintpulse 1.2s ease-in-out infinite; }
+@keyframes tintpulse { 50% { transform: translateY(-2px); } }
+.face.tinted::before { content: ''; position: absolute; left: 3px; bottom: 3px; width: 7px; height: 9px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #fff; box-shadow: 0 0 0 1px rgba(22,20,28,.55); z-index: 2; }
+.drops-r { display: block; margin-top: 6px; }
+.drops-r .dropi { margin: 0 1px; }

@@ -7,13 +7,13 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { adoptTopName, catchBlot, dayInfo, ensureDailyPost, GameError, glazeMonster, loadCollection, loadMonster, resolveDay, type Deps } from '../src/server/core';
-import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
+import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, diceTint, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from '../src/server/market';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
-import { DUEL_PROTOCOL, PROTO_HEADER } from '../src/shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type DuelReward } from '../src/shared/api';
 import { loadState } from '../src/shared/duel/play';
 import { placements, rollable, ROLL_N, S, suggest } from '../src/shared/duel/rules';
 import { K } from '../src/server/keys';
@@ -22,6 +22,7 @@ import { dayKey } from '../src/shared/day';
 import { monsterSeed } from '../src/shared/monster';
 import { encodeDrawing } from '../src/shared/drawn';
 import { dieSpecies, PITY } from '../src/shared/dice';
+import { isPigment } from '../src/shared/data';
 import { secureUint32 } from '../src/server/rand';
 import { FakeRedis } from './fake-redis';
 import { FakeReddit } from './fake-reddit';
@@ -52,6 +53,7 @@ await ensurePlayPost(deps());
 
 /** Zuletzt geteilter „What do you see?“-Post: die Vorschau von name.html zeigt ihn */
 let lastNaming = '';
+let pendingReward: DuelReward | undefined;
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.woff': 'font/woff', '.map': 'application/json' };
 
 createServer(async (req, res) => {
@@ -76,7 +78,13 @@ createServer(async (req, res) => {
       let raw = '';
       for await (const c of req) raw += c;
       const b = JSON.parse(raw || '{}');
-      if (url.pathname === '/api/duel') return send(200, await duelGet(d, asUser));
+      if (url.pathname === '/api/duel') {
+        // Vorschau: nach /dev/finish kommt die Belohnung einmal mit, damit das Ergebnis sie zeigt
+        const r = await duelGet(d, asUser);
+        if (pendingReward && r.state?.over) r.reward = pendingReward;
+        return send(200, r);
+      }
+      if (url.pathname === '/api/duel/start') pendingReward = undefined;
       if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true, b.gallery === true, USER.name));
       if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action, USER.name));
     }
@@ -97,6 +105,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
       if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));
+      if (url.pathname === '/api/dice/tint') return send(200, await diceTint(d, asUser, b.id, b.face, b.pig));
       if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id, b.confirm, USER.name));
       if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing, USER.name));
       if (url.pathname === '/api/dice/seen') return send(200, await diceSeen(d, asUser));
@@ -168,6 +177,7 @@ createServer(async (req, res) => {
                 : { k: 'auto' };
         res = await duelAct(d, USER.id, a, USER.name);
       }
+      pendingReward = res.reward;
       return send(200, { over: res.state?.over, winner: res.state?.winner, reward: res.reward });
     }
     // Nur in der Vorschau: im eigenen Zug bis zum Handeln weiter und einen Klecks handeln lassen (Sepias Vorschlag)
@@ -276,6 +286,14 @@ createServer(async (req, res) => {
       const up = wearDice(d, s, s.dice.slice(0, Number(url.searchParams.get('k') ?? s.dice.length)).map((x) => ({ id: x.id, n })));
       await saveDice(d, USER.id, s);
       return send(200, up);
+    }
+    // Nur in der Vorschau: Tropfen setzen (/dev/drops?karmin=5&ultra=3)
+    if (url.pathname === '/dev/drops') {
+      const s = await loadDice(d, USER.id);
+      s.drops = { ...s.drops };
+      for (const [k, v] of url.searchParams) if (isPigment(k)) s.drops[k] = Number(v);
+      await saveDice(d, USER.id, s);
+      return send(200, s.drops);
     }
     if (url.pathname === '/dev/pigment') {
       const s = await loadDice(d, USER.id);

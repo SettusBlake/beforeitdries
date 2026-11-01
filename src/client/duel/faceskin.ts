@@ -413,3 +413,12 @@ export function holoRim(ctx: CanvasRenderingContext2D, x: number, y: number, w: 
   ctx.stroke();
   ctx.restore();
 }
+/** Ein Tropfen in seinem Pigment (Beute aus Duellen, Kampf A Schritt 4) */
+export function dropIcon(p: PigmentId, px: number): string {
+  const c = PIG[p].rgb;
+  return (
+    `<svg class="dropi" width="${px}" height="${px}" viewBox="0 0 24 24" aria-hidden="true">` +
+    `<path d="M12 2.4c3.9 5.1 6.3 8.3 6.3 11.6a6.3 6.3 0 0 1-12.6 0c0-3.3 2.4-6.5 6.3-11.6z" fill="${css(c)}" stroke="${css(mix(c, INK, 0.45))}" stroke-width="1.3"/>` +
+    `<path d="M8.9 14.4c.5 1.7 1.6 2.6 3.1 2.8" stroke="#fff" stroke-opacity=".8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`
+  );
+}

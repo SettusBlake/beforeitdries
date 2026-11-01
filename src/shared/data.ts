@@ -49,6 +49,7 @@ export const PIGMENTS: readonly Pigment[] = [
   { id: 'opera', n: 'Opera Rose', rgb: [232, 62, 128], hue: 320, gran: 0, stat: { saettigung: 5, leuchten: 6, lichtecht: -5 }, fugitive: true, note: 'fades' },
 ];
 export const PIG = Object.fromEntries(PIGMENTS.map((p) => [p.id, p])) as Record<PigmentId, Pigment>;
+export const isPigment = (v: unknown): v is PigmentId => PIGMENTS.some((p) => p.id === v);
 export const css = (c: RGB): string => `rgb(${c[0]},${c[1]},${c[2]})`;
 
 /* ---------- Papier = Seltenheit ---------- */

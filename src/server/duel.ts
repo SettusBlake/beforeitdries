@@ -3,7 +3,7 @@
  * Laden, Aktion und Serialisieren laufen ohne await dazwischen, damit sich Anfragen nicht in die Quere kommen.
  */
 import type { DuelResponse } from '../shared/api';
-import { DuelError, loadState, openDuel, perform, publicState, saveState, wornDice, type DuelAction, type DuelSave } from '../shared/duel/play';
+import { DuelError, duelLoot, loadState, openDuel, perform, publicState, saveState, wornDice, type DuelAction, type DuelSave } from '../shared/duel/play';
 import { dieMonster } from '../shared/dice';
 import type { Monster } from '../shared/monster';
 import { BAG, drain, mk, newGame, S, type Level } from '../shared/duel/rules';
@@ -132,13 +132,14 @@ export async function duelAct(d: Deps, userId: string | undefined, action: unkno
     const done = !wasOver && out.state!.over;
     const tutorial = out.state!.tutorial > 0;
     const worn = tutorial ? [] : wornDice();
+    const loot = done && !tutorial ? duelLoot() : undefined;
     // Besitzer des Galerie-Decks (vor dem ersten await festhalten, danach kann S schon einem anderen Duell gehören)
     const owner = S.foeId;
     await d.redis.set(K.duel(uid), blob);
     await d.redis.zAdd(K.duelPlayers, { member: uid, score: d.now });
     // Pigment fürs Duell, genau einmal beim Ende. Danach hängt dein Deck in der Galerie, der Besitzer des Galerie-Decks bekommt seine Gebühr
     if (done) {
-      out.reward = await payDuel(d, uid, out.state!.winner, tutorial, worn);
+      out.reward = await payDuel(d, uid, out.state!.winner, tutorial, worn, loot);
       if (!tutorial) await hangDeck(d, uid, username, await loadDice(d, uid));
       if (owner) await payOwner(d, owner, out.state!.winner, username);
     }

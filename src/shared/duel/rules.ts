@@ -504,9 +504,19 @@ function colourFaces(f: Face[], u: Unit): Face[] {
     return { ...x, c: u.sec && r() < PAINT.sec ? u.sec : u.m.main };
   });
 }
-/** Alle Seiten eines Würfels: Grundseiten aus den Werten, dann Seltenheit, dann Lasuren und Patina, dann Farben */
+/** Umfärben mit Tropfen (Kampf A Schritt 4): nur Seiten mit Farbe, die letzte Umfärbung einer Seite gilt */
+function tintFaces(f: Face[], mods: FaceMod[]): Face[] {
+  if (!mods.some((m) => m.to === 'c')) return f;
+  const out = f.map((x) => ({ ...x }));
+  for (const m of mods) {
+    const x = out[m.i];
+    if (m.to === 'c' && m.c && x?.c) x.c = m.c;
+  }
+  return out;
+}
+/** Alle Seiten eines Würfels: Grundseiten aus den Werten, dann Seltenheit, dann Lasuren und Patina, dann Farben und Umfärbungen */
 export function facesFor(u: Unit, mods: FaceMod[] = []): Face[] {
-  return colourFaces(glazeFaces(rarityFaces(makeFaces(u), u.rarity, u), mods, u), u);
+  return tintFaces(colourFaces(glazeFaces(rarityFaces(makeFaces(u), u.rarity, u), mods, u), u), mods);
 }
 /** Seiten, die Patina noch verbessern kann: einfache und doppelte Symbole ohne Mischung */
 export const patinaFaces = (faces: Face[]): number[] => faces.flatMap((f, i) => (isCrest(f) && !f.k2 && f.n <= 2 ? [i] : []));

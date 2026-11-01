@@ -12,6 +12,7 @@ import {
   dieMonster,
   dieSpecies,
   drawLocked,
+  DROP_COST,
   emptyDice,
   GLAZE_COST,
   KEEP_MIN,
@@ -37,6 +38,7 @@ import {
 } from '../shared/dice';
 import { BAG, dieUnit, isCrestFace, patinaFaces } from '../shared/duel/rules';
 import { humidityFor, makeMonster, monsterSeed, speciesKey } from '../shared/monster';
+import { isPigment, PIG, type PigmentId } from '../shared/data';
 import { GameError, isMod, withLock, type Deps } from './core';
 import { K } from './keys';
 import { isColor } from '../shared/colors';
@@ -385,6 +387,33 @@ export async function diceGlaze(d: Deps, userId: string | undefined, id: unknown
   });
 }
 
+/**
+ * Umfärben (Kampf A Schritt 4, freigegeben am 01.11.2026): eine Seite mit Farbe bekommt für DROP_COST Tropfen ein anderes
+ * Pigment, auch eines, das der Klecks sonst nicht trägt. Färbt man zurück in die Farbe aus dem Seed, fällt die Änderung weg
+ */
+export async function diceTint(d: Deps, userId: string | undefined, id: unknown, face: unknown, pig: unknown): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (typeof id !== 'string' || !Number.isInteger(face) || (face as number) < 0 || (face as number) > 5) throw new GameError('bad_request', 'Unknown face.');
+  if (!isPigment(pig)) throw new GameError('bad_request', 'Unknown pigment.');
+  const i = face as number;
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    const die = s.dice.find((x) => x.id === id);
+    if (!die) throw new GameError('not_found', 'That die is not yours.', 404);
+    const f = dieUnit(dieMonster(die), die.mods).faces[i]!;
+    if (!f.c) throw new GameError('bad_request', 'Stars and Jokers have no colour.');
+    if (f.c === pig) throw new GameError('bad_request', `That face is already ${PIG[pig].n}.`);
+    const have = s.drops?.[pig] ?? 0;
+    if (have < DROP_COST) throw new GameError('bad_request', `Needs ${DROP_COST} drops of ${PIG[pig].n}.`);
+    s.drops = { ...s.drops, [pig]: have - DROP_COST };
+    // Höchstens eine Umfärbung je Seite: die alte fällt weg, zurück in die Seed-Farbe braucht keine
+    die.mods = die.mods.filter((m) => !(m.to === 'c' && m.i === i));
+    if (dieUnit(dieMonster(die), die.mods).faces[i]!.c !== pig) die.mods.push({ i, to: 'c', c: pig });
+    await saveDice(d, uid, s);
+    return respond(d, s);
+  });
+}
+
 /** Ein ausgewaschener Würfel im Archiv: alles, was ihn ausmacht, und woher er kommt */
 /** Ausgewaschener Würfel im Archiv: von wem (name seit 31.10.2026, für die Karte, wenn er beim Rivalen zurücktreibt) */
 export type Recycled = { die: DieRec; from: string; at: number; rarity: Rarity; name?: string };
@@ -463,8 +492,21 @@ export function wearDice(d: Deps, s: DiceSave, worn: { id: string; n: number }[]
   return out;
 }
 
-/** Pigment nach einem Duell, dazu die Patina der geworfenen Würfel. Nur innerhalb der Spielersperre aufrufen. */
-export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial: boolean, worn: { id: string; n: number }[] = []): Promise<DuelReward> {
+export type DuelLoot = { washed: PigmentId[]; deck: PigmentId[] };
+/** Tropfen nach einem Duell: einer je ausgewaschenem Rivalen-Klecks, beim Sieg einer aus dem eigenen Deck, gewürfelt am Server */
+export function dropLoot(d: Deps, s: DiceSave, winner: 0 | 1 | 2, loot: DuelLoot): NonNullable<DuelReward['drops']> {
+  const out: NonNullable<DuelReward['drops']> = loot.washed.map((pig) => ({ pig, why: 'wash' as const }));
+  if (winner === 1 && loot.deck.length) out.push({ pig: loot.deck[d.rand() % loot.deck.length]!, why: 'win' });
+  if (out.length) {
+    const drops = { ...s.drops };
+    for (const x of out) drops[x.pig] = (drops[x.pig] ?? 0) + 1;
+    s.drops = drops;
+  }
+  return out;
+}
+
+/** Pigment nach einem Duell, dazu die Patina der geworfenen Würfel und die Tropfen. Nur innerhalb der Spielersperre aufrufen. */
+export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial: boolean, worn: { id: string; n: number }[] = [], loot?: DuelLoot): Promise<DuelReward> {
   const s = await loadDice(d, uid);
   let reward: DuelReward;
   if (tutorial) {
@@ -487,6 +529,11 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
   reward.total = s.pigment;
   const patina = wearDice(d, s, worn);
   if (patina.length) reward.patina = patina;
+  // Beute (nicht im Lern-Duell)
+  if (!tutorial && loot) {
+    const drops = dropLoot(d, s, winner, loot);
+    if (drops.length) reward.drops = drops;
+  }
   // Jedes fertige Duell schaltet das nächste Malmittel frei und zählt fürs Handeln
   if (!tutorial) {
     s.duels = (s.duels ?? 0) + 1;

@@ -272,4 +272,6 @@ export interface DuelReward {
   unlocked?: MediumId;
   /** Patina: diese Würfel haben eine Seite verbessert (level 1 bis 3, Seite i wurde x2, x3 oder Mischseite) */
   patina?: { id: string; level: number; i: number; to: 'x2' | 'x3' | 'mix'; name: string; face: Face }[];
+  /** Tropfen (Kampf A Schritt 4): je ausgewaschenem Rivalen-Klecks einer seines Hauptpigments, beim Sieg einer aus dem eigenen Deck */
+  drops?: { pig: PigmentId; why: 'wash' | 'win' }[];
 }

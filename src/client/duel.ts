@@ -8,7 +8,7 @@ import './lib/fonts';
 import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
 import type { DuelResponse, DuelReward } from '../shared/api';
-import { rarityDef, serialText } from '../shared/dice';
+import { DROP_COST, rarityDef, serialText } from '../shared/dice';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -21,7 +21,7 @@ import { api, ApiError } from './lib/api';
 import { loadSpecies, speciesName } from './lib/species';
 import { makeCube, setCubeFace, tumble } from './duel/dice3d';
 import { iconSvg, MUD_SVG, netSvg } from './duel/icons';
-import { faceImage, faceTile, holoRim, lookOf } from './duel/faceskin';
+import { dropIcon, faceImage, faceTile, holoRim, lookOf } from './duel/faceskin';
 import { elementBadge, elementIcon, elementText, ringSvg } from './duel/elements';
 import { elementDef } from '../shared/elements';
 import './duel/dieskin.css';
@@ -1999,6 +1999,18 @@ function sepiaEnd(): string {
 function sepiaGallery(): string {
   return S.winner === 1 ? 'Their deck goes back on the wall. Slightly lighter.' : S.winner === 2 ? "Someone else's brushwork beat yours. Take notes, not offence." : 'Two painters, one sheet, no verdict.';
 }
+/** Tropfen im Ergebnis (Kampf A Schritt 4): je Pigment gezählt, der Siegtropfen extra genannt */
+function dropsText(drops: { pig: PigmentId; why: 'wash' | 'win' }[]): string {
+  if (!drops.length) return '';
+  const n = new Map<PigmentId, number>();
+  for (const x of drops) n.set(x.pig, (n.get(x.pig) ?? 0) + 1);
+  const list = [...n].map(([p, k]) => `${PIG[p].n}${k > 1 ? ` ×${k}` : ''}`).join(', ');
+  const win = drops.some((x) => x.why === 'win');
+  return (
+    `<span class="drops-r">${drops.map((x) => dropIcon(x.pig, 18)).join('')} +${drops.length} drop${drops.length > 1 ? 's' : ''}: <b>${list}</b>` +
+    `<br><small>${win ? 'One for the win. ' : ''}${DROP_COST} of one pigment repaint a face in Your dice.</small></span>`
+  );
+}
 async function finishDuel(): Promise<void> {
   renderAll();
   await View.wait(700);
@@ -2041,7 +2053,8 @@ async function finishDuel(): Promise<void> {
             ? reward.patina.map((p) => `<span class="patina-r">Patina ${p.level}/3 · <b>${p.name}</b>: a face grew to ${iconSvg(p.face, 18)} ${R.faceText(p.face)}</span>`).join('')
             : `<span class="patina-r">Patina grew on ${reward.patina.length} dice: ${reward.patina.map((p) => `${iconSvg(p.face, 16)}`).join(' ')}<br><small>See their cards in Your dice.</small></span>`) +
           `<span class="patina-s">Master Sepia: “Wear suits it. That face has learned something.”</span>`
-        : '');
+        : '') +
+      dropsText(reward.drops ?? []);
   if (reward?.patina?.length) setTimeout(() => sfx.upface(2), 500);
   reward = null;
   $('result').hidden = false;
@@ -2140,6 +2153,7 @@ async function resumeDuel(): Promise<void> {
   }
   busy = false;
   if (!res.state) return void startDuel();
+  if (res.reward) reward = res.reward;
   loadState(res.state);
   renameUnits();
   showScreen('game');
