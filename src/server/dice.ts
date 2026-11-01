@@ -14,6 +14,7 @@ import {
   drawLocked,
   DROP_COST,
   emptyDice,
+  TINT_MAX,
   GLAZE_COST,
   KEEP_MIN,
   LEGENDARY_PAPERS,
@@ -389,7 +390,8 @@ export async function diceGlaze(d: Deps, userId: string | undefined, id: unknown
 
 /**
  * Umfärben (Kampf A Schritt 4, freigegeben am 01.11.2026): eine Seite mit Farbe bekommt für DROP_COST Tropfen ein anderes
- * Pigment, auch eines, das der Klecks sonst nicht trägt. Färbt man zurück in die Farbe aus dem Seed, fällt die Änderung weg
+ * Pigment, auch eines, das der Klecks sonst nicht trägt. Färbt man zurück in die Farbe aus dem Seed, fällt die Änderung weg.
+ * Höchstens TINT_MAX umgefärbte Seiten je Würfel, schon umgefärbte darf man weiter umfärben
  */
 export async function diceTint(d: Deps, userId: string | undefined, id: unknown, face: unknown, pig: unknown): Promise<DiceResponse> {
   const uid = needUser(userId);
@@ -403,6 +405,8 @@ export async function diceTint(d: Deps, userId: string | undefined, id: unknown,
     const f = dieUnit(dieMonster(die), die.mods).faces[i]!;
     if (!f.c) throw new GameError('bad_request', 'Stars and Jokers have no colour.');
     if (f.c === pig) throw new GameError('bad_request', `That face is already ${PIG[pig].n}.`);
+    const others = new Set(die.mods.filter((m) => m.to === 'c' && m.i !== i).map((m) => m.i));
+    if (others.size >= TINT_MAX) throw new GameError('bad_request', `This die already has ${TINT_MAX} repainted faces. Repaint one of those instead.`);
     const have = s.drops?.[pig] ?? 0;
     if (have < DROP_COST) throw new GameError('bad_request', `Needs ${DROP_COST} drops of ${PIG[pig].n}.`);
     s.drops = { ...s.drops, [pig]: have - DROP_COST };
@@ -493,9 +497,13 @@ export function wearDice(d: Deps, s: DiceSave, worn: { id: string; n: number }[]
 }
 
 export type DuelLoot = { washed: PigmentId[]; deck: PigmentId[] };
-/** Tropfen nach einem Duell: einer je ausgewaschenem Rivalen-Klecks, beim Sieg einer aus dem eigenen Deck, gewürfelt am Server */
+/**
+ * Tropfen nach einem Duell (weniger seit 01.11.2026): höchstens einer aus den ausgewaschenen Rivalen-Klecksen (einer davon,
+ * gewürfelt) und beim Sieg einer aus dem eigenen Deck. Gewürfelt am Server
+ */
 export function dropLoot(d: Deps, s: DiceSave, winner: 0 | 1 | 2, loot: DuelLoot): NonNullable<DuelReward['drops']> {
-  const out: NonNullable<DuelReward['drops']> = loot.washed.map((pig) => ({ pig, why: 'wash' as const }));
+  const out: NonNullable<DuelReward['drops']> = [];
+  if (loot.washed.length) out.push({ pig: loot.washed[d.rand() % loot.washed.length]!, why: 'wash' });
   if (winner === 1 && loot.deck.length) out.push({ pig: loot.deck[d.rand() % loot.deck.length]!, why: 'win' });
   if (out.length) {
     const drops = { ...s.drops };
@@ -529,8 +537,8 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
   reward.total = s.pigment;
   const patina = wearDice(d, s, worn);
   if (patina.length) reward.patina = patina;
-  // Beute (nicht im Lern-Duell)
-  if (!tutorial && loot) {
+  // Beute: nicht im Lern-Duell, nur in den belohnten Duellen des Tages (wie Pigment)
+  if (!tutorial && loot && reward.why !== 'capped') {
     const drops = dropLoot(d, s, winner, loot);
     if (drops.length) reward.drops = drops;
   }

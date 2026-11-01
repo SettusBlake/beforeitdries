@@ -6,7 +6,7 @@ import { statBlock } from './statcard';
 import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
-import { dieMonster, dieSpecies, drawLocked, DROP_COST, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { monsterSeed, speciesLabel } from '../../shared/monster';
 import { addHolo } from '../lib/holo';
@@ -244,7 +244,7 @@ function render(): void {
   // Tropfen-Vorrat: antippen einer Würfelkarte färbt um
   const stock = dropStock(s);
   $('drops-sum').hidden = !stock.length;
-  $('drops-sum').innerHTML = stock.length ? `<b>Drops</b> ${stock.map((x) => `<span>${dropIcon(x.p, 14)}${PIG_TAG[x.p]} ${x.n}</span>`).join('')}<small>Open a die to repaint a face (${DROP_COST} drops).</small>` : '';
+  $('drops-sum').innerHTML = stock.length ? `<b>Drops</b> ${stock.map((x) => `<span>${dropIcon(x.p, 14)}${PIG_TAG[x.p]} ${x.n}</span>`).join('')}<small>Open a die to repaint a face (${DROP_COST} drops, ${TINT_MAX} faces per die).</small>` : '';
   for (const d of sorted) {
     const u = unitOfDie(d);
     const r = rarityDef(u.rarity);
@@ -408,8 +408,10 @@ function openDie(d: DieRec, item?: MarketItem | 'view'): void {
   const tinted = new Set(d.mods.filter((m) => m.to === 'c').map((m) => m.i));
   if (tintPig && (s.drops?.[tintPig] ?? 0) < DROP_COST) tintPig = null;
   const tp = foreign ? null : tintPig;
+  // Höchstens TINT_MAX umgefärbte Seiten: ist das erreicht, lassen sich nur diese weiter umfärben
+  const full = tinted.size >= TINT_MAX;
   u.faces.forEach((f, i) => {
-    const ok = tp ? !!f.c && f.c !== tp : !foreign && canGlaze && isCrestFace(f) && f.n === 1 && !f.k2;
+    const ok = tp ? !!f.c && f.c !== tp && (!full || tinted.has(i)) : !foreign && canGlaze && isCrestFace(f) && f.n === 1 && !f.k2;
     const b = el('button', 'face' + (ok ? (tp ? ' can tint' : ' can') : '') + (worn.has(i) ? ' worn' : '') + (tinted.has(i) ? ' tinted' : '')) as HTMLButtonElement;
     b.type = 'button';
     b.disabled = !ok || busy;
@@ -422,7 +424,7 @@ function openDie(d: DieRec, item?: MarketItem | 'view'): void {
     faces.append(b);
   });
   // Tropfen (Kampf A Schritt 4): Farbe wählen, dann eine Seite antippen
-  const drops = foreign ? null : dropRow(d, s);
+  const drops = foreign ? null : dropRow(d, s, tinted.size);
   const kin = s.dice.filter((x) => x !== d && dieSpecies(x) === key).length;
   const gl = el(
     'p',
@@ -542,11 +544,12 @@ let tintDie: string | null = null;
 /** Vorrat an Tropfen je Pigment, in der Reihenfolge der Pigmente */
 const dropStock = (s: DiceSave): { p: PigmentId; n: number }[] => PIGMENTS.map((p) => ({ p: p.id, n: s.drops?.[p.id] ?? 0 })).filter((x) => x.n > 0);
 /** Tropfen auf der Würfelkarte: je Farbe ein Knopf, ab DROP_COST wählbar */
-function dropRow(d: DieRec, s: DiceSave): HTMLElement {
+function dropRow(d: DieRec, s: DiceSave, used: number): HTMLElement {
   const box = el('div', 'droprow');
   const stock = dropStock(s);
+  const left = `Repainted ${used}/${TINT_MAX}` + (used >= TINT_MAX ? ': only those can change colour again.' : '.');
   if (!stock.length) {
-    box.append(html('p', 'dropline', `<b>Drops 0</b> · Wash out rival blots in duels: each leaves a drop of its pigment, a win one more. ${DROP_COST} drops repaint a face.`));
+    box.append(html('p', 'dropline', `<b>Drops 0</b> · Wash out a rival blot in a duel for a drop of its pigment, win for one more. ${DROP_COST} drops repaint a face, ${TINT_MAX} faces per die.`));
     return box;
   }
   const chips = el('div', 'dchips');
@@ -569,7 +572,7 @@ function dropRow(d: DieRec, s: DiceSave): HTMLElement {
     : can
       ? `Pick a colour, then tap a face to repaint it (${DROP_COST} drops). Same colours make Glaze and Pure.`
       : `${DROP_COST} drops of one pigment repaint a face. Wash out rival blots to collect more.`;
-  box.append(el('span', 'eyebrow', 'Drops'), chips, html('p', 'dropline', say));
+  box.append(el('span', 'eyebrow', 'Drops'), chips, html('p', 'dropline', `${say} <b>${left}</b>`));
   return box;
 }
 async function tintFace(d: DieRec, i: number, pig: PigmentId): Promise<void> {

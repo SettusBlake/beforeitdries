@@ -31,6 +31,8 @@ export const rarityFromRoll = (d100: number): Rarity => (RARITIES.find((r) => d1
 export type FaceMod = { i: number; to: 'x2' | 'x3' | 'mix' | 'c'; p?: 1; c?: PigmentId };
 /** Tropfen (Kampf A Schritt 4, freigegeben am 01.11.2026): so viele färben eine Seite um */
 export const DROP_COST = 3;
+/** Höchstens so viele umgefärbte Seiten je Würfel (festgelegt am 01.11.2026, „umfärben etwas begrenzen“) */
+export const TINT_MAX = 2;
 /** Patina (festgelegt am 30.10.2026): nach so vielen Würfen im Duell wird jeweils eine zufällige Seite besser */
 export const PATINA = [10, 30, 60];
 /**

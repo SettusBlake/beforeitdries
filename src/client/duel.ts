@@ -8,7 +8,7 @@ import './lib/fonts';
 import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
 import type { DuelResponse, DuelReward } from '../shared/api';
-import { DROP_COST, rarityDef, serialText } from '../shared/dice';
+import { DROP_COST, rarityDef, serialText, TINT_MAX } from '../shared/dice';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -2008,7 +2008,7 @@ function dropsText(drops: { pig: PigmentId; why: 'wash' | 'win' }[]): string {
   const win = drops.some((x) => x.why === 'win');
   return (
     `<span class="drops-r">${drops.map((x) => dropIcon(x.pig, 18)).join('')} +${drops.length} drop${drops.length > 1 ? 's' : ''}: <b>${list}</b>` +
-    `<br><small>${win ? 'One for the win. ' : ''}${DROP_COST} of one pigment repaint a face in Your dice.</small></span>`
+    `<br><small>${win ? 'One for the win. ' : ''}${DROP_COST} of one pigment repaint a face in Your dice, ${TINT_MAX} faces per die.</small></span>`
   );
 }
 async function finishDuel(): Promise<void> {
@@ -2045,7 +2045,7 @@ async function finishDuel(): Promise<void> {
   rw.hidden = !reward;
   if (reward)
     rw.innerHTML =
-      (reward.pigment ? `<span class="pigi"></span> +${reward.pigment} pigment <small>(${reward.total} in total)</small>` : reward.why === 'capped' ? 'No pigment: five rewarded duels a day.' : '') +
+      (reward.pigment ? `<span class="pigi"></span> +${reward.pigment} pigment <small>(${reward.total} in total)</small>` : reward.why === 'capped' ? 'No pigment or drops: five rewarded duels a day.' : '') +
       (reward.unlocked ? `<br>New medium: <b>${mediumDef(reward.unlocked).name}</b>` : '') +
       // Patina: ein Würfel hat durch Gebrauch eine bessere Seite bekommen
       (reward.patina?.length

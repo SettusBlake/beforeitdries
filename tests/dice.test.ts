@@ -5,7 +5,7 @@ import { diceBag, diceDraw, diceGet, diceGlaze, dicePull, diceTestBlank, diceTes
 import { encodeDrawing } from '../src/shared/drawn';
 import { K } from '../src/server/keys';
 import { duelStart } from '../src/server/duel';
-import { dieMonster, dieSpecies, DROP_COST, GLAZE_COST, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollHand, foilOf, FOILS, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
+import { dieMonster, dieSpecies, DROP_COST, GLAZE_COST, TINT_MAX, KEEP_MIN, PITY, PULL_COST, RARITIES, rarityDef, rarityFromRoll, rarityIndex, rollHand, foilOf, FOILS, STARTER_PULLS, STYLE_DIE, STYLES, styleFromRoll, type DiceSave } from '../src/shared/dice';
 import { PAPER, PIGMENTS } from '../src/shared/data';
 import { monsterSeed, statRows } from '../src/shared/monster';
 import { BAG, dieUnit, isCrestFace, S } from '../src/shared/duel/rules';
@@ -272,20 +272,45 @@ describe('Würfelsammlung', () => {
     expect(back.dice.drops?.[was]).toBe(0);
   });
 
-  it('Tropfen als Beute: einer je ausgewaschenem Rivalen-Klecks, beim Sieg einer aus dem eigenen Deck', async () => {
+  it('Tropfen als Beute: höchstens einer aus den ausgewaschenen Rivalen-Klecksen, beim Sieg einer aus dem eigenen Deck', async () => {
     const d = setup(42);
     const s = await loadDice(d, USER);
     const lost = dropLoot(d, s, 2, { washed: ['karmin', 'karmin', 'ultra'], deck: ['sepia'] });
-    expect(lost).toEqual([
-      { pig: 'karmin', why: 'wash' },
-      { pig: 'karmin', why: 'wash' },
-      { pig: 'ultra', why: 'wash' },
-    ]);
-    const won = dropLoot(d, s, 1, { washed: [], deck: ['sepia', 'opera'] });
-    expect(won).toHaveLength(1);
-    expect(['sepia', 'opera']).toContain(won[0]!.pig);
-    expect(s.drops).toEqual({ karmin: 2, ultra: 1, [won[0]!.pig]: 1 });
+    expect(lost).toHaveLength(1);
+    expect(lost[0]!.why).toBe('wash');
+    expect(['karmin', 'ultra']).toContain(lost[0]!.pig);
+    const won = dropLoot(d, s, 1, { washed: ['indigo'], deck: ['sepia', 'opera'] });
+    expect(won).toHaveLength(2);
+    expect(won[0]).toEqual({ pig: 'indigo', why: 'wash' });
+    expect(won[1]!.why).toBe('win');
+    expect(['sepia', 'opera']).toContain(won[1]!.pig);
+    expect(Object.values(s.drops ?? {}).reduce((a, n) => a + n, 0)).toBe(3);
     expect(dropLoot(d, s, 0, { washed: [], deck: ['sepia'] })).toEqual([]);
+  });
+
+  it('höchstens 2 umgefärbte Seiten je Würfel, schon umgefärbte lassen sich weiter umfärben', async () => {
+    const d = setup(43);
+    await dicePull(d, USER, 'starter');
+    const s = await loadDice(d, USER);
+    const all = s.dice.map((x) => ({ x, f: dieUnit(dieMonster(x), x.mods).faces }));
+    // Ein Würfel mit mindestens drei Seiten mit Farbe
+    const pick = all.find((y) => y.f.filter((f) => !!f.c).length >= TINT_MAX + 1);
+    expect(pick).toBeTruthy();
+    if (!pick) return;
+    const idx = pick.f.flatMap((f, i) => (f.c ? [i] : []));
+    const to = (i: number) => PIGMENTS.find((p) => p.id !== pick.f[i]!.c)!.id;
+    s.drops = Object.fromEntries(PIGMENTS.map((p) => [p.id, 30]));
+    await saveDice(d, USER, s);
+    for (let k = 0; k < TINT_MAX; k++) await diceTint(d, USER, pick.x.id, idx[k]!, to(idx[k]!));
+    expect(await code(diceTint(d, USER, pick.x.id, idx[TINT_MAX]!, to(idx[TINT_MAX]!)))).toBe('bad_request');
+    // Eine schon umgefärbte Seite darf eine andere Farbe bekommen
+    const again = PIGMENTS.find((p) => p.id !== to(idx[0]!) && p.id !== pick.f[idx[0]!]!.c)!.id;
+    const r = await diceTint(d, USER, pick.x.id, idx[0]!, again);
+    const die = r.dice.dice.find((y) => y.id === pick.x.id)!;
+    expect(die.mods.filter((m) => m.to === 'c')).toHaveLength(TINT_MAX);
+    // Zurück in die Seed-Farbe macht einen Platz frei
+    await diceTint(d, USER, pick.x.id, idx[0]!, pick.f[idx[0]!]!.c!);
+    expect(await code(diceTint(d, USER, pick.x.id, idx[TINT_MAX]!, to(idx[TINT_MAX]!)))).toBe('ok');
   });
 
   it('das erste Duell ohne Würfel macht die Startzüge selbst', async () => {

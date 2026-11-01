@@ -126,10 +126,12 @@ describe('Duell am Server', () => {
     expect(reward?.unlocked).toBe('mask');
     expect((await diceGet(d, USER)).dice.media).toContain('mask');
     expect((await diceGet(d, USER)).dice.pigment).toBe(reward?.pigment);
-    // Tropfen: einer je ausgewaschenem Rivalen-Klecks, beim Sieg einer mehr
+    // Tropfen: höchstens einer aus den ausgewaschenen Rivalen-Klecksen, beim Sieg einer mehr
     const drops = reward?.drops ?? [];
     const washed = S.teams[1].units.filter((u) => u.state === 'gone').map((u) => u.m.main);
-    expect(drops.filter((x) => x.why === 'wash').map((x) => x.pig).sort()).toEqual(washed.sort());
+    const fromWash = drops.filter((x) => x.why === 'wash');
+    expect(fromWash).toHaveLength(washed.length ? 1 : 0);
+    for (const x of fromWash) expect(washed).toContain(x.pig);
     expect(drops.filter((x) => x.why === 'win')).toHaveLength(S.winner === 1 ? 1 : 0);
     expect(Object.values((await diceGet(d, USER)).dice.drops ?? {}).reduce((a, n) => a + n, 0)).toBe(drops.length);
     // Patina: jeder Wurf zählt beim Würfel in der Sammlung (Neuwürfe mit), die Zahl bleibt am Server
