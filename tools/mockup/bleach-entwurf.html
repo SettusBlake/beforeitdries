@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/young-serif/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-700.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-700.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/caveat/latin-400.css" />
+    <link rel="stylesheet" href="../../src/client/duel/dieskin.css" />
+    <style>
+      :root { --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --line: #cfcabd; --gold: #c9961e; --you: 43, 63, 163; }
+      body { margin: 0; padding: 24px; background: var(--table); font-family: Figtree, sans-serif; color: var(--ink); width: 1180px; }
+      .eyebrow { margin: 0; font: 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+      h1 { margin: 6px 0 4px; font: 400 1.9rem 'Young Serif', serif; }
+      h2 { margin: 0 0 10px; font: 400 1.2rem 'Young Serif', serif; }
+      h3 { margin: 4px 0 8px; font: 400 1.25rem 'Young Serif', serif; }
+      .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; max-width: 900px; }
+      .grid { display: grid; grid-template-columns: 372px 1fr 1fr; gap: 14px; align-items: start; }
+      .card { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .card.tall { grid-row: span 2; }
+      .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; line-height: 1.4; }
+      .note b { color: var(--ink); }
+      button { font: 700 13px Figtree, sans-serif; border: 1px solid var(--ink); background: #fff; color: var(--ink); border-radius: 10px; padding: 8px 12px; }
+      button.pri { background: var(--ink); color: #fff; }
+      button.wide { width: 100%; margin: 8px 0; padding: 11px; font-size: 15px; }
+      /* Telefon */
+      .phone { width: 340px; border-radius: 26px; background: #f3f0e8; border: 8px solid #1d2130; padding: 10px 6px 12px; box-sizing: border-box; margin: 0 auto; }
+      .ptop { display: flex; justify-content: space-between; align-items: end; padding: 0 6px 6px; }
+      .wave { font: 400 1.25rem 'Young Serif', serif; }
+      .score { text-align: right; } .score b { display: block; font: 700 22px 'JetBrains Mono', monospace; } .score small { font: 11px 'JetBrains Mono', monospace; color: var(--muted); }
+      .edge { position: relative; height: 26px; margin: 0 7px; background: linear-gradient(#fff, #ece8de); border-radius: 8px 8px 0 0; border: 1px dashed #b7b1a2; border-bottom: 0; }
+      .edge span { position: absolute; top: 3px; width: 38px; text-align: center; color: #8d8778; font-size: 14px; animation: none; }
+      .edge em { position: absolute; right: 8px; top: 5px; font: 10.5px 'JetBrains Mono', monospace; color: var(--muted); font-style: normal; }
+      .sheet { position: relative; margin: 0 7px; background: #faf8f2; border: 1px solid #cfc9b9; }
+      .cell { position: absolute; width: 50px; height: 50px; box-sizing: border-box; border-right: 1px solid rgba(0,0,0,.05); border-bottom: 1px solid rgba(0,0,0,.05); }
+      .cell.you { background: rgba(var(--you), .34); }
+      .cell.glz { background: rgba(var(--you), .55); }
+      .cell.bl { background: repeating-linear-gradient(170deg, #f7f5ef 0 6px, #ebe7dc 6px 8px); box-shadow: inset 0 0 0 1px rgba(150,140,120,.25); }
+      .unit { position: absolute; width: 85px; height: 85px; pointer-events: none; }
+      .unit canvas { position: absolute; inset: 0; }
+      .unit.pale canvas { filter: grayscale(1) brightness(1.55) contrast(.6) drop-shadow(0 0 1px #8d8778); opacity: .92; }
+      .unit.pale::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: 6px; height: 12px; border-radius: 50%; border: 2px dashed #9f9888; }
+      .unit.mine .sock { position: absolute; left: 16px; right: 16px; bottom: 5px; height: 12px; border-radius: 50%; background: rgba(var(--you), .9); box-shadow: 0 0 0 2px #fff; }
+      .unit .hp { position: absolute; left: 22px; right: 22px; top: 2px; height: 5px; border-radius: 3px; background: #ddd8cc; overflow: hidden; }
+      .unit .hp i { display: block; height: 100%; background: #8d8778; }
+      .unit .elb { position: absolute; left: 6px; bottom: 2px; }
+      .aim { position: absolute; left: 0; top: 0; pointer-events: none; }
+      .calc { position: absolute; width: 284px; box-sizing: border-box; white-space: nowrap; padding: 3px 6px; line-height: 1.25; border-radius: 9px; background: rgba(29,33,48,.92); color: #fff; font: 11px 'JetBrains Mono', monospace; text-align: center; }
+      .calc b { font-size: 15px; color: #ffd27a; } .calc small { color: #c9c4b6; }
+      .pal { display: flex; align-items: center; gap: 8px; margin: 0 7px; padding: 6px 10px; background: rgba(var(--you), .9); color: #fff; border-radius: 0 0 10px 10px; font-size: 13px; }
+      .pal .hearts { white-space: nowrap; font-size: 16px; color: #ffd0d0; } .pal .hearts i { color: rgba(255,255,255,.35); font-style: normal; }
+      .pal b { white-space: nowrap; } .pal small { font-size: 10.5px; opacity: .8; margin-left: auto; text-align: right; line-height: 1.2; }
+      .tray { display: flex; gap: 10px; justify-content: center; margin: 10px 0 6px; }
+      .tray .die { padding: 3px; border-radius: 10px; }
+      .tray .die.held { box-shadow: 0 0 0 3px var(--gold); }
+      .btns { display: flex; gap: 6px; align-items: center; padding: 0 6px; }
+      .btns .combo { font: 700 12px 'JetBrains Mono', monospace; color: #fff; background: rgb(var(--you)); padding: 6px 8px; border-radius: 8px; }
+      .btns button { flex: 1; }
+      /* Runde */
+      .steps { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.45; } .steps li { margin-bottom: 8px; }
+      .minis { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+      .mini { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 92px; }
+      .mini small { font-size: 11px; color: var(--muted); text-align: center; }
+      .mini .col { display: grid; grid-template-rows: repeat(4, 26px); border: 1px solid #cfc9b9; }
+      .mc { width: 26px; height: 26px; position: relative; background: #faf8f2; border-bottom: 1px solid rgba(0,0,0,.05); }
+      .mc.you { background: rgba(var(--you), .34); }
+      .mc.bl { background: repeating-linear-gradient(170deg, #f7f5ef 0 4px, #e6e1d5 4px 6px); }
+      .mc .pg { position: absolute; inset: 3px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff, #d6d1c5); border: 1.5px dashed #9f9888; }
+      .arr { font-size: 20px; color: var(--muted); }
+      /* Ergebnis */
+      .res { text-align: center; } .res table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 4px; }
+      .res td { padding: 5px 6px; border-top: 1px dashed var(--line); text-align: left; } .res td:nth-child(2) { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 12px; } .res td:last-child { text-align: right; font: 700 13px 'JetBrains Mono', monospace; }
+      .res tr.sum td { border-top: 2px solid var(--ink); font-size: 15px; }
+      .rank { margin: 10px 0 2px; font-size: 15px; } .rank b { font: 400 1.6rem 'Young Serif', serif; }
+      .loot { font: 12.5px 'JetBrains Mono', monospace; margin: 4px 0; }
+      .pigi { display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: conic-gradient(#2b3fa3, #b01e3e, #f0ac0c, #0c6c5c, #2b3fa3); vertical-align: -2px; }
+      .drop { display: inline-block; width: 10px; height: 13px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; vertical-align: -2px; }
+      .hand { font: 22px Caveat, cursive; color: #7a4d1e; margin: 6px 0; }
+      .rbtns { display: flex; gap: 8px; justify-content: center; }
+      /* Post */
+      .post { border: 1px solid #d8d6d0; border-radius: 12px; background: #fff; padding: 10px 12px; }
+      .phead { font-size: 12px; color: #6b6f78; } .phead .sr { font-weight: 700; color: var(--ink); }
+      .post h3 { font: 700 16px Figtree, sans-serif; margin: 6px 0 8px; }
+      .pbody { background: var(--sheet); border-radius: 10px; padding: 10px; border: 1px solid var(--line); }
+      .pales { display: flex; gap: 6px; margin: 8px 0 2px; } .pthumb { width: 40px; height: 40px; border-radius: 8px; background: #f1eee6; position: relative; } .pthumb canvas { filter: grayscale(1) brightness(1.55) contrast(.6) drop-shadow(0 0 1px #8d8778); }
+      .lb { list-style: none; padding: 0; margin: 4px 0; font-size: 13px; }
+      .lb li { display: grid; grid-template-columns: 22px 46px 1fr auto; gap: 8px; align-items: center; padding: 4px 0; border-top: 1px dashed var(--line); }
+      .lb li b { font-family: 'JetBrains Mono', monospace; } .lb li em { font: 700 13px 'JetBrains Mono', monospace; font-style: normal; }
+      .lb li.me { background: #fff6dc; border-radius: 6px; }
+      .smini { display: grid; grid-template-columns: repeat(6, 6px); gap: 1px; } .smini i { width: 6px; height: 4px; background: #eeebe3; } .smini i.y { background: rgba(var(--you), .6); } .smini i.b { background: #d7d2c4; }
+      .pfoot { color: var(--muted); font-size: 11.5px; }
+      /* Kommentar */
+      .cmt { border: 1px solid #d8d6d0; border-radius: 12px; background: #fff; padding: 10px 12px; }
+      .chead { font-size: 12.5px; display: flex; align-items: center; gap: 6px; color: #6b6f78; } .chead b { color: var(--ink); }
+      .av { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ffb36b, #c8502a); }
+      .cmt pre { font: 15px/1.25 'JetBrains Mono', monospace; margin: 8px 0; white-space: pre; }
+      .cfoot { font-size: 12px; color: #6b6f78; }
+    </style>
+  </head>
+  <body>
+    <p class="eyebrow">Before It Dries · draft · Bleach</p>
+    <h1>Bleach: today’s sheet</h1>
+    <p class="sub">A short daily run against the Bleach that eats the sheet from the edge. Everyone plays the same sheet with the same nine dice, under two minutes, one ranked run a day. The daily post holds the board, sharing is a comment with your sheet in squares.</p>
+    <div class="grid" id="grid"></div>
+    <script src="bleach-entwurf.js"></script>
+  </body>
+</html>

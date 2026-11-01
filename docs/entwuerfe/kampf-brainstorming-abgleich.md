@@ -136,7 +136,7 @@ Anlass (01.11.2026): Brainstorming „Kampfsystem-Überarbeitung“ (Blots sind 
 4. Nässe ersetzt den festen Neuwurf? (Empfehlung: ja)
 5. Beute: Pigment je Farbe aus dem Kampf, zum Lasieren zusätzlich zum Auswaschen? (Empfehlung: ja)
 6. Werte neu belegen (Fluss = Extrawurf, Körnung = Krit)? (Empfehlung: nein)
-7. Duell kürzer, zum Beispiel 4 statt 6 Runden? (Empfehlung: erst nach A messen)
+7. Duell kürzer, zum Beispiel 4 statt 6 Runden? (Empfehlung: erst nach A messen) Gemessen am 02.11.2026 nach Kampf A: im Schnitt 2 Minuten automatisch (88 bis 154 s), siehe docs/entwuerfe/bleach-plan.md.
 8. Ergebnis-Post mit dem fertigen Blatt? (Empfehlung: ja, mit B)
 
 ## Nächster Schritt nach der Entscheidung
