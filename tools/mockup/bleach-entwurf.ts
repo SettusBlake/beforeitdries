@@ -55,8 +55,8 @@ sh.style.height = ROWS * CELL + 'px';
 MAP.forEach((row, y) =>
   [...row].forEach((c, x) => {
     const d = document.createElement('div');
-    d.className = 'cell ' + ({ y: 'you', g: 'you glz', b: 'bl' } as Record<string, string>)[c] ?? '';
-    if (c === '.') d.className = 'cell';
+    const cls: Record<string, string> = { y: 'you', g: 'you glz', b: 'bl' };
+    d.className = 'cell ' + (cls[c] ?? '');
     d.style.left = x * CELL + 'px';
     d.style.top = y * CELL + 'px';
     sh.append(d);

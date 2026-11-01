@@ -12,6 +12,7 @@ import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '.
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from '../src/server/market';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
+import { bleachAct, bleachGet, bleachStart } from '../src/server/bleach';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { DUEL_PROTOCOL, PROTO_HEADER, type DuelReward } from '../src/shared/api';
 import { loadState } from '../src/shared/duel/play';
@@ -72,7 +73,7 @@ createServer(async (req, res) => {
     }
     if (url.pathname === '/api/collection') return send(200, { ...(await loadCollection(d, USER.id)), serverNow: d.now, dryMs: d.dryMs });
     if (url.pathname === '/api/catch') return send(200, await catchBlot(d, asUser, USER.name, await resolveDay(d, postId, undefined)));
-    if (url.pathname.startsWith('/api/duel')) {
+    if (url.pathname.startsWith('/api/duel') || url.pathname.startsWith('/api/bleach')) {
       // Wie am echten Server: alte Oberflächen werden abgelehnt
       if (req.headers[PROTO_HEADER] !== String(DUEL_PROTOCOL)) return send(409, { code: 'outdated', error: 'Before It Dries was updated. Close this post and open it again.' });
       let raw = '';
@@ -87,6 +88,9 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/duel/start') pendingReward = undefined;
       if (url.pathname === '/api/duel/start') return send(200, await duelStart(d, asUser, b.level, b.tutorial === true, b.gallery === true, USER.name));
       if (url.pathname === '/api/duel/act') return send(200, await duelAct(d, asUser, b.action, USER.name));
+      if (url.pathname === '/api/bleach') return send(200, await bleachGet(d, asUser, USER.name));
+      if (url.pathname === '/api/bleach/start') return send(200, await bleachStart(d, asUser, USER.name, b.test === true));
+      if (url.pathname === '/api/bleach/act') return send(200, await bleachAct(d, asUser, b.action, USER.name));
     }
     if (url.pathname === '/api/play') return send(200, await playInfo(d, asUser));
     if (url.pathname.startsWith('/api/dice')) {
@@ -301,6 +305,8 @@ createServer(async (req, res) => {
       for (const x of s.dice) s.glaze[dieSpecies(x)] = (s.glaze[dieSpecies(x)] ?? 0) + 6;
       if (url.searchParams.has('legendary')) s.pity.legendary = PITY.legendary - 1;
       if (url.searchParams.has('blank')) s.blank = Number(url.searchParams.get('blank'));
+      // Bleach freischalten (sonst erst nach dem Lern-Duell)
+      if (url.searchParams.has('unlock')) s.tutorialPaid = true;
       await saveDice(d, USER.id, s);
       return send(200, { pigment: s.pigment });
     }

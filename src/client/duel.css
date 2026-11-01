@@ -682,3 +682,8 @@ canvas.faded, .rd.drift canvas { filter: saturate(.5) brightness(1.08) contrast(
 .face.tinted::before { content: ''; position: absolute; left: 3px; bottom: 3px; width: 7px; height: 9px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #fff; box-shadow: 0 0 0 1px rgba(22,20,28,.55); z-index: 2; }
 .drops-r { display: block; margin-top: 6px; }
 .drops-r .dropi { margin: 0 1px; }
+/* Bleach (Schritt 1): Knopf fürs Tagesblatt im Startbild */
+.bleach-btn { display: flex; flex-direction: column; align-items: center; gap: 1px; background: linear-gradient(180deg, #f3f0e8, #e6e1d5); color: var(--ink); border: 1px dashed #8d8778; }
+.bleach-btn small { font: 11px var(--f-mono); color: var(--muted); }
+.bleach-btn:disabled { opacity: .6; }
+#bleach-test { margin-top: 2px; }

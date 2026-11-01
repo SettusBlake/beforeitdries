@@ -1,4 +1,5 @@
 import type { ElementId } from './elements';
+import type { BleachScore } from './duel/bleach';
 /* Datenformate zwischen Server und Client */
 import type { MediumId } from './duel/media';
 import type { PigmentId } from './data';
@@ -113,7 +114,7 @@ export type ErrorCode = 'login' | 'no_day' | 'dried' | 'not_found' | 'forbidden'
  * Stand des Duell-Ablaufs (Aktionen, Phasen, Ereignisse). Bei jeder Änderung erhöhen: Der Client schickt ihn mit,
  * der Server lehnt alte Oberflächen ab und bittet, den Post neu zu öffnen (sonst passen Anzeige und Regeln nicht zusammen)
  */
-export const DUEL_PROTOCOL = 17;
+export const DUEL_PROTOCOL = 18;
 export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {
@@ -127,6 +128,32 @@ export interface DuelResponse {
   state: DuelState | null;
   events: Ev[];
   reward?: DuelReward;
+  /** Bleach: Punkte und Rang, sobald das Tagesblatt fertig ist */
+  bleach?: BleachResult;
+}
+/** Ergebnis eines Bleach-Laufs. ranked false: Testlauf (Playtest, nur Mods), zählt nicht */
+export interface BleachResult {
+  day: string;
+  points: number;
+  parts: BleachScore;
+  ranked: boolean;
+  rank?: number;
+  players?: number;
+}
+/** Was das Startbild zu Bleach zeigt (Tagesblatt): läuft gerade, schon gespielt, Rangliste oben */
+export interface BleachInfo {
+  day: string;
+  colour: PigmentId;
+  /** Erst nach dem Lern-Duell */
+  unlocked: boolean;
+  running: boolean;
+  played: BleachResult | null;
+  players: number;
+  top: { name: string; points: number }[];
+  waves: number;
+  pales: number;
+  /** Playtest und Mod: Test-Knopf für ein neues Blatt */
+  tester?: boolean;
 }
 
 /** Antwort der Würfel-Anfragen: die ganze Sammlung, dazu Züge und ob der freie Tageszug bereit ist */
@@ -266,7 +293,7 @@ export interface ReviewResponse {
 /** Pigment nach einem Duell */
 export interface DuelReward {
   pigment: number;
-  why: 'win' | 'draw' | 'loss' | 'tutorial' | 'capped';
+  why: 'win' | 'draw' | 'loss' | 'tutorial' | 'capped' | 'bleach';
   total: number;
   /** Neu freigeschaltetes Malmittel */
   unlocked?: MediumId;

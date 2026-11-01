@@ -7,6 +7,7 @@ import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
 import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceTint, diceWash } from './dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
+import { bleachAct, bleachGet, bleachStart } from './bleach';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf } from './gallery';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
@@ -87,6 +88,30 @@ app.post(
   wrap(async (req, res) => {
     sameProtocol(req);
     res.json(await duelAct(await deps(), context.userId, (req.body as { action?: unknown } | undefined)?.action, await username()));
+  }),
+);
+
+/* ---------- Bleach: das Tagesblatt gegen die Bleiche vom Rand ---------- */
+
+app.get(
+  '/api/bleach',
+  wrap(async (req, res) => {
+    sameProtocol(req);
+    res.json(await bleachGet(await deps(), context.userId, await username()));
+  }),
+);
+app.post(
+  '/api/bleach/start',
+  wrap(async (req, res) => {
+    sameProtocol(req);
+    res.json(await bleachStart(await deps(), context.userId, await username(), (req.body as { test?: unknown } | undefined)?.test === true));
+  }),
+);
+app.post(
+  '/api/bleach/act',
+  wrap(async (req, res) => {
+    sameProtocol(req);
+    res.json(await bleachAct(await deps(), context.userId, (req.body as { action?: unknown } | undefined)?.action, await username()));
   }),
 );
 

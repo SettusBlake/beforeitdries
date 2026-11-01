@@ -298,7 +298,8 @@ function clearHaze(src: HTMLCanvasElement): HTMLCanvasElement {
   return c;
 }
 /** Würfel des Rivalen, der aus dem Archiv zurückgetrieben ist */
-const drifted = (u: Unit): boolean => u.side === 2 && S.foeDice[S.teams[1].units.indexOf(u)]?.drift !== undefined;
+/** Ausgeblichen: Archiv-Würfel beim Rivalen und in Bleach jeder Pale */
+const drifted = (u: Unit): boolean => u.side === 2 && (S.mode === 'bleach' || S.foeDice[S.teams[1].units.indexOf(u)]?.drift !== undefined);
 /** Ausgeblichen wie vom Rand des Blatts: weniger Farbe, heller, zum Rand hin durchscheinend */
 function bleach(src: HTMLCanvasElement): HTMLCanvasElement {
   const n = src.width;
@@ -712,7 +713,8 @@ function heart(x: number, y: number, s: number, col: string): void {
 }
 function drawPalette(side: Side, t: number): void {
   const team = S.teams[side - 1];
-  if (!team) return;
+  // Bleach: die Bleiche hat keine Palette
+  if (!team || team.home < 0) return;
   if (LOOK2) {
     // Beschriftung rechts neben der Palette
     const lx = cx(team.home) + cell * 0.52,

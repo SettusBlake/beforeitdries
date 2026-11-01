@@ -7,6 +7,7 @@ import { sameAction, tutorialAction, tutorialActive } from './tutorial';
 import { isMedium, START_MEDIA, type MediumId } from './media';
 import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
 import type { PigmentId } from '../data';
+import { aiFlick, bleachRoundEnd, doFlick, type BleachState } from './bleach';
 import {
   ABILITY,
   aiJokerCrest,
@@ -83,7 +84,11 @@ export type DuelAction =
   | { k: 'go'; id: number; to: number; a: Action; at: number | null }
   /** Sepia spielt den Rest des Zuges */
   | { k: 'auto' }
-  | { k: 'end' };
+  | { k: 'end' }
+  /** Bleach: ein Splash-Symbol trifft jeden Pale in dieser Reihe */
+  | { k: 'flick'; row: number }
+  /** Bleach: aufgeben, der Lauf zählt mit dem jetzigen Stand */
+  | { k: 'giveup' };
 
 /** Was der Client sieht: alles außer Würfelzufall und Seed */
 export type DuelState = {
@@ -121,6 +126,9 @@ export type DuelState = {
   foeDice?: (FoeDie | null)[];
   /** Spielfarben: du, Rivale */
   colors?: [ColorId, ColorId];
+  /** Bleach (Tagesblatt gegen die Bleiche): Wellen, Durchbrüche, Tag */
+  mode?: 'bleach';
+  bleach?: BleachState;
 };
 /** Was der Server speichert: dazu Würfelzufall, Würfel-IDs, Besitzer des Galerie-Decks samt Zeichnungen, Malmittel des Rivalen */
 export type DuelSave = DuelState & { rng: number; gameSeed: number; dieIds?: string[]; foeId?: string; foeKeys?: (string | null)[]; rivalMedia?: MediumId[] };
@@ -161,6 +169,7 @@ export function publicState(): DuelState {
     ...(S.foeName ? { foeName: S.foeName } : {}),
     ...(S.foeDice.some(Boolean) ? { foeDice: S.foeDice } : {}),
     colors: S.colors,
+    ...(S.mode === 'bleach' && S.bleach ? { mode: 'bleach' as const, bleach: S.bleach } : {}),
   };
 }
 export function saveState(): string {
@@ -204,6 +213,8 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, Hidden>>): void 
   S.foeKeys = s.foeKeys ?? [];
   S.rivalMedia = s.rivalMedia ?? [];
   S.colors = s.colors ?? [COLOR_DEFAULT, COLOR_RIVAL];
+  S.mode = s.mode ?? 'duel';
+  S.bleach = s.bleach ?? null;
   S.events = [];
 }
 /** Wie oft jeder deiner Würfel in diesem Duell geworfen wurde (für die Patina, nur am Server bekannt) */
@@ -229,6 +240,11 @@ function settle(me: Team): void {
   S.phase = summonable(me, rolled).length ? 'summon' : 'act';
 }
 
+/** Bleach beginnt: die erste Welle steht schon oben, du setzt deinen ersten Klecks (kein Rivale, keine Malmittel) */
+export function openBleach(): Ev[] {
+  S.phase = 'opening';
+  return drain();
+}
 /** Der Rivale eröffnet, danach ist der Spieler dran */
 export function openDuel(): Ev[] {
   aiOpening(2, S.level);
@@ -358,6 +374,23 @@ export function perform(a: DuelAction): Ev[] {
       endTurn();
       break;
     }
+    case 'flick': {
+      if (S.mode !== 'bleach') bad('Only in Bleach.');
+      if (S.phase !== 'act' && S.phase !== 'summon') bad('Not your turn.');
+      if (me.crests.splash < 1) bad('No Splash left.');
+      if (!isInt(a.row, 0, ROWS - 1)) bad('Pick a row.');
+      logAdd(`You ${doFlick(a.row)}.`, 'you');
+      break;
+    }
+    case 'giveup': {
+      if (S.mode !== 'bleach') bad('Only in Bleach.');
+      S.over = true;
+      S.winner = me.hearts > 0 ? 1 : 2;
+      S.winReason = 'given up';
+      logAdd('You let the sheet dry as it is.', 'you');
+      sync();
+      break;
+    }
     default:
       bad('Unknown action.');
   }
@@ -429,11 +462,27 @@ function autoTurn(): void {
     if (!sg) break;
     goBlot(sg.u, { to: sg.to, a: sg.a, at: sg.at });
   }
+  // Bleach: übrige Splash-Symbole als Flick
+  if (S.mode === 'bleach') aiFlick();
 }
 
 /** Zug beenden: der Rivale zieht, dann endet die Runde */
 function endTurn(): void {
   if (S.over) return;
+  // Bleach: statt des Rivalen zieht die Bleiche, dann kommt die nächste Welle
+  if (S.mode === 'bleach') {
+    bleachRoundEnd();
+    if (S.over) S.phase = 'over';
+    else {
+      startTurn(1);
+      S.lastRoll = [];
+      S.joker = 0;
+      S.freeJoker = 0;
+      S.starBonus = 0;
+      S.phase = rollable(S.teams[0]).length ? 'roll' : 'act';
+    }
+    return;
+  }
   const step = aiTurnSteps(2, TUNE.look[S.level]);
   while (step()) {
     /* der Rivale zieht */

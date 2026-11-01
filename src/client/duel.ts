@@ -7,8 +7,9 @@ import { statBlock } from './duel/statcard';
 import './lib/fonts';
 import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
-import type { DuelResponse, DuelReward } from '../shared/api';
+import type { BleachResult, DuelResponse, DuelReward } from '../shared/api';
 import { DROP_COST, rarityDef, serialText, TINT_MAX } from '../shared/dice';
+import { bleachScore } from '../shared/duel/bleach';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -66,6 +67,10 @@ const store = {
 /* ---------- Zustand der Bedienung ---------- */
 let screen: 'title' | 'game' | 'dice' = 'title';
 let reward: DuelReward | null = null;
+/** Bleach: Ergebnis des Tagesblatts (Punkte, Rang), kommt mit der letzten Aktion */
+let bleachRes: BleachResult | null = null;
+/** Aktionen gehen im Tagesblatt an Bleach, sonst ans Duell */
+const act = (a: DuelAction) => (S.mode === 'bleach' ? api.bleachAct(a) : api.duelAct(a));
 let busy = false;
 let level: Level = (['apprentice', 'journeyman', 'master'] as Level[]).find((l) => l === store.get('bid-duel-level')) ?? 'apprentice';
 let chosen = new Set<number>();
@@ -155,6 +160,7 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
   }
   View.prewarm();
   if (res.reward) reward = res.reward;
+  if (res.bleach) bleachRes = res.bleach;
   armed = null;
   aiming = null;
   drag = null;
@@ -904,9 +910,11 @@ function renderStatus(): void {
 function renderTop(): void {
   if (!V.teams.length || !S.teams.length) return;
   const [a, b, m] = R.counts(V.cells);
-  $('score-you').textContent = String(a + R.HEART_BONUS * V.teams[0]!.hearts);
-  $('score-rival').textContent = String(b + R.HEART_BONUS * V.teams[1]!.hearts);
-  $('rival-name').textContent = S.foeName ? foeTag(S.foeName) : 'Rival';
+  const bleach = S.mode === 'bleach';
+  $('score-you').textContent = String(bleach ? bleachScore().total : a + R.HEART_BONUS * V.teams[0]!.hearts);
+  // Bleach (Schritt 1, schlicht): rechts die Pales, die noch kommen oder auf dem Blatt stehen
+  $('score-rival').textContent = String(bleach ? S.teams[1].units.filter((u) => u.state !== 'gone').length : b + R.HEART_BONUS * V.teams[1]!.hearts);
+  $('rival-name').textContent = bleach ? 'Pales' : S.foeName ? foeTag(S.foeName) : 'Rival';
   // Entwurf Übersicht: beide Siegwege unter dem Stand, Herzen bei der jeweiligen Seite
   if (View.LOOK2) {
     let g = document.getElementById('goal');
@@ -915,15 +923,18 @@ function renderTop(): void {
       g.id = 'goal';
       document.querySelector('#game .top')!.after(g);
     }
-    g.innerHTML = `<span class="w">Win: <b>more paper</b> when it dries, or <b>break their 3 hearts</b></span>`;
+    g.innerHTML = bleach
+      ? `<span class="w">Hold the edge: a Pale that slips off the bottom <b>bleaches a heart</b></span>`
+      : `<span class="w">Win: <b>more paper</b> when it dries, or <b>break their 3 hearts</b></span>`;
   }
   const tot = COLS * R.ROWS - 2;
   $('bar-you').style.width = (a / tot) * 100 + '%';
   $('bar-mud').style.width = (m / tot) * 100 + '%';
   $('bar-rival').style.width = (b / tot) * 100 + '%';
-  $('round').textContent = S.over ? 'Done' : `Round ${Math.min(V.round, ROUNDS)}/${ROUNDS}`;
-  const left = ROUNDS - V.round + 1;
-  $('dries').textContent = S.over ? S.winReason : R.ERASER_ROUNDS.includes(V.round) ? 'Eraser next' : left <= 1 ? 'last round' : `dries in ${left}`;
+  const last = S.bleach ? S.bleach.waves.length : ROUNDS;
+  $('round').textContent = S.over ? 'Done' : bleach ? `Wave ${Math.min(V.round, last)}/${last}` : `Round ${Math.min(V.round, ROUNDS)}/${ROUNDS}`;
+  const left = last - V.round + 1;
+  $('dries').textContent = S.over ? S.winReason : !bleach && R.ERASER_ROUNDS.includes(V.round) ? 'Eraser next' : left <= 1 ? 'last wave' : `dries in ${left}`;
   hearts($('rival-hearts'), V.teams[1]!.hearts);
   const rd = $('rival-dice');
   rd.replaceChildren();
@@ -1018,7 +1029,7 @@ function renderCtx(): void {
       b.addEventListener('click', () => {
         if (!allowedEl(b) || busy) return;
         sfx.ability();
-        void request(api.duelAct({ k: 'medium', id })).then((ok) => ok && afterAction());
+        void request(act({ k: 'medium', id })).then((ok) => ok && afterAction());
       });
       box.append(b);
     }
@@ -1084,7 +1095,7 @@ function renderJoker(): void {
       sfx.crest(0);
       summonU = null;
       anchor = null;
-      void request(api.duelAct({ k: 'joker', crest: c.k }));
+      void request(act({ k: 'joker', crest: c.k }));
     });
     box.append(b);
   }
@@ -1797,7 +1808,7 @@ async function sendGo(u: Unit, p: Plan): Promise<void> {
   aiming = null;
   drag = null;
   sfx.tap();
-  if (await request(api.duelAct({ k: 'go', id: u.id, to: p.to, a: p.a, at: p.at }))) afterAction();
+  if (await request(act({ k: 'go', id: u.id, to: p.to, a: p.a, at: p.at }))) afterAction();
 }
 function afterAction(): void {
   renderAll();
@@ -1833,42 +1844,42 @@ async function unfold(): Promise<void> {
   const a: DuelAction = { k: phase() === 'opening' ? 'open' : 'summon', id: summonU.id, o: orient, at: anchor };
   summonU = null;
   anchor = null;
-  if (await request(api.duelAct(a))) afterAction();
+  if (await request(act(a))) afterAction();
 }
 async function doRoll(): Promise<void> {
   if (!myTurn() || phase() !== 'roll' || chosen.size !== need()) return;
   const ids = [...chosen];
   chosen = new Set();
-  if (await request(api.duelAct({ k: 'roll', ids }))) afterAction();
+  if (await request(act({ k: 'roll', ids }))) afterAction();
 }
 async function doKeep(): Promise<void> {
   if (!myTurn() || phase() !== 'keep') return;
   sfx.tap();
-  if (await request(api.duelAct({ k: 'keep' }))) afterAction();
+  if (await request(act({ k: 'keep' }))) afterAction();
 }
 async function doReroll(): Promise<void> {
   if (!myTurn() || phase() !== 'keep' || S.rerolls < 1) return;
   const hold = [...held].filter((id) => S.lastRoll.some((r) => r.id === id));
   if (hold.length >= S.lastRoll.length) return;
   sfx.tap();
-  if (await request(api.duelAct({ k: 'reroll', hold }))) afterAction();
+  if (await request(act({ k: 'reroll', hold }))) afterAction();
 }
 async function endTurn(): Promise<void> {
   if (!myTurn() || (phase() !== 'act' && phase() !== 'summon')) return;
   summonU = null;
   anchor = null;
-  if (await request(api.duelAct({ k: 'end' }))) afterAction();
+  if (await request(act({ k: 'end' }))) afterAction();
 }
 async function autoTurn(): Promise<void> {
   if (!myTurn() || (phase() !== 'act' && phase() !== 'summon')) return;
   summonU = null;
   anchor = null;
-  if (await request(api.duelAct({ k: 'auto' }))) afterAction();
+  if (await request(act({ k: 'auto' }))) afterAction();
 }
 async function skipSummon(): Promise<void> {
   summonU = null;
   anchor = null;
-  if (await request(api.duelAct({ k: 'skip' }))) afterAction();
+  if (await request(act({ k: 'skip' }))) afterAction();
 }
 
 // Symbol-Hilfe: Herzen und Stand erklären sich beim Antippen
@@ -2008,7 +2019,7 @@ function dropsText(drops: { pig: PigmentId; why: 'wash' | 'win' }[]): string {
   const win = drops.some((x) => x.why === 'win');
   return (
     `<span class="drops-r">${drops.map((x) => dropIcon(x.pig, 18)).join('')} +${drops.length} drop${drops.length > 1 ? 's' : ''}: <b>${list}</b>` +
-    `<br><small>${win ? 'One for the win. ' : ''}${DROP_COST} of one pigment repaint a face in Your dice, ${TINT_MAX} faces per die.</small></span>`
+    `<br><small>${S.mode === 'bleach' ? 'Today’s colour. ' : win ? 'One for the win. ' : ''}${DROP_COST} of one pigment repaint a face in Your dice, ${TINT_MAX} faces per die.</small></span>`
   );
 }
 async function finishDuel(): Promise<void> {
@@ -2027,9 +2038,21 @@ async function finishDuel(): Promise<void> {
       : S.winner === 2
         ? 'The rival wins the sheet'
         : 'A draw';
-  $('result-fee').hidden = !foe;
+  // Bleach (Schritt 1, schlicht): Punkte und Rang statt Sieg und Niederlage
+  if (S.mode === 'bleach') {
+    const b = bleachRes;
+    $('result-title').textContent = S.teams[0].hearts > 0 ? 'The edge held' : 'The Bleach got through';
+    if (b) {
+      const p = b.parts;
+      $('result-fee').hidden = false;
+      $('result-fee').textContent = `${p.cells + p.layers} paint + ${p.washed * 10 + p.boss * 30} for Pales washed out + ${p.hearts * 15} for hearts`;
+    }
+  }
+  else $('result-fee').hidden = !foe;
   if (foe) $('result-fee').textContent = `${foe} gets a small fee for hanging it, a bigger one when their deck wins.`;
-  $('result-sub').textContent = S.winReason === 'palette broken' ? (S.winner === 1 ? 'Their palette is broken.' : 'Your palette is broken.') : S.winReason === 'washed out' ? 'All dice of one side are lost.' : `The paper dried: ${a} to ${b}.`;
+  if (S.mode === 'bleach')
+    $('result-sub').textContent = bleachRes ? `${bleachRes.points} points${bleachRes.rank ? ` · #${bleachRes.rank} of ${bleachRes.players} today` : bleachRes.ranked ? '' : ' · test sheet, not ranked'}` : 'The sheet dried.';
+  else $('result-sub').textContent = S.winReason === 'palette broken' ? (S.winner === 1 ? 'Their palette is broken.' : 'Your palette is broken.') : S.winReason === 'washed out' ? 'All dice of one side are lost.' : `The paper dried: ${a} to ${b}.`;
   const st = $('result-stats');
   st.replaceChildren();
   const [ca, cb] = R.counts();
@@ -2138,6 +2161,63 @@ async function startDuel(tutorial = false, gallery = false): Promise<void> {
   resumable = true;
   renderAll();
   tipForPhase();
+}
+/** Bleach: Tagesblatt starten oder weiterspielen (test: Playtest und Mod, anderes Blatt ohne Wertung) */
+async function startBleach(test = false): Promise<void> {
+  initAudio();
+  resetUi();
+  showScreen('game');
+  View.reset();
+  tasksDone.clear();
+  S.teams = [] as unknown as typeof S.teams;
+  bleachRes = null;
+  busy = true;
+  reported.clear();
+  showBanner(test ? 'Test sheet' : 'Today’s sheet', 'big');
+  let res: DuelResponse;
+  try {
+    res = await api.bleachStart(test);
+  } catch (e) {
+    busy = false;
+    onError(e);
+    showScreen('title');
+    return;
+  }
+  // Weiterspielen: keine Ereignisse, also den Stand einmal ganz zeigen
+  if (!res.events.length && res.state) {
+    loadState(res.state);
+    R.sync();
+    res = { ...res, events: R.drain() };
+  }
+  const ok = await request(Promise.resolve(res), () => layout());
+  if (!ok) {
+    showScreen('title');
+    return;
+  }
+  renderAll();
+  tipForPhase();
+}
+/** Startbild: Knopf fürs Tagesblatt mit Stand */
+async function bleachTitle(): Promise<void> {
+  const b = $('bleach-b') as HTMLButtonElement,
+    note = $('bleach-note');
+  try {
+    const i = await api.bleach();
+    b.hidden = false;
+    $('bleach-test').hidden = !i.tester;
+    b.disabled = !i.unlocked || (!!i.played && !i.running);
+    $('bleach-sub').textContent = !i.unlocked
+      ? 'after the lesson duel'
+      : i.running
+        ? 'continue'
+        : i.played
+          ? `${i.played.points} points${i.played.rank ? ` · #${i.played.rank} of ${i.players}` : ''}`
+          : `${i.waves} waves · ${i.pales} Pales`;
+    note.hidden = !i.top.length;
+    note.textContent = i.top.length ? `Today: ${i.top.map((t, k) => `${k + 1}. ${t.name || 'a painter'} ${t.points}`).join(' · ')}` : '';
+  } catch {
+    b.hidden = true;
+  }
 }
 async function resumeDuel(): Promise<void> {
   initAudio();
@@ -2248,6 +2328,8 @@ initDice({
   error: onError,
 });
 $('learn').addEventListener('click', () => void startDuel(true));
+$('bleach-b').addEventListener('click', () => void startBleach());
+$('bleach-test').addEventListener('click', () => void startBleach(true));
 $('continue').addEventListener('click', () => void resumeDuel());
 $('how-t').addEventListener('click', () => ($('rules').hidden = false));
 $('how-m').addEventListener('click', () => {
@@ -2285,6 +2367,13 @@ $('tip-ok').addEventListener('click', () => {
 });
 // Nach einem Galerie-Duell sucht „Again“ ein neues Deck
 $('again').addEventListener('click', () => {
+  if (S.mode === 'bleach') {
+    $('result').hidden = true;
+    resumable = false;
+    showScreen('title');
+    void bleachTitle();
+    return;
+  }
   if (S.foeName) {
     $('result').hidden = true;
     void openGallery();
@@ -2294,6 +2383,7 @@ $('to-title').addEventListener('click', () => {
   $('result').hidden = true;
   resumable = false;
   showScreen('title');
+  void bleachTitle();
 });
 $('login-btn').addEventListener('click', () => {
   try {
@@ -2325,6 +2415,7 @@ setLevel(level);
 soundLabel();
 titleArt();
 showScreen('title');
+void bleachTitle();
 // Namen der Arten früh holen: Duell, Sammlung und Ziehen zeigen sie
 void loadSpecies().then(() => {
   renameUnits();

@@ -1,6 +1,10 @@
 # Plan: Bleach, das Tagesblatt gegen die Bleiche vom Rand
 
-Stand 02.11.2026, Fassung 1. Wartet auf Freigabe (8 Fragen am Ende).
+Stand 02.11.2026, Fassung 2.
+
+- **Freigegeben** am 02.11.2026 („alles Empfehlung“, alle 8 Fragen).
+- **Schritt 1 gebaut** (Regeln, Server, Simulation, Tests, Knopf „Today’s sheet“): Playtest v0.0.1.127, Bild docs/entwuerfe/bleach-schritt1.png.
+- **Abweichungen nach der Simulation:** 3 statt 2 Schritte, 14 statt 11 Pales, Wellen erscheinen in der zweiten Reihe, der große Pale kommt in Welle 3 (siehe „Einstimmen“).
 
 Anlass:
 - **Weg C** (entschieden am 01.11.2026): Kampf A ist gebaut, jetzt kommt B, der Modus „Bleach“.
@@ -46,8 +50,9 @@ Die Bleiche frisst das Blatt vom oberen Rand her. Du hältst es fünf Wellen lan
 ### Die Bleiche
 
 - **Pales:** ausgebleichte Kleckse mit Lebenskraft und einem Element, ohne Würfel.
-- **Wellen:** 5 Wellen mit zusammen etwa 11 Pales. Die letzte Welle bringt einen großen Pale.
-- **Ankündigung:** Jede Welle erscheint in der obersten Reihe. Wo die nächste Welle auftaucht, zeigen Markierungen über dem Blatt schon eine Runde vorher.
+- **Wellen:** 5 Wellen mit 3, 3, 3, 3 und 2 Pales (zusammen 14). Welle 3 bringt einen großen Pale (mehr Lebenskraft, trifft härter, 30 Punkte).
+- **Lebenskraft:** aus den Werten des Monsters, mal 1,2 in Welle 1 bis mal 2 in Welle 5, der große noch mal 1,3.
+- **Ankündigung:** Jede Welle erscheint in der zweiten Reihe von oben (die oberste ist schon ausgebleicht). Wo die nächste Welle auftaucht, zeigen Markierungen über dem Blatt schon eine Runde vorher (Schritt 2).
 
 ### Eine Runde
 
@@ -57,10 +62,12 @@ Die Bleiche frisst das Blatt vom oberen Rand her. Du hältst es fünf Wellen lan
    - Kombis: Glaze, Pure und drei Sterne gelten wie im Duell.
    - Sterne beschwören einen Klecks, sein Netz malt Felder.
    - Kleckse laufen, stempeln und spritzen auf Pales. Element und Kombi zählen.
-3. **Die Bleiche zieht:** Jeder Pale macht 2 Schritte nach unten, in seiner Spalte.
+3. **Die Bleiche zieht:** Jeder Pale macht 3 Schritte nach unten, in seiner Spalte (die untersten zuerst).
    - **Freies Papier:** Er rutscht weiter.
    - **Deine Farbe:** Er bleicht das Feld aus und bleibt stehen, der Schritt ist verbraucht. Lasierte Felder (zwei Schichten) kosten ihn zwei Schritte.
-   - **Dein Klecks:** Der Klecks wird getroffen (Schaden nach Stärke des Pale), der Pale bleibt stehen.
+   - **Dein Klecks:** Der Klecks wird getroffen (4 in Welle 1 bis 8 in Welle 5, der große 3 mehr), der Pale bleibt stehen.
+   - **Ein anderer Pale:** Er wartet.
+   - **Eingewickelt** (Meisterzug Coil): Er steht eine Runde still.
    - **Unterer Rand:** Rutscht er darüber hinaus, bleicht er ein Herz deiner Palette und ist weg.
 
 ### Die Symbole in Bleach
@@ -75,7 +82,7 @@ Die Bleiche frisst das Blatt vom oberen Rand her. Du hältst es fünf Wellen lan
 
 ### Ende und Punkte
 
-- **Ende:** nach 5 Wellen (5 Runden), oder früher, wenn alle 3 Herzen weg sind.
+- **Ende:** nach 5 Wellen (5 Runden), oder früher, wenn alle 3 Herzen weg sind. Aufgeben zählt als fertig.
 - **Punkte:**
 
 | Was | Punkte |
@@ -85,12 +92,37 @@ Die Bleiche frisst das Blatt vom oberen Rand her. Du hältst es fünf Wellen lan
 | jedes Herz | 15 |
 
 - **Gleichstand:** Wer zuerst fertig war, steht vorn.
-- **Dauer:** 5 eigene Züge zu je etwa 12 Sekunden (wie gemessen), kein Zug eines Rivalen, die Bleiche zieht in etwa 2 Sekunden. Zusammen etwa 1 Minute bei automatischem Spiel, mit Nachdenken 1,5 bis 2 Minuten. Gemessen wird wieder nach Schritt 1.
-- **Einstimmen:** Die Zahlen (Lebenskraft der Pales, Größe der Wellen, Punkte) stimme ich in Schritt 1 per Simulation so ein, dass ein guter Lauf alle Herzen hält und ein schwacher eins oder zwei verliert.
+- **Dauer:**
+  - Geplant waren 5 eigene Züge zu je etwa 12 Sekunden, kein Zug eines Rivalen, die Bleiche zieht in etwa 2 Sekunden. Zusammen etwa 1 Minute bei automatischem Spiel.
+  - Gemessen nach Schritt 1 im Browser (automatisch, normales Tempo): 110 Sekunden. Die Pales ziehen noch einer nach dem anderen, Schritt für Schritt.
+  - In Schritt 2 ziehen alle Pales gleichzeitig, das spart etwa die Hälfte.
+
+### Einstimmen (Simulation, 150 Läufe je Spielstärke)
+
+Der Spieler spielt wie der Computer: stark (bedenkt alle Züge), mittel (wie der Geselle), schwach (wie der Lehrling).
+
+| Fassung | stark: alle Herzen | mittel: alle Herzen | schwach: alle Herzen |
+|---|---|---|---|
+| Plan: 2 Schritte, 11 Pales, schwache Pales | 100 % | | 98 % |
+| **gebaut: 3 Schritte, 14 Pales, Lebenskraft ×1,2 bis ×2, zweite Reihe** | 85 % | 71 % | 57 % |
+
+Gebaute Fassung im Einzelnen:
+
+| Spielstärke | Punkte (10 % / Mitte / 90 %) | Herzen 3 / 2 / 1 / 0 | ausgewaschene Pales | der große |
+|---|---|---|---|---|
+| stark | 134 / 173 / 211 | 85 / 11 / 3 / 1 % | 9,2 von 14 | 60 % |
+| mittel | 78 / 125 / 168 | 71 / 17 / 5 / 7 % | 5,3 | 20 % |
+| schwach | 40 / 82 / 108 | 57 / 16 / 14 / 13 % | 2,1 | 0 % |
+
+- Mit dem Plan (2 Schritte) kam nie ein Pale durch, Farbe hielt sie fast ganz auf.
+- Jetzt hält ein starker Lauf meist alle Herzen, ein schwacher verliert oft eins oder mehr.
+- Die Punkte streuen gut, der große Pale lohnt sich für gute Spieler.
+- Der große kam zuerst in Welle 5 und war dann nie zu schaffen, deshalb kommt er jetzt in Welle 3.
 
 ## 2 Gleiches Blatt für alle
 
-- **Tagesseed:** Datum (UTC). Er bestimmt das Blatt, die Wellen, die Pales und das Deck.
+- **Tagesseed:** Datum (UTC). Er bestimmt das Blatt, die Wellen, die Pales und das Deck. Der Aufbau des Tages wird beim ersten Lauf einmal angelegt und gespeichert (`bleach:day:{Tag}`), damit alle denselben bekommen, auch wenn sich das Archiv im Lauf des Tages ändert.
+- **Tagesdeck:** neun Würfel mit fester Mischung: 3 Common, 3 Uncommon, 2 Rare, 1 Epic, Formen der Generation 2.
 - **Sepias Tagesdeck (Empfehlung):**
   - Master Sepia leiht allen dieselben neun Würfel für den Tag. Die Rangliste ist fair, und jeder probiert täglich neue Kleckse aus.
   - Die Würfel gehören niemandem, die Regel „jedes Monster einzigartig“ bleibt.
@@ -146,19 +178,26 @@ Die Bleiche frisst das Blatt vom oberen Rand her. Du hältst es fünf Wellen lan
   - Punkte nur vom Server.
 - **Scheduler:** Tagespost, dazu ein Mod-Menü „post today's sheet now“.
 - **Teilen:** devvit.json bekommt `asUser: SUBMIT_COMMENT`, der Kommentar geht mit `runAs: 'USER'`.
-- **Test-Knopf für Mods im Playtest:** „new sheet“ (anderer Seed, ohne Rangliste), damit du mehr als einmal am Tag testen kannst.
+- **Test-Knopf für Mods im Playtest:** „new test sheet (not ranked)“ im Startbild (anderer Seed, ohne Rangliste und ohne Belohnung), damit du mehr als einmal am Tag testen kannst. Schon in Schritt 1 gebaut.
+- **Gebaut in Schritt 1:**
+  - Regeln: src/shared/duel/bleach.ts (`BLEACH` mit allen Zahlen, `newBleach`, `spawnWave`, `bleachMove`, `doFlick`, `aiFlick`, `bleachRoundEnd`, `bleachScore`, `simulateBleach`). Bleach hängt an der Duell-Engine (`S.mode`, `S.bleach`, die Bleiche hat keine Palette: `NO_HOME`), Aktionen `flick` und `giveup` in play.ts.
+  - Server: src/server/bleach.ts (`bleachDay`, `bleachGet`, `bleachStart`, `bleachAct`), Routen /api/bleach, /api/bleach/start, /api/bleach/act.
+  - Redis: `bleach:day:{Tag}`, `bleach:days`, `bleach:run:{Spieler}`, `bleach:players`, `bleach:board:{Tag}`, `bleach:res:{Tag}`.
+  - DUEL_PROTOCOL 18. Tests tests/bleach.test.ts.
+  - Anzeige vorerst schlicht über das Duell: Pales ausgebleicht, oben „Wave 2/5“, deine Punkte und die übrigen Pales, Ergebnis mit Punkten, Rang und Belohnung.
 
 ## Reihenfolge
 
-1. **Regeln, Server, Simulation, Tests:** Bleach mit Tagesseed, Tagesdeck, gleichen Würfen, Wertung und Rangliste. Simulation zum Einstimmen. Upload mit Knopf „Today’s sheet“ im Startbild, noch ohne Post.
+1. **Regeln, Server, Simulation, Tests:** gebaut. Bleach mit Tagesseed, Tagesdeck, gleichen Würfen, Wertung und Rangliste. Simulation zum Einstimmen. Upload mit Knopf „Today’s sheet“ im Startbild, noch ohne Post.
 2. **Bedienung:**
    - Pales mit Bahnen, Markierungen der nächsten Welle, Wellenzähler und Punkte.
+   - Alle Pales ziehen gleichzeitig (kürzer).
+   - Knopf für Flick (bisher nur über „Sepia paints“) und für Aufgeben.
    - Ergebnis mit Punkten und Rang.
    - Sepia erklärt beim ersten Mal in drei Sätzen.
-   - Test-Knopf für Mods.
 3. **Tagespost und Teilen:** Scheduler, Rangliste und beste Blätter im Post, Kommentar als Spieler.
 
-## Fragen
+## Fragen (beantwortet am 02.11.2026, „alles Empfehlung“)
 
 1. **Regeln** wie oben: Pales rutschen in ihrer Spalte 2 Schritte pro Runde, Farbe kostet sie einen Schritt (Lasur zwei), ein Klecks im Weg wird getroffen, ein Durchbruch kostet ein Herz, 5 Wellen? Splash als Flick auf eine Reihe, Guard fängt einen Durchbruch ab? (Empfehlung: ja, die Zahlen nach der Simulation in Schritt 1)
 2. **Deck:** Sepias Tagesdeck für alle mit gleichen Würfen bei gleichen Entscheidungen (Empfehlung) oder das eigene Deck (dann gewinnt eher, wer die stärkeren Würfel hat)?

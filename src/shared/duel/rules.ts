@@ -10,6 +10,7 @@ import { elementDef, elementLine, elementMult, elementOf, ELEMENT_MULT, type Ele
 import { humidityFor, makeMonster, statRows, type Monster } from '../monster';
 import { RNG, type Rand } from '../rng';
 import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
+import type { BleachState } from './bleach';
 import { MEDIA, MEDIA_MAX, MEDIA_PREF, MEDIA_ROUNDS, START_MEDIA, mediumDef, type MediumId } from './media';
 import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
 
@@ -38,6 +39,8 @@ export const PALETTE = { guardR: 2, perTurn: 1 };
  * Treffer: Schaden = base + Sättigung / satDiv, Deckkraft = hpBase + Deckkraft / hpDiv, toHit kommt auf jeden Spritzwurf,
  * range ist die Grundreichweite. freeSplash: Spritzer auf Kleckse kosten nichts, ein Splash-Symbol braucht nur der Treffer auf die Palette
  */
+/** Seite ohne Palette (die Bleiche): ein Feld weit außerhalb des Blatts, damit kein Abstand dorthin je klein wird */
+export const NO_HOME = -100;
 export const HIT = { base: 4, satDiv: 4, hpBase: 10, hpDiv: 3, toHit: 3, range: 2, freeSplash: true, graze: 0.5 };
 /**
  * Farbreaktionen (festgelegt am 29.10.2026): gleiches Pigment auf eigener, getrockneter Farbe lasiert (eine zweite Schicht, zählt am Ende doppelt,
@@ -206,7 +209,7 @@ export type Ev =
   /** Meisterzug (master) oder Abgang beim Platzen (spill) */
   | { k: 'ability'; id: number; name: string; bp: BlueprintId; at: number; area: number[]; how?: 'master' | 'spill' }
   /** flow: Farbreaktion, eine Nachbarfarbe ist auf freies Papier verlaufen */
-  | { k: 'cells'; how: 'bleed' | 'seep' | 'rain' | 'wet' | 'splat' | 'burst' | 'flow'; cells: CellSnap[] }
+  | { k: 'cells'; how: 'bleed' | 'seep' | 'rain' | 'wet' | 'splat' | 'burst' | 'flow' | 'bleach'; cells: CellSnap[] }
   | { k: 'heart'; side: Side; hearts: number; from: number }
   | { k: 'eraser'; row: number; cells: CellSnap[] }
   | { k: 'round'; round: number }
@@ -603,11 +606,15 @@ export const S = {
   log: [] as { t: string; c: string }[],
   tally: {} as Record<string, number>,
   events: [] as Ev[],
+  /** Spielart: Duell oder Bleach (Tagesblatt gegen die Bleiche vom Rand, docs/entwuerfe/bleach-plan.md) */
+  mode: 'duel' as 'duel' | 'bleach',
+  /** Nur in Bleach: Wellen, Durchbrüche, Tag */
+  bleach: null as BleachState | null,
 };
-const count = (k: string, n = 1) => {
+export const count = (k: string, n = 1) => {
   S.tally[k] = (S.tally[k] ?? 0) + n;
 };
-function emit(e: Ev): void {
+export function emit(e: Ev): void {
   if (!S.headless) S.events.push(e);
 }
 /** Alle bisher gesammelten Ereignisse abholen */
@@ -630,7 +637,7 @@ export function sync(): void {
     round: S.round,
   });
 }
-const snap = (i: number): CellSnap => ({ i, c: { ...S.cells[i]! } });
+export const snap = (i: number): CellSnap => ({ i, c: { ...S.cells[i]! } });
 
 export const idx = (x: number, y: number) => y * COLS + x;
 export const inside = (x: number, y: number) => x >= 0 && x < COLS && y >= 0 && y < ROWS;
@@ -651,7 +658,7 @@ function rand01(): number {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 const d20 = () => 1 + Math.floor(rand01() * 20);
-const emptyCell = (): Cell => ({ owner: 0, rgb: PAPER, hue: null, wet: 0, atk: 0, def: 0, lf: 0, stamp: 0, home: 0 });
+export const emptyCell = (): Cell => ({ owner: 0, rgb: PAPER, hue: null, wet: 0, atk: 0, def: 0, lf: 0, stamp: 0, home: 0 });
 export const living = (t: Team) => t.units.filter((u) => u.state !== 'gone');
 /**
  * Deck: geworfen werden nur Würfel im Beutel, die in diesem Durchgang noch nicht dran waren.
@@ -703,6 +710,8 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.foeKeys = [];
   S.rivalMedia = [];
   S.colors = [COLOR_DEFAULT, COLOR_RIVAL];
+  S.mode = 'duel';
+  S.bleach = null;
   uid = 0;
   S.cells = Array.from({ length: COLS * ROWS }, emptyCell);
   S.round = 1;
@@ -1493,7 +1502,7 @@ export function splashOdds(u: Unit, t: Unit, pig: PigmentId, plus = 0, ignoreGra
   return pWin(bonus(u.sat) - (pig !== u.m.main ? 1 : 0) + HIT.toHit + plus, ignoreGrain ? 0 : bonus(grainOf(t))) * (1 - dodgeOf(t));
 }
 /** Deckkraft ändern und melden */
-function setHp(t: Unit, hp: number, why: string): void {
+export function setHp(t: Unit, hp: number, why: string): void {
   const delta = hp - t.hp;
   t.hp = hp;
   if (delta) emit({ k: 'hp', id: t.id, hp, delta, why });
@@ -1589,7 +1598,7 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
   return s;
 }
 /** Ausgewaschen: der Klecks platzt, sein Feld wird Schlamm. Hat ihn jemand getroffen, spritzt dessen Farbe auf freies Papier ringsum */
-function washOut(t: Unit, by?: Unit): string {
+export function washOut(t: Unit, by?: Unit): string {
   if (t.state !== 'sheet') return '';
   count(`kill${t.side}`);
   t.state = 'gone';
@@ -2077,7 +2086,7 @@ export function endRound(): void {
   S.cells.forEach((c) => {
     if (c.wet > 0) c.wet--;
   });
-  if (ERASER_ROUNDS.includes(S.round)) {
+  if (ERASER_ROUNDS.includes(S.round) && S.mode === 'duel') {
     const row = 2 + Math.floor(r() * (ROWS - 4));
     const gone: number[] = [];
     for (let x = 0; x < COLS; x++) {
@@ -2098,7 +2107,8 @@ export function endRound(): void {
   }
   if (notes.length) logAdd(notes.join('. ') + '.', 'muted');
   S.round++;
-  if (!checkWipe() && S.round > ROUNDS) finish();
+  // Bleach endet nach der letzten Welle
+  if (!checkWipe() && S.round > (S.bleach ? S.bleach.waves.length : ROUNDS)) finish();
   if (!S.over) emit({ k: 'round', round: S.round });
   sync();
 }
@@ -2126,6 +2136,12 @@ export function scores(): [number, number] {
 }
 function finish(): void {
   S.over = true;
+  // Bleach: das Blatt hat gehalten, solange noch ein Herz da ist (die Punkte zählt bleachScore)
+  if (S.mode === 'bleach') {
+    S.winner = S.teams[0].hearts > 0 ? 1 : 2;
+    S.winReason = 'the paper dried';
+    return;
+  }
   const [a, b] = scores();
   S.winner = a > b ? 1 : a < b ? 2 : 0;
   S.winReason = 'the paper dried';

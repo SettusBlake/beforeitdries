@@ -2,7 +2,7 @@
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
  * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at,
  * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, drawn:reports, naming:posts, naming:open, gallery:power, gallery:record,
- * names, market, market:at, market:sales, trades). Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id},
+ * names, market, market:at, market:sales, trades, bleach:days, bleach:players). Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id},
  * gallery:inbox:{id}, deliver:{id}, market:by:{id}, trade:in:{id}, trade:out:{id}) folgen aus dice:players.
  */
 export const K = {
@@ -96,4 +96,15 @@ export const K = {
   tradeN: 'trade:n',
   /** Zähler der Test-Händler (Playtest, nur Mods): Spieler-IDs test:trader{n} */
   tradeTestN: 'trade:testn',
+  /** Bleach (Tagesblatt): Aufbau des Tages (Deck, Pales, Farbe) als JSON, einmal je Tag angelegt */
+  bleachDay: (day: string) => `bleach:day:${day}`,
+  /** Sorted Set der Tage mit Tagesblatt, Score = Anlage */
+  bleachDays: 'bleach:days',
+  /** Lauf eines Spielers (Tag und gespeicherter Stand), Spieler in bleach:players */
+  bleachRun: (userId: string) => `bleach:run:${userId}`,
+  bleachPlayers: 'bleach:players',
+  /** Sorted Set der Rangliste eines Tages: Spieler → Punkte × 100000 + Vorsprung (wer früher fertig war, steht vorn) */
+  bleachBoard: (day: string) => `bleach:board:${day}`,
+  /** Hash: Spieler → Ergebnis des Tages (JSON mit Punkten, Teilen, Name, Zeit) */
+  bleachRes: (day: string) => `bleach:res:${day}`,
 } as const;
