@@ -33,6 +33,10 @@ export type FaceMod = { i: number; to: 'x2' | 'x3' | 'mix' | 'c'; p?: 1; c?: Pig
 export const DROP_COST = 3;
 /** Höchstens so viele umgefärbte Seiten je Würfel (festgelegt am 01.11.2026, „umfärben etwas begrenzen“) */
 export const TINT_MAX = 2;
+/** Höchstens so viele Tropfen am Tag (UTC), festgelegt am 01.11.2026: die erste Umfärbung soll ein paar Tage dauern */
+export const DROPS_PER_DAY = 2;
+/** Tropfen, die heute noch kommen können */
+export const dropsLeft = (s: Pick<DiceSave, 'dropDay' | 'dropN'>, today: string): number => Math.max(0, DROPS_PER_DAY - (s.dropDay === today ? (s.dropN ?? 0) : 0));
 /** Patina (festgelegt am 30.10.2026): nach so vielen Würfen im Duell wird jeweils eine zufällige Seite besser */
 export const PATINA = [10, 30, 60];
 /**
@@ -243,6 +247,9 @@ export type DiceSave = {
   postSeen?: string[];
   /** Tropfen je Pigment: Beute aus Duellen, DROP_COST färben eine Seite um */
   drops?: Partial<Record<PigmentId, number>>;
+  /** Tropfen am Tag dropDay (höchstens DROPS_PER_DAY) */
+  dropDay?: string;
+  dropN?: number;
 };
 export function emptyDice(): DiceSave {
   return { v: 3, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };

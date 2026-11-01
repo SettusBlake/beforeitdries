@@ -13,6 +13,7 @@ import {
   dieSpecies,
   drawLocked,
   DROP_COST,
+  dropsLeft,
   emptyDice,
   TINT_MAX,
   GLAZE_COST,
@@ -498,19 +499,24 @@ export function wearDice(d: Deps, s: DiceSave, worn: { id: string; n: number }[]
 
 export type DuelLoot = { washed: PigmentId[]; deck: PigmentId[] };
 /**
- * Tropfen nach einem Duell (weniger seit 01.11.2026): höchstens einer aus den ausgewaschenen Rivalen-Klecksen (einer davon,
- * gewürfelt) und beim Sieg einer aus dem eigenen Deck. Gewürfelt am Server
+ * Tropfen nach einem Duell (weniger seit 01.11.2026): beim Sieg einer aus dem eigenen Deck, dazu einer aus den ausgewaschenen
+ * Rivalen-Klecksen (einer davon, gewürfelt). Höchstens DROPS_PER_DAY am Tag, der Siegtropfen zuerst. Gewürfelt am Server.
+ * full: es hätte mehr gegeben, aber die für heute sind schon da
  */
-export function dropLoot(d: Deps, s: DiceSave, winner: 0 | 1 | 2, loot: DuelLoot): NonNullable<DuelReward['drops']> {
-  const out: NonNullable<DuelReward['drops']> = [];
-  if (loot.washed.length) out.push({ pig: loot.washed[d.rand() % loot.washed.length]!, why: 'wash' });
-  if (winner === 1 && loot.deck.length) out.push({ pig: loot.deck[d.rand() % loot.deck.length]!, why: 'win' });
+export function dropLoot(d: Deps, s: DiceSave, winner: 0 | 1 | 2, loot: DuelLoot): { drops: NonNullable<DuelReward['drops']>; full: boolean } {
+  const want: NonNullable<DuelReward['drops']> = [];
+  if (winner === 1 && loot.deck.length) want.push({ pig: loot.deck[d.rand() % loot.deck.length]!, why: 'win' });
+  if (loot.washed.length) want.push({ pig: loot.washed[d.rand() % loot.washed.length]!, why: 'wash' });
+  const today = dayKey(d.now);
+  const out = want.slice(0, dropsLeft(s, today));
   if (out.length) {
     const drops = { ...s.drops };
     for (const x of out) drops[x.pig] = (drops[x.pig] ?? 0) + 1;
     s.drops = drops;
+    s.dropN = (s.dropDay === today ? (s.dropN ?? 0) : 0) + out.length;
+    s.dropDay = today;
   }
-  return out;
+  return { drops: out, full: out.length < want.length };
 }
 
 /** Pigment nach einem Duell, dazu die Patina der geworfenen Würfel und die Tropfen. Nur innerhalb der Spielersperre aufrufen. */
@@ -539,8 +545,9 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
   if (patina.length) reward.patina = patina;
   // Beute: nicht im Lern-Duell, nur in den belohnten Duellen des Tages (wie Pigment)
   if (!tutorial && loot && reward.why !== 'capped') {
-    const drops = dropLoot(d, s, winner, loot);
+    const { drops, full } = dropLoot(d, s, winner, loot);
     if (drops.length) reward.drops = drops;
+    if (full) reward.dropsFull = true;
   }
   // Jedes fertige Duell schaltet das nächste Malmittel frei und zählt fürs Handeln
   if (!tutorial) {

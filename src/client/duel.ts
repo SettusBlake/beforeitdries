@@ -8,7 +8,7 @@ import './lib/fonts';
 import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
 import type { DuelResponse, DuelReward } from '../shared/api';
-import { DROP_COST, rarityDef, serialText, TINT_MAX } from '../shared/dice';
+import { DROP_COST, DROPS_PER_DAY, rarityDef, serialText, TINT_MAX } from '../shared/dice';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -2000,15 +2000,17 @@ function sepiaGallery(): string {
   return S.winner === 1 ? 'Their deck goes back on the wall. Slightly lighter.' : S.winner === 2 ? "Someone else's brushwork beat yours. Take notes, not offence." : 'Two painters, one sheet, no verdict.';
 }
 /** Tropfen im Ergebnis (Kampf A Schritt 4): je Pigment gezählt, der Siegtropfen extra genannt */
-function dropsText(drops: { pig: PigmentId; why: 'wash' | 'win' }[]): string {
-  if (!drops.length) return '';
+function dropsText(drops: { pig: PigmentId; why: 'wash' | 'win' }[], full: boolean): string {
+  // Höchstens DROPS_PER_DAY am Tag: sagen, wenn heute keine mehr kommen
+  const more = full ? `<span class="drops-r"><small>No more drops today: ${DROPS_PER_DAY} a day, more tomorrow.</small></span>` : '';
+  if (!drops.length) return more;
   const n = new Map<PigmentId, number>();
   for (const x of drops) n.set(x.pig, (n.get(x.pig) ?? 0) + 1);
   const list = [...n].map(([p, k]) => `${PIG[p].n}${k > 1 ? ` ×${k}` : ''}`).join(', ');
   const win = drops.some((x) => x.why === 'win');
   return (
     `<span class="drops-r">${drops.map((x) => dropIcon(x.pig, 18)).join('')} +${drops.length} drop${drops.length > 1 ? 's' : ''}: <b>${list}</b>` +
-    `<br><small>${win ? 'One for the win. ' : ''}${DROP_COST} of one pigment repaint a face in Your dice, ${TINT_MAX} faces per die.</small></span>`
+    `<br><small>${win ? 'One for the win. ' : ''}${DROP_COST} of one pigment repaint a face in Your dice, ${TINT_MAX} faces per die. ${DROPS_PER_DAY} drops a day.</small></span>`
   );
 }
 async function finishDuel(): Promise<void> {
@@ -2054,7 +2056,7 @@ async function finishDuel(): Promise<void> {
             : `<span class="patina-r">Patina grew on ${reward.patina.length} dice: ${reward.patina.map((p) => `${iconSvg(p.face, 16)}`).join(' ')}<br><small>See their cards in Your dice.</small></span>`) +
           `<span class="patina-s">Master Sepia: “Wear suits it. That face has learned something.”</span>`
         : '') +
-      dropsText(reward.drops ?? []);
+      dropsText(reward.drops ?? [], !!reward.dropsFull);
   if (reward?.patina?.length) setTimeout(() => sfx.upface(2), 500);
   reward = null;
   $('result').hidden = false;
