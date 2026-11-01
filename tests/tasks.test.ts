@@ -17,7 +17,7 @@ describe('Sepias Auftrag', () => {
     expect(S.rng).toBe(rng);
     const kinds = new Set<string>();
     for (let r = 1; r <= 60; r++) kinds.add(taskOf(1, r)!.k);
-    expect(kinds.size).toBe(5);
+    expect(kinds.size).toBe(6);
     S.tutorial = 3;
     expect(taskOf(1, 2)).toBeNull();
   });
@@ -28,8 +28,12 @@ describe('Sepias Auftrag', () => {
     expect(taskMet(two('guard'), [f('guard'), f('joker')])).toBe(true);
     expect(taskMet({ k: 'double', text: '' }, [f('splash'), f('star')])).toBe(false);
     expect(taskMet({ k: 'double', text: '' }, [f('splash', 1, 'glow')])).toBe(true);
-    expect(taskMet({ k: 'colours', text: '' }, [f('splash'), f('glow'), f('star')])).toBe(false);
-    expect(taskMet({ k: 'colours', text: '' }, [f('gold')])).toBe(true);
+    expect(taskMet({ k: 'symbols', text: '' }, [f('splash'), f('glow'), f('star')])).toBe(false);
+    expect(taskMet({ k: 'symbols', text: '' }, [f('gold')])).toBe(true);
+    // Neu mit Kampf A: zwei Seiten eines Pigments
+    expect(taskMet({ k: 'pigment', text: '' }, [{ k: 'splash', n: 1, c: 'ultra' }, { k: 'glow', n: 1, c: 'indigo' }])).toBe(false);
+    expect(taskMet({ k: 'pigment', text: '' }, [{ k: 'splash', n: 1, c: 'ultra' }, { k: 'glow', n: 1, c: 'ultra' }])).toBe(true);
+    expect(taskMet({ k: 'pigment', text: '' }, [{ k: 'splash', n: 1, c: 'ultra' }, f('joker')])).toBe(true);
     expect(taskMet({ k: 'stars', text: '' }, [f('star'), f('joker')])).toBe(true);
     expect(taskMet({ k: 'four', text: '' }, [f('step', 2), f('glow', 1, 'guard')])).toBe(true);
     expect(taskMet({ k: 'four', text: '' }, [f('step', 2), f('star', 3)])).toBe(false);

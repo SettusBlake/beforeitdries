@@ -1415,7 +1415,7 @@ export async function playEvent(e: Ev): Promise<void> {
         }).then(() => Object.assign(target, { ox: 0, oy: 0, sqx: 1, sqy: 1, rot: 0, busy: false }));
       }
       if (e.mult && e.mult > 1 && e.text !== 'palette') {
-        text(x1 + cell * 0.55, y1 - cell * 0.55, '×1.5', '#b8860b', 15, 1100);
+        text(x1 + cell * 0.55, y1 - cell * 0.55, 'strong', '#b8860b', 13, 1100);
         ring(x1, y1, cell * 0.4, cell * 1.2, 'rgba(201,150,30,.8)', 600, 3);
       }
       if (e.text !== 'palette') {
@@ -1427,7 +1427,23 @@ export async function playEvent(e: Ev): Promise<void> {
         // Zahl nach Wucht: groß und dunkel, wenn der Treffer viel nimmt
         const size = Math.round((20 + 20 * share) * (crit ? 1.25 : 1));
         const tone = crit ? '#b8860b' : share > 0.6 ? '#8e1f1f' : share > 0.35 ? '#a33a3a' : '#b0573a';
-        text(x1, y1 - cell * 0.15, `-${e.dmg}`, tone, size, 1200);
+        // Kampf A, sichtbare Rechnung: Basis mal Multiplikator der Kombi, die Zahl zählt hoch
+        if (e.x && e.base !== undefined && e.pre !== undefined) {
+          const xs = `×${+e.x.toFixed(2)}`;
+          const calc = { x: x1, y: y1 - cell * 1.12, text: `${e.base} ${xs}`, col: '#6a3d8f', size: 15, t0: now(), life: 1700 / V.speed };
+          V.texts.push(calc);
+          const big = { x: x1, y: y1 - cell * 0.15, text: `-${e.base}`, col: tone, size, t0: now(), life: 1400 / V.speed };
+          V.texts.push(big);
+          const from = e.base,
+            to = e.pre,
+            fin = e.dmg;
+          await tween(420, (p) => {
+            const v = Math.round(from + (to - from) * p);
+            calc.text = `${from} ${xs} = ${v}`;
+            big.text = `-${p < 1 ? v : fin}`;
+          });
+          if (to - from >= 3) ring(x1, y1, cell * 0.3, cell * 1.1, 'rgba(106,61,143,.75)', 520, 3);
+        } else text(x1, y1 - cell * 0.15, `-${e.dmg}`, tone, size, 1200);
         if (crit) {
           text(x1, y1 - cell * 0.85, 'CRIT ×1.5', '#b8860b', 17, 1100);
           ring(x1, y1, cell * 0.3, cell * 1.3, 'rgba(201,150,30,.9)', 650, 5);

@@ -1,5 +1,5 @@
 /* Echte 3D-Würfel aus CSS: sechs Seiten, rollen, springen und bleiben mit der geworfenen Seite oben liegen */
-import { iconSvg } from './icons';
+import { iconSvg, MUD_SVG } from './icons';
 import type { Face } from '../../shared/duel/rules';
 
 /** Lage der Seiten am Würfel und die Drehung, die eine Seite nach vorne bringt */
@@ -34,6 +34,15 @@ export function makeCube(faces: Face[], size: number, tint: string): HTMLElement
   bounce.append(cube);
   wrap.append(shadow, bounce);
   return wrap;
+}
+
+/** Eine Seite neu zeichnen: nach dem Ausbluten in neuer Farbe oder als Schlamm (Kampf A) */
+export function setCubeFace(wrap: HTMLElement, fi: number, f: Face, mud: boolean): void {
+  const d = wrap.querySelectorAll('.d3face')[fi] as HTMLElement | undefined;
+  if (!d) return;
+  const px = Math.round(wrap.offsetWidth * 0.6) || 30;
+  d.classList.toggle('mud', mud);
+  d.innerHTML = mud ? `<svg width="${px}" height="${px}" viewBox="0 0 20 20" aria-hidden="true">${MUD_SVG}</svg>` : iconSvg(f, px);
 }
 
 /** Einen Würfel rollen lassen, er bleibt auf Seite fi liegen */

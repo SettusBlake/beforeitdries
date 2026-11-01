@@ -147,13 +147,33 @@ export const sfx = {
   },
   /** Der W100 rattert */
   tick: (i = 0) => tone(0, 1500 + (i % 3) * 120, 1400, 0.025, 'square', 0.015),
-  /** Kombi im Wurf: Paar zwei Töne, Drilling ein Lauf mit Funkeln, Regenbogen ein Glissando */
-  combo(kind: 'pair' | 'triple' | 'rainbow'): void {
-    if (kind === 'pair') [660, 880].forEach((f, k) => tone(k * 0.09, f, f, 0.3, 'triangle', 0.07));
+  /**
+   * Kombi im Wurf. Farb-Kombis (Kampf A): Glaze zwei Töne, Chain eine Terz aufwärts, Burst ein Zischen mit Quinte,
+   * Pure ein Lauf mit Funkeln, drei Sterne ein Glissando. pair, triple, rainbow für Markt und Tausch
+   */
+  combo(kind: 'pair' | 'triple' | 'rainbow' | 'pure' | 'burst' | 'glaze' | 'chain' | 'stars'): void {
+    if (kind === 'glaze') kind = 'pair';
+    else if (kind === 'pure') kind = 'triple';
+    else if (kind === 'stars') kind = 'rainbow';
+    if (kind === 'chain') [587, 740, 880].forEach((f, k) => tone(k * 0.07, f, f, 0.26, 'triangle', 0.06));
+    else if (kind === 'burst') {
+      hiss(0, 0.32, 'bandpass', 2400, 900, 0.09);
+      [392, 587, 784].forEach((f, k) => tone(0.05 + k * 0.05, f, f * 1.02, 0.34, 'sawtooth', 0.035));
+    } else if (kind === 'pair') [660, 880].forEach((f, k) => tone(k * 0.09, f, f, 0.3, 'triangle', 0.07));
     else if (kind === 'triple') {
       [523, 659, 784, 1047].forEach((f, k) => tone(k * 0.07, f, f, 0.45, 'triangle', 0.07));
       for (let k = 0; k < 5; k++) tone(0.3 + k * 0.06, 2000 + k * 220, 2400 + k * 220, 0.1, 'sine', 0.03);
     } else [392, 494, 587, 698, 880, 1047].forEach((f, k) => tone(k * 0.05, f, f * 1.02, 0.25, 'sine', 0.05));
+  },
+  /** Nasse Würfel bluten: Nachbarfarben blühen (hell), Gegenfarben werden Schlamm (dumpf, schmatzend) */
+  dieBleed(mud: boolean): void {
+    if (mud) {
+      hiss(0, 0.28, 'lowpass', 500, 140, 0.14);
+      tone(0.02, 180, 70, 0.3, 'sine', 0.1);
+    } else {
+      hiss(0, 0.22, 'lowpass', 1600, 500, 0.06);
+      [700, 990].forEach((f, k) => tone(0.04 + k * 0.08, f, f * 1.04, 0.22, 'sine', 0.05));
+    }
   },
   /** Eine Doppel- oder Mischseite (1) oder Dreifachseite (2) landet oben */
   upface(rank = 1): void {

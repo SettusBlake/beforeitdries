@@ -8,8 +8,8 @@ import { isMedium, START_MEDIA, type MediumId } from './media';
 import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
 import {
   ABILITY,
-  aiHold,
   aiJokerCrest,
+  aiReroll,
   aiOpening,
   applyRoll,
   comboOf,
@@ -60,6 +60,7 @@ import {
   type Level,
   type Phase,
   type Rolled,
+  type RollSlot,
   type Side,
   type Team,
   type Unit,
@@ -85,8 +86,8 @@ export type DuelAction =
 
 /** Was der Client sieht: alles außer Würfelzufall und Seed */
 export type DuelState = {
-  /** Stand der Regeln im Speicher: 4 = Brim und Meisterzug, zufällige Seiten. Ältere Duelle werden verworfen */
-  v: 4;
+  /** Stand der Regeln im Speicher: 5 = Kampf A (Farbseiten, Farb-Kombis, Nässe). Ältere Duelle werden verworfen */
+  v: 5;
   cells: Cell[];
   teams: Team[];
   round: number;
@@ -96,7 +97,9 @@ export type DuelState = {
   winReason: string;
   level: Level;
   phase: Phase;
-  lastRoll: { id: number; fi: number }[];
+  lastRoll: RollSlot[];
+  /** Treffer der Seite am Zug in diesem Zug (Kette) */
+  chain: number;
   /** Joker aus dem letzten Wurf, noch nicht verbraucht */
   joker: number;
   freeJoker: number;
@@ -132,7 +135,7 @@ const isInt = (v: unknown, lo: number, hi: number): v is number => Number.isInte
 
 export function publicState(): DuelState {
   return {
-    v: 4,
+    v: 5,
     cells: S.cells,
     teams: S.teams,
     round: S.round,
@@ -143,6 +146,7 @@ export function publicState(): DuelState {
     level: S.level,
     phase: S.phase,
     lastRoll: S.lastRoll,
+    chain: S.chain,
     joker: S.joker,
     freeJoker: S.freeJoker,
     starBonus: S.starBonus,
@@ -180,6 +184,7 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, Hidden>>): void 
   S.level = s.level;
   S.phase = s.phase;
   S.lastRoll = s.lastRoll;
+  S.chain = s.chain ?? 0;
   S.joker = s.joker ?? 0;
   S.freeJoker = s.freeJoker ?? 0;
   S.starBonus = s.starBonus ?? 0;
@@ -271,8 +276,9 @@ export function perform(a: DuelAction): Ev[] {
       if (us.some((u) => u.state !== 'bag' || u.used)) bad('That die is not ready in your deck.');
       const rolled = rollDice(me, us);
       sync();
-      // Ein Drilling lässt sich nicht verbessern: gilt sofort
-      if (!rolled.length || S.rerolls < 1 || comboOf(rolled.map((r) => r.face))?.kind === 'triple') settle(me);
+      // Pure und drei Sterne lassen sich nicht verbessern: gelten sofort
+      const c = comboOf(rolled)?.kind;
+      if (!rolled.length || S.rerolls < 1 || c === 'pure' || c === 'stars') settle(me);
       else S.phase = 'keep';
       break;
     }
@@ -398,8 +404,7 @@ function goBlot(u: Unit, a: { to: unknown; a: unknown; at: unknown }): void {
 function autoTurn(): void {
   const me = S.teams[0];
   if (S.phase === 'keep') {
-    const hold = aiHold(me, currentRoll());
-    if (S.rerolls > 0 && hold.length < S.lastRoll.length) rerollDice(me, hold);
+    for (let hold = aiReroll(me); hold; hold = aiReroll(me)) rerollDice(me, hold);
     settle(me);
   }
   if (S.phase === 'summon') {

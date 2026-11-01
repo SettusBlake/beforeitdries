@@ -6,7 +6,8 @@ import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
 import { tutorialAction, tutorialActive } from '../src/shared/duel/tutorial';
-import { canMove, COLS, comboOf, counts, CRESTS, idx, reactionOf, type Cell, placements, reach, rollable, ROLL_N, ROWS, S, summonable, unitById, type Face, type Rolled } from '../src/shared/duel/rules';
+import { canMove, COLS, comboOf, counts, CRESTS, dieUnit, find, idx, reactionOf, type Cell, placements, reach, rollable, ROLL_N, ROWS, S, summonable, unitById, wetChance, type Ev, type Face, type Rolled } from '../src/shared/duel/rules';
+import type { PigmentId } from '../src/shared/data';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -252,8 +253,21 @@ describe('Duell am Server', () => {
     const again = r2.events.find((e) => e.k === 'reroll');
     expect(again && again.k === 'reroll' && again.dice.map((x) => x.id).sort()).toEqual(l.filter((id) => id !== kept.id).sort());
     expect(S.lastRoll.find((r) => r.id === kept.id)!.fi).toBe(kept.fi);
-    // Nur ein Neuwurf: danach gilt der Wurf von selbst
-    const ap = r2.events.find((e) => e.k === 'apply');
+    // Der erste Neuwurf ist trocken (Kampf A), danach wird das Blatt nasser
+    expect(again && again.k === 'reroll' && again.wet).toBeUndefined();
+    expect(S.phase).toBe('keep');
+    expect(S.rerolls).toBe(3);
+    // Bis zu vier Neuwürfe: nach dem vierten gilt der Wurf von selbst
+    let ap: Ev | undefined;
+    const wets: number[] = [];
+    for (let k = 0; k < 3; k++) {
+      const r3 = await duelAct(d, USER, { k: 'reroll', hold: [kept.id] });
+      view(r3);
+      const e = r3.events.find((x) => x.k === 'reroll');
+      wets.push(e && e.k === 'reroll' ? (e.wet ?? 0) : -1);
+      ap = r3.events.find((x) => x.k === 'apply');
+    }
+    expect(wets).toEqual([0.25, 0.5, 0.75]);
     expect(ap).toBeTruthy();
     expect(['summon', 'act', 'roll', 'over']).toContain(String(S.phase));
     const gained = CRESTS.reduce((a, c) => a + S.teams[0].crests[c.k] - before[c.k], 0);
@@ -261,24 +275,52 @@ describe('Duell am Server', () => {
     expect(await code(duelAct(d, USER, { k: 'reroll', hold: [] }))).toBe('bad_request');
   });
 
-  it('Kombis: Paar, Drilling, Regenbogen, Joker zählt als beliebiges Symbol', () => {
-    const f = (k: Face['k'], n = 1): Face => ({ k, n });
-    expect(comboOf([f('glow'), f('glow'), f('step')])).toMatchObject({ kind: 'pair', sym: 'glow', gain: { glow: 1 } });
-    expect(comboOf([f('splash'), f('splash'), f('splash')])).toMatchObject({ kind: 'triple', gain: { splash: 2 }, joker: 1 });
-    expect(comboOf([f('step'), f('guard'), f('glow')])).toMatchObject({ kind: 'rainbow', joker: 1 });
-    // Zwei Sterne sind keine Kombi, sie beschwören
-    expect(comboOf([f('star', 2), f('star', 1), f('glow')])).toBeNull();
-    expect(comboOf([f('star', 2), f('glow'), f('gold')])).toBeNull();
-    expect(comboOf([f('star', 2), f('star', 2), f('joker', 3)])).toMatchObject({ kind: 'triple', sym: 'star' });
-    // Drei Sterne nur mit gleicher Stufe
-    expect(comboOf([f('star', 2), f('star', 1), f('star', 2)])).toBeNull();
-    expect(comboOf([f('star', 1), f('star', 1), f('star', 1)])).toMatchObject({ kind: 'triple', sym: 'star', joker: 1 });
-    expect(comboOf([f('joker', 3), f('guard'), f('guard')])).toMatchObject({ kind: 'triple', sym: 'guard' });
-    expect(comboOf([f('joker', 3), f('guard'), f('step')])).toMatchObject({ kind: 'pair', sym: 'guard' });
-    expect(comboOf([f('glow', 2), f('step'), f('step')])).toMatchObject({ kind: 'pair', sym: 'step' });
-    expect(comboOf([f('joker', 3), f('step'), f('star', 1)])).toMatchObject({ kind: 'pair', sym: 'step' });
-    expect(comboOf([f('step'), f('glow'), f('star', 1)])).toBeNull();
-    expect(comboOf([f('glow')])).toBeNull();
+  it('Farb-Kombis (Kampf A): Pure, Burst, Glaze, Chain, drei Sterne, Joker zählt als jede Farbe, Schlamm zählt nicht', () => {
+    const f = (k: Face['k'], c?: PigmentId, n = 1): { face: Face; mud?: boolean } => ({ face: c ? { k, n, c } : { k, n } });
+    const mud = (x: { face: Face }) => ({ ...x, mud: true });
+    expect(comboOf([f('glow', 'ultra'), f('step', 'ultra'), f('splash', 'ultra')])).toMatchObject({ kind: 'pure', pig: 'ultra', mult: 2, joker: 1, at: [0, 1, 2] });
+    // Ultramarin und Siena sind Gegenfarben, Ultramarin und Indigo Nachbarn
+    expect(comboOf([f('glow', 'ultra'), f('step', 'siena'), f('star', undefined, 2)])).toMatchObject({ kind: 'burst', mult: 2, at: [0, 1] });
+    expect(comboOf([f('glow', 'ultra'), f('step', 'ultra'), f('star', undefined, 2)])).toMatchObject({ kind: 'glaze', pig: 'ultra', mult: 1.5, joker: 0 });
+    expect(comboOf([f('glow', 'ultra'), f('step', 'indigo'), f('star', undefined, 1)])).toMatchObject({ kind: 'chain', mult: 1.25 });
+    // Ausbruch geht vor Lasur
+    expect(comboOf([f('glow', 'ultra'), f('step', 'ultra'), f('guard', 'siena')])?.kind).toBe('burst');
+    expect(comboOf([f('joker', undefined, 3), f('guard', 'karmin'), f('guard', 'karmin')])).toMatchObject({ kind: 'pure', pig: 'karmin' });
+    expect(comboOf([f('joker', undefined, 3), f('guard', 'karmin'), f('star', undefined, 1)])).toMatchObject({ kind: 'glaze', pig: 'karmin' });
+    expect(comboOf([f('star', undefined, 1), f('star', undefined, 1), f('star', undefined, 1)])).toMatchObject({ kind: 'stars', joker: 1 });
+    expect(comboOf([f('star', undefined, 2), f('star', undefined, 1), f('star', undefined, 2)])).toBeNull();
+    // Gleiche Symbole ohne passende Farbe sind keine Kombi mehr
+    expect(comboOf([f('glow', 'ultra'), f('glow', 'kadmium'), f('star', undefined, 1)])).toBeNull();
+    expect(comboOf([mud(f('glow', 'ultra')), f('step', 'ultra'), f('star', undefined, 1)])).toBeNull();
+    expect(comboOf([f('glow', 'ultra')])).toBeNull();
+  });
+
+  it('Nässe: erster Neuwurf trocken, dann 25, 50, 75 %, Sponge eine Stufe trockener', () => {
+    S.teams[0].media = [];
+    expect([1, 2, 3, 4].map((n) => wetChance(1, n))).toEqual([0, 0.25, 0.5, 0.75]);
+    S.teams[0].media = ['sponge'];
+    expect([1, 2, 3, 4].map((n) => wetChance(1, n))).toEqual([0, 0, 0.25, 0.5]);
+    S.teams[0].media = [];
+  });
+
+  it('Farben der Seiten: Haupt- oder Zweitpigment, fest aus dem Seed, Sterne und Joker ohne Farbe', () => {
+    let sec = 0,
+      all = 0;
+    for (let i = 0; i < 40; i++) {
+      const m = find('qualle', 'ultra', 'C' + i, true);
+      const u = dieUnit(m);
+      expect(dieUnit(m).faces).toEqual(u.faces);
+      for (const x of u.faces) {
+        if (x.k === 'star' || x.k === 'joker') expect(x.c).toBeUndefined();
+        else {
+          expect([u.m.main, u.sec]).toContain(x.c);
+          all++;
+          if (x.c !== u.m.main) sec++;
+        }
+      }
+    }
+    expect(sec / all).toBeGreaterThan(0.25);
+    expect(sec / all).toBeLessThan(0.45);
   });
 
   it('Farbreaktionen: Lasur nur über getrockneter eigener Farbe, Nachbarfarbe verläuft, Lasur zählt doppelt', () => {

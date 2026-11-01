@@ -1,5 +1,6 @@
 /* Symbole der Würfelseiten als kleines SVG, aus Code gezeichnet */
 import { crestDef, faceKey, type Crest, type Face } from '../../shared/duel/rules';
+import { PIG, type PigmentId } from '../../shared/data';
 
 const ICON_PATH: Record<Face['k'], string> = {
   step: '<path d="M4 4.5l5.5 5.5-5.5 5.5M10.5 4.5l5.5 5.5-5.5 5.5" fill="none" stroke="C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -15,9 +16,39 @@ export const JOKER_COL = '#7a3fa3';
 export const GOLD_COL = '#b8860b';
 export const faceCol = (f: Face) => (f.k === 'star' ? STAR_COL : f.k === 'joker' ? JOKER_COL : f.k === 'gold' ? GOLD_COL : crestDef(f.k).col);
 
+/**
+ * Lavierung hinter dem Symbol (Kampf A): die Farbe der Seite als weicher, unregelmäßiger Fleck mit dunklerem Wasserrand.
+ * Form fest je Pigment, damit gleiche Farben gleich aussehen
+ */
+const washCache = new Map<PigmentId, string>();
+export function washSvg(c: PigmentId): string {
+  const hit = washCache.get(c);
+  if (hit) return hit;
+  const [r, g, b] = PIG[c].rgb;
+  let h = 0;
+  for (const ch of c) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const pts: string[] = [];
+  const n = 11;
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2;
+    h = (h * 1103515245 + 12345) >>> 0;
+    const rad = 8.1 + ((h >>> 8) % 100) / 100 - 0.4;
+    pts.push(`${(10 + Math.cos(a) * rad).toFixed(2)},${(10 + Math.sin(a) * rad).toFixed(2)}`);
+  }
+  const d = `M${pts.join('L')}Z`;
+  const out = `<path d="${d}" fill="rgb(${r},${g},${b})" fill-opacity=".36" stroke="rgb(${r},${g},${b})" stroke-opacity=".62" stroke-width="1" stroke-linejoin="round"/><ellipse cx="8.2" cy="7.6" rx="4.2" ry="3.2" fill="#fff" fill-opacity=".22"/>`;
+  washCache.set(c, out);
+  return out;
+}
+/** Schlamm: eine Seite, die in diesem Wurf nichts zählt */
+export const MUD_SVG =
+  '<path d="M2.2 10.6c.4-4.6 3.6-7.6 7.9-7.7 4.6-.1 7.7 3 7.7 7.2 0 4.4-3.4 7.4-7.8 7.3-4.5-.1-8.1-2.7-7.8-6.8z" fill="#74644f" fill-opacity=".88"/><circle cx="6.2" cy="8" r="1.3" fill="#5c4e3d"/><circle cx="13.4" cy="12.6" r="1.7" fill="#5c4e3d"/><text x="10" y="12.3" font-size="5.4" text-anchor="middle" fill="#efe6d6" font-family="JetBrains Mono, monospace" font-weight="700">MUD</text>';
 /** Ein Symbol verkleinert an eine Stelle der Seite */
 const small = (c: Crest, x: number, y: number, s: number) => `<g transform="translate(${x},${y}) scale(${s})">${ICON_PATH[c].replace(/"C"/g, `"${crestDef(c).col}"`)}</g>`;
 export function iconInner(f: Face): string {
+  return (f.c ? washSvg(f.c) : '') + symbolInner(f);
+}
+function symbolInner(f: Face): string {
   const col = faceCol(f);
   // Doppel-, Dreifach- und Mischseiten zeigen jedes Symbol einzeln (festgelegt am 30.10.2026: Doppelseiten sichtbar)
   if (f.k !== 'star' && f.k !== 'joker' && f.k !== 'gold') {

@@ -39,12 +39,10 @@ describe('Würfelseiten', () => {
     expect(dieUnit(m).faces).toEqual(dieUnit(m).faces);
   });
 
-  it('Mischseite zählt für ein Paar als jedes ihrer Symbole, Regenbogen nur ohne Sterne', () => {
+  it('Mischseite: Text, eigener Schlüssel, Farbe zählt für Kombis wie jede Seite', () => {
     const mix: Face = { k: 'splash', n: 1, k2: 'guard' };
-    expect(comboOf([mix, { k: 'guard', n: 1 }])?.sym).toBe('guard');
-    expect(comboOf([mix, { k: 'splash', n: 1 }])?.sym).toBe('splash');
-    expect(comboOf([mix, { k: 'step', n: 1 }, { k: 'glow', n: 1 }])?.kind).toBe('rainbow');
-    expect(comboOf([mix, { k: 'step', n: 1 }, { k: 'star', n: 1 }])).toBeNull();
+    expect(comboOf([{ face: { ...mix, c: 'ultra' } }, { face: { k: 'guard', n: 1, c: 'ultra' } }])?.kind).toBe('glaze');
+    expect(faceKey({ ...mix, c: 'ultra' })).not.toBe(faceKey({ ...mix, c: 'indigo' }));
     expect(faceText(mix)).toBe('Splash + Guard');
     expect(faceText({ k: 'step', n: 3 })).toBe('Step ×3');
     expect(faceKey(mix)).not.toBe(faceKey({ k: 'splash', n: 1 }));

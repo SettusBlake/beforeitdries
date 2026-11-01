@@ -6,7 +6,7 @@
 import type { Monster } from '../monster';
 import type { DuelAction } from './play';
 import { RNG } from '../rng';
-import { ABILITY, aiChooseDice, aiHold, aiJokerCrest, bestOpening, byGesture, bestPlacement, currentRoll, find, onSheet, S, suggest, summonable, unitById, idx } from './rules';
+import { ABILITY, aiChooseDice, aiJokerCrest, aiReroll, bestOpening, byGesture, bestPlacement, currentRoll, find, onSheet, S, suggest, summonable, unitById, idx } from './rules';
 
 /** Bis zu dieser Runde gibt Sepia jeden Schritt vor */
 export const TUTORIAL_ROUNDS = 3;
@@ -56,11 +56,10 @@ export function tutorialAction(): DuelAction | null {
   }
 }
 
-/** Sepias Wahl nach dem Wurf: alles halten heißt behalten, sonst den Rest neu werfen */
+/** Sepias Wahl nach dem Wurf: wie der Computer halten und neu werfen, sonst behalten */
 export function keepOrReroll(): DuelAction {
-  const rolled = currentRoll();
-  const hold = aiHold(S.teams[0], rolled);
-  return S.rerolls > 0 && hold.length < rolled.length ? { k: 'reroll', hold } : { k: 'keep' };
+  const hold = aiReroll(S.teams[0]);
+  return hold ? { k: 'reroll', hold } : { k: 'keep' };
 }
 /** Die drei Würfel, die Sepia werfen würde (aus denen, die im Deck bereitliegen) */
 export function bestRoll(): number[] {

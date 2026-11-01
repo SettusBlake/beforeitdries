@@ -1,6 +1,13 @@
 # Vorschlag: Kampf A, Farbseiten, Farb-Kombis, Nässe
 
-Stand 01.11.2026, Fassung 1. Wartet auf Freigabe.
+Stand 01.11.2026, Fassung 1. Freigegeben am 01.11.2026 mit allen Empfehlungen. Schritt 1 und 2 gebaut (Playtest v0.0.1.109, Bild docs/entwuerfe/kampf-a-im-spiel.png), Schritt 3 und 4 folgen.
+
+Umsetzung, soweit sie vom Text abweicht oder ihn genauer macht:
+- **Sponge:** Die Nässe beginnt eine Stufe später. Die ersten zwei Neuwürfe sind trocken, der dritte 25 %, der vierte 50 %.
+- **Masking Fluid:** Ein Paar, in dem ein gehaltener Würfel liegt, blutet nicht.
+- **Iridescent Medium:** Das Symbol mehr ist das der ersten Seite der Kombi, sonst Glow.
+- **Pure und drei Sterne** gelten sofort, wie früher der Drilling.
+- **Simulation mit den eingebauten Regeln** (500 Duelle je Gegner): Geselle 93 %, Meister 43 %, Galerie 69 %.
 
 Anlass (01.11.2026): Kampf-Brainstorming, Abgleich in docs/entwuerfe/kampf-brainstorming-abgleich.md. Entschieden „Empfehlungen umsetzen“:
 - **Weg C:** erst A (Umbau im Wurf, das Duell bleibt), danach B (Modus „Bleach“).

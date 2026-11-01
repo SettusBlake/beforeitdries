@@ -115,9 +115,10 @@ type StatK = 'flo' | 'opa' | 'sat' | 'grn' | 'glw';
 /** Eine Würfelseite: Stern mit Stufe oder Symbol mit Anzahl */
 /** Joker: Stern, der für andere als Stufe 3 zählt. Gold: je ein Symbol jeder Sorte. */
 /** Eine Würfelseite. n: wie oft das Symbol zählt (1 bis 3). k2: Mischseite, ein zweites Symbol dazu (zählt einmal) */
-export type Face = { k: 'star' | 'joker' | 'gold' | Crest; n: number; k2?: Crest };
+/** c: Farbe der Seite (Kampf A, festgelegt am 01.11.2026), Haupt- oder Zweitpigment. Sterne und Joker haben keine */
+export type Face = { k: 'star' | 'joker' | 'gold' | Crest; n: number; k2?: Crest; c?: PigmentId };
 /** Schlüssel für Bilder und Zwischenspeicher einer Seite */
-export const faceKey = (f: Face): string => `${f.k}${f.n}${f.k2 ?? ''}`;
+export const faceKey = (f: Face): string => `${f.k}${f.n}${f.k2 ?? ''}${f.c ?? ''}`;
 export const isStar = (f: Face): boolean => f.k === 'star' || f.k === 'joker';
 export const starValue = (f: Face): number => (f.k === 'joker' ? 3 : f.k === 'star' ? f.n : 0);
 const isCrest = (f: Face): f is { k: Crest; n: number; k2?: Crest } => f.k !== 'star' && f.k !== 'joker' && f.k !== 'gold';
@@ -166,7 +167,12 @@ export type Unit = {
 };
 /** media: gewählte Malmittel */
 export type Team = { side: Side; units: Unit[]; crests: Record<Crest, number>; hearts: number; home: number; media?: MediumId[] };
-export type Rolled = { u: Unit; fi: number; face: Face };
+/** mud: in diesem Wurf zu Schlamm geworden (Ausbluten oder Ausbruch), die Seite zählt nichts */
+export type Rolled = { u: Unit; fi: number; face: Face; mud?: boolean };
+/** Ein Würfel im Wurf: Seite, dazu Farbe nach dem Ausbluten (c) oder Schlamm (mud) */
+export type RollSlot = { id: number; fi: number; c?: PigmentId; mud?: 1 };
+/** Ausbluten nach einem nassen Neuwurf: b nimmt die Farbe von a an (bloom) oder beide werden Schlamm (mud) */
+export type Bleed = { a: number; b: number; how: 'bloom' | 'mud'; c?: PigmentId };
 
 /* ---------- Ereignisse für die Darstellung ---------- */
 export type CellSnap = { i: number; c: Cell };
@@ -177,16 +183,17 @@ export type Ev =
   /** Würfe liegen offen, Symbole zählen erst bei apply */
   | { k: 'roll'; side: Side; dice: { id: number; fi: number }[] }
   /** Neuwurf: nur die nicht gehaltenen Würfel */
-  | { k: 'reroll'; side: Side; dice: { id: number; fi: number }[] }
-  /** Der Wurf gilt: Symbole und Kombi kommen in den Vorrat */
-  | { k: 'apply'; side: Side; crests: Record<Crest, number>; combo: Combo | null; joker: number; task?: Task | null }
+  | { k: 'reroll'; side: Side; dice: { id: number; fi: number }[]; wet?: number; bleed?: Bleed[] }
+  /** Der Wurf gilt: Symbole und Kombi kommen in den Vorrat. mud: Würfel, die beim Ausbruch zu Schlamm wurden */
+  | { k: 'apply'; side: Side; crests: Record<Crest, number>; combo: Combo | null; joker: number; task?: Task | null; mud?: number[] }
   /** Eine Seite hat ein Malmittel gewählt */
   | { k: 'medium'; side: Side; id: MediumId }
   /** drop: Seiten eines überstehenden Netzes, die abtropfen (malen nichts) */
   | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[]; drop?: { i: number; face: Face }[] }
   | { k: 'move'; id: number; path: number[]; trail: CellSnap[] }
   | { k: 'stamp'; id: number; wet: boolean; cells: (CellSnap & { r: StampRes })[] }
-  | { k: 'shot'; id: number; at: number; res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit'; dmg: number; guard: boolean; rgb: RGB; text: string; mult?: number }
+  /** x: Multiplikator des Zugs (Kombi), base: Schaden ohne ihn, pre: mit ihm vor dem Guard (für die Rechnung „10 × 1.5 = 15“) */
+  | { k: 'shot'; id: number; at: number; res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit'; dmg: number; guard: boolean; rgb: RGB; text: string; mult?: number; x?: number; base?: number; pre?: number }
   /** Nachsetzen (S2): der Klecks hat ausgewaschen und handelt noch einmal */
   | { k: 'again'; id: number }
   | { k: 'hp'; id: number; hp: number; delta: number; why: string }
@@ -228,8 +235,7 @@ export const TUNE = {
   stat: { apprentice: 0.65, journeyman: 0.85, master: 1.08, gallery: 1 } as Record<Level, number>,
   /** Zusätzliche Symbole zum Start (der Meister ist stärker als du, festgelegt am 29.10.2026) */
   extra: { apprentice: {}, journeyman: {}, master: { guard: 2, glow: 2 }, gallery: {} } as Record<Level, Partial<Record<Crest, number>>>,
-  /** Neuwürfe pro Zug und ob Kombis zählen (zum Vergleichen in der Simulation) */
-  rerolls: 1,
+  /** Ob Kombis zählen (zum Vergleichen in der Simulation) */
   combos: true,
   /** Malmittel in der Simulation */
   media: true,
@@ -242,6 +248,24 @@ export const TUNE = {
   overhang: true,
   /** Spielweise je Seite (nur zum Vergleichen in der Simulation): Wert eines Herzens, Drang zur fremden Palette, Gewicht des Malens */
   ai: { heart: [8, 8], advance: [0.25, 0.25], paint: [1, 1] } as { heart: [number, number]; advance: [number, number]; paint: [number, number] },
+};
+
+/**
+ * Kampf A (festgelegt am 01.11.2026, docs/entwuerfe/kampf-a-vorschlag.md): Seiten in Farbe, Kombis aus der Farblehre,
+ * Nässe beim Neuwurf, Multiplikator auf Spritzer gegen Kleckse
+ */
+export const PAINT = {
+  /** Anteil der Symbolseiten in der Zweitfarbe */
+  sec: 0.35,
+  /** Multiplikator je Kombi, die Kette wächst mit jedem Treffer */
+  mult: { pure: 2, burst: 2, glaze: 1.5, chain: 1.25, stars: 1 } as Record<ComboK, number>,
+  chainStep: 0.25,
+  /** Ausbruch: Chance, dass die beiden Gegenfarben zu Schlamm verkochen */
+  burstMud: 0.35,
+  /** Neuwürfe pro Zug */
+  rerolls: 4,
+  /** Chance je Nachbarpaar, dass es ausblutet, nach Nummer des Neuwurfs (1. trocken) */
+  wet: [0, 0, 0.25, 0.5, 0.75],
 };
 
 const PATTERNS: Record<BlueprintId, P[]> = {
@@ -469,9 +493,20 @@ function glazeFaces(f: Face[], mods: FaceMod[], u: Unit): Face[] {
   }
   return out;
 }
-/** Alle Seiten eines Würfels: Grundseiten aus den Werten, dann Seltenheit, dann Lasuren und Patina */
+/**
+ * Farbe jeder Symbolseite (Kampf A): Hauptpigment oder, bei etwa jeder dritten Seite, die Zweitfarbe. Eigener Zufall aus dem
+ * Seed je Seite, alle anderen Würfe bleiben unberührt. Sterne und Joker bleiben ohne Farbe
+ */
+function colourFaces(f: Face[], u: Unit): Face[] {
+  return f.map((x, i) => {
+    if (x.k === 'star' || x.k === 'joker') return x;
+    const r = RNG((u.m.seed ^ 0xc0105) + i * 7919);
+    return { ...x, c: u.sec && r() < PAINT.sec ? u.sec : u.m.main };
+  });
+}
+/** Alle Seiten eines Würfels: Grundseiten aus den Werten, dann Seltenheit, dann Lasuren und Patina, dann Farben */
 export function facesFor(u: Unit, mods: FaceMod[] = []): Face[] {
-  return glazeFaces(rarityFaces(makeFaces(u), u.rarity, u), mods, u);
+  return colourFaces(glazeFaces(rarityFaces(makeFaces(u), u.rarity, u), mods, u), u);
 }
 /** Seiten, die Patina noch verbessern kann: einfache und doppelte Symbole ohne Mischung */
 export const patinaFaces = (faces: Face[]): number[] => faces.flatMap((f, i) => (isCrest(f) && !f.k2 && f.n <= 2 ? [i] : []));
@@ -534,7 +569,9 @@ export const S = {
   /** Spielfarben der beiden Seiten (Übersicht, festgelegt am 31.10.2026), nur für die Anzeige */
   colors: [COLOR_DEFAULT, COLOR_RIVAL] as [ColorId, ColorId],
   phase: 'opening' as Phase,
-  lastRoll: [] as { id: number; fi: number }[],
+  lastRoll: [] as RollSlot[],
+  /** Treffer der Seite am Zug in diesem Zug (die Kette wächst damit) */
+  chain: 0,
   /** Joker aus dem letzten Wurf, die noch nicht als Stern oder Symbol verbraucht sind (Würfelseiten und Kombi-Joker) */
   joker: 0,
   /** Davon Joker aus Kombis: sie zählen beim Beschwören als Stern 3, gehören aber zu keinem Würfel */
@@ -787,77 +824,158 @@ export function rollDice(t: Team, us: Unit[]): Rolled[] {
   S.freeJoker = 0;
   S.starBonus = 0;
   S.combo = null;
+  S.chain = 0;
   count(`${t.side}roll`);
   emit({ k: 'roll', side: t.side, dice: S.lastRoll.map((r) => ({ ...r })) });
   return out;
 }
+/** Ein Würfel im Wurf, wie er liegt: Farbe nach dem Ausbluten, Schlamm zählt nichts */
+function slotRolled(r: RollSlot): Rolled {
+  const u = unitById(r.id)!;
+  const f = u.faces[r.fi]!;
+  return { u, fi: r.fi, face: r.c && f.c ? { ...f, c: r.c } : f, ...(r.mud ? { mud: true } : {}) };
+}
 /** Der Wurf, wie er gerade liegt */
 export function currentRoll(): Rolled[] {
-  return S.lastRoll.map((r) => {
-    const u = unitById(r.id)!;
-    return { u, fi: r.fi, face: u.faces[r.fi]! };
-  });
+  return S.lastRoll.map(slotRolled);
 }
-/** Alle Würfel außer den gehaltenen neu werfen (einmal pro Zug) */
+/** Die Seiten, die zählen (ohne Schlamm) */
+export const liveFaces = (roll: { face: Face; mud?: boolean }[]): Face[] => roll.filter((r) => !r.mud).map((r) => r.face);
+/** Neuwürfe, die in diesem Zug schon gemacht sind */
+export const rerollsDone = (): number => PAINT.rerolls - S.rerolls;
+/**
+ * Nässe (Kampf A): Chance je Nachbarpaar, dass der nächste Neuwurf ausblutet. Der erste ist trocken, dann 25, 50, 75 %.
+ * Sponge saugt eine Stufe auf: die ersten zwei sind trocken
+ */
+export function wetChance(side: Side, n = rerollsDone() + 1): number {
+  const k = n - (hasMedium(side, 'sponge') ? 1 : 0);
+  return PAINT.wet[Math.max(0, Math.min(PAINT.wet.length - 1, k))]!;
+}
+/**
+ * Ausbluten nach einem nassen Neuwurf: jedes Paar nebeneinander liegender Würfel (auch gehaltene) blutet mit Chance p.
+ * Nachbarfarben blühen (der rechte nimmt die Farbe des linken an), Gegenfarben werden beide Schlamm, neutrale berühren sich nur.
+ * Sterne und Joker sind trocken. Masking Fluid: gehaltene Würfel bluten nicht
+ */
+function bleedRoll(t: Team, p: number, hold: number[]): Bleed[] {
+  const out: Bleed[] = [];
+  const mask = hasMedium(t.side, 'mask');
+  for (let i = 0; i + 1 < S.lastRoll.length; i++) {
+    const a = S.lastRoll[i]!,
+      b = S.lastRoll[i + 1]!;
+    if (mask && (hold.includes(a.id) || hold.includes(b.id))) continue;
+    const fa = slotRolled(a),
+      fb = slotRolled(b);
+    const ca = fa.face.c,
+      cb = fb.face.c;
+    if (fa.mud || fb.mud || !ca || !cb || ca === cb) continue;
+    const rel = relation(ca, cb);
+    if (rel === 'neutral' || rand01() >= p) continue;
+    if (rel === 'komplementaer') {
+      a.mud = 1;
+      b.mud = 1;
+      out.push({ a: a.id, b: b.id, how: 'mud' });
+      count(`${t.side}mud`);
+    } else {
+      b.c = ca;
+      out.push({ a: a.id, b: b.id, how: 'bloom', c: ca });
+      count(`${t.side}bloom`);
+    }
+  }
+  return out;
+}
+/** Alle Würfel außer den gehaltenen neu werfen. Ab dem zweiten Neuwurf ist das Blatt nass und Nachbarn können ausbluten */
 export function rerollDice(t: Team, hold: number[]): Rolled[] {
+  const wet = wetChance(t.side);
   const again: { id: number; fi: number }[] = [];
   for (const r of S.lastRoll) {
     if (hold.includes(r.id)) continue;
     r.fi = Math.floor(rand01() * 6);
+    // Neu geworfen ist die Farbe wieder die der Seite
+    delete r.c;
+    delete r.mud;
     const u = unitById(r.id);
     if (u) u.rolls = (u.rolls ?? 0) + 1;
-    again.push({ ...r });
+    again.push({ id: r.id, fi: r.fi });
   }
   S.rerolls = Math.max(0, S.rerolls - 1);
   count(`${t.side}reroll`);
-  emit({ k: 'reroll', side: t.side, dice: again });
+  const bleed = wet > 0 ? bleedRoll(t, wet, hold) : [];
+  emit({ k: 'reroll', side: t.side, dice: again, ...(wet > 0 ? { wet } : {}), ...(bleed.length ? { bleed } : {}) });
   return currentRoll();
 }
 
-/* ---------- Kombis wie Pokerhände: Paar, Drilling, Regenbogen ---------- */
-export type Sym = 'star' | 'gold' | Crest;
-export type Combo = { kind: 'pair' | 'triple' | 'rainbow'; sym: Sym | null; gain: Partial<Record<Crest, number>>; joker: number; star: number; text: string };
-/** Bei Gleichstand zählt das wertvollere Symbol */
-const CREST_ORDER: Crest[] = ['glow', 'splash', 'guard', 'step'];
-export const symLabel = (s: Sym): string => (s === 'star' ? 'stars' : s === 'gold' ? 'gold' : crestDef(s).label);
+/* ---------- Kombis aus der Farblehre (Kampf A): rein, Ausbruch, Lasur, Kette, drei Sterne ---------- */
+export type ComboK = 'pure' | 'burst' | 'glaze' | 'chain' | 'stars';
 /**
- * Kombi eines Wurfs. Paar und Drilling aus gleichen Symbolen, Regenbogen aus drei verschiedenen Symbolen.
- * Sterne zählen nur als Drilling gleicher Stufe (sonst beschwören sie), Gold zählt nicht mit.
- * Ein Joker zählt als beliebiges Symbol oder als Stern und bleibt trotzdem ein Joker
+ * Eine Kombi. at: Stellen der Würfel im Wurf, die sie bilden. mult: Multiplikator auf Spritzer gegen Kleckse in diesem Zug.
+ * mud: ein Ausbruch, der zu Schlamm verkocht ist (kein Multiplikator). gain: Symbole dazu (Iridescent Medium)
  */
-export function comboOf(faces: Face[]): Combo | null {
-  if (!TUNE.combos || faces.length < 2) return null;
-  const wild = faces.filter((f) => f.k === 'joker').length;
+export type Combo = { kind: ComboK; pig: PigmentId | null; pig2?: PigmentId; at: number[]; mult: number; gain: Partial<Record<Crest, number>>; joker: number; star: number; text: string; mud?: true };
+export const COMBO_NAME: Record<ComboK, string> = { pure: 'Pure', burst: 'Burst', glaze: 'Glaze', chain: 'Chain', stars: 'Three stars' };
+const pigName = (p: PigmentId | null | undefined): string => (p ? PIG[p].n : '');
+/**
+ * Kombi eines Wurfs. Es zählen nur farbige Seiten, ein Joker zählt als jede Farbe. Reihenfolge, wenn mehrere passen:
+ * drei eines Pigments (Pure), zwei Gegenfarben (Burst), zwei eines Pigments (Glaze), zwei Nachbarfarben (Chain), drei Sterne
+ * gleicher Stufe. Schlamm zählt nicht
+ */
+export function comboOf(roll: { face: Face; mud?: boolean }[]): Combo | null {
+  if (!TUNE.combos || roll.length < 2) return null;
+  const live = roll.map((r, i) => ({ f: r.face, i, mud: !!r.mud })).filter((r) => !r.mud);
+  const wild = live.filter((r) => r.f.k === 'joker').map((r) => r.i);
+  const col = live.filter((r) => !!r.f.c);
+  const by = new Map<PigmentId, number[]>();
+  for (const r of col) by.set(r.f.c!, [...(by.get(r.f.c!) ?? []), r.i]);
+  let top: PigmentId | null = null,
+    tl: number[] = [];
+  for (const [p, l] of by)
+    if (l.length > tl.length) {
+      top = p;
+      tl = l;
+    }
+  const mk = (kind: ComboK, at: number[], pig: PigmentId | null, text: string, joker = 0, pig2?: PigmentId): Combo => ({
+    kind,
+    pig,
+    ...(pig2 ? { pig2 } : {}),
+    at: [...at].sort((a, b) => a - b),
+    mult: PAINT.mult[kind],
+    gain: {},
+    joker,
+    star: 0,
+    text,
+  });
+  const named = (k: ComboK, p: PigmentId | null) => (p ? `${COMBO_NAME[k]} ${pigName(p)}` : COMBO_NAME[k]);
+  if (roll.length >= 3 && tl.length + wild.length >= 3) return mk('pure', [...tl, ...wild].slice(0, 3), top, `${named('pure', top)}: ×${PAINT.mult.pure} and a Joker`, 1);
+  const pair = (rel: 'komplementaer' | 'harmonisch'): [(typeof col)[number], (typeof col)[number]] | null => {
+    for (let a = 0; a < col.length; a++)
+      for (let b = a + 1; b < col.length; b++) if (col[a]!.f.c !== col[b]!.f.c && relation(col[a]!.f.c!, col[b]!.f.c!) === rel) return [col[a]!, col[b]!];
+    return null;
+  };
+  const burst = pair('komplementaer');
+  if (burst) return mk('burst', [burst[0].i, burst[1].i], burst[0].f.c!, `Burst ${pigName(burst[0].f.c)} + ${pigName(burst[1].f.c)}: ×${PAINT.mult.burst}, may boil to mud`, 0, burst[1].f.c!);
+  if (tl.length + wild.length >= 2) return mk('glaze', [...tl, ...wild].slice(0, 2), top, `${named('glaze', top)}: ×${PAINT.mult.glaze}`);
+  const chain = pair('harmonisch');
+  if (chain) return mk('chain', [chain[0].i, chain[1].i], chain[0].f.c!, `Chain ${pigName(chain[0].f.c)} + ${pigName(chain[1].f.c)}: ×${PAINT.mult.chain}, +${PAINT.chainStep} per hit`, 0, chain[1].f.c!);
   // Drei Sterne zählen nur mit gleicher Stufe (die Zahl steht auf der Seite)
-  const stars = Math.max(0, ...[1, 2, 3].map((lv) => faces.filter((f) => f.k === 'star' && f.n === lv).length));
-  const n = new Map<Crest, number>();
-  // Eine Mischseite zählt für jedes ihrer beiden Symbole (festgelegt am 30.10.2026)
-  for (const f of faces)
-    if (isCrest(f)) {
-      n.set(f.k, (n.get(f.k) ?? 0) + 1);
-      if (f.k2) n.set(f.k2, (n.get(f.k2) ?? 0) + 1);
+  if (roll.length >= 3)
+    for (const lv of [3, 2, 1]) {
+      const st = live.filter((r) => r.f.k === 'star' && r.f.n === lv).map((r) => r.i);
+      if (st.length && st.length + wild.length >= 3) return mk('stars', [...st, ...wild].slice(0, 3), null, 'Three stars: a Joker', 1);
     }
-  let best: Crest | null = null,
-    bc = 0;
-  for (const c of CREST_ORDER) {
-    const k = n.get(c) ?? 0;
-    if (k > bc) {
-      best = c;
-      bc = k;
-    }
-  }
-  const sym = best ?? 'glow';
-  if (best && bc + wild >= 3)
-    return { kind: 'triple', sym, gain: { [sym]: 2 }, joker: 1, star: 0, text: `Triple ${symLabel(sym)}: +2 and a Joker` };
-  if (stars + wild >= 3 && faces.length >= 3) return { kind: 'triple', sym: 'star', gain: {}, joker: 1, star: 0, text: 'Three stars: a Joker' };
-  if (best && bc + wild >= 2) return { kind: 'pair', sym, gain: { [sym]: 1 }, joker: 0, star: 0, text: `Pair of ${symLabel(sym)}: +1 ${symLabel(sym)}` };
-  if (faces.length >= 3 && faces.every(isCrest) && n.size >= 3 && bc === 1) return { kind: 'rainbow', sym: null, gain: {}, joker: 1, star: 0, text: 'Rainbow: a Joker' };
   return null;
 }
+/**
+ * Multiplikator auf Spritzer gegen Kleckse (Kampf A): die Kombi des Wurfs gilt für die Seite am Zug bis zum Zugende.
+ * Die Kette wächst mit jedem Treffer. Palettentreffer und Stempeln bleiben, wie sie sind
+ */
+export function turnMult(side: Side): number {
+  const c = S.combo;
+  if (side !== S.turn || !c || c.mud) return 1;
+  return c.mult + (c.kind === 'chain' ? S.chain * PAINT.chainStep : 0);
+}
 /* ---------- Sepias Auftrag: ein Wurfziel pro Runde und Seite, erfüllt gibt einen Joker ---------- */
-export type TaskK = 'two' | 'double' | 'colours' | 'stars' | 'four';
+export type TaskK = 'two' | 'double' | 'symbols' | 'stars' | 'four' | 'pigment';
 export type Task = { k: TaskK; c?: Crest; text: string };
-const TASK_KINDS: TaskK[] = ['two', 'two', 'double', 'colours', 'stars', 'four'];
+const TASK_KINDS: TaskK[] = ['two', 'two', 'double', 'symbols', 'stars', 'four', 'pigment'];
 /**
  * Der Auftrag dieser Runde. Eigener Zufall aus dem öffentlichen Seed (der Würfelzufall bleibt unberührt),
  * damit der Client ihn ohne Server zeigen kann. Nicht im Lern-Duell
@@ -870,7 +988,7 @@ export function taskOf(side: Side, round = S.round): Task | null {
     const c = CRESTS[Math.floor(r() * CRESTS.length)]!;
     return { k, c: c.k, text: `two ${c.label}` };
   }
-  const text: Record<Exclude<TaskK, 'two'>, string> = { double: 'a double face', colours: 'three colours', stars: 'two stars', four: 'four symbols' };
+  const text: Record<Exclude<TaskK, 'two'>, string> = { double: 'a double face', symbols: 'three symbols', stars: 'two stars', four: 'four symbols', pigment: 'two of one pigment' };
   return { k, text: text[k] };
 }
 /** Symbole eines Wurfs: je Symbol gezählt (Doppelseiten doppelt, Mischseiten für beide, Gold für alle vier) */
@@ -886,7 +1004,13 @@ function symbolCount(faces: Face[]): Map<Crest, number> {
   }
   return n;
 }
-/** Erfüllt der Wurf den Auftrag? Joker zählen als beliebiges Symbol oder als Stern */
+/** Wie viele Seiten das häufigste Pigment hat */
+const topPigment = (faces: Face[]): number => {
+  const n = new Map<PigmentId, number>();
+  for (const f of faces) if (f.c) n.set(f.c, (n.get(f.c) ?? 0) + 1);
+  return Math.max(0, ...n.values());
+};
+/** Erfüllt der Wurf den Auftrag? Nur Seiten, die zählen (ohne Schlamm). Joker zählen als beliebiges Symbol, Stern oder Pigment */
 export function taskMet(task: Task, faces: Face[]): boolean {
   const wild = faces.filter((f) => f.k === 'joker').length;
   const n = symbolCount(faces);
@@ -895,16 +1019,18 @@ export function taskMet(task: Task, faces: Face[]): boolean {
       return (n.get(task.c!) ?? 0) + wild >= 2;
     case 'double':
       return faces.some((f) => f.k === 'gold' || (isCrest(f) && (f.n > 1 || !!f.k2)));
-    case 'colours':
+    case 'symbols':
       return n.size + wild >= 3;
     case 'stars':
       return faces.filter((f) => f.k === 'star').length + wild >= 2;
     case 'four':
       return [...n.values()].reduce((a, b) => a + b, 0) + wild >= 4;
+    case 'pigment':
+      return topPigment(faces) + wild >= 2;
   }
 }
 /** Hilft diese Seite beim Auftrag? (für den Rivalen beim Halten) */
-function helpsTask(task: Task, f: Face): boolean {
+function helpsTask(task: Task, f: Face, all: Face[]): boolean {
   if (f.k === 'joker' || f.k === 'gold') return true;
   switch (task.k) {
     case 'two':
@@ -912,16 +1038,31 @@ function helpsTask(task: Task, f: Face): boolean {
     case 'double':
     case 'four':
       return isCrest(f) && (f.n > 1 || !!f.k2);
-    case 'colours':
+    case 'symbols':
       return isCrest(f);
     case 'stars':
       return f.k === 'star';
+    case 'pigment':
+      return !!f.c && all.filter((g) => g.c === f.c).length >= 2;
   }
 }
-/** Der Wurf gilt: Symbole der Seiten und die Kombi kommen in den Vorrat */
+/** Der Wurf gilt: Symbole der Seiten und die Kombi kommen in den Vorrat. Ein Ausbruch kann dabei zu Schlamm verkochen */
 export function applyRoll(t: Team): Rolled[] {
+  let combo = comboOf(currentRoll());
+  const boiled: number[] = [];
+  if (combo?.kind === 'burst' && rand01() < PAINT.burstMud) {
+    // Die beiden Gegenfarben verkochen: ihre Seiten zählen nichts, kein Multiplikator
+    for (const i of combo.at) {
+      const slot = S.lastRoll[i]!;
+      slot.mud = 1;
+      boiled.push(slot.id);
+    }
+    combo = { ...combo, mud: true, mult: 1, text: `Burst ${pigName(combo.pig)} + ${pigName(combo.pig2)} boiled to mud: no multiplier` };
+    count(`${t.side}burstmud`);
+  }
   const out = currentRoll();
   for (const r of out) {
+    if (r.mud) continue;
     const f = r.face;
     if (f.k === 'gold') for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + 1);
     else if (isCrest(f)) {
@@ -929,21 +1070,23 @@ export function applyRoll(t: Team): Rolled[] {
       if (f.k2) t.crests[f.k2] = Math.min(CREST_MAX, t.crests[f.k2] + 1);
     }
   }
-  const combo = comboOf(out.map((r) => r.face));
-  if (combo && hasMedium(t.side, 'irid')) {
-    if (combo.sym && combo.sym !== 'star' && combo.sym !== 'gold') combo.gain[combo.sym] = (combo.gain[combo.sym] ?? 0) + 1;
-    else combo.gain.glow = (combo.gain.glow ?? 0) + 1;
-    combo.text += ' (+1)';
+  // Iridescent Medium: jede Kombi gibt ein Symbol mehr (das der ersten Seite der Kombi, sonst Glow)
+  if (combo && !combo.mud && hasMedium(t.side, 'irid')) {
+    const f = combo.at.map((i) => out[i]!.face).find(isCrest);
+    const c: Crest = f ? f.k : 'glow';
+    combo.gain[c] = (combo.gain[c] ?? 0) + 1;
+    combo.text += ` (+1 ${crestDef(c).label})`;
   }
   if (combo) {
     for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (combo.gain[c.k] ?? 0));
-    count(`${t.side}combo-${combo.kind}`);
+    if (!combo.mud) count(`${t.side}combo-${combo.kind}`);
   }
   S.combo = combo;
+  S.chain = 0;
   S.freeJoker = combo?.joker ?? 0;
   // Sepias Auftrag erfüllt: ein Joker mehr (zählt wie ein Kombi-Joker)
   const task = taskOf(t.side);
-  const done = !!task && out.length > 0 && taskMet(task, out.map((r) => r.face));
+  const done = !!task && out.length > 0 && taskMet(task, liveFaces(out));
   if (done) {
     S.freeJoker++;
     count(`${t.side}task`);
@@ -951,28 +1094,43 @@ export function applyRoll(t: Team): Rolled[] {
   S.starBonus = combo?.star ?? 0;
   S.joker = out.filter((r) => r.face.k === 'joker').length + S.freeJoker;
   S.rerolls = 0;
-  emit({ k: 'apply', side: t.side, crests: { ...t.crests }, combo, joker: S.joker, task: done ? task : null });
+  emit({ k: 'apply', side: t.side, crests: { ...t.crests }, combo, joker: S.joker, task: done ? task : null, ...(boiled.length ? { mud: boiled } : {}) });
   pourGlow(t);
-  logAdd(`${t.side === 2 ? 'Rival' : 'You'} rolled ${out.map((x) => faceText(x.face)).join(', ')}${combo ? `. ${combo.text}` : ''}${done ? `. Sepia's task (${task.text}): a Joker` : ''}.`, t.side === 2 ? 'rival' : 'you');
+  logAdd(`${t.side === 2 ? 'Rival' : 'You'} rolled ${out.map((x) => (x.mud ? 'mud' : faceText(x.face))).join(', ')}${combo ? `. ${combo.text}` : ''}${done ? `. Sepia's task (${task.text}): a Joker` : ''}.`, t.side === 2 ? 'rival' : 'you');
   return out;
 }
-/** Welche Würfel halten: Drilling und Regenbogen ganz, ein Paar, Sterne (wenn noch Platz ist), Joker und Gold */
+/**
+ * Welche Würfel halten: Pure, Ausbruch und drei Sterne ganz, sonst Joker, Gold, Sterne (wenn noch Platz ist) und Farben,
+ * die zu einer anderen passen (gleiches Pigment, Nachbar- oder Gegenfarbe). Schlamm wird neu geworfen
+ */
 export function aiHold(t: Team, rolled: Rolled[]): number[] {
   const all = rolled.map((r) => r.u.id);
-  const combo = comboOf(rolled.map((r) => r.face));
-  if (combo && (combo.kind === 'triple' || combo.kind === 'rainbow')) return all;
+  const combo = comboOf(rolled);
+  if (combo && (combo.kind === 'pure' || combo.kind === 'burst' || combo.kind === 'stars')) return all;
   // Auftrag schon erfüllt: alles behalten, sonst die Seiten halten, die dazu passen
   const task = taskOf(t.side);
-  if (task && taskMet(task, rolled.map((r) => r.face))) return all;
+  const faces = liveFaces(rolled);
+  if (task && taskMet(task, faces)) return all;
   const room = onSheet(t).length < ON_SHEET && t.units.some((u) => u.state === 'bag');
   const hold = rolled.filter((r) => {
     const f = r.face;
+    if (r.mud) return false;
     if (f.k === 'joker' || f.k === 'gold') return true;
-    if (task && helpsTask(task, f) && (task.k !== 'colours' || rolled.findIndex((o) => isCrest(o.face) && o.face.k === (f as { k: Crest }).k) === rolled.indexOf(r))) return true;
+    if (task && helpsTask(task, f, faces) && (task.k !== 'symbols' || rolled.findIndex((o) => !o.mud && isCrest(o.face) && o.face.k === (f as { k: Crest }).k) === rolled.indexOf(r))) return true;
     if (f.k === 'star') return room;
-    return combo?.kind === 'pair' && (combo.sym === f.k || (isCrest(f) && combo.sym === f.k2));
+    const c = f.c;
+    return !!c && rolled.some((o) => o !== r && !o.mud && !!o.face.c && (o.face.c === c || relation(o.face.c, c) !== 'neutral'));
   });
   return hold.map((r) => r.u.id);
+}
+/** Wie der Computer (und Sepia) neu wirft: höchstens zweimal, das zweite Mal nur ohne Kombi. null heißt behalten */
+export function aiReroll(t: Team): number[] | null {
+  if (S.rerolls < 1) return null;
+  const done = rerollsDone();
+  const rolled = currentRoll();
+  if (done >= 2 || (done >= 1 && comboOf(rolled))) return null;
+  const hold = aiHold(t, rolled);
+  return hold.length < rolled.length ? hold : null;
 }
 /** Ein Joker, der nicht zum Beschwören dient, wird zu einem Symbol nach Wahl */
 export function takeJoker(t: Team, c: Crest): void {
@@ -1328,7 +1486,8 @@ export function splashCells(u: Unit): number[] {
 const grainOf = (t: Unit) => t.grn + (t.shield > 0 ? 25 : 0);
 const dodgeOf = (t: Unit) => Math.min(0.4, t.flo / 400 + (has(t, 'alcohol') ? 0.06 : 0) + (has(t, 'bloom4') ? 0.05 : 0));
 const critOf = (u: Unit) => 0.05 + (has(u, 'salt') ? 0.08 : 0) + (hasMedium(u.side, 'salt') ? 0.1 : 0) + (setN(u.side, 'warm') >= 3 ? 0.08 : 0);
-export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean): number {
+/** Schaden eines Spritzers vor dem Würfeln. x: Multiplikator der Kombi (Kampf A), gilt für die Seite am Zug */
+export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean, x = turnMult(u.side)): number {
   let dmg = (HIT.base + u.sat / HIT.satDiv - (pig !== u.m.main ? 1 : 0)) * typeMult(pig, t.m.main);
   if (GAIT[u.m.bp].key === 'pinch' && near) dmg += 3;
   if (has(u, 'fugitive')) dmg += 2;
@@ -1337,7 +1496,7 @@ export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean): num
   if (warm) dmg += warm >= 3 ? 2 : 1;
   if (GAIT[u.m.bp].key === 'twin') dmg *= 0.6;
   if (has(t, 'bloom3')) dmg *= 0.85;
-  return Math.max(1, Math.round(dmg));
+  return Math.max(1, Math.round(dmg * x));
 }
 /**
  * Wäscht ein normaler Treffer (ohne Krit) das Ziel aus? Für die Vorschau beim Zielen (G4): Meisterzug von Charge und Crush,
@@ -1371,7 +1530,14 @@ function setHp(t: Unit, hp: number, why: string): void {
 /** Ein Treffer mit Würfeln. Ein Guard des Gegners halbiert den Schaden von selbst. */
 function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignoreGrain = false): [string, number] {
   const at = idx(t.x, t.y);
-  const shot = (res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit', dmg: number, guard: boolean, text: string) => emit({ k: 'shot', id: u.id, at, res, dmg, guard, rgb: PIG[pig].rgb, text, mult: typeMult(pig, t.m.main) });
+  const x = turnMult(u.side);
+  const shot = (res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit', dmg: number, guard: boolean, text: string, calc?: { base: number; pre: number }) => {
+    emit({ k: 'shot', id: u.id, at, res, dmg, guard, rgb: PIG[pig].rgb, text, mult: typeMult(pig, t.m.main), ...(calc && x !== 1 ? { x, ...calc } : {}) });
+    if (res === 'miss' || res === 'dodge') return;
+    // Die Kette wächst mit jedem Treffer der Seite am Zug
+    if (u.side === S.turn) S.chain++;
+    count(`${u.side}dmg`, dmg);
+  };
   if (rand01() < dodgeOf(t)) {
     shot('dodge', 0, false, 'dodged');
     return ['dodged', 0];
@@ -1388,7 +1554,10 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
     return [`${roll}: miss`, 0];
   }
   const crit = !graze && (a === 20 || rand01() < critOf(u));
-  let dmg = Math.max(1, Math.round(baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1) * mult * (crit ? 1.5 : graze ? HIT.graze : 1)));
+  const near = cheb(u.x, u.y, t.x, t.y) <= 1;
+  const cf = mult * (crit ? 1.5 : graze ? HIT.graze : 1);
+  let dmg = Math.max(1, Math.round(baseDamage(u, t, pig, near, x) * cf));
+  const calc = { base: Math.max(1, Math.round(baseDamage(u, t, pig, near, 1) * cf)), pre: dmg };
   let guard = false;
   const ft = teamOf(t);
   if (ft.crests.guard > 0) {
@@ -1397,7 +1566,7 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
     guard = true;
     count(`${t.side}guard`);
   }
-  shot(crit ? 'crit' : graze ? 'graze' : 'hit', dmg, guard, roll);
+  shot(crit ? 'crit' : graze ? 'graze' : 'hit', dmg, guard, roll, calc);
   setHp(t, t.hp - dmg, crit ? 'crit' : 'hit');
   // Getroffen saugt sich voll
   if (t.hp > 0) fillBrim(t, BRIM.hit);
@@ -1849,8 +2018,9 @@ export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): stri
 export function startTurn(side: Side): void {
   S.turn = side;
   S.heartsTurn = 0;
-  S.rerolls = TUNE.rerolls + (hasMedium(side, 'sponge') ? 1 : 0);
+  S.rerolls = PAINT.rerolls;
   S.combo = null;
+  S.chain = 0;
   S.starBonus = 0;
   S.freeJoker = 0;
   const t = S.teams[side - 1]!;
@@ -2368,12 +2538,8 @@ export function aiTurnSteps(side: Side, look: number): () => boolean {
       const pick = aiChooseDice(team, look, r);
       let rolled = pick.length ? rollDice(team, pick) : [];
       if (rolled.length) {
-        // Halten und einmal neu werfen, dann gilt der Wurf
-        for (let k = 0; k < 2 && S.rerolls > 0; k++) {
-          const hold = aiHold(team, rolled);
-          if (hold.length >= rolled.length) break;
-          rolled = rerollDice(team, hold);
-        }
+        // Halten und neu werfen (höchstens zweimal, das zweite Mal nur ohne Kombi), dann gilt der Wurf
+        for (let hold = aiReroll(team); hold; hold = aiReroll(team)) rolled = rerollDice(team, hold);
         rolled = applyRoll(team);
       }
       stage = 1;

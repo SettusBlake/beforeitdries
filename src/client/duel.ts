@@ -19,8 +19,8 @@ import { ABILITY, COLS, CRESTS, GAIT, HEARTS, ROUNDS, ROWS, S, type Ev, type Fac
 import { paintLater } from './lib/painter';
 import { api, ApiError } from './lib/api';
 import { loadSpecies, speciesName } from './lib/species';
-import { makeCube, tumble } from './duel/dice3d';
-import { iconSvg, netSvg } from './duel/icons';
+import { makeCube, setCubeFace, tumble } from './duel/dice3d';
+import { iconSvg, MUD_SVG, netSvg } from './duel/icons';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
 import { diceBadge, initDice, openDice } from './duel/collection';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
@@ -70,7 +70,7 @@ let held = new Set<number>();
 /** Deck über dem Brett aufgeklappt (zum Nachsehen außerhalb der Würfelwahl) */
 let deckOpen = false;
 /** Die 3D-Würfel auf der Bühne, vom Wurf bis der Wurf gilt */
-const stageDice = new Map<number, { cube: HTMLElement; box: HTMLElement; fi: number }>();
+const stageDice = new Map<number, StageDie>();
 /** Sepias Aufträge, die in diesem Duell schon erfüllt sind (Runde:Seite) */
 const tasksDone = new Set<string>();
 let summonU: Unit | null = null,
@@ -227,20 +227,46 @@ View.setup(board, {
 });
 
 /* ---------- Würfeln mit 3D-Würfeln: offen hinlegen, halten, neu werfen, dann gilt der Wurf ---------- */
-function stageDie(id: number, size: number): { cube: HTMLElement; box: HTMLElement; fi: number } {
+type StageDie = { cube: HTMLElement; box: HTMLElement; fi: number; c?: PigmentId; mud?: boolean };
+function stageDie(id: number, size: number): StageDie {
   const u = R.unitById(id)!;
   const box = el('div', 'stage-die');
   box.dataset.id = String(id);
   const cube = makeCube(u.faces, size, rgb(u.m.main));
   box.append(cube, el('small', '', u.name.split(' ')[1] ?? u.name));
   box.addEventListener('click', () => toggleHold(id));
-  const x = { cube, box, fi: -1 };
+  const x: StageDie = { cube, box, fi: -1 };
   stageDice.set(id, x);
   return x;
+}
+/** Die Seite, wie sie auf der Bühne liegt: Farbe nach dem Ausbluten, Schlamm */
+function stageFace(id: number): { face: Face; mud?: boolean } | null {
+  const d = stageDice.get(id);
+  const f = d && d.fi >= 0 ? R.unitById(id)?.faces[d.fi] : null;
+  if (!d || !f) return null;
+  return { face: d.c && f.c ? { ...f, c: d.c } : f, ...(d.mud ? { mud: true } : {}) };
+}
+/** Der Wurf auf der Bühne (in Reihenfolge), für Kombi und Auftrag während des Abspielens */
+const stageRoll = (): { face: Face; mud?: boolean }[] => [...stageDice.keys()].map(stageFace).filter((x): x is { face: Face; mud?: boolean } => !!x);
+/** Farbe oder Schlamm auf einer liegenden Seite ändern (Ausbluten, Ausbruch) */
+function tintDie(id: number, c: PigmentId | null, mud: boolean): void {
+  const d = stageDice.get(id);
+  if (!d || d.fi < 0) return;
+  if (c) d.c = c;
+  d.mud = mud;
+  const sf = stageFace(id);
+  if (!sf) return;
+  setCubeFace(d.cube, d.fi, sf.face, mud);
+  d.box.classList.toggle('mud', mud);
+  d.box.querySelector('small')!.textContent = mud ? 'mud' : R.faceText(sf.face);
+  d.box.classList.remove('bloom');
+  void d.box.offsetWidth;
+  d.box.classList.add(mud ? 'muddy' : 'bloom');
 }
 function openStage(label: string): HTMLElement {
   const stage = $('stage');
   stage.replaceChildren();
+  stage.classList.remove('wet');
   stage.hidden = false;
   stage.classList.remove('pick');
   stageDice.clear();
@@ -256,7 +282,12 @@ function landDie(id: number, fi: number): void {
   const d = stageDice.get(id);
   const f = R.unitById(id)?.faces[fi];
   if (!d || !f) return;
+  // Neu geworfen: wieder die Farbe der Seite
+  if (d.fi >= 0 && (d.c || d.mud)) setCubeFace(d.cube, d.fi, R.unitById(id)!.faces[d.fi]!, false);
   d.fi = fi;
+  delete d.c;
+  d.mud = false;
+  d.box.classList.remove('mud', 'muddy', 'bloom');
   d.box.classList.add('landed');
   d.box.querySelector('small')!.textContent = R.faceText(f);
   d.box.classList.toggle('star', f.k === 'star' || f.k === 'joker');
@@ -270,7 +301,7 @@ function taskPreview(side: Side): void {
   const line = document.querySelector('#stage .stage-task') as HTMLElement | null;
   const t = R.taskOf(side, V.round);
   if (!line || !t) return;
-  const met = R.taskMet(t, lastRolled().map((r) => r.face));
+  const met = R.taskMet(t, R.liveFaces(stageDice.size ? stageRoll() : lastRolled()));
   line.textContent = `${side === 2 ? 'Rival task' : 'Sepia’s task'}: ${t.text}${met ? ' ✓' : ''}`;
   line.classList.toggle('met', met);
 }
@@ -278,9 +309,10 @@ function taskPreview(side: Side): void {
 function comboPreview(): void {
   const line = document.querySelector('#stage .stage-combo') as HTMLElement | null;
   if (!line) return;
-  const c = R.comboOf(lastRolled().map((r) => r.face));
+  const c = R.comboOf(stageDice.size ? stageRoll() : lastRolled());
   line.textContent = c ? c.text : phase() === 'keep' && S.turn === 1 ? 'No combo yet' : '';
   line.classList.toggle('has', !!c);
+  for (const k of ['pure', 'burst', 'glaze', 'chain', 'stars']) line.classList.toggle(`k-${k}`, c?.kind === k);
 }
 async function playRoll(e: Extract<Ev, { k: 'roll' }>): Promise<void> {
   const row = openStage(e.side === 1 ? 'Your roll' : 'Rival roll');
@@ -304,10 +336,48 @@ async function playReroll(e: Extract<Ev, { k: 'reroll' }>): Promise<void> {
   }
   $('stage').classList.remove('pick');
   sfx.dice(list.length);
+  // Nasses Blatt: die Bühne glänzt feucht, je nasser, desto mehr
+  const stage = $('stage');
+  stage.style.setProperty('--wet', String(e.wet ?? 0));
+  stage.classList.toggle('wet', !!e.wet);
   await Promise.all(list.map((y, k) => tumble(y.x!.cube, y.d.fi, (k * 110) / V.speed, 900 / V.speed, (k - 1) * 60)));
   for (const y of list) landDie(y.d.id, y.d.fi);
+  // Ausbluten (Kampf A): Nachbarfarben blühen ineinander, Gegenfarben werden Schlamm
+  for (const b of e.bleed ?? []) {
+    await View.wait(220);
+    const a = stageDice.get(b.a),
+      z = stageDice.get(b.b);
+    if (a && z) bleedTrail(a.box, z.box, b.how === 'mud' ? null : (b.c ?? null));
+    if (b.how === 'mud') {
+      tintDie(b.a, null, true);
+      tintDie(b.b, null, true);
+    } else tintDie(b.b, b.c ?? null, false);
+    sfx.dieBleed(b.how === 'mud');
+    stageNote(b.how === 'mud' ? 'Opposites ran together: mud' : `Bled into ${PIG[b.c!].n}`, b.how === 'mud' ? 'mud' : 'bloom');
+    await View.wait(520);
+  }
   taskPreview(e.side);
+  if (e.side === 1) comboPreview();
   await View.wait(e.side === 1 ? 250 : 380);
+}
+/** Ein Rinnsal zwischen zwei Würfeln: Farbe (blühen) oder braun (Schlamm) */
+function bleedTrail(from: HTMLElement, to: HTMLElement, c: PigmentId | null): void {
+  const a = from.getBoundingClientRect(),
+    b = to.getBoundingClientRect();
+  const t = el('div', 'bleed-trail' + (c ? '' : ' mud'));
+  t.style.left = `${a.left + a.width / 2}px`;
+  t.style.top = `${a.top + a.height * 0.42}px`;
+  t.style.width = `${Math.max(8, b.left - a.left)}px`;
+  if (c) t.style.setProperty('--c', rgb(c));
+  document.body.append(t);
+  window.setTimeout(() => t.remove(), 1100 / V.speed);
+}
+/** Kurzer Satz über den Würfeln (Ausbluten, Schlamm) */
+function stageNote(text: string, cls: string): void {
+  const n = document.querySelector('#stage .stage-note') ?? el('p', 'stage-note', '');
+  if (!n.parentElement) document.querySelector('#stage .stage-lbl')?.after(n);
+  n.textContent = text;
+  n.className = `stage-note ${cls}`;
 }
 async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
   const stage = $('stage');
@@ -315,11 +385,22 @@ async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
   for (const x of stageDice.values()) x.box.classList.remove('held');
   const line = stage.querySelector('.stage-combo') as HTMLElement | null;
   if (e.combo && line) {
-    line.textContent = e.combo.text;
-    line.classList.add('has', 'pop', `k-${e.combo.kind}`);
-    for (const x of stageDice.values()) x.box.classList.add('combo');
-    sfx.combo(e.combo.kind);
-    await View.wait(e.combo.kind === 'pair' ? 650 : 900);
+    const c = e.combo;
+    // Banner mit Kombi, Farbe und Multiplikator (Kampf A, sichtbare Rechnung)
+    line.replaceChildren(comboBadge(c));
+    line.classList.add('has', 'pop', `k-${c.kind}`);
+    const ids = [...stageDice.keys()];
+    for (const i of c.at) stageDice.get(ids[i]!)?.box.classList.add('combo');
+    sfx.combo(c.kind);
+    await View.wait(c.kind === 'glaze' || c.kind === 'chain' ? 750 : 950);
+    // Ausbruch verkocht: die beiden Gegenfarben werden Schlamm
+    if (e.mud?.length) {
+      for (const id of e.mud) tintDie(id, null, true);
+      line.classList.add('boiled');
+      line.replaceChildren(comboBadge(c));
+      sfx.dieBleed(true);
+      await View.wait(900);
+    } else if (c.mult > 1) showBanner(`${R.COMBO_NAME[c.kind].toUpperCase()} ×${c.mult}`, 'combo');
   }
   // Sepias Auftrag erfüllt: ein Joker
   const tl = stage.querySelector('.stage-task') as HTMLElement | null;
@@ -347,8 +428,9 @@ async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
   // Symbole fliegen in den Vorrat: von den Würfelseiten, dazu der Gewinn der Kombi
   const flights: [HTMLElement, Face][] = [];
   for (const [id, x] of stageDice) {
-    const f = R.unitById(id)?.faces[x.fi];
-    if (!f) continue;
+    const sf = stageFace(id);
+    if (!sf || sf.mud) continue;
+    const f = sf.face;
     if (f.k === 'gold') for (const c of CRESTS) flights.push([x.cube, { k: c.k, n: 1 }]);
     else if (R.isCrestFace(f)) {
       // Jedes Symbol fliegt einzeln, auch bei Doppel-, Dreifach- und Mischseiten
@@ -367,7 +449,18 @@ async function playApply(e: Extract<Ev, { k: 'apply' }>): Promise<void> {
   await View.wait(260);
   stage.hidden = true;
   stage.replaceChildren();
+  stage.classList.remove('wet');
   stageDice.clear();
+}
+/** Kombi als Banner: Name, Farben, Multiplikator. Verkocht: durchgestrichen */
+function comboBadge(c: R.Combo): HTMLElement {
+  const b = el('span', `cbadge k-${c.kind}${c.mud ? ' boiled' : ''}`);
+  const dot = (p: PigmentId) => `<i style="background:${rgb(p)}"></i>`;
+  const pigs = [c.pig, c.pig2].filter((p): p is PigmentId => !!p);
+  const x = c.mult > 1 ? `<em>×${c.mult}${c.kind === 'chain' ? '+' : ''}</em>` : '';
+  const rest = c.mud ? 'boiled to mud' : c.kind === 'chain' ? `+${R.PAINT.chainStep} per hit` : c.joker ? 'and a Joker' : c.kind === 'burst' ? 'may boil to mud' : '';
+  b.innerHTML = `<b>${R.COMBO_NAME[c.kind]}</b>${pigs.map(dot).join('')}${x}${rest ? `<small>${rest}${c.gain && Object.keys(c.gain).length ? ' · +1' : ''}</small>` : ''}`;
+  return b;
 }
 /** Nach dem Neuladen in der Haltephase: den Wurf ohne Rollen wieder hinlegen */
 function ensureKeepStage(): void {
@@ -379,6 +472,7 @@ function ensureKeepStage(): void {
     row.append(x.box);
     void tumble(x.cube, r.fi, 0, 1, 0);
     landDie(r.id, r.fi);
+    if (r.c || r.mud) tintDie(r.id, r.c ?? null, !!r.mud);
   }
 }
 /** Haltephase: Würfel antippbar, gehaltene sind angehoben */
@@ -392,10 +486,12 @@ function renderKeep(): void {
   if (keep && !legend) {
     legend = el('div', 'stage-legend');
     for (const [k, t] of [
-      ['Pair', '+1 of that symbol'],
-      ['Triple', '+2 and a Joker'],
-      ['Rainbow', '3 different symbols: a Joker'],
+      ['Pure ×2', '3 of one pigment, and a Joker'],
+      ['Burst ×2', '2 opposite colours, 35% mud'],
+      ['Glaze ×1.5', '2 of one pigment'],
+      ['Chain ×1.25', '2 neighbours, +0.25 per hit'],
       ['3 stars', 'same level: a Joker'],
+      ['Wet', 'later rerolls may bleed'],
     ])
       legend.append(html('div', 'cmb', `<b>${k}</b><span>${t}</span>`));
     stage.append(legend);
@@ -449,7 +545,7 @@ function flyCrest(from: HTMLElement, f: Face, side: Side, k: number): Promise<vo
 }
 
 /* ---------- Banner und Ticker ---------- */
-function showBanner(text: string, kind: 'turn' | 'round' | 'ability' | 'big'): void {
+function showBanner(text: string, kind: 'turn' | 'round' | 'ability' | 'big' | 'combo'): void {
   const b = $('banner');
   b.className = '';
   b.textContent = text;
@@ -499,7 +595,7 @@ const LESSONS: [string, () => boolean, string][] = [
   ['rival', () => phase() === 'roll' && S.round === 1, 'The apprentice unfolded first, up there by its palette. Each palette has three hearts. Break theirs, or cover more paper than them when it dries after six rounds.'],
   ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice from your deck. I picked three for you. Roll them.'],
   ['deck', () => phase() === 'roll' && me().units.some((u) => u.used), 'Rolled dice are used up, like cards: grey in your deck. When fewer than three are ready, I shuffle the used ones back in. Plan which dice you spend.'],
-  ['keep', () => phase() === 'keep', 'The roll lies open. Hold what you like and reroll the rest, once per turn. Pairs, triples and three different symbols pay extra. I marked what I would hold.'],
+  ['keep', () => phase() === 'keep', 'The roll lies open. Hold what you like and reroll the rest. Matching colours pay: two of one pigment glaze, three are pure. Mind the water, every reroll after the first wets the sheet. I marked what I would hold.'],
   ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Splash hits a palette, Guard halves a hit by itself, Glow pours into your blots and fills their brim. I lent you two Glow.'],
   ['summon', () => phase() === 'summon', 'Stars bring blots out. A die may unfold if the other dice show stars worth at least its level. This one qualifies, and the net is already placed.'],
   ['drag', () => phase() === 'act' && !!tutGo() && (tutGo()!.a === 'stamp' || tutGo()!.a === 'splash'), 'Now the fun part. Drag a blot along the gold arrow and let go. Paper means stamp, a rival means splash. One drag per blot, the turn ends by itself.'],
@@ -581,7 +677,10 @@ function renderStatus(): void {
   box.style.top = `${board.offsetTop}px`;
   box.style.width = `${board.offsetWidth}px`;
   box.style.height = `${Math.max(20, View.padTop() - 2)}px`;
-  const key = JSON.stringify([S.teams.map((t) => t.media ?? []), R.setBonus(1), R.setBonus(2), cell, V.round, V.turn || S.turn, tasksDone.size]);
+  const ts = V.turn || S.turn;
+  // Multiplikator des Zugs (Kampf A): steht bis zum Zugende bei der Seite am Zug
+  const xm = S.combo && !S.combo.mud && S.combo.mult > 1 && ts === S.turn ? { x: R.turnMult(ts), kind: S.combo.kind } : null;
+  const key = JSON.stringify([S.teams.map((t) => t.media ?? []), R.setBonus(1), R.setBonus(2), cell, V.round, ts, tasksDone.size, xm]);
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   box.replaceChildren();
@@ -595,6 +694,14 @@ function renderStatus(): void {
       b.addEventListener('click', () => showTicker(`${sd === 2 ? 'Rival: ' : ''}${m.name}. ${m.text}`, sd === 1 ? 'you' : 'rival'));
       g.append(b);
     }
+    if (xm && sd === ts) {
+      const b = html('button', `st-mult s${sd} k-${xm.kind}`, `×${+xm.x.toFixed(2)}`) as HTMLButtonElement;
+      b.type = 'button';
+      b.addEventListener('click', () =>
+        showTicker(`${sd === 2 ? 'Rival ' : ''}${R.COMBO_NAME[xm.kind]}: every splash on a blot this turn ×${+xm.x.toFixed(2)}${xm.kind === 'chain' ? `, +${R.PAINT.chainStep} with each hit` : ''}. Palette hits stay one heart.`, sd === 1 ? 'you' : 'rival'),
+      );
+      g.append(b);
+    }
     const sb = R.setBonus(sd);
     if (sb) {
       const t = R.FAMILY_TEXT[sb.fam][sb.n >= 3 ? 1 : 0];
@@ -606,7 +713,6 @@ function renderStatus(): void {
     return g;
   };
   // Sepias Auftrag dieser Runde: der Seite, die am Zug ist
-  const ts = V.turn || S.turn;
   const task = R.taskOf(ts, V.round);
   if (task) {
     const done = tasksDone.has(`${V.round}:${ts}`);
@@ -758,7 +864,7 @@ function renderCtx(): void {
       b.dataset.id = String(r.u.id);
       // Ein Stern, der nicht beschwören kann, sagt, warum (festgelegt am 31.10.2026)
       const why = ok ? null : R.summonWhy(me(), lastRolled(), r);
-      b.append(html('span', 'rf', iconSvg(r.face, 26)), portraitEl(r.u.id, 22), el('small', why ? 'why' : '', why ? R.whyText(why) : R.faceText(r.face)));
+      b.append(html('span', 'rf', r.mud ? `<svg width="26" height="26" viewBox="0 0 20 20" aria-hidden="true">${MUD_SVG}</svg>` : iconSvg(r.face, 26)), portraitEl(r.u.id, 22), el('small', why ? 'why' : '', why ? R.whyText(why) : r.mud ? 'mud' : R.faceText(r.face)));
       b.addEventListener('click', () => {
         if (!allowedEl(b)) return;
         sfx.tap();
@@ -859,7 +965,9 @@ function renderGo(): void {
     go.textContent = 'Keep';
     go.disabled = false;
     aux.hidden = false;
-    aux.textContent = n ? `Reroll ${n}` : 'Reroll';
+    // Nässe (Kampf A): Tropfen und Chance je Nachbarpaar für den nächsten Neuwurf
+    const wet = R.wetChance(1);
+    aux.innerHTML = `${n ? `Reroll ${n}` : 'Reroll'}<small class="wetc${wet ? ' on' : ''}">${S.rerolls < 1 ? 'none left' : wet ? `${'●'.repeat(Math.round(wet * 4))} wet ${Math.round(wet * 100)}%` : '○ dry'}</small>`;
     aux.disabled = !n || S.rerolls < 1;
     return;
   }
@@ -931,7 +1039,10 @@ function previewBase(u: Unit, p: Plan | null): Preview | null {
     pv.pct = pct;
     // G4: reicht der Treffer, steht am Ziel WASH OUT
     pv.kill = kill;
-    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% full hit (else a graze), -${dmg}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, t.m.main)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
+    // Kampf A: der Multiplikator der Kombi steht in der Rechnung
+    const x = R.turnMult(1);
+    const xs = x !== 1 ? ` (${R.atSpot(u, p.to, () => R.baseDamage(u, t, pig, R.cheb(u.x, u.y, t.x, t.y) <= 1, 1))} ×${x})` : '';
+    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% full hit (else a graze), -${dmg}${xs}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, t.m.main)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
   }
   return pv;
 }
@@ -946,7 +1057,7 @@ function renderHint(): void {
   if (th) return setHint(th);
   if (p === 'opening') return setHint(summonU ? `Tap the net to unfold ${summonU.name}. Tap a blue dot to move it, Turn to rotate it.` : 'Opening: pick one of your dice below to unfold first.');
   if (p === 'roll') return setHint(`Roll ${need()} dice. Tap to swap, hold to read. Rolled dice stay used until you reshuffle.`);
-  if (p === 'keep') return setHint('Tap dice to hold them, then reroll the rest once. Or keep the roll as it is.');
+  if (p === 'keep') return setHint(`Hold dice, reroll the rest (${S.rerolls} left). The first reroll is dry, later ones get wet: neighbours may bleed. Or keep.`);
   if (p === 'medium') return setHint('Pick a medium. It bends one rule for you until the paper dries.');
   if (p === 'summon') return setHint(summonU ? `Tap the net to unfold ${summonU.name}, or skip. Blue dots move it.` : 'Tap a glowing die to unfold it, or skip.');
   if (drag) return setHint(drag.pv?.text ?? 'Out of reach. Let go to cancel.');
