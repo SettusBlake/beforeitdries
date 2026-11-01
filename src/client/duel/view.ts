@@ -1447,7 +1447,8 @@ export async function playEvent(e: Ev): Promise<void> {
         const a = unitById(e.id),
           b = target ? unitById(target.id) : null;
         const lbl = a && b ? `${elementDef(a.el).name.toUpperCase()} ▸ ${elementDef(b.el).name.toUpperCase()} ×${e.mult}` : `×${e.mult}`;
-        text(x1, y1 - cell * 1.5, lbl, a ? elementDef(a.el).col : '#b8860b', 13, 1500);
+        // Ganz oben auf dem Blatt stehen Schild und Rechnung unter dem Ziel, sonst würden sie abgeschnitten
+        text(x1, y1 > cell * 1.6 ? y1 - cell * 1.5 : y1 + cell * 1.3, lbl, a ? elementDef(a.el).col : '#b8860b', 13, 1500);
         ring(x1, y1, cell * 0.4, cell * 1.2, 'rgba(201,150,30,.8)', 600, 3);
       }
       if (e.text !== 'palette') {
@@ -1466,7 +1467,7 @@ export async function playEvent(e: Ev): Promise<void> {
             .filter((v) => v !== 1)
             .map((v) => `×${+v.toFixed(2)}`)
             .join(' ');
-          const calc = { x: x1, y: y1 - cell * 1.12, text: `${e.base} ${xs}`, col: '#6a3d8f', size: 15, t0: now(), life: 1700 / V.speed };
+          const calc = { x: x1, y: y1 > cell * 1.6 ? y1 - cell * 1.12 : y1 + cell * 0.95, text: `${e.base} ${xs}`, col: '#6a3d8f', size: 15, t0: now(), life: 1700 / V.speed };
           V.texts.push(calc);
           const big = { x: x1, y: y1 - cell * 0.15, text: `-${e.base}`, col: tone, size, t0: now(), life: 1400 / V.speed };
           V.texts.push(big);

@@ -11,11 +11,11 @@ import { ABILITY, aiChooseDice, aiJokerCrest, aiReroll, bestOpening, byGesture, 
 /** Bis zu dieser Runde gibt Sepia jeden Schritt vor */
 export const TUTORIAL_ROUNDS = 3;
 /**
- * Per Suche gewählt (Kampf A, 01.11.2026): Runde 1 Beschwören, trockener Neuwurf, Spritzer, Palette. Runde 2 Glaze aus zwei
- * Carmine-Seiten nach einem Neuwurf, Treffer mit ×1.5, Palette. Runde 3 nasser Neuwurf mit Schlamm, Beschwören, Meisterzug.
- * Drei Rivalen platzen
+ * Per Suche gewählt (Elemente, 01.11.2026): Runde 1 drei Sterne mit Joker, Beschwören, Spritzer. Runde 2 Glaze aus zwei
+ * Ultramarin-Seiten, Treffer mit Element und Glaze „12 ×2 ×1.5 = 36“, Meisterzug. Runde 3 trockener und nasser Neuwurf mit
+ * Schlamm, Palette, Meisterzug
  */
-export const TUTORIAL_SEED = 267;
+export const TUTORIAL_SEED = 133;
 
 export function tutorialBags(): [Monster[], Monster[]] {
   return [

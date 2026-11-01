@@ -1,6 +1,6 @@
 # Vorschlag: Elemente (Schere-Stein-Papier in Malersprache)
 
-Stand 01.11.2026, Fassung 1. Freigegeben am 01.11.2026 („passt“, alle fünf Empfehlungen). Gebaut, Bild docs/entwuerfe/elemente-im-spiel.png.
+Stand 01.11.2026, Fassung 1. Freigegeben am 01.11.2026 („passt“, alle fünf Empfehlungen). Gebaut, Playtest v0.0.1.117, Bild docs/entwuerfe/elemente-im-spiel.png.
 
 Wunsch (01.11.2026): Jedes Monster bekommt ein Element (Blitz, Wasser, Feuer, Erde, Holz, Metall …) mit Namen aus der Farb- und Malersprache. Die Elemente schlagen sich wie bei Schere-Stein-Papier, der Treffer macht dann 1,25- bis 2-fachen Schaden.
 
@@ -58,7 +58,7 @@ Die sechs stehen in einem Ring. Jedes schlägt das nächste hart und das übern�
 - **Werte-Teil der Karte:** Die Zeile „Colour“ mit Gegen- und Nachbarfarben ist durch „Element“ ersetzt.
 - **Kacheln** in Sammlung und Markt mit kleinem Zeichen.
 - **Vorschau beim Zielen:** „-11 (9 ×1.25), Vermilion burns Sap ×1.25“.
-- **Beim Treffer:** Schild „WASH ▸ VERMILION ×2“ in der Farbe des Angreifers, darunter die Rechnung, die hochzählt („9 ×2 = 18“, mit Glaze „9 ×2 ×1.5 = 27“).
+- **Beim Treffer:** Schild „WASH ▸ VERMILION ×2“ in der Farbe des Angreifers, dazu die Rechnung, die hochzählt („9 ×2 = 18“, mit Glaze „9 ×2 ×1.5 = 27“). Steht das Ziel ganz oben auf dem Blatt, stehen beide unter dem Ziel.
 - **Hilfe** mit dem Ring, Sepia erklärt Elemente im Lern-Duell beim ersten Spritzer auf einen Klecks.
 - **Markt:** Filter je Element.
 
@@ -79,7 +79,7 @@ Mit den eingebauten Regeln (400 Duelle je Gegner): Geselle 96 %, Meister 42 %, G
 
 1. **Regeln und Server:** gebaut. DUEL_PROTOCOL 17, Speicherstand v7 (laufende Duelle werden verworfen).
 2. **Anzeige:** gebaut.
-3. **Lern-Duell:** gebaut (Sepia erklärt den Ring, neuer Seed, weil sich der Schaden geändert hat).
+3. **Lern-Duell:** gebaut. Neuer Seed 133, weil sich der Schaden geändert hat: Runde 2 zeigt Glaze und Element-Treffer zusammen („12 ×2 ×1.5 = 36“). Sepia erklärt den Ring beim ersten Spritzer auf einen Klecks.
 
 ## Fragen (beantwortet am 01.11.2026, „passt“)
 
