@@ -8,6 +8,8 @@ import { holoBake } from '../lib/holo';
 import { PIG } from '../../shared/data';
 import { RNG, hashStr } from '../../shared/rng';
 import { iconImage } from './icons';
+import { elementImage } from './elements';
+import { elementDef } from '../../shared/elements';
 import { faceImage, holoRim, lookOf, type Look } from './faceskin';
 import { BRIM, COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type Unit, type UnitSnap } from '../../shared/duel/rules';
 import { sfx } from './sound';
@@ -924,6 +926,13 @@ function drawUnit(u: VUnit, t: number): void {
       ctx.stroke();
     }
   }
+  // Element am Sockel (01.11.2026): kleines Zeichen links, damit man Ziele im Ring erkennt
+  const eu = u.state === 'sheet' ? unitById(u.id) : null;
+  if (eu) {
+    const img = elementImage(eu.el);
+    const es = Math.max(12, cell * 0.27);
+    if (img.complete) ctx.drawImage(img, x - rx - es * 0.45, baseY - es * 0.55, es, es);
+  }
   if (u.shield > 0) {
     ctx.strokeStyle = 'rgba(90,100,120,.85)';
     ctx.lineWidth = 1.8;
@@ -1434,7 +1443,11 @@ export async function playEvent(e: Ev): Promise<void> {
         }).then(() => Object.assign(target, { ox: 0, oy: 0, sqx: 1, sqy: 1, rot: 0, busy: false }));
       }
       if (e.mult && e.mult > 1 && e.text !== 'palette') {
-        text(x1 + cell * 0.55, y1 - cell * 0.55, 'strong', '#b8860b', 13, 1100);
+        // Element-Vorteil (01.11.2026): „WASH ▸ VERMILION ×2“ in der Farbe des Angreifers
+        const a = unitById(e.id),
+          b = target ? unitById(target.id) : null;
+        const lbl = a && b ? `${elementDef(a.el).name.toUpperCase()} ▸ ${elementDef(b.el).name.toUpperCase()} ×${e.mult}` : `×${e.mult}`;
+        text(x1, y1 - cell * 1.5, lbl, a ? elementDef(a.el).col : '#b8860b', 13, 1500);
         ring(x1, y1, cell * 0.4, cell * 1.2, 'rgba(201,150,30,.8)', 600, 3);
       }
       if (e.text !== 'palette') {
@@ -1447,8 +1460,12 @@ export async function playEvent(e: Ev): Promise<void> {
         const size = Math.round((20 + 20 * share) * (crit ? 1.25 : 1));
         const tone = crit ? '#b8860b' : share > 0.6 ? '#8e1f1f' : share > 0.35 ? '#a33a3a' : '#b0573a';
         // Kampf A, sichtbare Rechnung: Basis mal Multiplikator der Kombi, die Zahl zählt hoch
-        if (e.x && e.base !== undefined && e.pre !== undefined) {
-          const xs = `×${+e.x.toFixed(2)}`;
+        if (e.base !== undefined && e.pre !== undefined && ((e.x ?? 1) !== 1 || (e.mult ?? 1) !== 1)) {
+          // Alle Faktoren: Element und Kombi, z. B. „9 ×2 ×1.5 = 27“
+          const xs = [e.mult ?? 1, e.x ?? 1]
+            .filter((v) => v !== 1)
+            .map((v) => `×${+v.toFixed(2)}`)
+            .join(' ');
           const calc = { x: x1, y: y1 - cell * 1.12, text: `${e.base} ${xs}`, col: '#6a3d8f', size: 15, t0: now(), life: 1700 / V.speed };
           V.texts.push(calc);
           const big = { x: x1, y: y1 - cell * 0.15, text: `-${e.base}`, col: tone, size, t0: now(), life: 1400 / V.speed };

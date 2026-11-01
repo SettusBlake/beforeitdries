@@ -4,6 +4,7 @@
  * Was ein anderer Spieler bekommt, geht als Lieferung nach deliver:{id} und wird bei seinem nächsten Laden unter seiner
  * Sperre abgeholt. So wartet nie ein Spieler auf die Sperre eines anderen, und nichts geht verloren, wenn er gerade spielt.
  */
+import { ELEMENTS, elementOf, isElement } from '../shared/elements';
 import type { MarketFilter, MarketItem, MarketResponse, MarketSort, TradeCollection, TradeGate, TradeOffer, TradeResponse, TradeStatus } from '../shared/api';
 import { dayKey } from '../shared/day';
 import { defaultBand, dieMonster, KEEP_MIN, marketFee, priceKey, rarityIndex, TRADE, type DiceSave, type DieRec, type Hist, type News, type Rarity } from '../shared/dice';
@@ -239,9 +240,10 @@ function passes(r: MarketRec, f: MarketFilter): boolean {
   if (f === 'holo') return !!r.die.holo;
   if (f === 'style') return !!r.die.style;
   if (f === 'drawn') return !!r.die.draw;
+  if (isElement(f)) return elementOf(dieMonster(r.die)) === f;
   return true;
 }
-const FILTERS: MarketFilter[] = ['all', 'rare', 'holo', 'style', 'drawn'];
+const FILTERS: MarketFilter[] = ['all', 'rare', 'holo', 'style', 'drawn', ...ELEMENTS.map((e) => e.k)];
 const SORTS: MarketSort[] = ['new', 'cheap', 'dear'];
 
 /** Richtwerte aus den Verkäufen der letzten 7 Tage: mittlere Hälfte der Preise, ab drei Verkäufen */

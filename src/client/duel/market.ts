@@ -2,6 +2,8 @@
  * Markt im Client (docs/entwuerfe/tausch-und-markt-plan.md, Schritt 2): Würfel anderer Spieler ansehen und kaufen,
  * eigene einstellen und zurücknehmen. Geprüft, bezahlt und geliefert wird am Server, hier wird nur gezeigt und angetippt
  */
+import { elementIcon } from './elements';
+import { ELEMENTS, isElement } from '../../shared/elements';
 import type { DiceResponse, MarketFilter, MarketItem, MarketResponse, MarketSort, TradeGate, TradeStatus } from '../../shared/api';
 import { defaultBand, dieMonster, marketFee, priceKey, rarityDef, serialText, styleDef, TRADE, type DieRec, type Rarity } from '../../shared/dice';
 import { dieUnit } from '../../shared/duel/rules';
@@ -229,7 +231,9 @@ export function tile(d: DieRec, i: number): HTMLElement {
   } else box.append(c);
   const lv = el('span', 'lvb');
   lv.innerHTML = iconSvg({ k: 'star', n: u.lv }, 12);
-  box.append(lv, el('span', 'rar', rarityDef(u.rarity).label));
+  const elt = el('span', 'elt');
+  elt.innerHTML = elementIcon(u.el, 13);
+  box.append(lv, elt, el('span', 'rar', rarityDef(u.rarity).label));
   if (d.style) box.append(el('span', 'mark', styleDef(d.style).label));
   return box;
 }
@@ -240,6 +244,7 @@ const FILTERS: [MarketFilter, string][] = [
   ['holo', 'Holo'],
   ['style', 'Styles'],
   ['drawn', 'Drawn'],
+  ...ELEMENTS.map((e): [MarketFilter, string] => [e.k, e.name]),
 ];
 const SORTS: [MarketSort, string][] = [
   ['new', 'Newest'],
@@ -253,6 +258,7 @@ function render(): void {
   fl.replaceChildren();
   for (const [k, t] of FILTERS) {
     const b = el('button', filter === k ? 'on' : '', t) as HTMLButtonElement;
+    if (isElement(k)) b.innerHTML = `${elementIcon(k, 13)} ${t}`;
     b.type = 'button';
     b.addEventListener('click', () => {
       if (filter === k) return;

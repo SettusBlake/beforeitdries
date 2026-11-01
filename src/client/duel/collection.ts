@@ -22,6 +22,7 @@ import { initTrades, openTrades, showTrades } from './trade';
 import { setColorChoice } from './colors';
 import { iconSvg, netSvg } from './icons';
 import { faceTile, lookOf } from './faceskin';
+import { elementBadge, elementIcon, elementText } from './elements';
 import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
 
@@ -248,7 +249,7 @@ function render(): void {
     c.dataset.id = d.id;
     c.style.setProperty('--c', r.col);
     const g = s.glaze[dieSpecies(d)] ?? 0;
-    c.append(holoArt(art(d, 64), d, c), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), el('b', '', shortName(u)), el('small', '', r.label + (g ? ` · ${g} glaze` : '')));
+    c.append(holoArt(art(d, 64), d, c), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 14)), html('span', 'elt', elementIcon(u.el, 15)), el('b', '', shortName(u)), el('small', '', r.label + (g ? ` · ${g} glaze` : '')));
     if (d.no) c.append(el('span', 'serial', serialText(d.no)));
     if (d.draw) c.append(html('span', 'drawn', BRUSH));
     if (d.style || d.holo) c.append(el('span', 'shinymark' + (d.holo ? ' holo' : ''), markText(d)));
@@ -378,6 +379,8 @@ function openDie(d: DieRec, item?: MarketItem | 'view'): void {
   info.append(
     el('b', '', u.name),
     html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b class="rlabel" style="color:${r.col}">${r.label}</b>`),
+    // Element (01.11.2026)
+    html('span', 'elline', `${elementBadge(u.el)} <small>${elementText(u.el)}</small>`),
     el('small', '', `${PAPER[u.m.paper].n} · ${speciesLabel(u.m)}`),
     ...(speciesNamedBy(u.m) ? [el('small', 'named-line', `Species named by u/${speciesNamedBy(u.m)}`)] : []),
     html('small', 'serial-line', (d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind') + (d.draw ? ` · <span class="drawn">${BRUSH} drawn by ${d.hist?.[0] ? foeTag(d.hist[0].u) : foreign ? 'its painter' : 'you'}</span>` : '')),

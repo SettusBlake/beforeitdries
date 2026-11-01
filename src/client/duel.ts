@@ -22,6 +22,8 @@ import { loadSpecies, speciesName } from './lib/species';
 import { makeCube, setCubeFace, tumble } from './duel/dice3d';
 import { iconSvg, MUD_SVG, netSvg } from './duel/icons';
 import { faceImage, faceTile, holoRim, lookOf } from './duel/faceskin';
+import { elementBadge, elementIcon, elementText, ringSvg } from './duel/elements';
+import { elementDef } from '../shared/elements';
 import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
 import { diceBadge, initDice, openDice } from './duel/collection';
@@ -674,6 +676,21 @@ function scoreExplain(): Explain {
     now: `Now: you ${a + R.HEART_BONUS * S.teams[0].hearts} (${a} paper + ${R.HEART_BONUS * S.teams[0].hearts} hearts), rival ${b + R.HEART_BONUS * S.teams[1].hearts} (${b} + ${R.HEART_BONUS * S.teams[1].hearts}).`,
   };
 }
+function elementExplain(u: Unit): Explain {
+  const ed = elementDef(u.el);
+  const foes = R.onSheet(S.teams[u.side === 1 ? 1 : 0]);
+  const good = foes.filter((f) => R.elemMult(u, f) > 1);
+  return {
+    icon: ringSvg(54, u.el),
+    fx: 'ring',
+    title: `${ed.name}, element of ${u.name}`,
+    text: `Six elements stand in a ring. Each hits the next one twice as hard and the one after a little harder. ${ed.name} ${elementText(u.el)}`,
+    now: good.length ? `Good targets on the sheet: ${good.map((f) => `${f.name} ×${R.elemMult(u, f)}`).join(', ')}.` : 'No rival blot on the sheet it beats right now.',
+    cells: good.map(cellOf),
+    col: ed.col,
+    side: u.side,
+  };
+}
 function jokerExplain(): Explain {
   return {
     icon: iconSvg({ k: 'joker', n: 3 }, 46),
@@ -729,6 +746,7 @@ const LESSONS: [string, () => boolean, string][] = [
   ['stamp', () => tutGo()?.a === 'stamp', 'A stamp paints the blot’s shape in wet paint. Over dried paint it needs a roll: your Opacity against their Grain. Wet paint bleeds into free paper when the round ends.'],
   ['mult', () => { const a = tutGo(); return a?.a === 'splash' && a.at !== S.teams[1].home && R.turnMult(1) > 1; }, 'Your Glaze still holds. Splash this one and watch the sum: the hit, times one and a half.'],
   ['splash', () => tutGo()?.a === 'splash', 'Splash hits a rival in reach: Saturation and a d20 against Grain and a d20. A hit paints the cell under the target. Two or three hits and a blot bursts.'],
+  ['elem', () => { const a = tutGo(); if (a?.a !== 'splash' || a.at === S.teams[1].home) return false; const t = R.unitAt(a.at! % COLS, Math.floor(a.at! / COLS)); const u = R.unitById(a.id); return !!t && !!u; }, 'Every blot carries an element: Wash, Vermilion, Gilt, Sap, Ochre or Fluoro, the small badge by its feet. They stand in a ring. Each hits the next one twice as hard and the one after a little harder. Tap a badge on a card to see the ring.'],
   ['brim', () => phase() === 'act' && onSheetFull(), 'Paint soaks in. Every stamp, splash and hit fills a blot’s brim, and Glow pours into all of them. I filled this one to the top. A full blot shines gold: its next move is a master stroke.'],
   ['soak', () => tutGo()?.a === 'soak', 'Tap a blot twice to soak: it heals and rinses stains.'],
   ['end', () => tutorialAction()?.k === 'end', 'Nothing worth doing. End your turn.'],
@@ -916,7 +934,7 @@ function renderTop(): void {
     b2.type = 'button';
     b2.style.setProperty('--c', rarityDef(u.rarity).col);
     b2.title = u.name;
-    b2.append(portraitEl(u.id, 26, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 12)));
+    b2.append(portraitEl(u.id, 26, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 12)), html('span', 'elc', elementIcon(u.el, 12)));
     if (st === 'sheet' && v) {
       const hp = el('span', 'mini-hp');
       const i = el('i');
@@ -954,7 +972,7 @@ function dieChip(u: Unit): HTMLElement {
   b.dataset.id = String(u.id);
   b.classList.add(`r-${u.rarity}`);
   b.style.setProperty('--c', rarityDef(u.rarity).col);
-  b.append(portraitEl(u.id, 34, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 15)), el('span', 'st', used ? 'used' : st === 'bag' ? 'ready' : st === 'sheet' ? 'on sheet' : 'lost'));
+  b.append(portraitEl(u.id, 34, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 15)), html('span', 'elc', elementIcon(u.el, 14)), el('span', 'st', used ? 'used' : st === 'bag' ? 'ready' : st === 'sheet' ? 'on sheet' : 'lost'));
   // Halten zeigt die Seiten, auch wenn man den Würfel gerade wählen kann
   let hold = 0,
     held = false;
@@ -1197,10 +1215,12 @@ function previewBase(u: Unit, p: Plan | null): Preview | null {
     pv.pct = pct;
     // G4: reicht der Treffer, steht am Ziel WASH OUT
     pv.kill = kill;
-    // Kampf A: der Multiplikator der Kombi steht in der Rechnung
-    const x = R.turnMult(1);
-    const xs = x !== 1 ? ` (${R.atSpot(u, p.to, () => R.baseDamage(u, t, pig, R.cheb(u.x, u.y, t.x, t.y) <= 1, 1))} ×${x})` : '';
-    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% full hit (else a graze), -${dmg}${xs}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.relWord(pig, t.m.main)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
+    // Kampf A und Elemente: die Multiplikatoren stehen in der Rechnung
+    const x = R.turnMult(1),
+      em = R.elemMult(u, t);
+    const fs = [em, x].filter((v) => v !== 1).map((v) => ` ×${v}`).join('');
+    const xs = fs ? ` (${R.atSpot(u, p.to, () => R.baseDamage(u, t, pig, R.cheb(u.x, u.y, t.x, t.y) <= 1, 1, 1))}${fs})` : '';
+    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% full hit (else a graze), -${dmg}${xs}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.elemWord(u, t)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
   }
   return pv;
 }
@@ -1899,6 +1919,11 @@ function openInspect(u: Unit): void {
   const info = el('div', 'card-id');
   const rd = rarityDef(u.rarity);
   info.append(el('b', '', u.name), html('span', 'lv', `${iconSvg({ k: 'star', n: u.lv }, 15)} Level ${u.lv} · <b style="color:${rd.col}">${rd.label}</b> · ${u.side === 1 ? 'yours' : 'rival'} · ${st === 'bag' ? 'in the bag' : st === 'sheet' ? 'on the sheet' : 'washed out'}`));
+  // Element (01.11.2026): Abzeichen, Antippen zeigt den Ring
+  const eb = html('button', 'elb-btn', elementBadge(u.el)) as HTMLButtonElement;
+  eb.type = 'button';
+  eb.addEventListener('click', () => explain(eb, elementExplain(u)));
+  info.append(eb);
   if (st === 'sheet' && v) {
     const hp = el('div', 'card-hp');
     const i = el('i');
@@ -2316,7 +2341,7 @@ api
     crests: { ...S.teams[0]?.crests },
     hearts: S.teams.map((t) => t.hearts),
     summonable: phase() === 'summon' ? R.summonable(me(), lastRolled()).map((u) => u.id) : [],
-    units: R.allUnits().map((u) => ({ id: u.id, side: u.side, x: u.x, y: u.y, hp: u.hp, name: u.name, acted: u.acted, brim: u.brim, abT: R.abilityTargets(u), abSelf: ABILITY[u.m.bp].target === 'self', splash: R.splashCells(u), canMove: R.canMove(u) })),
+    units: R.allUnits().map((u) => ({ id: u.id, side: u.side, x: u.x, y: u.y, hp: u.hp, name: u.name, acted: u.acted, brim: u.brim, abT: R.abilityTargets(u), abSelf: ABILITY[u.m.bp].target === 'self', splash: R.splashCells(u), canMove: R.canMove(u), el: u.el })),
     place: summonU ? R.placements(summonU).slice(0, 1) : [],
     score: R.scores(),
     guide: guideNow,

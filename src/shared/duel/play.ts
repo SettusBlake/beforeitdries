@@ -86,8 +86,8 @@ export type DuelAction =
 
 /** Was der Client sieht: alles außer Würfelzufall und Seed */
 export type DuelState = {
-  /** Stand der Regeln im Speicher: 6 = Kampf A Fassung 2 (Farbseiten, gleiche Farben, Nässe macht Schlamm). Ältere Duelle werden verworfen */
-  v: 6;
+  /** Stand der Regeln im Speicher: 7 = Elemente (Ring beim Spritzen). Ältere Duelle werden verworfen */
+  v: 7;
   cells: Cell[];
   teams: Team[];
   round: number;
@@ -133,7 +133,7 @@ const isInt = (v: unknown, lo: number, hi: number): v is number => Number.isInte
 
 export function publicState(): DuelState {
   return {
-    v: 6,
+    v: 7,
     cells: S.cells,
     teams: S.teams,
     round: S.round,

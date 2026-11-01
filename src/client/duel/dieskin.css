@@ -61,3 +61,15 @@
 #explain.fx-score .ex-ic > *, #explain.fx-set .ex-ic > * { animation: exPulse 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { #explain .ex-ic > *, #explain .ex-ic::before { animation: none !important; } }
 .crest[role="button"], #hearts, #rival-hearts, #game .score, .jlbl { cursor: pointer; }
+/* Elemente (01.11.2026): Abzeichen und kleine Zeichen */
+.elb { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 2px; border-radius: 999px; background: var(--ec); color: #fff; font: 700 11.5px 'JetBrains Mono', monospace; vertical-align: middle; }
+.elb svg { display: block; }
+.elb-btn { border: 0; background: none; padding: 0; margin-top: 4px; cursor: pointer; text-align: left; }
+.elline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0 2px; }
+.elline small { font-size: 11.5px; color: var(--muted, #5f6474); line-height: 1.3; }
+.chip .elc { position: absolute; right: 3px; top: 3px; line-height: 0; }
+.rd .elc { position: absolute; left: 0; top: -2px; line-height: 0; }
+.dcard .elt { position: absolute; left: 5px; top: 26px; line-height: 0; }
+.gd .elt { position: absolute; left: 4px; top: 22px; line-height: 0; }
+.scol .elb { margin-right: 4px; }
+#explain.fx-ring .ex-ic > * { animation: exGlow 3s linear infinite; filter: none; }

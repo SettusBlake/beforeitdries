@@ -3,8 +3,8 @@
  * Gerechnet wird gegen einen durchschnittlichen Klecks (Median aus 20 000 Zügen, gemessen am 31.10.2026),
  * im Duell mit dem, was gerade gilt (Stufe des Rivalen, Set-Bonus, Eigenschaften). Nur Anzeige, die Regeln stehen in rules.ts
  */
-import { PIG, PIGMENTS, type PigmentId } from '../data';
-import { relation } from '../glaze';
+import { PIG } from '../data';
+import { elementFoes, elementPrey, type ElementId } from '../elements';
 import { statRows as monsterStats } from '../monster';
 import { baseDamage, FAMILY, FAMILY_TEXT, GAIT, has, HIT, LEVEL_POWER, moveRange, pWin, type Family, type Unit } from './rules';
 
@@ -40,10 +40,9 @@ const b5 = (v: number) => Math.round(v / 5);
 const pc = (p: number) => `${Math.round(p * 100)}%`;
 const statOf = (u: Unit, k: StatKey): number => (k === 'lf' ? u.lf : u[k]);
 
-/** Ein durchschnittlicher Gegner mit einem Pigment, das zu diesem Klecks neutral steht */
+/** Ein durchschnittlicher Gegner mit demselben Element (kein Vorteil im Ring) */
 function averageFoe(u: Unit): Unit {
-  const main = PIGMENTS.map((p) => p.id).find((p) => relation(u.m.main, p) === 'neutral') ?? u.m.main;
-  return { ...u, side: u.side === 1 ? 2 : 1, sat: AVERAGE.sat, opa: AVERAGE.opa, grn: AVERAGE.grn, flo: AVERAGE.flo, glw: AVERAGE.glw, lf: AVERAGE.lf, traits: [], shield: 0, m: { ...u.m, main } };
+  return { ...u, side: u.side === 1 ? 2 : 1, sat: AVERAGE.sat, opa: AVERAGE.opa, grn: AVERAGE.grn, flo: AVERAGE.flo, glw: AVERAGE.glw, lf: AVERAGE.lf, traits: [], shield: 0, el: u.el };
 }
 const dodge = (flo: number, u?: Unit) => Math.min(0.4, flo / 400 + (u && has(u, 'alcohol') ? 0.06 : 0) + (u && has(u, 'bloom4') ? 0.05 : 0));
 /** Chance, dass a + W20 mindestens 18 zeigt (Radierer) */
@@ -114,9 +113,11 @@ export function levelInfo(u: Unit): { lv: number; total: number; next: number | 
   };
 }
 
-/** Farbe: Familie, Set-Bonus und gegen welche Pigmente Treffer stärker oder schwächer sind (gilt in beide Richtungen) */
-export function colourInfo(u: Unit): { name: string; fam: Family; strong: string[]; weak: string[]; set: [string, string] } {
-  const ids = PIGMENTS.map((p) => p.id);
-  const pick = (r: string) => ids.filter((p: PigmentId) => p !== u.m.main && relation(u.m.main, p) === r).map((p) => PIG[p].n);
-  return { name: PIG[u.m.main].n, fam: FAMILY[u.m.main], strong: pick('komplementaer'), weak: pick('harmonisch'), set: FAMILY_TEXT[FAMILY[u.m.main]] };
+/** Farbe: Familie und Set-Bonus. Gegen wen Spritzer stärker sind, sagt seit dem 01.11.2026 das Element (elementInfo) */
+export function colourInfo(u: Unit): { name: string; fam: Family; set: [string, string] } {
+  return { name: PIG[u.m.main].n, fam: FAMILY[u.m.main], set: FAMILY_TEXT[FAMILY[u.m.main]] };
+}
+/** Element: wen es schlägt und wer es schlägt (Ring, ×2 und ×1,25) */
+export function elementInfo(u: Unit): { el: ElementId; prey: { hard: ElementId; little: ElementId }; foes: { hard: ElementId; little: ElementId } } {
+  return { el: u.el, prey: elementPrey(u.el), foes: elementFoes(u.el) };
 }

@@ -1,3 +1,4 @@
+import type { ElementId } from './elements';
 /* Datenformate zwischen Server und Client */
 import type { MediumId } from './duel/media';
 import type { PigmentId } from './data';
@@ -112,7 +113,7 @@ export type ErrorCode = 'login' | 'no_day' | 'dried' | 'not_found' | 'forbidden'
  * Stand des Duell-Ablaufs (Aktionen, Phasen, Ereignisse). Bei jeder Änderung erhöhen: Der Client schickt ihn mit,
  * der Server lehnt alte Oberflächen ab und bittet, den Post neu zu öffnen (sonst passen Anzeige und Regeln nicht zusammen)
  */
-export const DUEL_PROTOCOL = 16;
+export const DUEL_PROTOCOL = 17;
 export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {
@@ -148,7 +149,8 @@ export type TradeGate = { ok: boolean; why?: string };
 export type TradeStatus = { offers: number; listed: number; market: number; gate: TradeGate };
 /** Ein Würfel im Markt. mine: dein eigener Eintrag */
 export type MarketItem = { id: string; seller: string; die: DieRec; price: number; at: number; until: number; rarity: Rarity; mine?: true };
-export type MarketFilter = 'all' | 'rare' | 'holo' | 'style' | 'drawn';
+/** Filter im Markt, dazu je Element (01.11.2026) */
+export type MarketFilter = 'all' | 'rare' | 'holo' | 'style' | 'drawn' | ElementId;
 export type MarketSort = 'new' | 'cheap' | 'dear';
 export interface MarketResponse {
   items: MarketItem[];

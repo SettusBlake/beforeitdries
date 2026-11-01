@@ -5,6 +5,7 @@
 import { CRESTS } from '../../shared/duel/rules';
 import type { Unit } from '../../shared/duel/rules';
 import { colourInfo, levelInfo, statRows, type StatKey } from '../../shared/duel/statinfo';
+import { elementBadge, elementText } from './elements';
 
 const COL: Record<StatKey, string> = {
   sat: CRESTS.find((c) => c.k === 'splash')!.col,
@@ -53,13 +54,13 @@ export function statBlock(u: Unit, live: boolean): HTMLElement {
   }
   const c = colourInfo(u);
   const fam = c.fam[0]!.toUpperCase() + c.fam.slice(1);
+  // Element (01.11.2026): wen es schlägt und wer es schlägt, ersetzt die Farbkreis-Zeile
+  const ele = el('p', 'scol');
+  ele.innerHTML = `<b>Element</b> ${elementBadge(u.el)} ${elementText(u.el)} A hard hit also stains.`;
   const col = el('p', 'scol');
-  col.innerHTML =
-    `<b>Colour</b> ${c.name}, ${c.fam}. ` +
-    (c.strong.length ? `Against ${list(c.strong)} hits count ×1.5 both ways and stain. ` : '') +
-    `Against ${list([...c.weak, 'its own colour'])} ×0.75.`;
+  col.innerHTML = `<b>Colour</b> ${c.name}, ${c.fam}. Same colours on its faces make a Glaze or Pure.`;
   const set = el('p', 'scol');
   set.innerHTML = `<b>${fam} set</b> 2 on the sheet: ${c.set[0].toLowerCase()} · 3: ${c.set[1].toLowerCase()}`;
-  box.append(col, set);
+  box.append(ele, col, set);
   return box;
 }

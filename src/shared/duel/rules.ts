@@ -6,6 +6,7 @@
  */
 import { BLOOM_TRAITS, BP, PIG, type BlueprintId, type PigmentId, type RGB } from '../data';
 import { relation } from '../glaze';
+import { elementDef, elementLine, elementMult, elementOf, ELEMENT_MULT, type ElementId } from '../elements';
 import { humidityFor, makeMonster, statRows, type Monster } from '../monster';
 import { RNG, type Rand } from '../rng';
 import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
@@ -163,6 +164,8 @@ export type Unit = {
   faces: Face[];
   rarity: Rarity;
   sec: PigmentId | null;
+  /** Element (01.11.2026): eigener Wurf aus dem Seed, Ring wie Schere-Stein-Papier */
+  el: ElementId;
   traits: Trait[];
 };
 /** media: gewählte Malmittel */
@@ -191,7 +194,7 @@ export type Ev =
   | { k: 'summon'; side: Side; id: number; x: number; y: number; cells: CellSnap[]; faces: Face[]; drop?: { i: number; face: Face }[] }
   | { k: 'move'; id: number; path: number[]; trail: CellSnap[] }
   | { k: 'stamp'; id: number; wet: boolean; cells: (CellSnap & { r: StampRes })[] }
-  /** x: Multiplikator des Zugs (Kombi), base: Schaden ohne ihn, pre: mit ihm vor dem Guard (für die Rechnung „10 × 1.5 = 15“) */
+  /** mult: Element-Multiplikator, x: Multiplikator des Zugs (Kombi), base: Schaden ohne beide, pre: mit beiden vor dem Guard (Rechnung „9 ×2 ×1.5 = 27“) */
   | { k: 'shot'; id: number; at: number; res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit'; dmg: number; guard: boolean; rgb: RGB; text: string; mult?: number; x?: number; base?: number; pre?: number }
   /** Nachsetzen (S2): der Klecks hat ausgewaschen und handelt noch einmal */
   | { k: 'again'; id: number }
@@ -404,6 +407,7 @@ function unitOf(m: Monster, side: Side): Unit {
     lv: 1,
     faces: [],
     sec: m.sec[0] ?? null,
+    el: elementOf(m),
     traits: traitsOf(m),
     rarity: rarityOf(m.paper),
   };
@@ -526,13 +530,14 @@ export function pWin(a: number, b: number): number {
   return w / 400;
 }
 const bonus = (v: number) => Math.round(v / 5);
-const typeMult = (a: PigmentId, b: PigmentId) => {
-  const r = relation(a, b);
-  return r === 'komplementaer' ? 1.5 : r === 'harmonisch' ? 0.75 : 1;
-};
-export const relWord = (a: PigmentId, b: PigmentId) => {
-  const r = relation(a, b);
-  return r === 'komplementaer' ? 'complementary ×1.5' : r === 'harmonisch' ? 'harmonious ×0.75' : 'neutral';
+/**
+ * Element-Multiplikator eines Spritzers (01.11.2026, docs/entwuerfe/elemente-vorschlag.md): ersetzt den Farbkreis beim Spritzen
+ * (früher Gegenfarbe ×1,5, Nachbarfarbe ×0,75). Auf dem Blatt bleibt der Farbkreis für Lasur, Verlaufen und Schlamm
+ */
+export const elemMult = (u: Unit, t: Unit): number => elementMult(u.el, t.el);
+export const elemWord = (u: Unit, t: Unit): string => {
+  const l = elementLine(u.el, t.el);
+  return l ? `${l} ×${elemMult(u, t)}` : `${elementDef(u.el).name} on ${elementDef(t.el).name}, no edge`;
 };
 
 /* ---------- Zustand ---------- */
@@ -1439,9 +1444,12 @@ export function splashCells(u: Unit): number[] {
 const grainOf = (t: Unit) => t.grn + (t.shield > 0 ? 25 : 0);
 const dodgeOf = (t: Unit) => Math.min(0.4, t.flo / 400 + (has(t, 'alcohol') ? 0.06 : 0) + (has(t, 'bloom4') ? 0.05 : 0));
 const critOf = (u: Unit) => 0.05 + (has(u, 'salt') ? 0.08 : 0) + (hasMedium(u.side, 'salt') ? 0.1 : 0) + (setN(u.side, 'warm') >= 3 ? 0.08 : 0);
-/** Schaden eines Spritzers vor dem Würfeln. x: Multiplikator der Kombi (Kampf A), gilt für die Seite am Zug */
-export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean, x = turnMult(u.side)): number {
-  let dmg = (HIT.base + u.sat / HIT.satDiv - (pig !== u.m.main ? 1 : 0)) * typeMult(pig, t.m.main);
+/**
+ * Schaden eines Spritzers vor dem Würfeln. x: Multiplikator der Kombi (Kampf A), gilt für die Seite am Zug.
+ * em: Element-Multiplikator (Ring), an derselben Stelle wie früher der Farbkreis
+ */
+export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean, x = turnMult(u.side), em = elemMult(u, t)): number {
+  let dmg = (HIT.base + u.sat / HIT.satDiv - (pig !== u.m.main ? 1 : 0)) * em;
   if (GAIT[u.m.bp].key === 'pinch' && near) dmg += 3;
   if (has(u, 'fugitive')) dmg += 2;
   // Warme Familie: zwei Kleckse +1, drei +2
@@ -1484,8 +1492,9 @@ function setHp(t: Unit, hp: number, why: string): void {
 function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignoreGrain = false): [string, number] {
   const at = idx(t.x, t.y);
   const x = turnMult(u.side);
+  const em = elemMult(u, t);
   const shot = (res: 'miss' | 'dodge' | 'graze' | 'hit' | 'crit', dmg: number, guard: boolean, text: string, calc?: { base: number; pre: number }) => {
-    emit({ k: 'shot', id: u.id, at, res, dmg, guard, rgb: PIG[pig].rgb, text, mult: typeMult(pig, t.m.main), ...(calc && x !== 1 ? { x, ...calc } : {}) });
+    emit({ k: 'shot', id: u.id, at, res, dmg, guard, rgb: PIG[pig].rgb, text, mult: em, ...(calc && (x !== 1 || em !== 1) ? { x, ...calc } : {}) });
     if (res !== 'miss' && res !== 'dodge') count(`${u.side}dmg`, dmg);
   };
   if (rand01() < dodgeOf(t)) {
@@ -1507,7 +1516,7 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
   const near = cheb(u.x, u.y, t.x, t.y) <= 1;
   const cf = mult * (crit ? 1.5 : graze ? HIT.graze : 1);
   let dmg = Math.max(1, Math.round(baseDamage(u, t, pig, near, x) * cf));
-  const calc = { base: Math.max(1, Math.round(baseDamage(u, t, pig, near, 1) * cf)), pre: dmg };
+  const calc = { base: Math.max(1, Math.round(baseDamage(u, t, pig, near, 1, 1) * cf)), pre: dmg };
   let guard = false;
   const ft = teamOf(t);
   if (ft.crests.guard > 0) {
@@ -1529,7 +1538,8 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
       emit({ k: 'cells', how: 'splat', cells: [snap(j)] });
     }
   }
-  if (relation(pig, t.m.main) === 'komplementaer' || has(u, 'staining')) t.stain = 2;
+  // Ein harter Element-Treffer färbt ab (früher die Gegenfarbe)
+  if (em >= ELEMENT_MULT.next || has(u, 'staining')) t.stain = 2;
   return [`${roll}: ${crit ? 'crit' : graze ? 'graze' : 'hit'}${guard ? ', guarded' : ''}, -${dmg}`, dmg];
 }
 function doSplash(u: Unit, pig: PigmentId, at: number): string {
@@ -1564,7 +1574,7 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
     emit({ k: 'cells', how: 'splat', cells: [snap(idx(t.x, t.y))] });
     if (flows.length) emit({ k: 'cells', how: 'flow', cells: flows.map(snap) });
   }
-  let s = `splashed ${t.side === 1 ? 'your' : 'the rival'} ${t.name}, ${relWord(pig, t.m.main)} (${parts.join('; ')})`;
+  let s = `splashed ${t.side === 1 ? 'your' : 'the rival'} ${t.name}, ${elemWord(u, t)} (${parts.join('; ')})`;
   if (t.hp <= 0) s += washOut(t, u);
   return s;
 }
@@ -2150,7 +2160,7 @@ export function bestPig(u: Unit, a: Action, at: number | null): PigmentId {
 }
 function danger(u: Unit, x: number, y: number): number {
   let d = 0;
-  for (const e of onSheet(foeTeam(u))) if (cheb(e.x, e.y, x, y) <= 2) d += 0.12 * bonus(e.sat) * typeMult(e.m.main, u.m.main);
+  for (const e of onSheet(foeTeam(u))) if (cheb(e.x, e.y, x, y) <= 2) d += 0.12 * bonus(e.sat) * elemMult(e, u);
   return d;
 }
 const homeDist = (u: Unit, x: number, y: number) => {
@@ -2385,7 +2395,7 @@ function candidates(side: Side, only?: Unit, stay = false): Cand[] {
           const pig = bestPig(u, 'splash', idx(t.x, t.y));
           const hits = GAIT[u.m.bp].key === 'twin' ? 1.6 : 1;
           const dmg = baseDamage(u, t, pig, cheb(u.x, u.y, t.x, t.y) <= 1);
-          add(splashExpect(u, t, pig) * hits * (dmg * 0.9 + killBonus(t, dmg * hits)) + (t.stain ? 0 : relation(pig, t.m.main) === 'komplementaer' ? 1 : 0) - (HIT.freeSplash ? 0 : CREST_COST.splash), 'splash', pig, idx(t.x, t.y));
+          add(splashExpect(u, t, pig) * hits * (dmg * 0.9 + killBonus(t, dmg * hits)) + (t.stain ? 0 : elemMult(u, t) >= ELEMENT_MULT.next ? 1 : 0) - (HIT.freeSplash ? 0 : CREST_COST.splash), 'splash', pig, idx(t.x, t.y));
         }
       if (paletteOpen(u)) add(foeTeam(u).hearts <= 1 ? 100 : TUNE.ai.heart[side - 1]!, 'splash', u.m.main, foeTeam(u).home);
       if (u.hp < u.max) add(soakAmount(u) * 0.35 + (u.hp < u.max * 0.35 ? 2 : 0), 'soak', u.m.main, null);
