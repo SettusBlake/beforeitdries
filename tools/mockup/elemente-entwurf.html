@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/young-serif/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/figtree/latin-700.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-400.css" />
+    <link rel="stylesheet" href="../../node_modules/@fontsource/jetbrains-mono/latin-700.css" />
+    <style>
+      :root { --table: #e4e1d8; --sheet: #fbfaf6; --ink: #1d2130; --muted: #5f6474; --line: #cfcabd; }
+      body { margin: 0; padding: 24px; background: var(--table); font-family: Figtree, sans-serif; color: var(--ink); width: 1100px; }
+      .eyebrow { margin: 0; font: 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+      h1 { margin: 6px 0 4px; font: 400 1.9rem 'Young Serif', serif; }
+      h2 { margin: 0 0 8px; font: 400 1.25rem 'Young Serif', serif; }
+      .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .card { background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+      .card.wide { grid-column: 1 / -1; }
+      .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; line-height: 1.4; }
+      .note b { color: var(--ink); }
+      table { border-collapse: collapse; width: 100%; font-size: 13px; }
+      td { padding: 5px 6px; border-top: 1px dashed var(--line); vertical-align: middle; }
+      td.ic { width: 34px; }
+      .badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 4px; border-radius: 999px; font: 700 12px 'JetBrains Mono', monospace; color: #fff; }
+      .badge svg { width: 18px; height: 18px; }
+      .mcard { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: #fff; margin-bottom: 8px; }
+      .mcard canvas { width: 76px; height: 76px; border-radius: 10px; background: #fffdf8; }
+      .mcard b { font-size: 15px; display: block; }
+      .mcard small { color: var(--muted); font-size: 12px; display: block; margin: 3px 0; }
+      .pv { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #1d2130; color: #fbfaf6; font: 13px/1.45 Figtree; }
+      .pv b { color: #ffd36b; }
+      .hit { display: flex; gap: 18px; align-items: center; margin-top: 10px; }
+      .hit .num { font: 800 34px 'JetBrains Mono', monospace; color: #8e1f1f; }
+      .hit .calc { white-space: nowrap; font: 700 15px 'JetBrains Mono', monospace; color: #6a3d8f; }
+      .hit .tag { white-space: nowrap; font: 800 13px 'JetBrains Mono', monospace; color: #fff; padding: 2px 8px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <p class="eyebrow">Before It Dries · draft 01.11.2026 · elements</p>
+    <h1>Six elements, one ring</h1>
+    <p class="sub">Every blot gets an element, painted in painter’s words. Each element beats the next one on the ring hard and the one after a little.</p>
+    <div class="grid" id="grid"></div>
+    <script src="elemente-entwurf.js"></script>
+  </body>
+</html>
