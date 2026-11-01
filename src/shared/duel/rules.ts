@@ -1062,9 +1062,12 @@ export function aiHold(t: Team, rolled: Rolled[]): number[] {
   const faces = liveFaces(rolled);
   if (task && taskMet(task, faces)) return all;
   const room = onSheet(t).length < ON_SHEET && t.units.some((u) => u.state === 'bag');
-  const hold = rolled.filter((r) => {
+  // Ein Glaze liegt schon: seine beiden Seiten bleiben liegen, nur der Rest darf auf Pure hoffen
+  const glazed = combo?.kind === 'glaze' ? combo.at : [];
+  const hold = rolled.filter((r, i) => {
     const f = r.face;
     if (r.mud) return false;
+    if (glazed.includes(i)) return true;
     if (f.k === 'joker' || f.k === 'gold') return true;
     if (task && helpsTask(task, f, faces) && (task.k !== 'symbols' || rolled.findIndex((o) => !o.mud && isCrest(o.face) && o.face.k === (f as { k: Crest }).k) === rolled.indexOf(r))) return true;
     if (f.k === 'star') return room;

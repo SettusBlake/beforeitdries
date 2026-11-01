@@ -99,7 +99,7 @@ Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken, jeder weit
 
 1. **Regeln und Server:** gebaut (Fassung 1, dann Fassung 2).
 2. **Anzeige:** gebaut.
-3. **Lern-Duell:** Upload.
+3. **Lern-Duell:** gebaut (Seed 267, Lern-Deck mit je zwei Ultramarin- und Carmine-Klecksen, Sepia erklärt Farben, Nässe, Glaze, Rechnung und Schlamm). Bild docs/entwuerfe/lern-duell-farbe.png.
 4. **Tropfen und Umfärben:** Server, Karte, Ergebnisbild. Upload mit Bild.
 
 Danach der Plan für B (Bleach).

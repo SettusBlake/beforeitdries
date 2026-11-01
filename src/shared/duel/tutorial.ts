@@ -10,12 +10,17 @@ import { ABILITY, aiChooseDice, aiJokerCrest, aiReroll, bestOpening, byGesture, 
 
 /** Bis zu dieser Runde gibt Sepia jeden Schritt vor */
 export const TUTORIAL_ROUNDS = 3;
-/** Per Suche gewählt (Blatt 6 × 8, Farbreaktionen): der erste Wurf beschwört, Behalten, Neuwurf, Kombi und Joker, gestempelt mit Farbreaktion, gespritzt, zwei Rivalen platzen, die Palette wird zweimal getroffen, eine Fähigkeit (mit Set-Boni) */
-export const TUTORIAL_SEED = 91;
+/**
+ * Per Suche gewählt (Kampf A, 01.11.2026): Runde 1 Beschwören, trockener Neuwurf, Spritzer, Palette. Runde 2 Glaze aus zwei
+ * Carmine-Seiten nach einem Neuwurf, Treffer mit ×1.5, Palette. Runde 3 nasser Neuwurf mit Schlamm, Beschwören, Meisterzug.
+ * Drei Rivalen platzen
+ */
+export const TUTORIAL_SEED = 267;
 
 export function tutorialBags(): [Monster[], Monster[]] {
   return [
-    [find('schlange', 'ultra', 'A', true), find('flatterer', 'kadmium', 'B'), find('huepfer', 'phthalo', 'C'), find('vierbeiner', 'karmin', 'G'), find('knolle', 'sepia', 'H'), find('strahler', 'indigo', 'I')],
+    // Kampf A (01.11.2026): je zwei Kleckse in Ultramarin und Carmine, damit gleiche Farben im Wurf zusammenfinden
+    [find('schlange', 'ultra', 'A', true), find('flatterer', 'kadmium', 'B'), find('huepfer', 'phthalo', 'C'), find('vierbeiner', 'karmin', 'G'), find('knolle', 'karmin', 'H'), find('strahler', 'ultra', 'I')],
     [find('krabbe', 'siena', 'D'), find('qualle', 'karmin', 'E'), find('strahler', 'opera', 'F'), find('kriecher', 'indigo', 'J'), find('turm', 'phthalo', 'K'), find('doppelkopf', 'kadmium', 'L')],
   ];
 }
