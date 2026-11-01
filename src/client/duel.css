@@ -687,3 +687,7 @@ canvas.faded, .rd.drift canvas { filter: saturate(.5) brightness(1.08) contrast(
 .bleach-btn small { font: 11px var(--f-mono); color: var(--muted); }
 .bleach-btn:disabled { opacity: .6; }
 #bleach-test { margin-top: 2px; }
+/* Bleach (Schritt 2): Punkte im Ergebnis */
+#result-stats div.bl { grid-template-columns: 1fr auto 46px; gap: 8px; }
+#result-stats .pts { color: var(--ink); font-family: var(--f-mono); text-align: right; }
+#result-sub .bpts { font: 400 1.6rem 'Young Serif', serif; color: var(--ink); vertical-align: -2px; }

@@ -9,7 +9,7 @@ import './duel.css';
 import { showLoginPrompt, showToast } from '@devvit/web/client';
 import type { BleachResult, DuelResponse, DuelReward } from '../shared/api';
 import { DROP_COST, rarityDef, serialText, TINT_MAX } from '../shared/dice';
-import { bleachScore } from '../shared/duel/bleach';
+import { BLEACH, bleachScore, forecast, type PaleCast } from '../shared/duel/bleach';
 import { PIG, type PigmentId } from '../shared/data';
 import { relation } from '../shared/glaze';
 import { lastRolled, loadState, type DuelAction } from '../shared/duel/play';
@@ -69,6 +69,13 @@ let screen: 'title' | 'game' | 'dice' = 'title';
 let reward: DuelReward | null = null;
 /** Bleach: Ergebnis des Tagesblatts (Punkte, Rang), kommt mit der letzten Aktion */
 let bleachRes: BleachResult | null = null;
+/** Bleach: Vorschau, wohin die Pales ziehen, wenn du jetzt fertig bist (nach jeder Antwort neu) */
+let paleCast: PaleCast[] = [];
+/** Bleach: Flick gewählt, jetzt eine Reihe antippen */
+let flickMode = false;
+/** Bleach: Aufgeben braucht einen zweiten Tipp */
+let giveupArmed = false;
+const refreshCast = () => (paleCast = S.mode === 'bleach' && !S.over ? forecast() : []);
 /** Aktionen gehen im Tagesblatt an Bleach, sonst ans Duell */
 const act = (a: DuelAction) => (S.mode === 'bleach' ? api.bleachAct(a) : api.duelAct(a));
 let busy = false;
@@ -171,6 +178,8 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
   await playEvents(res.events);
   busy = false;
   V.speed = 1;
+  flickMode = false;
+  refreshCast();
   if (phase() === 'roll' && !chosen.size) chosen = defaultPick();
   held = phase() === 'keep' ? defaultHold() : new Set();
   prepSummon();
@@ -936,6 +945,8 @@ function renderTop(): void {
   const left = last - V.round + 1;
   $('dries').textContent = S.over ? S.winReason : !bleach && R.ERASER_ROUNDS.includes(V.round) ? 'Eraser next' : left <= 1 ? 'last wave' : `dries in ${left}`;
   hearts($('rival-hearts'), V.teams[1]!.hearts);
+  // Bleach: die Bleiche hat keine Herzen
+  $('rival-hearts').hidden = bleach;
   const rd = $('rival-dice');
   rd.replaceChildren();
   for (const u of S.teams[1].units) {
@@ -1117,7 +1128,7 @@ function renderGo(): void {
     return;
   }
   if (S.over) {
-    go.textContent = 'Again';
+    go.textContent = S.mode === 'bleach' ? 'Today’s board' : 'Again';
     go.disabled = false;
     return;
   }
@@ -1157,6 +1168,12 @@ function renderGo(): void {
     aux.innerHTML = `${n ? `Reroll ${n}` : 'Reroll'}<small class="wetc${wet ? ' on' : ''}">${S.rerolls < 1 ? 'none left' : wet ? `${'●'.repeat(Math.round(wet * 4))} ${Math.round(wet * 100)}% mud` : '○ dry'}</small>`;
     aux.disabled = !n || S.rerolls < 1;
     return;
+  }
+  // Bleach: ein Splash-Symbol trifft jeden Pale einer Reihe
+  if (S.mode === 'bleach' && me().crests.splash > 0) {
+    aux.hidden = false;
+    aux.disabled = false;
+    aux.innerHTML = flickMode ? 'Cancel' : `Flick<small class="wetc">×${me().crests.splash} · a row −${BLEACH.flick}</small>`;
   }
   end.hidden = false;
   end.textContent = 'End turn';
@@ -1249,6 +1266,7 @@ function renderHint(): void {
   if (p === 'keep') return setHint(`Same colours pay. Hold dice, reroll the rest (${S.rerolls} left): the first is dry, later ones may turn a die to mud. Or keep.`);
   if (p === 'medium') return setHint('Pick a medium. It bends one rule for you until the paper dries.');
   if (p === 'summon') return setHint(summonU ? `Tap the net to unfold ${summonU.name}, or skip. Blue dots move it.` : 'Tap a glowing die to unfold it, or skip.');
+  if (flickMode) return setHint(`Flick: tap a row. Every Pale in it loses ${BLEACH.flick}.`);
   if (drag) return setHint(drag.pv?.text ?? 'Out of reach. Let go to cancel.');
   if (aiming) {
     const ab = ABILITY[aiming.m.bp];
@@ -1353,8 +1371,134 @@ function renderAll(): void {
 /* ---------- Hervorhebungen auf dem Blatt ---------- */
 /** Eine Seite in der Haut ihres Würfels (lädt nach und malt dann neu) */
 const faceImg = (u: Unit, f: Face): HTMLImageElement => faceImage(f, lookOf(u.m));
+/**
+ * Bleach auf dem Blatt: wo die nächste Welle erscheint, die Bahn jedes Pale bis dorthin, wo er nach dem Zug der Bleiche steht,
+ * Felder, die er ausbleichen wird, und wer unten durchbricht. Im Flick-Modus die Reihen mit Pales
+ */
+function drawBleach(ctx: CanvasRenderingContext2D, cell: number): void {
+  const b = S.bleach;
+  if (!b || S.over) return;
+  const cx = (i: number) => ((i % COLS) + 0.5) * cell,
+    cy = (i: number) => (Math.floor(i / COLS) + 0.5) * cell;
+  const t = performance.now();
+  // Die nächste Welle: gestrichelte Kreise mit Pfeil an ihren Spalten
+  const next = b.waves[S.round];
+  if (next) {
+    ctx.save();
+    for (const p of next) {
+      const x = (p.col + 0.5) * cell,
+        y = (BLEACH.spawnRow + 0.5) * cell;
+      ctx.strokeStyle = 'rgba(120,114,100,.75)';
+      ctx.fillStyle = 'rgba(240,237,228,.55)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(x, y, cell * 0.3, 0, 7);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const bob = Math.sin(t / 300) * cell * 0.05;
+      ctx.fillStyle = 'rgba(120,114,100,.9)';
+      ctx.beginPath();
+      ctx.moveTo(x - cell * 0.12, y - cell * 0.08 + bob);
+      ctx.lineTo(x + cell * 0.12, y - cell * 0.08 + bob);
+      ctx.lineTo(x, y + cell * 0.1 + bob);
+      ctx.fill();
+    }
+    ctx.font = `700 ${Math.max(9, Math.round(cell * 0.17))}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(95,90,78,.9)';
+    ctx.fillText('next', (next[0]!.col + 0.5) * cell, (BLEACH.spawnRow + 0.95) * cell);
+    ctx.restore();
+  }
+  // Bahnen: vom Pale bis zum Feld, wo er nach dem Zug steht
+  ctx.save();
+  for (const c of paleCast) {
+    const a = c.path[0]!,
+      z = c.path[c.path.length - 1]!;
+    for (const i of c.bleached) {
+      // Dieses Feld bleicht er aus
+      ctx.fillStyle = 'rgba(250,248,240,.55)';
+      ctx.fillRect((i % COLS) * cell + 3, Math.floor(i / COLS) * cell + 3, cell - 6, cell - 6);
+      ctx.strokeStyle = 'rgba(150,140,120,.6)';
+      ctx.lineWidth = 1.2;
+      for (let k = -2; k <= 2; k++) {
+        ctx.beginPath();
+        ctx.moveTo((i % COLS) * cell + cell * (0.5 + k * 0.2) - cell * 0.15, Math.floor(i / COLS) * cell + cell * 0.2);
+        ctx.lineTo((i % COLS) * cell + cell * (0.5 + k * 0.2) + cell * 0.15, Math.floor(i / COLS) * cell + cell * 0.8);
+        ctx.stroke();
+      }
+    }
+    const bottom = c.through || c.caught ? (R.ROWS + 0.15) * cell : cy(z);
+    ctx.strokeStyle = c.through ? 'rgba(163,58,58,.75)' : 'rgba(120,114,100,.7)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 5]);
+    ctx.lineDashOffset = -t / 40;
+    ctx.beginPath();
+    ctx.moveTo(cx(a), cy(a) + cell * 0.3);
+    ctx.lineTo(cx(a), bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (c.through || c.caught) {
+      // Bricht durch: roter Pfeil über den unteren Rand, ein Herz weg (oder der Guard fängt ihn)
+      const x = cx(a),
+        y = R.ROWS * cell - cell * 0.12;
+      ctx.fillStyle = c.through ? 'rgba(163,58,58,.9)' : 'rgba(95,100,116,.9)';
+      ctx.beginPath();
+      ctx.moveTo(x - cell * 0.16, y - cell * 0.1);
+      ctx.lineTo(x + cell * 0.16, y - cell * 0.1);
+      ctx.lineTo(x, y + cell * 0.1);
+      ctx.fill();
+      ctx.font = `800 ${Math.max(10, Math.round(cell * 0.22))}px "JetBrains Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(251,250,246,.95)';
+      const label = c.through ? '−♥' : 'Guard';
+      ctx.strokeText(label, x, y - cell * 0.22);
+      ctx.fillText(label, x, y - cell * 0.22);
+    } else if (z !== a) {
+      // Wo er stehen bleibt: gestrichelter Umriss
+      ctx.strokeStyle = 'rgba(120,114,100,.8)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.arc(cx(z), cy(z), cell * 0.32, 0, 7);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (c.hits) {
+      // Trifft einen deiner Kleckse
+      ctx.font = `800 ${Math.max(10, Math.round(cell * 0.2))}px "JetBrains Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(251,250,246,.95)';
+      ctx.fillStyle = 'rgba(163,58,58,.95)';
+      ctx.strokeText(`−${c.hits}`, cx(z), cy(z) + cell * 0.72);
+      ctx.fillText(`−${c.hits}`, cx(z), cy(z) + cell * 0.72);
+    }
+  }
+  ctx.restore();
+  // Flick: Reihen mit Pales leuchten, jede mit −4
+  if (flickMode) {
+    const rows = new Set(R.onSheet(S.teams[1]).map((u) => u.y));
+    ctx.save();
+    for (let y = 0; y < R.ROWS; y++) {
+      const on = rows.has(y);
+      ctx.fillStyle = on ? `rgba(43,63,163,${0.16 + 0.08 * Math.sin(t / 220)})` : 'rgba(0,0,0,.04)';
+      ctx.fillRect(0, y * cell + 2, cell * COLS, cell - 4);
+      if (on) {
+        ctx.font = `800 ${Math.max(10, Math.round(cell * 0.2))}px "JetBrains Mono", monospace`;
+        ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(43,63,163,.95)';
+        ctx.fillText(`−${BLEACH.flick}`, cell * COLS - 6, y * cell + cell * 0.6);
+      }
+    }
+    ctx.restore();
+  }
+}
 function drawOverlay(ctx: CanvasRenderingContext2D, cell: number): void {
   if (!myTurn()) return;
+  if (S.mode === 'bleach') drawBleach(ctx, cell);
   const cx = (i: number) => ((i % COLS) + 0.5) * cell,
     cy = (i: number) => (Math.floor(i / COLS) + 0.5) * cell;
   const dot = (i: number, col: string, r = 0.11) => {
@@ -1707,7 +1851,7 @@ board.addEventListener('pointerdown', (e) => {
     V.speed = 3;
     return;
   }
-  if (!myTurn() || phase() !== 'act' || aiming) return;
+  if (!myTurn() || phase() !== 'act' || aiming || flickMode) return;
   const i = grabAt(e);
   if (i === null) return;
   const u = R.unitAt(i % COLS, Math.floor(i / COLS));
@@ -1734,6 +1878,10 @@ board.addEventListener('pointermove', (e) => {
 });
 board.addEventListener('pointerup', (e) => {
   const i = cellAt(e);
+  if (flickMode) {
+    if (i !== null && myTurn() && phase() === 'act') void sendFlick(Math.floor(i / COLS));
+    return;
+  }
   if (drag) {
     const d = drag;
     drag = null;
@@ -1757,6 +1905,12 @@ board.addEventListener('pointercancel', () => {
   drag = null;
   renderAll();
 });
+/** Bleach: Flick auf eine Reihe */
+async function sendFlick(row: number): Promise<void> {
+  flickMode = false;
+  sfx.tap();
+  if (await request(act({ k: 'flick', row }))) afterAction();
+}
 function tapCell(i: number): void {
   if (busy && S.turn === 2) return;
   if (!myTurn()) return;
@@ -1894,6 +2048,13 @@ $('deck').addEventListener('click', () => {
 });
 $('go').addEventListener('click', () => {
   if (busy) return;
+  if (S.over && S.mode === 'bleach') {
+    // Bleach: zurück zum Startbild mit der Rangliste
+    $('result').hidden = true;
+    resumable = false;
+    showScreen('title');
+    return void bleachTitle();
+  }
   if (S.over) return void startDuel();
   if (!allowedEl($('go'))) return;
   if (!myTurn()) return;
@@ -1906,6 +2067,12 @@ $('aux').addEventListener('click', () => {
   if (busy || !allowedEl($('aux'))) return;
   if (phase() === 'keep') return void doReroll();
   sfx.tap();
+  // Bleach: Flick an oder aus, dann eine Reihe antippen
+  if (phase() === 'act' && S.mode === 'bleach') {
+    flickMode = !flickMode;
+    armed = null;
+    return renderAll();
+  }
   if (placing()) {
     orient = (orient + 1) % 8;
     if (anchor === null || !R.netPlace(summonU!, orient, anchor)) anchor = bestAnchor(summonU!);
@@ -2007,6 +2174,11 @@ function sepiaEnd(): string {
   if (S.winReason === 'washed out') return S.winner === 1 ? 'Not a single rival die left. Thorough.' : 'Every die washed away. We will speak about this.';
   return S.winner === 1 ? 'The paper remembers who painted it. Today, you.' : S.winner === 2 ? 'The rival covered more paper. Paper keeps score, not excuses.' : 'A draw. The paper cannot decide either.';
 }
+function sepiaBleach(): string {
+  if (S.winReason === 'given up') return 'You let it dry early. A choice. Not a good one, but a choice.';
+  const h = S.teams[0].hearts;
+  return h >= 3 ? 'Not one got through. I may even frame this one.' : h > 0 ? 'They nibbled at the edge. The sheet survives, mostly.' : 'The Bleach took the bottom edge. Tomorrow brings a new sheet, and the same Bleach.';
+}
 function sepiaGallery(): string {
   return S.winner === 1 ? 'Their deck goes back on the wall. Slightly lighter.' : S.winner === 2 ? "Someone else's brushwork beat yours. Take notes, not offence." : 'Two painters, one sheet, no verdict.';
 }
@@ -2038,32 +2210,43 @@ async function finishDuel(): Promise<void> {
       : S.winner === 2
         ? 'The rival wins the sheet'
         : 'A draw';
-  // Bleach (Schritt 1, schlicht): Punkte und Rang statt Sieg und Niederlage
-  if (S.mode === 'bleach') {
-    const b = bleachRes;
-    $('result-title').textContent = S.teams[0].hearts > 0 ? 'The edge held' : 'The Bleach got through';
-    if (b) {
-      const p = b.parts;
-      $('result-fee').hidden = false;
-      $('result-fee').textContent = `${p.cells + p.layers} paint + ${p.washed * 10 + p.boss * 30} for Pales washed out + ${p.hearts * 15} for hearts`;
-    }
-  }
-  else $('result-fee').hidden = !foe;
+  // Bleach: Punkte und Rang statt Sieg und Niederlage
+  const bl = S.mode === 'bleach';
+  if (bl) {
+    $('result-title').textContent = S.winReason === 'given up' ? 'You let it dry' : S.teams[0].hearts > 0 ? 'The edge held' : 'The Bleach got through';
+    $('result-fee').hidden = true;
+  } else $('result-fee').hidden = !foe;
   if (foe) $('result-fee').textContent = `${foe} gets a small fee for hanging it, a bigger one when their deck wins.`;
-  if (S.mode === 'bleach')
-    $('result-sub').textContent = bleachRes ? `${bleachRes.points} points${bleachRes.rank ? ` · #${bleachRes.rank} of ${bleachRes.players} today` : bleachRes.ranked ? '' : ' · test sheet, not ranked'}` : 'The sheet dried.';
+  if (bl)
+    $('result-sub').innerHTML = bleachRes
+      ? `<b class="bpts">${bleachRes.points}</b> points${bleachRes.rank ? ` · <b>#${bleachRes.rank}</b> of ${bleachRes.players} today` : bleachRes.ranked ? '' : ' · test sheet, not ranked'}`
+      : 'The sheet dried.';
   else $('result-sub').textContent = S.winReason === 'palette broken' ? (S.winner === 1 ? 'Their palette is broken.' : 'Your palette is broken.') : S.winReason === 'washed out' ? 'All dice of one side are lost.' : `The paper dried: ${a} to ${b}.`;
   const st = $('result-stats');
   st.replaceChildren();
   const [ca, cb] = R.counts();
-  for (const [k, x, y] of [
+  // Bleach: woher die Punkte kommen
+  if (bl) {
+    const p = bleachRes?.parts ?? bleachScore();
+    const P = BLEACH.points;
+    for (const [k, x, y] of [
+      ['Paint left', `${p.cells}${p.layers ? ` + ${p.layers} glazed` : ''}`, (p.cells + p.layers) * P.cell],
+      ['Pales washed out', `${p.washed}`, p.washed * P.pale],
+      ['The great Pale', p.boss ? 'washed out' : 'still there', p.boss * P.boss],
+      ['Hearts left', `${p.hearts}`, p.hearts * P.heart],
+    ] as [string, string, number][])
+      st.append(html('div', 'bl', `<span>${k}</span><b class="y">${x}</b><b class="pts">+${y}</b>`));
+  }
+  if (!bl) for (const [k, x, y] of [
     ['Cells', ca, cb],
     ['Hearts', S.teams[0].hearts, S.teams[1].hearts],
     ['Blots unfolded', S.teams[0].units.filter((u) => u.state !== 'bag').length, S.teams[1].units.filter((u) => u.state !== 'bag').length],
     ['Dice lost', S.teams[0].units.filter((u) => u.state === 'gone').length, S.teams[1].units.filter((u) => u.state === 'gone').length],
   ] as [string, number, number][])
     st.append(html('div', '', `<span>${k}</span><b class="y">${x}</b><b class="r">${y}</b>`));
-  $('result-sepia').textContent = S.foeName ? sepiaGallery() : sepiaEnd();
+  $('result-sepia').textContent = bl ? sepiaBleach() : S.foeName ? sepiaGallery() : sepiaEnd();
+  $('again').textContent = bl ? 'Today’s board' : 'Again';
+  $('result-eyebrow').textContent = bl ? (bleachRes?.ranked === false ? 'Test sheet' : 'Today’s sheet') : 'Duel over';
   const rw = $('result-reward');
   rw.hidden = !reward;
   if (reward)
@@ -2195,8 +2378,14 @@ async function startBleach(test = false): Promise<void> {
     return;
   }
   renderAll();
-  tipForPhase();
+  // Beim ersten Mal erklärt Sepia in drei Sätzen
+  if (!store.get('bid-bleach-intro')) {
+    store.set('bid-bleach-intro', '1');
+    $('tip-text').textContent = BLEACH_INTRO;
+    $('tip').hidden = false;
+  }
 }
+const BLEACH_INTRO = `Something is bleaching my sheet from the top edge, and today everyone gets the same sheet and the same nine dice of mine. Every round the Pales slide ${BLEACH.steps} steps down: your paint costs them a step, a blot in the way takes a hit, and one that slips off the bottom bleaches a heart. Splash flicks a whole row, Guard catches one at the edge, and the dashed lanes show where they will be once you end your turn.`;
 /** Startbild: Knopf fürs Tagesblatt mit Stand */
 async function bleachTitle(): Promise<void> {
   const b = $('bleach-b') as HTMLButtonElement,
@@ -2242,6 +2431,7 @@ async function resumeDuel(): Promise<void> {
   await playEvents(R.drain());
   layout();
   if (phase() === 'roll') chosen = defaultPick();
+  refreshCast();
   renderAll();
   if (S.over) void finishDuel();
 }
@@ -2339,6 +2529,12 @@ $('how-m').addEventListener('click', () => {
 $('menu-btn').addEventListener('click', () => {
   sfx.tap();
   galleryNote();
+  // Bleach: Aufgeben statt neuem Duell
+  const bl = S.mode === 'bleach' && !S.over;
+  giveupArmed = false;
+  $('giveup-m').hidden = !bl;
+  $('giveup-m').textContent = 'Let the sheet dry now (counts as today’s run)';
+  $('new-m').hidden = bl;
   $('menu').hidden = false;
 });
 $('close-m').addEventListener('click', () => ($('menu').hidden = true));
@@ -2346,6 +2542,7 @@ $('new-m').addEventListener('click', () => void startDuel());
 $('title-m').addEventListener('click', () => {
   $('menu').hidden = true;
   showScreen('title');
+  void bleachTitle();
 });
 $('log-m').addEventListener('click', () => {
   const l = $('log-list');
@@ -2378,6 +2575,19 @@ $('again').addEventListener('click', () => {
     $('result').hidden = true;
     void openGallery();
   } else void startDuel();
+});
+// Bleach: aufgeben (zweiter Tipp), der Lauf zählt mit dem jetzigen Stand
+$('giveup-m').addEventListener('click', () => {
+  if (busy || S.over || S.mode !== 'bleach') return;
+  sfx.tap();
+  if (!giveupArmed) {
+    giveupArmed = true;
+    $('giveup-m').textContent = 'Tap again: let it dry now';
+    return;
+  }
+  giveupArmed = false;
+  $('menu').hidden = true;
+  void request(act({ k: 'giveup' })).then((ok) => ok && afterAction());
 });
 $('to-title').addEventListener('click', () => {
   $('result').hidden = true;

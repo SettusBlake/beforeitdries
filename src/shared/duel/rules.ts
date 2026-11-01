@@ -10,7 +10,7 @@ import { elementDef, elementLine, elementMult, elementOf, ELEMENT_MULT, type Ele
 import { humidityFor, makeMonster, statRows, type Monster } from '../monster';
 import { RNG, type Rand } from '../rng';
 import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
-import type { BleachState } from './bleach';
+import type { BleachState, PaleAct } from './bleach';
 import { MEDIA, MEDIA_MAX, MEDIA_PREF, MEDIA_ROUNDS, START_MEDIA, mediumDef, type MediumId } from './media';
 import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
 
@@ -213,6 +213,8 @@ export type Ev =
   | { k: 'heart'; side: Side; hearts: number; from: number }
   | { k: 'eraser'; row: number; cells: CellSnap[] }
   | { k: 'round'; round: number }
+  /** Bleach: alle Pales eines Schritts zugleich (erscheinen, rutschen, ausbleichen, treffen, unten hinaus) */
+  | { k: 'pales'; acts: PaleAct[] }
   /** Das Deck einer Seite wird neu gemischt */
   | { k: 'shuffle'; side: Side }
   | { k: 'turn'; side: Side }

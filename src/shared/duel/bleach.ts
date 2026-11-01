@@ -33,6 +33,7 @@ import {
   unitAt,
   unitById,
   washOut,
+  type CellSnap,
   type Unit,
 } from './rules';
 
@@ -127,6 +128,7 @@ export function spawnWave(w: number): void {
   const wave = S.bleach?.waves[w - 1];
   if (!wave) return;
   let n = 0;
+  const acts: PaleAct[] = [];
   for (const p of wave) {
     const u = unitById(p.id);
     if (!u || u.state !== 'bag') continue;
@@ -136,6 +138,7 @@ export function spawnWave(w: number): void {
     u.x = spot[0];
     u.y = spot[1];
     n++;
+    acts.push({ id: u.id, k: 'spawn', from: idx(u.x, u.y), to: idx(u.x, u.y) });
     // Erscheint er auf deiner Farbe, ist sie ausgebleicht
     const i = idx(u.x, u.y);
     if (S.cells[i]!.owner !== 0 && !S.cells[i]!.home) {
@@ -143,6 +146,7 @@ export function spawnWave(w: number): void {
       emit({ k: 'cells', how: 'bleach', cells: [snap(i)] });
     }
   }
+  if (acts.length) emit({ k: 'pales', acts });
   if (n) logAdd(`Wave ${w}: ${n} Pale${n > 1 ? 's' : ''} seep${n > 1 ? '' : 's'} in from the top edge.`, 'rival');
   sync();
 }
@@ -155,30 +159,44 @@ function freeTop(col: number): [number, number] | null {
   return null;
 }
 
-/** Die Bleiche zieht: jeder Pale zwei Schritte nach unten, die untersten zuerst */
-export function bleachMove(): void {
+/**
+ * Was ein Pale in einem Schritt tut (für die Anzeige, alle Pales eines Schritts zugleich): erscheinen, rutschen, Farbe ausbleichen,
+ * einen Klecks treffen, warten, unten hinaus (ein Herz) oder vom Guard gefangen
+ */
+export type PaleAct = { id: number; k: 'spawn' | 'move' | 'bleach' | 'hit' | 'wait' | 'through' | 'caught'; from: number; to: number; cell?: CellSnap; dmg?: number };
+
+/**
+ * Die Bleiche zieht: jeder Pale drei Schritte nach unten, die untersten zuerst. Je Schritt ein Ereignis mit allen Pales,
+ * Treffer und Herzen danach. onStep bekommt jeden Schritt (für die Vorschau)
+ */
+export function bleachMove(onStep?: (acts: PaleAct[]) => void): void {
   if (!S.bleach) return;
   for (let step = 0; step < BLEACH.steps && !S.over; step++) {
+    const acts: PaleAct[] = [];
+    const after: (() => void)[] = [];
     const pales = onSheet(S.teams[1]).sort((a, b) => b.y - a.y || a.x - b.x);
     for (const p of pales) {
       if (S.over) break;
       if (p.state !== 'sheet' || p.rooted > 0) continue;
-      paleStep(p);
+      acts.push(paleStep(p, after));
     }
+    if (acts.length) emit({ k: 'pales', acts });
+    onStep?.(acts);
+    for (const f of after) f();
   }
   // Eingewickelte Pales (Coil) sind eine Runde gebunden
   for (const p of S.teams[1].units) if (p.rooted > 0) p.rooted--;
   sync();
 }
-function paleStep(p: Unit): void {
+function paleStep(p: Unit, after: (() => void)[]): PaleAct {
   const from = idx(p.x, p.y);
   const ny = p.y + 1;
   // Unten hinaus oder auf die Palette: ein Herz (oder ein Guard)
-  if (ny >= ROWS || S.cells[idx(p.x, ny)]!.home === 1) return breakthrough(p);
+  if (ny >= ROWS || S.cells[idx(p.x, ny)]!.home === 1) return breakthrough(p, after);
   const o = unitAt(p.x, ny);
   if (o) {
-    if (o.side === 1) hitBlot(p, o);
-    return;
+    if (o.side === 1) return hitBlot(p, o, after);
+    return { id: p.id, k: 'wait', from, to: from };
   }
   const i = idx(p.x, ny);
   const c = S.cells[i]!;
@@ -187,43 +205,82 @@ function paleStep(p: Unit): void {
     if ((c.layer ?? 0) > 0) c.layer = (c.layer ?? 0) - 1;
     else S.cells[i] = emptyCell();
     count('2bleach');
-    emit({ k: 'cells', how: 'bleach', cells: [snap(i)] });
-    if (BLEACH.paintStops) return;
+    if (BLEACH.paintStops) return { id: p.id, k: 'bleach', from, to: i, cell: snap(i) };
   }
   p.y = ny;
-  emit({ k: 'move', id: p.id, path: [from, i], trail: [] });
+  return { id: p.id, k: 'move', from, to: i };
 }
-function hitBlot(p: Unit, o: Unit): void {
-  const wave = waveOf(p.id);
-  const dmg = (BLEACH.hit[wave] ?? 6) + (p.id === S.bleach?.boss ? BLEACH.bossHit : 0);
-  emit({ k: 'shot', id: p.id, at: idx(o.x, o.y), res: 'hit', dmg, guard: false, rgb: [214, 210, 198], text: 'bleach' });
-  setHp(o, o.hp - dmg, 'bleach');
+/** Schaden eines Pale an einem Klecks im Weg (je Welle, der große mehr) */
+export const paleHit = (p: Unit): number => (BLEACH.hit[waveOf(p.id)] ?? 6) + (p.id === S.bleach?.boss ? BLEACH.bossHit : 0);
+function hitBlot(p: Unit, o: Unit, after: (() => void)[]): PaleAct {
+  const dmg = paleHit(p);
   count('2hit');
-  logAdd(`A Pale bleached into your ${o.name} (-${dmg}).`, 'rival');
-  if (o.hp <= 0) logAdd(`Your ${o.name} faded: ${washOut(o).slice(2)}.`, 'rival');
-  checkWipe();
+  after.push(() => {
+    if (o.state !== 'sheet') return;
+    setHp(o, o.hp - dmg, 'bleach');
+    logAdd(`A Pale bleached into your ${o.name} (-${dmg}).`, 'rival');
+    if (o.hp <= 0) logAdd(`Your ${o.name} faded: ${washOut(o).slice(2)}.`, 'rival');
+    checkWipe();
+  });
+  return { id: p.id, k: 'hit', from: idx(p.x, p.y), to: idx(o.x, o.y), dmg };
 }
-function breakthrough(p: Unit): void {
+function breakthrough(p: Unit, after: (() => void)[]): PaleAct {
   const me = S.teams[0];
   const at = idx(p.x, p.y);
   p.state = 'gone';
   S.bleach!.through.push(p.id);
   count('2through');
-  emit({ k: 'pos', id: p.id, x: p.x, y: ROWS, how: 'drift' });
   if (me.crests.guard > 0) {
     me.crests.guard--;
     count('1caught');
-    logAdd('A Pale slipped off the bottom edge. Your Guard caught it.', 'you');
-    return;
+    after.push(() => logAdd('A Pale slipped off the bottom edge. Your Guard caught it.', 'you'));
+    return { id: p.id, k: 'caught', from: at, to: at };
   }
   me.hearts--;
-  emit({ k: 'heart', side: 1, hearts: me.hearts, from: at });
-  logAdd(`A Pale slipped off the bottom edge and bleached a heart: ${Math.max(0, me.hearts)} left.`, 'rival');
   if (me.hearts <= 0) {
     S.over = true;
     S.winner = 2;
     S.winReason = 'palette bleached';
   }
+  const left = me.hearts;
+  after.push(() => {
+    emit({ k: 'heart', side: 1, hearts: left, from: at });
+    logAdd(`A Pale slipped off the bottom edge and bleached a heart: ${Math.max(0, left)} left.`, 'rival');
+  });
+  return { id: p.id, k: 'through', from: at, to: at };
+}
+/** Wohin ein Pale in der nächsten Runde kommt: der Weg Schritt für Schritt, ob er durchbricht, welche Felder er ausbleicht */
+export type PaleCast = { id: number; path: number[]; through: boolean; caught: boolean; bleached: number[]; hits: number };
+/**
+ * Vorschau, was die Bleiche tut, wenn du jetzt fertig bist: auf einer Kopie des Stands durchgespielt, ohne Ereignisse.
+ * Der Stand bleibt unverändert (auch die Objekte, auf die die Anzeige zeigt)
+ */
+export function forecast(): PaleCast[] {
+  if (!S.bleach || S.over) return [];
+  const keep = { cells: S.cells, teams: S.teams, bleach: S.bleach, over: S.over, winner: S.winner, winReason: S.winReason, headless: S.headless, tally: S.tally, events: S.events };
+  const out = new Map<number, PaleCast>();
+  try {
+    S.cells = structuredClone(S.cells);
+    S.teams = structuredClone(S.teams);
+    S.bleach = structuredClone(S.bleach);
+    S.headless = true;
+    S.tally = {};
+    for (const u of onSheet(S.teams[1])) out.set(u.id, { id: u.id, path: [idx(u.x, u.y)], through: false, caught: false, bleached: [], hits: 0 });
+    bleachMove((acts) => {
+      for (const a of acts) {
+        const c = out.get(a.id);
+        if (!c) continue;
+        if (a.k === 'move') c.path.push(a.to);
+        else if (a.k === 'bleach') c.bleached.push(a.to);
+        else if (a.k === 'hit') c.hits += a.dmg ?? 0;
+        else if (a.k === 'through') c.through = true;
+        else if (a.k === 'caught') c.caught = true;
+      }
+    });
+  } finally {
+    Object.assign(S, keep);
+  }
+  return [...out.values()];
 }
 const waveOf = (id: number): number => Math.max(0, S.bleach?.waves.findIndex((w) => w.some((p) => p.id === id)) ?? 0);
 

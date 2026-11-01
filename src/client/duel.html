@@ -172,6 +172,7 @@
       <button type="button" class="ghost" id="dice-m">Your dice</button>
       <button type="button" class="ghost" id="gallery-m">Gallery: my deck hangs</button>
       <button type="button" class="ghost cmenu" id="colors-m"><i></i><span>Colours: <b id="colors-m-name"></b></span></button>
+      <button type="button" class="ghost danger" id="giveup-m" hidden>Let the sheet dry now (counts as today’s run)</button>
       <button type="button" class="ghost" id="title-m">Back to title</button>
     </div>
   </div>
@@ -188,6 +189,7 @@
       <li><b>Hold and reroll:</b> the roll lies open first. Tap dice to hold them and reroll the rest, up to four times, or keep the roll. Then it counts.</li>
       <li><b>Elements:</b> every blot carries one of six, shown by the badge at its feet: Wash, Vermilion, Gilt, Sap, Ochre and Fluoro. They stand in a ring in that order, and Fluoro comes round to Wash again. Each one splashes the next twice as hard and the one after it 1.25 times as hard, everything else normally. Wash puts out Vermilion, Vermilion melts Gilt, Gilt cuts Sap, Sap splits Ochre, Ochre grounds Fluoro, Fluoro strikes Wash. A twice-as-hard hit also stains. It multiplies with a Glaze or Pure.</li>
       <li><b>Same colours pay:</b> only the colour of the sides counts, a Joker counts as any colour. Glaze, two sides of one colour: every splash on a blot this turn ×1.5. Pure, three of one colour: ×2 and a Joker. Three stars of the same level: a Joker. Palette hits stay one heart.</li>
+      <li><b>Today’s sheet (Bleach):</b> once a day everyone plays the same sheet with Master Sepia’s nine dice. Pales come in five waves from the top and slide three steps down every round. Your paint costs them a step (glazed paint two), a blot in the way takes a hit, and a Pale that slips off the bottom bleaches a heart unless a Guard catches it. Splash flicks a whole row. Dashed lanes show where each Pale ends up when you end your turn. Points: every cell of your paint, 10 for each Pale washed out, 30 for the great one, 15 for each heart. One ranked run a day.</li>
       <li><b>Drops:</b> a win gives a drop of a pigment from your own deck, washing out rival blots gives one of their main pigment. At most two a duel, only in the five rewarded duels a day. In Your dice, 5 drops of one pigment repaint a face, at most 2 faces per die, so it rolls Glaze and Pure more often.</li>
       <li><b>Wet paper:</b> the first reroll is dry. Every further one makes the sheet wetter: 25, 50, then 75 percent that one die turns to mud, a held one too. A mud side counts nothing until you reroll it. Stars and Jokers stay dry.</li>
       <li><b>Stars summon:</b> a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint, touching your paint. Where rival paint, a blot or a palette is in the way, the net may hang over: those sides drip off and paint nothing, as long as at least three cells land. A star that cannot summon says why under the die. At most three blots stand on the sheet.</li>
@@ -312,7 +314,7 @@
 
 <div class="overlay" id="result" hidden>
   <div class="sheet">
-    <p class="eyebrow">Duel over</p>
+    <p class="eyebrow" id="result-eyebrow">Duel over</p>
     <h2 id="result-title"></h2>
     <p id="result-sub"></p>
     <p id="result-fee" hidden></p>

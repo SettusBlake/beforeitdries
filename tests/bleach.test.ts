@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
 import { bleachAct, bleachDay, bleachGet, bleachStart } from '../src/server/bleach';
 import { loadDice, saveDice } from '../src/server/dice';
-import { BLEACH, bleachMove, bleachScore, doFlick, newBleach } from '../src/shared/duel/bleach';
+import { BLEACH, bleachMove, bleachScore, doFlick, forecast, newBleach } from '../src/shared/duel/bleach';
 import { loadState, perform } from '../src/shared/duel/play';
-import { emptyCell, idx, NO_HOME, onSheet, placements, randomBag, ROWS, S, type Unit } from '../src/shared/duel/rules';
+import { drain, emptyCell, idx, NO_HOME, onSheet, placements, randomBag, ROWS, S, type Unit } from '../src/shared/duel/rules';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -98,6 +98,36 @@ describe('Bleach: Regeln', () => {
     bleachMove();
     expect(a!.y).toBe(3);
     expect(mine.hp).toBeLessThan(hp);
+  });
+
+  it('je Schritt ein Ereignis mit allen Pales (sie ziehen zugleich), die Vorschau sagt genau, was danach passiert', () => {
+    fresh();
+    clear();
+    const [a, b, c] = S.teams[1].units;
+    put(a!, 0, 1);
+    put(b!, 2, 1);
+    S.cells[idx(2, 2)] = { ...emptyCell(), owner: 1 };
+    put(c!, 4, ROWS - 2);
+    const mine = S.teams[0].units[0]!;
+    put(mine, 0, 3);
+    const cast = forecast();
+    // Die Vorschau ändert nichts
+    expect([a!.y, b!.y, c!.y]).toEqual([1, 1, ROWS - 2]);
+    expect(S.cells[idx(2, 2)]!.owner).toBe(1);
+    drain();
+    bleachMove();
+    const evs = drain();
+    const steps = evs.filter((e) => e.k === 'pales');
+    expect(steps).toHaveLength(BLEACH.steps);
+    // Im ersten Schritt handeln alle drei zugleich
+    if (steps[0]!.k === 'pales') expect(new Set(steps[0]!.acts.map((x) => x.id))).toEqual(new Set([a!.id, b!.id, c!.id]));
+    const end = (id: number) => cast.find((x) => x.id === id)!;
+    expect(end(a!.id).path.at(-1)).toBe(idx(a!.x, a!.y));
+    expect(end(a!.id).hits).toBeGreaterThan(0);
+    expect(end(b!.id).bleached).toContain(idx(2, 2));
+    expect(end(b!.id).path.at(-1)).toBe(idx(b!.x, b!.y));
+    expect(end(c!.id).through).toBe(true);
+    expect(c!.state).toBe('gone');
   });
 
   it('wer unten hinausrutscht, bleicht ein Herz. Ein Guard fängt das ab. Null Herzen beenden den Lauf', () => {

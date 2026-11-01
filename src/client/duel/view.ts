@@ -12,6 +12,7 @@ import { elementImage } from './elements';
 import { elementDef } from '../../shared/elements';
 import { faceImage, holoRim, lookOf, type Look } from './faceskin';
 import { BRIM, COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type Unit, type UnitSnap } from '../../shared/duel/rules';
+import type { PaleAct } from '../../shared/duel/bleach';
 import { sfx } from './sound';
 import { mediumDef } from '../../shared/duel/media';
 
@@ -1155,6 +1156,87 @@ function vunitFrom(s: UnitSnap): VUnit {
   return { ...s, side: u.side, dx: s.x, dy: s.y, lift: 0, scale: 1, alpha: 1, flash: 0, hpShown: s.hp, busy: false, sqx: 1, sqy: 1, ox: 0, oy: 0, rot: 0 };
 }
 
+/* ---------- Bleach: alle Pales eines Schritts zugleich ---------- */
+const MIST = 'rgba(214,210,198,.9)';
+function mist(x: number, y: number, n: number, spread = 1): void {
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * Math.PI * 2;
+    V.parts.push({ x, y, vx: Math.cos(a) * (30 + Math.random() * 60) * spread, vy: Math.sin(a) * 40 - 30, g: -20, r: 1.8 + Math.random() * 2.2, t0: now(), life: 520 + Math.random() * 300, col: MIST });
+  }
+}
+async function paleAct(a: PaleAct): Promise<void> {
+  const v = V.units.get(a.id);
+  if (!v) return;
+  const fx = a.from % COLS,
+    fy = Math.floor(a.from / COLS),
+    tx = a.to % COLS,
+    ty = Math.floor(a.to / COLS);
+  v.busy = true;
+  if (a.k === 'spawn') {
+    // Erscheint oben aus dem Ausgebleichten
+    v.state = 'sheet';
+    v.dx = tx;
+    v.dy = ty;
+    mist(cx(a.to), cy(a.to) - cell * 0.4, 10, 1.2);
+    await tween(520, (p) => {
+      v.alpha = p;
+      v.dy = ty - 0.6 * (1 - p);
+      v.sqy = 0.8 + 0.2 * p;
+    });
+    Object.assign(v, { alpha: 1, dy: ty, sqy: 1 });
+  } else if (a.k === 'move') {
+    await tween(260, (p) => {
+      v.dx = fx + (tx - fx) * p;
+      v.dy = fy + (ty - fy) * p;
+      v.lift = Math.sin(Math.PI * p) * 0.12;
+      v.sqy = 1 + 0.08 * Math.sin(Math.PI * p);
+    });
+    Object.assign(v, { dx: tx, dy: ty, lift: 0, sqy: 1 });
+    if (Math.random() < 0.6) mist(cx(a.to), cy(a.to) + cell * 0.25, 3, 0.5);
+  } else if (a.k === 'bleach' || a.k === 'hit') {
+    // Ausholen zum Feld darunter: die Farbe wird blass, ein Klecks im Weg wird getroffen
+    await tween(150, (p) => {
+      v.dy = fy + 0.32 * p;
+      v.sqy = 1 - 0.1 * p;
+    });
+    if (a.k === 'bleach' && a.cell) {
+      setCell(a.to, a.cell.c, 'fade', 0, 360);
+      mist(cx(a.to), cy(a.to), 9, 0.9);
+    } else {
+      splatter(cx(a.to), cy(a.to), MIST, 10, 0.9);
+      const tv = [...V.units.values()].find((u) => u.side === 1 && u.state === 'sheet' && Math.round(u.dx) === tx && Math.round(u.dy) === ty);
+      if (tv) tv.flash = 0.9;
+    }
+    await tween(140, (p) => {
+      v.dy = fy + 0.32 * (1 - p);
+      v.sqy = 0.9 + 0.1 * p;
+    });
+    Object.assign(v, { dy: fy, sqy: 1 });
+  } else if (a.k === 'wait') {
+    await tween(260, (p) => (v.rot = Math.sin(p * Math.PI * 2) * 0.05));
+    v.rot = 0;
+  } else {
+    // Unten hinaus: rutscht über den Rand und verblasst (ein Guard fängt ihn mit einem Ring)
+    if (a.k === 'caught') {
+      ring(cx(a.from), cy(a.from) + cell * 0.6, cell * 0.2, cell * 0.9, 'rgba(95,100,116,.8)', 600, 4);
+      text(cx(a.from), cy(a.from), 'Guard!', '#5f6474', 18, 1000);
+    }
+    await tween(420, (p) => {
+      v.dy = fy + 0.9 * p;
+      v.alpha = 1 - p;
+    });
+    v.state = 'gone';
+  }
+  v.busy = false;
+}
+async function paleStep(acts: PaleAct[]): Promise<void> {
+  if (acts.some((a) => a.k === 'spawn')) sfx.rise();
+  else if (acts.some((a) => a.k === 'bleach' || a.k === 'hit')) sfx.wipe();
+  else if (acts.some((a) => a.k === 'move')) sfx.step();
+  await Promise.all(acts.map(paleAct));
+  await wait(60);
+}
+
 /* ---------- Ereignisse abspielen ---------- */
 export async function playEvent(e: Ev): Promise<void> {
   switch (e.k) {
@@ -1233,9 +1315,12 @@ export async function playEvent(e: Ev): Promise<void> {
       sfx.dice(2);
       await wait(700);
       return;
+    case 'pales':
+      await paleStep(e.acts);
+      return;
     case 'round':
       dryStains();
-      hooks.banner(`Round ${e.round}`, 'round');
+      hooks.banner(S.mode === 'bleach' ? `Wave ${e.round}` : `Round ${e.round}`, 'round');
       sfx.turn();
       await wait(800);
       return;

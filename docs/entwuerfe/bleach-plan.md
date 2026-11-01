@@ -4,6 +4,7 @@ Stand 02.11.2026, Fassung 2.
 
 - **Freigegeben** am 02.11.2026 („alles Empfehlung“, alle 8 Fragen).
 - **Schritt 1 gebaut** (Regeln, Server, Simulation, Tests, Knopf „Today’s sheet“): Playtest v0.0.1.127, Bild docs/entwuerfe/bleach-schritt1.png.
+- **Schritt 2 gebaut** (Bedienung, „mach Schritt 2“): Playtest v0.0.1.129, Bild docs/entwuerfe/bleach-schritt2.png.
 - **Abweichungen nach der Simulation:** 3 statt 2 Schritte, 14 statt 11 Pales, Wellen erscheinen in der zweiten Reihe, der große Pale kommt in Welle 3 (siehe „Einstimmen“).
 
 Anlass:
@@ -95,7 +96,7 @@ Die Bleiche frisst das Blatt vom oberen Rand her. Du hältst es fünf Wellen lan
 - **Dauer:**
   - Geplant waren 5 eigene Züge zu je etwa 12 Sekunden, kein Zug eines Rivalen, die Bleiche zieht in etwa 2 Sekunden. Zusammen etwa 1 Minute bei automatischem Spiel.
   - Gemessen nach Schritt 1 im Browser (automatisch, normales Tempo): 110 Sekunden. Die Pales ziehen noch einer nach dem anderen, Schritt für Schritt.
-  - In Schritt 2 ziehen alle Pales gleichzeitig, das spart etwa die Hälfte.
+  - Nach Schritt 2 (alle Pales ziehen gleichzeitig): 91 Sekunden, mit einem Flick und Wartezeiten für Bilder. Der Rest sind die eigenen Züge (Würfeln, Beschwören, Handeln), wie im Duell. Mit Nachdenken etwa 1,5 bis 2,5 Minuten.
 
 ### Einstimmen (Simulation, 150 Läufe je Spielstärke)
 
@@ -189,12 +190,17 @@ Gebaute Fassung im Einzelnen:
 ## Reihenfolge
 
 1. **Regeln, Server, Simulation, Tests:** gebaut. Bleach mit Tagesseed, Tagesdeck, gleichen Würfen, Wertung und Rangliste. Simulation zum Einstimmen. Upload mit Knopf „Today’s sheet“ im Startbild, noch ohne Post.
-2. **Bedienung:**
-   - Pales mit Bahnen, Markierungen der nächsten Welle, Wellenzähler und Punkte.
-   - Alle Pales ziehen gleichzeitig (kürzer).
-   - Knopf für Flick (bisher nur über „Sepia paints“) und für Aufgeben.
-   - Ergebnis mit Punkten und Rang.
-   - Sepia erklärt beim ersten Mal in drei Sätzen.
+2. **Bedienung:** gebaut.
+   - **Alle Pales ziehen gleichzeitig:** je Schritt ein Ereignis `pales` mit allen Pales (erscheinen aus Nebel, rutschen, holen aus und bleichen ein Feld, treffen einen Klecks, warten, rutschen unten hinaus oder werden vom Guard gefangen). Treffer und Herzen danach.
+   - **Bahnen und Vorschau:** Solange du am Zug bist, zeigt eine gestrichelte Bahn je Pale, wo er nach dem Zug der Bleiche steht (gestrichelter Kreis). Felder, die er ausbleichen wird, sind schraffiert, ein Treffer auf einen Klecks steht als „−6“ daneben, wer durchbricht, bekommt einen roten Pfeil mit „−♥“ (oder „Guard“). Die Vorschau rechnet die Regeln auf einer Kopie durch (`forecast` in bleach.ts) und ändert sich mit jedem deiner Züge.
+   - **Nächste Welle:** gestrichelte Kreise mit Pfeil und „next“ an den Spalten, in denen sie erscheint.
+   - **Flick:** Knopf „Flick ×2 · a row −4“ neben „Sepia paints“, solange ein Splash da ist. Danach leuchten die Reihen mit Pales, eine antippen.
+   - **Aufgeben:** im Menü „Let the sheet dry now (counts as today’s run)“, mit zweitem Tipp. „New duel“ ist im Tagesblatt ausgeblendet.
+   - **Ergebnis:** „Today’s sheet“ (oder „Test sheet“), „The edge held“, „The Bleach got through“ oder „You let it dry“, Punkte groß mit Rang, darunter woher sie kommen (Farbe, ausgewaschene Pales, der große, Herzen), Belohnung, ein Satz von Sepia. „Today’s board“ führt zurück zum Startbild mit der Rangliste.
+   - **Oben:** „Wave 2/5“, deine Punkte, die übrigen Pales, Zeile „Hold the edge“, keine Herzen für die Bleiche, Banner „Wave 2“.
+   - **Sepia erklärt beim ersten Mal** in drei Sätzen (einmal je Gerät).
+   - **Hilfe:** neuer Abschnitt „Today’s sheet (Bleach)“.
+   - DUEL_PROTOCOL 19.
 3. **Tagespost und Teilen:** Scheduler, Rangliste und beste Blätter im Post, Kommentar als Spieler.
 
 ## Fragen (beantwortet am 02.11.2026, „alles Empfehlung“)
