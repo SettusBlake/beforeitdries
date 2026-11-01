@@ -1076,6 +1076,15 @@ function text(x: number, y: number, s: string, col: string, size = 18, life = 10
 function ring(x: number, y: number, r0: number, r1: number, col: string, life: number, w = 3): void {
   V.rings.push({ x, y, r0, r1, col, t0: now(), life: life / V.speed, w });
 }
+/** Symbol-Hilfe: Ringe pulsieren auf diesen Feldern, damit man sieht, worauf ein Symbol wirkt */
+export function pulse(cells: number[], col: string): void {
+  cells.forEach((i, k) =>
+    window.setTimeout(() => {
+      ring(cx(i), cy(i), cell * 0.15, cell * 0.8, col, 900, 4);
+      window.setTimeout(() => ring(cx(i), cy(i), cell * 0.15, cell * 0.8, col, 900, 3), 380);
+    }, k * 110),
+  );
+}
 function shake(amp: number): void {
   V.shake = { t0: now(), amp };
 }

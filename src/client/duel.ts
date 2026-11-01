@@ -533,6 +533,157 @@ function showTicker(text: string, cls: string): void {
   tickT = window.setTimeout(() => (t.className = cls), 3200);
 }
 
+/* ---------- Symbol-Hilfe (01.11.2026): Antippen erklärt, was ein Symbol tut und was es gerade bewirkt ---------- */
+type Explain = { icon: string; title: string; text: string; now?: string; fx: string; cells?: number[]; col?: string; side?: Side };
+let explainT = 0,
+  explainFrom: Element | null = null;
+function hideExplain(): void {
+  const b = document.getElementById('explain');
+  if (b) b.className = '';
+  explainFrom = null;
+}
+function explain(anchor: HTMLElement, x: Explain): void {
+  let b = document.getElementById('explain');
+  if (!b) {
+    b = el('div');
+    b.id = 'explain';
+    b.setAttribute('role', 'dialog');
+    document.body.append(b);
+    b.addEventListener('click', hideExplain);
+  }
+  // Noch einmal dasselbe antippen schließt die Karte
+  if (explainFrom === anchor && b.classList.contains('show')) return hideExplain();
+  sfx.tap();
+  explainFrom = anchor;
+  b.innerHTML = `<div class="ex-ic">${x.icon}</div><div class="ex-t"><b>${x.title}</b><p>${x.text}</p>${x.now ? `<p class="now">${x.now}</p>` : ''}</div>`;
+  b.className = `show fx-${x.fx}${x.side === 2 ? ' rival' : ''}`;
+  // Neben dem Symbol: darunter, wenn es oben liegt, sonst darüber
+  const r = anchor.getBoundingClientRect();
+  const vw = window.innerWidth,
+    vh = window.innerHeight;
+  const w = Math.min(320, vw - 24);
+  b.style.width = `${w}px`;
+  b.style.left = `${Math.max(12, Math.min(vw - w - 12, r.left + r.width / 2 - w / 2))}px`;
+  b.style.setProperty('--ax', `${Math.max(16, Math.min(w - 16, r.left + r.width / 2 - Math.max(12, Math.min(vw - w - 12, r.left + r.width / 2 - w / 2))))}px`);
+  if (r.top > vh / 2) {
+    b.style.top = '';
+    b.style.bottom = `${vh - r.top + 10}px`;
+    b.classList.add('up');
+  } else {
+    b.style.bottom = '';
+    b.style.top = `${r.bottom + 10}px`;
+  }
+  // Auf dem Blatt zeigen, worauf es wirkt
+  if (x.cells?.length) View.pulse(x.cells, x.col ?? 'rgba(201,150,30,.95)');
+  window.clearTimeout(explainT);
+  explainT = window.setTimeout(hideExplain, 7000);
+}
+// Woanders hintippen schließt die Karte
+document.addEventListener(
+  'pointerdown',
+  (e) => {
+    const b = document.getElementById('explain');
+    if (!b?.classList.contains('show')) return;
+    const t = e.target as Node;
+    if (b.contains(t) || explainFrom?.contains(t)) return;
+    hideExplain();
+  },
+  true,
+);
+const cellOf = (u: Unit) => R.idx(u.x, u.y);
+const homeCell = (sd: Side) => S.teams[sd - 1]!.home;
+/** Was ein Symbol im Vorrat tut, und was es gerade bewirkt */
+function crestExplain(k: R.Crest, sd: Side = 1): Explain {
+  const t = S.teams[sd - 1]!;
+  const n = t.crests[k];
+  const who = sd === 1 ? 'You hold' : 'The rival holds';
+  const mine = R.onSheet(t);
+  const icon = iconSvg({ k, n: 1 }, 46);
+  switch (k) {
+    case 'step':
+      return {
+        icon,
+        fx: 'step',
+        title: 'Step',
+        text: 'A blot may walk two cells further. It is only spent when a move needs the extra reach.',
+        now: n ? `${who} ${n}: ${n === 1 ? 'one longer walk' : `${n} longer walks`}.` : `${who} none. Roll Step faces to get some.`,
+        cells: mine.map(cellOf),
+        side: sd,
+      };
+    case 'splash': {
+      const foe = sd === 1 ? 2 : 1;
+      const guarded = R.homeGuarded(S.teams[foe - 1]!);
+      return {
+        icon,
+        fx: 'splash',
+        title: 'Splash',
+        text: 'Breaks one heart of the other palette: drag a blot next to it. At most one heart per turn, and a palette is safe while one of its own blots stands within two cells. Splashing blots is free.',
+        now: `${who} ${n}. ${sd === 1 ? 'Their' : 'Your'} palette is ${guarded ? 'guarded right now' : 'open'}.`,
+        cells: [homeCell(foe)],
+        col: 'rgba(196,52,52,.95)',
+        side: sd,
+      };
+    }
+    case 'guard':
+      return {
+        icon,
+        fx: 'guard',
+        title: 'Guard',
+        text: 'Halves the next hit on any of your blots, all by itself. One Guard per hit.',
+        now: n ? `${who} ${n}: the next ${n === 1 ? 'hit is' : `${n} hits are`} halved.` : `${who} none: hits land in full.`,
+        cells: mine.map(cellOf),
+        col: 'rgba(95,100,116,.95)',
+        side: sd,
+      };
+    case 'glow': {
+      const brims = mine.map((u) => `${u.name.split(' ')[1] ?? u.name} ${u.brim}/${R.BRIM.max}`).join(', ');
+      return {
+        icon,
+        fx: 'glow',
+        title: 'Glow',
+        text: 'Pours into every blot of yours on the sheet the moment you roll it: one brim each. A full brim makes the next fitting move a master stroke.',
+        now: n ? `${n} waiting for a blot on the sheet.` : brims ? `Brim now: ${brims}.` : 'No blot on the sheet yet.',
+        cells: mine.map(cellOf),
+        col: 'rgba(201,150,30,.95)',
+        side: sd,
+      };
+    }
+  }
+}
+function heartsExplain(sd: Side): Explain {
+  const t = S.teams[sd - 1]!;
+  const guarded = R.homeGuarded(t);
+  return {
+    icon: '<span class="ex-heart">♥</span>',
+    fx: 'heart',
+    title: sd === 1 ? 'Your palette' : 'Rival palette',
+    text: `Three hearts each. A Splash next to an unguarded palette breaks one, at most one per turn. No hearts left and the duel is lost. Every heart left counts ${R.HEART_BONUS} cells when the paper dries.`,
+    now: `${t.hearts} ${t.hearts === 1 ? 'heart' : 'hearts'} left. ${guarded ? 'Guarded: one of its blots stands within two cells.' : sd === 1 ? 'Open: keep a blot within two cells.' : 'Open: a blot of yours next to it can splash it.'}`,
+    cells: [t.home],
+    col: sd === 1 ? 'rgba(43,63,163,.95)' : 'rgba(196,52,52,.95)',
+    side: sd,
+  };
+}
+function scoreExplain(): Explain {
+  const [a, b] = R.counts(V.cells);
+  return {
+    icon: '<span class="ex-score">▦</span>',
+    fx: 'score',
+    title: 'When the paper dries',
+    text: `After round ${ROUNDS} the paper dries. Every cell of your paint counts one, a glazed cell two, and every heart left ${R.HEART_BONUS}. Or break all three hearts of their palette before that.`,
+    now: `Now: you ${a + R.HEART_BONUS * S.teams[0].hearts} (${a} paper + ${R.HEART_BONUS * S.teams[0].hearts} hearts), rival ${b + R.HEART_BONUS * S.teams[1].hearts} (${b} + ${R.HEART_BONUS * S.teams[1].hearts}).`,
+  };
+}
+function jokerExplain(): Explain {
+  return {
+    icon: iconSvg({ k: 'joker', n: 3 }, 46),
+    fx: 'joker',
+    title: 'Joker',
+    text: 'Counts as a star of level 3 to unfold a blot, or turn it into any symbol you like. In a roll it also counts as any colour.',
+    now: `You hold ${S.joker}.`,
+  };
+}
+
 /* ---------- Hinweise von Meisterin Sepia ---------- */
 /** Tipps im normalen Duell: aus, seit Sepia nur im Lern-Duell erklärt. Texte bleiben für später */
 const SHOW_TIPS = false;
@@ -613,6 +764,9 @@ function crestRow(box: HTMLElement, side: Side, small: boolean): void {
       const s = html('span', 'crest', iconSvg({ k: c.k, n: 1 }, small ? 15 : 22) + '<b></b>');
       s.dataset.k = c.k;
       s.title = `${c.label}: ${c.use}`;
+      s.setAttribute('role', 'button');
+      // Antippen erklärt das Symbol (Symbol-Hilfe)
+      s.addEventListener('click', () => explain(s, crestExplain(c.k, side)));
       box.append(s);
     }
   }
@@ -667,14 +821,23 @@ function renderStatus(): void {
       const b = html('button', 'st-med', bottleSvg(m.col, 20)) as HTMLButtonElement;
       b.type = 'button';
       b.title = m.name;
-      b.addEventListener('click', () => showTicker(`${sd === 2 ? 'Rival: ' : ''}${m.name}. ${m.text}`, sd === 1 ? 'you' : 'rival'));
+      b.addEventListener('click', () => explain(b, { icon: bottleSvg(m.col, 46), fx: 'bottle', title: `${sd === 2 ? 'Rival: ' : ''}${m.name}`, text: m.text, now: sd === 1 ? 'Yours until the paper dries.' : 'The rival’s until the paper dries.', side: sd }));
       g.append(b);
     }
     if (xm && sd === ts) {
       const b = html('button', `st-mult s${sd} k-${xm.kind}`, `×${+xm.x.toFixed(2)}`) as HTMLButtonElement;
       b.type = 'button';
       b.addEventListener('click', () =>
-        showTicker(`${sd === 2 ? 'Rival ' : ''}${R.COMBO_NAME[xm.kind]}: every splash on a blot this turn ×${+xm.x.toFixed(2)}. Palette hits stay one heart.`, sd === 1 ? 'you' : 'rival'),
+        explain(b, {
+          icon: `<span class="ex-mult">×${+xm.x.toFixed(2)}</span>`,
+          fx: 'mult',
+          title: `${sd === 2 ? 'Rival ' : ''}${R.COMBO_NAME[xm.kind]}`,
+          text: xm.kind === 'pure' ? 'Three faces of one colour: every splash on a rival blot this turn hits twice as hard.' : 'Two faces of one colour: every splash on a rival blot this turn hits half again as hard.',
+          now: `×${+xm.x.toFixed(2)} until the turn ends. Palette hits stay one heart.`,
+          cells: R.onSheet(S.teams[sd === 1 ? 1 : 0]).map(cellOf),
+          col: 'rgba(106,61,143,.95)',
+          side: sd,
+        }),
       );
       g.append(b);
     }
@@ -683,7 +846,17 @@ function renderStatus(): void {
       const t = R.FAMILY_TEXT[sb.fam][sb.n >= 3 ? 1 : 0];
       const b = html('button', `st-set f-${sb.fam}`, `<span class="fam">${sb.fam} </span>×${sb.n}`) as HTMLButtonElement;
       b.type = 'button';
-      b.addEventListener('click', () => showTicker(`${sd === 2 ? 'Rival ' : ''}${sb.fam} ×${sb.n}: ${t}.`, sd === 1 ? 'you' : 'rival'));
+      b.addEventListener('click', () =>
+        explain(b, {
+          icon: `<span class="ex-fam f-${sb.fam}">${sb.fam}</span>`,
+          fx: 'set',
+          title: `${sd === 2 ? 'Rival ' : ''}${sb.fam} family ×${sb.n}`,
+          text: `${sb.n} blots of the ${sb.fam} colours on the sheet work together: ${t}.`,
+          now: sb.n >= 3 ? 'Full set: the stronger bonus.' : 'A third one would make it stronger.',
+          cells: R.onSheet(S.teams[sd - 1]!).filter((u) => R.FAMILY[u.m.main] === sb.fam).map(cellOf),
+          side: sd,
+        }),
+      );
       g.append(b);
     }
     return g;
@@ -695,7 +868,14 @@ function renderStatus(): void {
     const b = html('button', `st-task s${ts}${done ? ' done' : ''}`, `<span class="pre">${ts === 2 ? 'Rival: ' : '✦ '}</span>${task.text}${done ? ' ✓' : ''}`) as HTMLButtonElement;
     b.type = 'button';
     b.addEventListener('click', () =>
-      showTicker(ts === 2 ? `Rival’s task this round: ${task.text}. If its roll shows it, it gets a Joker.` : `Master Sepia’s task this round: roll ${task.text}. Jokers count. Done: a Joker.`, ts === 1 ? 'you' : 'rival'),
+      explain(b, {
+        icon: iconSvg({ k: 'joker', n: 3 }, 46),
+        fx: 'task',
+        title: ts === 2 ? 'Rival’s task' : 'Master Sepia’s task',
+        text: `This round: roll ${task.text}. Jokers count. If the final roll shows it, ${ts === 2 ? 'the rival gets' : 'you get'} a Joker.`,
+        now: done ? 'Done this round.' : 'Not done yet.',
+        side: ts,
+      }),
     );
     box.append(side(1), b, side(2));
     // Zu eng (viele Malmittel): Fläschchen dichter, Set-Bonus nur mit Zahl, damit der Auftrag lesbar bleibt
@@ -872,7 +1052,9 @@ function renderJoker(): void {
   box.hidden = !show;
   $('hint').hidden = show;
   if (!show) return;
-  box.replaceChildren(html('span', 'jlbl', `${iconSvg({ k: 'joker', n: 3 }, 18)} Joker${S.joker > 1 ? ` ×${S.joker}` : ''}${p === 'summon' ? ': summon with it, or take' : ': take'}`));
+  const jl = html('span', 'jlbl', `${iconSvg({ k: 'joker', n: 3 }, 18)} Joker${S.joker > 1 ? ` ×${S.joker}` : ''}${p === 'summon' ? ': summon with it, or take' : ': take'}`);
+  jl.addEventListener('click', () => explain(jl, jokerExplain()));
+  box.replaceChildren(jl);
   for (const c of CRESTS) {
     const b = html('button', 'jc', iconSvg({ k: c.k, n: 1 }, 20)) as HTMLButtonElement;
     b.type = 'button';
@@ -1669,6 +1851,10 @@ async function skipSummon(): Promise<void> {
   if (await request(api.duelAct({ k: 'skip' }))) afterAction();
 }
 
+// Symbol-Hilfe: Herzen und Stand erklären sich beim Antippen
+$('hearts').addEventListener('click', () => S.teams.length && explain($('hearts'), heartsExplain(1)));
+$('rival-hearts').addEventListener('click', () => S.teams.length && explain($('rival-hearts'), heartsExplain(2)));
+document.querySelector('#game .score')?.addEventListener('click', (e) => S.teams.length && explain(e.currentTarget as HTMLElement, scoreExplain()));
 $('deck').addEventListener('click', () => {
   if (busy || tut()) return;
   sfx.tap();
