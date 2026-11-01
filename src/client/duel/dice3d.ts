@@ -1,6 +1,7 @@
 /* Echte 3D-Würfel aus CSS: sechs Seiten, rollen, springen und bleiben mit der geworfenen Seite oben liegen */
 import { iconSvg, MUD_SVG } from './icons';
 import type { Face } from '../../shared/duel/rules';
+import { PIG } from '../../shared/data';
 
 /** Lage der Seiten am Würfel und die Drehung, die eine Seite nach vorne bringt */
 const FACE_T = ['rotateY(0deg)', 'rotateY(90deg)', 'rotateY(180deg)', 'rotateY(-90deg)', 'rotateX(90deg)', 'rotateX(-90deg)'];
@@ -27,7 +28,8 @@ export function makeCube(faces: Face[], size: number, tint: string): HTMLElement
     const d = document.createElement('div');
     d.className = 'd3face' + (f.k === 'star' ? ' star' : '');
     d.style.transform = `${FACE_T[k]} translateZ(${size / 2}px)`;
-    d.style.borderColor = tint;
+    // Rand in der Farbe der Seite (Kampf A), Sterne und Joker im Ton des Würfels
+    d.style.borderColor = f.c ? `rgb(${PIG[f.c].rgb})` : tint;
     d.innerHTML = iconSvg(f, Math.round(size * 0.6));
     cube.append(d);
   });

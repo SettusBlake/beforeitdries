@@ -12,7 +12,7 @@ export const MEDIA: Medium[] = [
   { id: 'retarder', name: 'Retarder', text: 'Your paint stays wet one round longer.', col: '#3a7ca5' },
   { id: 'sponge', name: 'Sponge', text: 'Soaks up water: your first two rerolls stay dry, later ones are one step drier.', col: '#d1a53a' },
   { id: 'irid', name: 'Iridescent Medium', text: 'Every combo gives one more symbol.', col: '#a35fc4' },
-  { id: 'mask', name: 'Masking Fluid', text: 'Your paint next to your palette cannot be painted over. Dice you hold never bleed.', col: '#d9c25a' },
+  { id: 'mask', name: 'Masking Fluid', text: 'Your paint next to your palette cannot be painted over. Dice you hold never turn to mud.', col: '#d9c25a' },
   { id: 'gran', name: 'Granulation Medium', text: 'Mud counts for you when the paper dries.', col: '#8a6a4a' },
   { id: 'tape', name: 'Masking Tape', text: 'The Eraser does not graze your blots.', col: '#c8b98a' },
   { id: 'waterbrush', name: 'Water Brush', text: 'A burst paints two cells far.', col: '#4a8fc2' },

@@ -36,7 +36,7 @@ export function washSvg(c: PigmentId): string {
     pts.push(`${(10 + Math.cos(a) * rad).toFixed(2)},${(10 + Math.sin(a) * rad).toFixed(2)}`);
   }
   const d = `M${pts.join('L')}Z`;
-  const out = `<path d="${d}" fill="rgb(${r},${g},${b})" fill-opacity=".36" stroke="rgb(${r},${g},${b})" stroke-opacity=".62" stroke-width="1" stroke-linejoin="round"/><ellipse cx="8.2" cy="7.6" rx="4.2" ry="3.2" fill="#fff" fill-opacity=".22"/>`;
+  const out = `<path d="${d}" fill="rgb(${r},${g},${b})" fill-opacity=".44" stroke="rgb(${r},${g},${b})" stroke-opacity=".7" stroke-width="1" stroke-linejoin="round"/><ellipse cx="8.2" cy="7.6" rx="4.2" ry="3.2" fill="#fff" fill-opacity=".22"/>`;
   washCache.set(c, out);
   return out;
 }

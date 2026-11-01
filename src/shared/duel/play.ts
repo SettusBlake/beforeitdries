@@ -86,8 +86,8 @@ export type DuelAction =
 
 /** Was der Client sieht: alles außer Würfelzufall und Seed */
 export type DuelState = {
-  /** Stand der Regeln im Speicher: 5 = Kampf A (Farbseiten, Farb-Kombis, Nässe). Ältere Duelle werden verworfen */
-  v: 5;
+  /** Stand der Regeln im Speicher: 6 = Kampf A Fassung 2 (Farbseiten, gleiche Farben, Nässe macht Schlamm). Ältere Duelle werden verworfen */
+  v: 6;
   cells: Cell[];
   teams: Team[];
   round: number;
@@ -98,8 +98,6 @@ export type DuelState = {
   level: Level;
   phase: Phase;
   lastRoll: RollSlot[];
-  /** Treffer der Seite am Zug in diesem Zug (Kette) */
-  chain: number;
   /** Joker aus dem letzten Wurf, noch nicht verbraucht */
   joker: number;
   freeJoker: number;
@@ -135,7 +133,7 @@ const isInt = (v: unknown, lo: number, hi: number): v is number => Number.isInte
 
 export function publicState(): DuelState {
   return {
-    v: 5,
+    v: 6,
     cells: S.cells,
     teams: S.teams,
     round: S.round,
@@ -146,7 +144,6 @@ export function publicState(): DuelState {
     level: S.level,
     phase: S.phase,
     lastRoll: S.lastRoll,
-    chain: S.chain,
     joker: S.joker,
     freeJoker: S.freeJoker,
     starBonus: S.starBonus,
@@ -184,7 +181,6 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, Hidden>>): void 
   S.level = s.level;
   S.phase = s.phase;
   S.lastRoll = s.lastRoll;
-  S.chain = s.chain ?? 0;
   S.joker = s.joker ?? 0;
   S.freeJoker = s.freeJoker ?? 0;
   S.starBonus = s.starBonus ?? 0;

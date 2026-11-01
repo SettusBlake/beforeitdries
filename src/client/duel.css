@@ -122,33 +122,22 @@ button { font: inherit; color: inherit; }
 .cbadge small { font: 600 11.5px var(--f-body); color: var(--muted); }
 .cbadge.k-pure { border-color: #c9961e; box-shadow: 0 0 14px rgba(201,150,30,.5); }
 .cbadge.k-pure b { font-size: 1.5rem; }
-.cbadge.k-burst { border-color: #d98a5a; }
-.cbadge.k-burst em { color: #b1462a; }
-.cbadge.boiled { background: #efe6d6; border-color: var(--mud); }
-.cbadge.boiled b, .cbadge.boiled em { color: var(--mud); text-decoration: line-through; }
-.stage-combo.k-pure, .stage-combo.k-burst { font-size: 1.3rem; }
-/* Ausbluten auf der Würfelbühne: nasser Glanz, Rinnsal, Blühen und Schlamm */
+.stage-combo.k-pure { font-size: 1.3rem; }
+/* Nässe auf der Würfelbühne: nasser Glanz und Schlamm */
 #stage.wet { background: radial-gradient(ellipse at center, rgba(236,243,250,.94), rgba(214,226,236,calc(.4 + var(--wet, 0) * .5)) 70%, rgba(228,225,216,0)); }
 .stage-note { margin: -4px 0 0; min-height: 1.1em; font: 700 12px var(--f-mono); color: var(--water); animation: up .25s ease; }
 .stage-note.mud { color: var(--mud); }
-.stage-die.bloom .die3 { animation: bloomDie .7s ease; }
 .stage-die.muddy .die3 { animation: mudDie .6s ease; filter: saturate(.4) brightness(.92); }
 .stage-die.mud .die3 { filter: saturate(.4) brightness(.92); }
 .stage-die.mud small { color: var(--mud); }
 .d3face.mud { background: #e8dfcf; }
-@keyframes bloomDie { 0% { filter: drop-shadow(0 0 0 rgba(43,111,163,0)); } 40% { transform: scale(1.1); filter: drop-shadow(0 0 12px rgba(43,111,163,.7)); } 100% { filter: none; } }
 @keyframes mudDie { 0%, 100% { transform: none; } 25% { transform: translateX(-5px) rotate(-4deg); } 50% { transform: translateX(4px) rotate(3deg) scale(.96); } 75% { transform: translateX(-2px); } }
-.bleed-trail { position: fixed; height: 9px; margin-top: -4px; z-index: 30; pointer-events: none; border-radius: 6px; transform-origin: left center;
-  background: linear-gradient(90deg, var(--c, #74644f), color-mix(in srgb, var(--c, #74644f) 60%, transparent)); opacity: .75; animation: trail 1s ease forwards; }
-.bleed-trail.mud { --c: #74644f; height: 12px; }
-@keyframes trail { 0% { transform: scaleX(0); opacity: .9; } 45% { transform: scaleX(1); opacity: .8; } 100% { transform: scaleX(1); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .stage-die.bloom .die3, .stage-die.muddy .die3, .bleed-trail { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .stage-die.muddy .die3 { animation: none; } }
 #banner.combo { color: #6a3d8f; font-size: 2rem; }
 /* Multiplikator des Zugs am Stand */
 .st-mult { flex: none; white-space: nowrap; border: 1.5px solid #b79bd0; background: #f6effb; color: #6a3d8f; border-radius: 999px; padding: 1px 7px; min-height: 24px; font: 800 12px var(--f-mono); cursor: pointer; animation: up .25s ease; }
 .st-mult.k-pure { border-color: #c9961e; background: #fbefc9; color: var(--gold-ink); }
-.st-mult.k-burst { border-color: #e0a07a; background: #fdf0e8; color: #b1462a; }
-.stage-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: min(100% - 24px, 360px); pointer-events: none; }
+.stage-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: min(100% - 24px, 360px); pointer-events: none; }
 .cmb { display: grid; gap: 1px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: #fffdf8; }
 .cmb b { font: 700 13px var(--f-body); color: var(--gold-ink); }
 .cmb span { font: 12px/1.25 var(--f-body); color: var(--muted); }

@@ -275,27 +275,25 @@ describe('Duell am Server', () => {
     expect(await code(duelAct(d, USER, { k: 'reroll', hold: [] }))).toBe('bad_request');
   });
 
-  it('Farb-Kombis (Kampf A): Pure, Burst, Glaze, Chain, drei Sterne, Joker zählt als jede Farbe, Schlamm zählt nicht', () => {
+  it('Farb-Kombis (Kampf A, vereinfacht): nur gleiche Farbe zählt, Joker zählt als jede Farbe, Schlamm zählt nicht', () => {
     const f = (k: Face['k'], c?: PigmentId, n = 1): { face: Face; mud?: boolean } => ({ face: c ? { k, n, c } : { k, n } });
     const mud = (x: { face: Face }) => ({ ...x, mud: true });
     expect(comboOf([f('glow', 'ultra'), f('step', 'ultra'), f('splash', 'ultra')])).toMatchObject({ kind: 'pure', pig: 'ultra', mult: 2, joker: 1, at: [0, 1, 2] });
-    // Ultramarin und Siena sind Gegenfarben, Ultramarin und Indigo Nachbarn
-    expect(comboOf([f('glow', 'ultra'), f('step', 'siena'), f('star', undefined, 2)])).toMatchObject({ kind: 'burst', mult: 2, at: [0, 1] });
-    expect(comboOf([f('glow', 'ultra'), f('step', 'ultra'), f('star', undefined, 2)])).toMatchObject({ kind: 'glaze', pig: 'ultra', mult: 1.5, joker: 0 });
-    expect(comboOf([f('glow', 'ultra'), f('step', 'indigo'), f('star', undefined, 1)])).toMatchObject({ kind: 'chain', mult: 1.25 });
-    // Ausbruch geht vor Lasur
-    expect(comboOf([f('glow', 'ultra'), f('step', 'ultra'), f('guard', 'siena')])?.kind).toBe('burst');
+    expect(comboOf([f('glow', 'ultra'), f('step', 'ultra'), f('star', undefined, 2)])).toMatchObject({ kind: 'glaze', pig: 'ultra', mult: 1.5, joker: 0, at: [0, 1] });
+    // Nachbar- und Gegenfarben sind keine Kombi mehr
+    expect(comboOf([f('glow', 'ultra'), f('step', 'indigo'), f('star', undefined, 1)])).toBeNull();
+    expect(comboOf([f('glow', 'ultra'), f('step', 'siena'), f('star', undefined, 2)])).toBeNull();
     expect(comboOf([f('joker', undefined, 3), f('guard', 'karmin'), f('guard', 'karmin')])).toMatchObject({ kind: 'pure', pig: 'karmin' });
     expect(comboOf([f('joker', undefined, 3), f('guard', 'karmin'), f('star', undefined, 1)])).toMatchObject({ kind: 'glaze', pig: 'karmin' });
     expect(comboOf([f('star', undefined, 1), f('star', undefined, 1), f('star', undefined, 1)])).toMatchObject({ kind: 'stars', joker: 1 });
     expect(comboOf([f('star', undefined, 2), f('star', undefined, 1), f('star', undefined, 2)])).toBeNull();
-    // Gleiche Symbole ohne passende Farbe sind keine Kombi mehr
+    // Gleiche Symbole ohne gleiche Farbe sind keine Kombi
     expect(comboOf([f('glow', 'ultra'), f('glow', 'kadmium'), f('star', undefined, 1)])).toBeNull();
     expect(comboOf([mud(f('glow', 'ultra')), f('step', 'ultra'), f('star', undefined, 1)])).toBeNull();
     expect(comboOf([f('glow', 'ultra')])).toBeNull();
   });
 
-  it('Nässe: erster Neuwurf trocken, dann 25, 50, 75 %, Sponge eine Stufe trockener', () => {
+  it('Nässe: erster Neuwurf trocken, dann 25, 50, 75 % auf einen Schlamm-Würfel, Sponge eine Stufe trockener', () => {
     S.teams[0].media = [];
     expect([1, 2, 3, 4].map((n) => wetChance(1, n))).toEqual([0, 0.25, 0.5, 0.75]);
     S.teams[0].media = ['sponge'];

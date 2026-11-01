@@ -1,13 +1,9 @@
-# Vorschlag: Kampf A, Farbseiten, Farb-Kombis, Nässe
+# Vorschlag: Kampf A, Farbseiten, gleiche Farben, Nässe
 
-Stand 01.11.2026, Fassung 1. Freigegeben am 01.11.2026 mit allen Empfehlungen. Schritt 1 und 2 gebaut (Playtest v0.0.1.109, Bild docs/entwuerfe/kampf-a-im-spiel.png), Schritt 3 und 4 folgen.
+Stand 01.11.2026, Fassung 2.
 
-Umsetzung, soweit sie vom Text abweicht oder ihn genauer macht:
-- **Sponge:** Die Nässe beginnt eine Stufe später. Die ersten zwei Neuwürfe sind trocken, der dritte 25 %, der vierte 50 %.
-- **Masking Fluid:** Ein Paar, in dem ein gehaltener Würfel liegt, blutet nicht.
-- **Iridescent Medium:** Das Symbol mehr ist das der ersten Seite der Kombi, sonst Glow.
-- **Pure und drei Sterne** gelten sofort, wie früher der Drilling.
-- **Simulation mit den eingebauten Regeln** (500 Duelle je Gegner): Geselle 93 %, Meister 43 %, Galerie 69 %.
+- **Fassung 1:** freigegeben am 01.11.2026 und gebaut (Playtest v0.0.1.109, Bild docs/entwuerfe/kampf-a-im-spiel.png). Rückmeldung: „viel undurchsichtiger und komplizierter“.
+- **Fassung 2:** am 01.11.2026 gewählt („A stark vereinfachen“). Gebaut, Bild docs/entwuerfe/kampf-a-einfach.png.
 
 Anlass (01.11.2026): Kampf-Brainstorming, Abgleich in docs/entwuerfe/kampf-brainstorming-abgleich.md. Entschieden „Empfehlungen umsetzen“:
 - **Weg C:** erst A (Umbau im Wurf, das Duell bleibt), danach B (Modus „Bleach“).
@@ -17,117 +13,93 @@ Anlass (01.11.2026): Kampf-Brainstorming, Abgleich in docs/entwuerfe/kampf-brain
 - **Werte** bleiben, wie sie sind.
 - **Kürzer** erst nach A messen, den Ergebnis-Post gibt es mit B.
 
-Dieses Dokument macht A konkret: Regeln, Simulation, Reihenfolge.
+## Was Fassung 1 zu schwer machte
 
-Entwurf: docs/entwuerfe/kampf-a-entwurf.png (Quelle tools/mockup/farbwurf-entwurf.ts, echte Würfel aus dem Spiel).
+- **Man musste den Farbkreis kennen.** Burst, Chain und das Ausbluten hingen davon ab, welche Farben Nachbarn und welche Gegenfarben sind. Das sieht man nicht: Ultramarin und Siena sind Gegenfarben, Ultramarin und Cadmiumgelb nicht.
+- **Fünf Kombis mit vier verschiedenen Zahlen**, dazu Nässe mit zwei Folgen (blühen oder Schlamm).
+- **Die Kombi-Tafel mit 6 Feldern** verdeckte beim Halten fast das ganze Brett.
 
-## Regeln
+## Regeln (Fassung 2)
 
-### 1 Jede Seite bekommt eine Farbe
+### 1 Jede Seite hat eine Farbe
 
 - **Farbe der Symbolseiten** (Step, Splash, Guard, Glow, Gold): Sie tragen das Hauptpigment des Kleckses oder, bei etwa jeder dritten Seite, seine Zweitfarbe. Die Farbe ist fest, eigener Zufall aus dem Seed, der Würfelzufall bleibt unberührt.
 - **Sterne und Joker** bleiben ohne Farbe.
 - **Die Symbole behalten ihre Aufgabe:** Step bewegt, Splash trifft die Palette, Guard halbiert einen Treffer, Glow füllt die Sättigung.
 - **Bisherige Würfel** bekommen ihre Farben aus ihrem Seed, ohne etwas zu verlieren.
+- **Anzeige:** Lavierung in der Farbe hinter dem Symbol, der Rand der Seite in derselben Farbe.
 
-### 2 Kombis aus der Farblehre
+### 2 Nur gleiche Farbe zählt
 
-Sie ersetzen Paar, Drilling und Regenbogen. Es zählen nur farbige Seiten, ein Joker zählt als jede Farbe.
+| Kombi | Wurf | Wirkung |
+|---|---|---|
+| Glaze | zwei Seiten einer Farbe | jeder Spritzer auf einen Klecks in diesem Zug ×1,5 |
+| Pure | drei Seiten einer Farbe | ×2 und ein Joker |
+| Three stars | drei Sterne gleicher Stufe | ein Joker |
 
-| Kombi | Wurf | Wirkung | Anteil der Würfe |
-|---|---|---|---|
-| Pure (rein) | drei Seiten eines Pigments | ×2 auf jeden Spritzer in diesem Zug, dazu ein Joker | 1 % |
-| Burst (Ausbruch) | zwei Gegenfarben | ×2, aber mit 35 % Schlamm: beide Seiten zählen nichts, kein Multiplikator | 13 bis 19 % |
-| Glaze (Lasur) | zwei Seiten eines Pigments | ×1,5 | 11 bis 14 % |
-| Chain (Kette) | zwei Nachbarfarben im Farbkreis | ×1,25, jeder Treffer in diesem Zug +0,25 | 9 bis 12 % |
-| Three stars | drei Sterne gleicher Stufe | ein Joker (wie heute) | 12 bis 18 % |
-
-- **Reihenfolge**, wenn mehrere passen: Pure, Burst, Glaze, Chain, drei Sterne.
-- **Dieselbe Farblehre wie auf dem Blatt:** gleiches Pigment lasiert, Nachbarn verlaufen, Gegenfarben machen Schlamm.
-- **Insgesamt** gibt es in 50 bis 55 % der Würfe eine Kombi, heute sind es 45 bis 50 %.
+- **Ein Joker** zählt als jede Farbe.
+- **Kein Farbkreis:** Nachbar- und Gegenfarben spielen beim Würfeln keine Rolle mehr. Auf dem Blatt bleiben die Farbreaktionen, wie sie sind.
 - **Der Multiplikator gilt nur für Spritzer** auf Kleckse. Palettentreffer bleiben ein Herz, Stempeln bleibt, wie es ist.
-- **Die bisherigen +1 und +2 Symbole aus Paar und Drilling fallen weg.** Der Multiplikator ersetzt sie.
+- **Pure und drei Sterne** gelten sofort, wie früher der Drilling.
+- **Paar, Drilling und Regenbogen** fallen weg.
 
-### 3 Nässe statt festem Neuwurf
+### 3 Nässe: ein Würfel kann zu Schlamm werden
 
-Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken (wie heute), jeder weitere macht das Blatt nasser:
+Man darf bis zu viermal neu werfen. Der erste Neuwurf bleibt trocken, jeder weitere macht das Blatt nasser:
 
 | Neuwurf | 1. | 2. | 3. | 4. |
 |---|---|---|---|---|
-| Chance je Nachbarpaar, dass es ausblutet | 0 % | 25 % | 50 % | 75 % |
+| Chance, dass ein Würfel zu Schlamm wird | 0 % | 25 % | 50 % | 75 % |
 
-- **Was Ausbluten heißt:** Nach jedem Neuwurf prüft der Server jedes Paar nebeneinander liegender Würfel, auch gehaltene.
-  - **Nachbarfarben oder gleiches Pigment blühen:** Die rechte Seite nimmt die Farbe der linken an. Das kann eine Kette zur Lasur machen.
-  - **Gegenfarben werden Schlamm:** Beide Seiten zählen in diesem Wurf nichts, auch eine gehaltene.
-  - **Neutrale Farben** berühren sich nur. Sterne und Joker sind trocken und bluten nie.
-- **Anzeige:** Tropfen am Neuwurf-Knopf mit der Chance für den nächsten Neuwurf.
-- **In der Simulation** blutet selten etwas aus, weil der Computer nur ohne Kombi ein zweites Mal wirft. Die Nässe ist vor allem die Entscheidung für Spieler, die auf Pure gehen. Nach dem Handytest lässt sich die Stufe nachstimmen.
+- **Welcher Würfel:** einer mit farbiger Seite, zufällig, auch ein gehaltener. Sterne und Joker bleiben trocken.
+- **Schlamm** zählt in diesem Wurf nichts, bis man den Würfel neu wirft.
+- **Anzeige:** Am Neuwurf-Knopf stehen Tropfen und die Chance für den nächsten Neuwurf („○ dry“, „●●● 75% mud“).
 
 ### 4 Sichtbare Rechnung
 
-- **Combo-Banner:** Es nennt Kombi, Farbe und Multiplikator („GLAZE · ULTRAMARINE ×1.5“). Der Multiplikator steht bis zum Zugende oben am Stand.
-- **Jeder Spritzer** zeigt Basis, Multiplikator und Ergebnis und zählt hoch („10 × 1.5 = 15“). Bei der Kette wächst der Multiplikator sichtbar mit jedem Treffer.
+- **Combo-Banner:** Es nennt Kombi, Farbe und Multiplikator („GLAZE ×1.5“). Der Multiplikator steht bis zum Zugende oben am Stand.
+- **Jeder Spritzer** zeigt Basis, Multiplikator und Ergebnis und zählt hoch („9 ×1.5 = 14“). Die Vorschau beim Zielen nennt die Rechnung schon vorher.
 
-### 5 Beute: Tropfen
+### 5 Beute: Tropfen (Schritt 4, noch nicht gebaut)
 
 - **Tropfen sammeln:** Jeder ausgewaschene Klecks des Rivalen hinterlässt einen Tropfen seines Hauptpigments. Ein Sieg gibt einen Tropfen dazu, das Pigment eines eigenen Würfels aus dem Deck, zufällig.
-- **Umfärben:** Auf der Würfelkarte färbt man eine Seite für 3 Tropfen in dieses Pigment um. So baut man ein Deck, das öfter Pure wirft.
+- **Umfärben:** Auf der Würfelkarte färbt man eine Seite für 3 Tropfen in dieses Pigment um. So baut man ein Deck, das öfter Glaze und Pure wirft.
 - **Doppelt machen** bleibt bei der Lasur aus dem Auswaschen.
 - **Neuer Spielstand:** `drops`, je Pigment. Umfärbungen stehen wie Lasuren in `mods` und gelten auch im Galerie-Abzug und beim Tausch.
 
 ### Malmittel und Sepias Auftrag
 
-- **Sponge:** Die ersten zwei Neuwürfe sind trocken, statt ein Neuwurf mehr.
-- **Masking Fluid:** Gehaltene Würfel bluten nicht aus, zusätzlich zur heutigen Wirkung.
-- **Iridescent Medium:** gibt bei jeder Kombi weiter +1 Symbol.
-- **Sepias Auftrag:** „three colours“ heißt künftig „three symbols“. Neu dazu kommt „two of one pigment“.
+- **Sponge:** Die Nässe beginnt eine Stufe später. Die ersten zwei Neuwürfe sind trocken, der dritte 25 %, der vierte 50 %.
+- **Masking Fluid:** Gehaltene Würfel werden nie zu Schlamm, zusätzlich zur heutigen Wirkung.
+- **Iridescent Medium:** Jede Kombi gibt ein Symbol mehr (das der ersten Seite der Kombi, sonst Glow).
+- **Sepias Auftrag:** „three colours“ heißt jetzt „three symbols“. Neu dazu kommt „two of one pigment“.
 
-## Simulation
+## Simulation (Fassung 2)
 
-200 Duelle je Gegner. Der Spieler spielt wie der Computer, der höchstens zweimal neu wirft und den zweiten Neuwurf nur ohne Kombi wagt.
+400 Duelle je Gegner. Der Spieler spielt wie der Computer, der höchstens zweimal neu wirft und den zweiten Neuwurf nur ohne Kombi wagt.
 
-| Gegner | Siegquote heute | mit A | Ende über die Palette heute | mit A | Schaden je Duell heute (du / Rivale) | mit A |
-|---|---|---|---|---|---|---|
-| Geselle | 93 % | 98 % | 66 % | 56 % | 64 / 19 | 75 / 20 |
-| Meister | 41 % | 42 % | 57 % | 49 % | 59 / 75 | 59 / 80 |
-| Galerie (gleich stark) | 64 % | 65 % | 52 % | 45 % | 68 / 57 | 73 / 59 |
+| Gegner | Siegquote vor Kampf A | Fassung 1 | Fassung 2 | Kombis je Wurf (Fassung 2) |
+|---|---|---|---|---|
+| Geselle | 93 % | 93 % | 93 % | 31 % |
+| Meister | 41 % | 43 % | 42 % | 29 % |
+| Galerie | 64 % | 69 % | 69 % | 30 % |
 
-- **Gleichgewicht:** bleibt, gegen den Geselle wird es etwas leichter.
-- **Ausgang:** Duelle enden öfter über das Papier, seltener über die Palette.
-- **Schlamm aus dem Ausbruch:** etwa 0,4 bis 0,5 Mal pro Duell und Seite.
-- **Dauer:** gleich (5,2 bis 5,5 Züge pro Seite, gemessen 2,6 Minuten reine Abspielzeit). Kürzer machen erst nach dem Handytest, wie entschieden.
+- **Gleichgewicht:** bleibt.
+- **Kombis:** in etwa jedem dritten Wurf (Glaze 16 bis 21 %, drei Sterne 9 bis 12 %, Pure 1 %). Vor Kampf A war es etwa jeder zweite, eine Kombi brachte damals aber nur +1 Symbol.
+- **Mehr Wumms:** mehr Schaden und Auswaschungen je Duell als vor Kampf A (gegen den Meister 72 zu 93 statt 59 zu 75 Schaden), weil öfter mit Multiplikator gespritzt wird.
+- **Schlamm:** Der Computer wagt den nassen Neuwurf selten (0,07 Mal pro Duell). Die Nässe ist die Entscheidung für Spieler, die auf Pure gehen. Nach dem Handytest lässt sich die Stufe nachstimmen.
+- **Dauer:** gleich (5,1 bis 5,5 Züge pro Seite).
 
 ## Was sonst noch zu tun ist
 
-- **Rivale:** hält Farben, die zueinander passen, und wagt den zweiten Neuwurf nur ohne Kombi (in der Probe schon so).
-- **Lern-Duell:** neue feste Würfe, die eine Farb-Kombi und einen Neuwurf zeigen. Sepia erklärt Farbe, Kombi und Nässe.
-- **Hilfe** im Menü neu.
-- **Versionsprüfung:** DUEL_PROTOCOL wird 15. Laufende Duelle werden verworfen, wie beim Brett 6 × 8.
+- **Lern-Duell (Schritt 3):** neue feste Würfe, die eine Glaze und einen Neuwurf zeigen. Sepia erklärt Farbe, Kombi und Nässe.
+- **Versionsprüfung:** DUEL_PROTOCOL 16, Speicherstand v6. Laufende Duelle aus älteren Versionen (auch Fassung 1) werden verworfen.
 
 ## Reihenfolge
 
-1. **Regeln und Server:**
-   - Farben, Kombis, Nässe, Multiplikator, Schlamm, Kette
-   - Rivale, Malmittel, Sepias Auftrag
-   - Tests und Simulation
-   - Upload
-2. **Anzeige:**
-   - Farbige Seiten auf Würfeln, Chips und Karten
-   - Tropfen am Neuwurf
-   - Ausbluten und Schlamm auf der Würfelbühne
-   - Combo-Banner, hochzählende Spritzer, Multiplikator am Stand
-   - Upload mit Bild
-3. **Lern-Duell und Hilfe:** Upload.
+1. **Regeln und Server:** gebaut (Fassung 1, dann Fassung 2).
+2. **Anzeige:** gebaut.
+3. **Lern-Duell:** Upload.
 4. **Tropfen und Umfärben:** Server, Karte, Ergebnisbild. Upload mit Bild.
 
 Danach der Plan für B (Bleach).
-
-## Fragen
-
-1. Kombis und Werte wie in der Tabelle (Pure ×2 und Joker, Burst ×2 mit 35 % Schlamm, Glaze ×1,5, Chain ×1,25 und +0,25 je Treffer, drei Sterne Joker)? (Empfehlung: ja)
-2. Nässe mit 0, 25, 50 und 75 % je Nachbarpaar, höchstens 4 Neuwürfe? (Empfehlung: ja, nach dem Handytest nachstimmen)
-3. Multiplikator nur auf Spritzer gegen Kleckse? (Empfehlung: ja)
-4. Tropfen: je ausgewaschenem Rivalen-Klecks einer seines Hauptpigments, ein Sieg einer dazu? (Empfehlung: ja)
-5. Umfärben für 3 Tropfen in jedes Pigment, von dem man Tropfen hat (auch in eines, das der Klecks sonst nicht hat)? (Empfehlung: ja)
-6. Sponge: die ersten zwei Neuwürfe trocken. Masking Fluid: gehaltene Würfel bluten nicht? (Empfehlung: ja)
-7. Sepias Auftrag: „three symbols“ statt „three colours“, neu „two of one pigment“? (Empfehlung: ja)
