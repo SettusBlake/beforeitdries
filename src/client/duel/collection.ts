@@ -745,7 +745,7 @@ async function reveal(pulls: PullResult[], before: DiceSave | null): Promise<voi
     animating = true;
     $('dip-hint').hidden = false;
     try {
-      if (pulls.length > 1) await r.ten(pulls.map(toReveal));
+      if (pulls.length > 1) await skippable(r, r.ten(pulls.map(toReveal)));
       else await r.single(toReveal(pulls[0]!));
     } catch (e) {
       console.error(e);
@@ -759,6 +759,29 @@ async function reveal(pulls: PullResult[], before: DiceSave | null): Promise<voi
   r?.hide();
   ov.hidden = true;
   body.replaceChildren();
+}
+/** Mehrfachzug (9 Startwürfel, Zehnerzug): Skip springt gleich zur Übersicht. Einzelzüge laufen immer ganz */
+let skipNow: (() => void) | null = null;
+function skippable(r: Reveal, run: Promise<unknown>): Promise<void> {
+  const b = $('dip-skip');
+  b.hidden = false;
+  return new Promise<void>((done) => {
+    skipNow = () => {
+      r.abort();
+      r.hide();
+      done();
+    };
+    run.then(
+      () => done(),
+      (e: unknown) => {
+        console.error(e);
+        done();
+      },
+    );
+  }).finally(() => {
+    skipNow = null;
+    b.hidden = true;
+  });
 }
 /** Nach einem einzelnen Zug: was daraus wurde, und weiter */
 function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
@@ -1041,6 +1064,11 @@ export function initDice(h: Hooks): void {
   hooks = h;
   initDraw({ paint: paintDrawing, back: closeBlank });
   initReview({ back: closeReview, error: (e) => hooks.error(e) });
+  $('dip-skip').addEventListener('click', (e) => {
+    e.stopPropagation();
+    sfx.tap();
+    skipNow?.();
+  });
   $('review-b').addEventListener('click', openReviewScreen);
   $('mod-t').addEventListener('click', openMod);
   $('mod-d').addEventListener('click', openMod);
@@ -1095,6 +1123,8 @@ export function openDice(): void {
   void loadGacha().catch(() => undefined);
 }
 /** Für den Titel: gibt es etwas Freies zu ziehen? */
+/** Lern-Duell gemacht (oder schon ein Duell gespielt), wie am Server fürs Tagesblatt. null: Stand noch nicht geladen */
+export const lessonDone = (): boolean | null => (save ? save.tutorialPaid || (save.duels ?? 0) > 0 : null);
 export async function diceBadge(): Promise<string> {
   try {
     const r = await api.dice();

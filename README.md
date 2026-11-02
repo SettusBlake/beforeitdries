@@ -11,7 +11,7 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 **How a session goes.**
 
 1. Open the pinned play post and tap **Play**.
-2. Learn the game in a short guided duel with Master Sepia. Every step is explained and only the next step can be tapped.
+2. Learn the game in a short guided duel with Master Sepia: three rounds, every step is explained and only the next step can be tapped. Duels and Today’s sheet open after this lesson.
 3. Collect free starter dice. Each one is a newly painted blot that nobody else has.
 4. Duel the rival (Apprentice, Journeyman, Master) or the decks of other players in the **Gallery**. A duel takes about two to four minutes.
 5. Play **Today’s sheet** once a day: everyone gets the same sheet, the same nine dice and the same rolls, and the best sheets top the daily board.
@@ -34,13 +34,13 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 
 ## Playing
 
-**Duels.** A sheet of 6 × 8 fields. Roll three dice from your deck of nine, keep or reroll, then spend the symbols: stars unfold a blot onto the sheet, Step moves, Splash throws paint, Guard protects, Glow fills a blot until it can do its master move. Win by painting more of the sheet or by breaking the rival’s palette (three hearts). Matching colours on the dice multiply damage (Glaze ×1.5, Pure ×2), and each blot has an element that beats two others.
+**Duels.** A sheet of 6 × 8 fields, six rounds. Roll three dice from your deck of nine, keep or reroll, then spend the symbols: stars unfold a blot onto the sheet, Step moves, Splash throws paint, Guard protects, Glow fills a blot until it can do its master move. Win by painting more of the sheet or by breaking the rival’s palette (three hearts). Matching colours on the dice multiply damage (Glaze ×1.5, Pure ×2), and each blot has an element that beats two others. From the second duel on, both sides pick mediums that bend the rules a little.
 
 **Today’s sheet (the Bleach).** Pale, bleached blots slide down from the top edge in five waves. Paint slows them, blots in their way take hits, and every Pale that slips off the bottom bleaches a heart. Points come from paint left, Pales washed out, the great Pale and hearts kept. One ranked run per day. After the run, **Share as a comment** posts your sheet as a reply to the pinned comment in today’s post, in your name, only after a second tap.
 
 **Your dice.**
 
-- **Dip the brush:** a free dip every day, more for pigment. A visible d100 decides the paper and with it the rarity. Rare style and holo dice exist.
+- **Dip the brush:** a free dip every day, more for pigment. A visible d100 decides the paper and with it the rarity. Rare style and holo dice exist. Several dips at once can be skipped straight to the overview.
 - **Deck:** choose the nine dice you duel with.
 - **Blank canvas:** draw your own monster with your finger. Colour, rarity and the die are rolled as usual.
 - **Wash out:** give a blot up for glaze on its species. It drifts into an archive and may return as a pale opponent.

@@ -1,6 +1,6 @@
 /* Farbschlacht am Server: Start, Prüfung der Aktionen, ein ganzes Duell bis zum Ende */
 import { describe, expect, it } from 'vitest';
-import { diceGet } from '../src/server/dice';
+import { diceGet, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
 import { GameError, type Deps } from '../src/server/core';
 import type { DuelResponse } from '../src/shared/api';
@@ -49,8 +49,29 @@ describe('Duell am Server', () => {
     expect(await code(duelStart(setup(), undefined, 'apprentice'))).toBe('login');
   });
 
+  it('erstes Duell ohne Malmittel für beide Seiten, ab dem zweiten wie sonst', async () => {
+    const d = setup();
+    const first = await duelStart(d, USER, 'apprentice');
+    expect(first.state?.phase).toBe('opening');
+    expect(first.state?.noMedia).toBe(true);
+    expect(first.state?.teams[1]?.media ?? []).toHaveLength(0);
+    // Auch nach Runde 2 und 4 kommt nichts (startOffer bleibt aus)
+    view(first);
+    expect(S.noMedia).toBe(true);
+    const s = await loadDice(d, USER);
+    s.duels = 1;
+    await saveDice(d, USER, s);
+    const second = await duelStart(d, USER, 'apprentice');
+    expect(second.state?.phase).toBe('medium');
+    expect(second.state?.noMedia).toBeUndefined();
+  });
+
   it('startet mit Eröffnung des Rivalen und behält den Würfelzufall für sich', async () => {
     const d = setup();
+    // Kein erstes Duell mehr: Malmittel wie sonst
+    const s0 = await loadDice(d, USER);
+    s0.duels = 1;
+    await saveDice(d, USER, s0);
     const res = await duelStart(d, USER, 'apprentice');
     // Vor dem Duell: drei Malmittel zur Wahl, der Rivale hat schon gewählt
     expect(res.state?.phase).toBe('medium');
@@ -386,6 +407,12 @@ describe('Duell am Server', () => {
       // Sepia zeigt auch Neuwurf, Glaze mit Multiplikator und Schlamm aus einem nassen Neuwurf (Kampf A)
       for (const k of ['open', 'roll', 'reroll', 'combo', 'glaze', 'mult', 'mud', 'summon', 'stamp', 'splash', 'master', 'palette']) expect([k, seen.has(k)]).toEqual([k, true]);
       expect(S.teams[1].hearts).toBeLessThan(3);
+      // Das Lern-Duell endet nach Sepias Runden, gewonnen nach dem Stand (neuer Spieler, 02.11.2026)
+      expect(S.over).toBe(true);
+      expect(S.round).toBe(S.tutorial + 1);
+      expect(S.winner).toBe(1);
+      expect(S.winReason).toBe('the paper dried');
+      expect(res.reward?.why).toBe('tutorial');
       runs.push(JSON.stringify(S.cells.map((c) => c.owner)));
     }
     // Feste Würfe: zwei Spieler erleben dasselbe Lern-Duell

@@ -1,6 +1,6 @@
 # Bericht: neuer Spieler, Ladezeit, Desktop
 
-Stand 02.11.2026. Release-Plan Schritt 3. Bild docs/entwuerfe/neuer-spieler.png.
+Stand 02.11.2026, Fassung 2. Release-Plan Schritt 3. Bilder docs/entwuerfe/neuer-spieler.png (Messung) und docs/entwuerfe/neuer-spieler-gebaut.png (Umsetzung).
 
 Gemessen in der lokalen Vorschau mit leerem Spielstand, Handy 390 × 760, Chromium. Gedrosselt heißt: CPU vierfach langsamer, Netz 1,6 Mbit/s mit 150 ms Verzögerung (ungefähr ein mittleres Handy im Mobilnetz).
 
@@ -21,14 +21,14 @@ Gemessen in der lokalen Vorschau mit leerem Spielstand, Handy 390 × 760, Chromi
 
 ### Weg eines neuen Spielers
 
-| Abschnitt | Zeit | Tipps |
+| Abschnitt | vorher | jetzt (Playtest v0.0.1.141) |
 |---|---|---|
-| Lern-Duell, geführte Runden 1 bis 3 | 90 s | 10 Tipps, 7 Wische, 22 Mal „Got it“ |
-| Lern-Duell, Runden 4 bis 6 allein (hier mit „Sepia paints“) | 71 s | 9 |
-| Neun freie Startwürfel ziehen | 78 s ohne Antippen, 23 bis 31 s mit Antippen | 1 und 16 bis 21 zum Beschleunigen, 1 „Done“ |
-| Erstes Duell (Apprentice, mit „Sepia paints“) | 93 s | 14 und 2 Malmittel |
+| Lern-Duell, geführte Runden 1 bis 3 | 90 s, 10 Tipps, 7 Wische, 22 Mal „Got it“ | 87 s, 10 Tipps, 7 Wische, 12 Mal „Got it“ |
+| Lern-Duell, Runden 4 bis 6 allein | 71 s, 9 Tipps | entfällt, das Lern-Duell endet nach Runde 3 |
+| Neun freie Startwürfel ziehen | 78 s ohne Antippen, 23 bis 31 s mit Antippen | dazu „Skip“: Übersicht etwa 2 s nach dem Tipp |
+| Erstes Duell (Apprentice, mit „Sepia paints“) | 93 s, 14 Tipps und 2 Malmittel | ohne Malmittel, 70 bis 175 s je nach Verlauf |
 
-Vom ersten Öffnen bis zum Ende des ersten eigenen Duells vergehen damit gut 6 Minuten, davon fast 3 im Lern-Duell.
+Vom ersten Öffnen bis zum Ende des Lern-Duells vergehen jetzt knapp 1,5 Minuten statt fast 3.
 
 ### Desktop
 
@@ -40,26 +40,35 @@ Spiel-Post, Tagespost und Benennen-Post bei 736 × 512, das Spiel bei 1280 × 80
 - **Nach dem Lern-Duell:** Der Hauptknopf im Ergebnis heißt „Collect your free dice“ und führt zu den neun freien Würfeln. Vorher stand dort „Again“, das ein Duell ohne eigene Würfel gestartet hätte.
 - **Deck-Anzeige unten rechts:** Bei 390 Pixel breiten Handys stand „9 ready 0 …“ abgeschnitten. Jetzt steht dort bis 400 Pixel Breite nur „9 ready“, der Rest beim Antippen.
 
-## Fragen
+## Entscheidungen (02.11.2026, „alles Empfehlung, bau es“)
 
-1. **Startbild für neue Spieler:** „Learn with Sepia“, „Start duel“ und „Gallery duel“ sind gleich stark, dazu „Today’s sheet“ (gesperrt). Vorschlag: Solange das Lern-Duell nicht gemacht ist, ist „Learn with Sepia“ der einzige große Knopf, die anderen sind klein mit „after the lesson“. (Empfehlung: ja)
-2. **Lern-Duell kürzer:** 22 Sepia-Blasen und danach noch drei Runden allein, zusammen fast 3 Minuten. Für Reddit ist das lang.
-   - a: Blasen zusammenfassen (etwa 12 statt 22), sonst gleich.
-   - b: zusätzlich endet das Lern-Duell nach Sepias drei Runden (Ergebnis nach dem Stand), spart gut eine Minute.
-   - c: so lassen.
-   (Empfehlung: a und b)
-3. **Neun Startwürfel:** Das Ritual läuft 78 s, mit Antippen etwa 25 s. Vorschlag: Beim Ziehen mehrerer Würfel (9 und 10) gibt es zusätzlich „Skip“, das gleich zur Übersicht springt. Einzelzüge bleiben, wie sie sind. (Empfehlung: ja)
-4. **Erstes eigenes Duell:** beginnt mit der Wahl eines Malmittels (Iridescent, Sponge, Salt), die das Lern-Duell nicht erklärt. Vorschlag: Im ersten Duell nach dem Lern-Duell gibt es keine Malmittel, ab dem zweiten wie bisher. Sepia sagt einmal kurz, was ein Malmittel ist. (Empfehlung: ja)
-5. **Your dice für neue Spieler:** Market und Trades stehen ganz oben, sind aber erst nach 7 Tagen und 5 Duellen nutzbar. Vorschlag: unter „Dip the brush“ verschieben. (Empfehlung: ja)
-6. **Desktop:** Das Spiel bleibt eine schmale Spalte, das Brett ist bei 1280 × 800 etwa 350 Pixel breit. Vorschlag: so lassen und nach der Freigabe eine breitere Anordnung für Desktop planen. (Empfehlung: ja, später)
+1. **Startbild für neue Spieler:** ja.
+2. **Lern-Duell kürzer:** a und b.
+3. **Skip beim Mehrfachzug:** ja.
+4. **Erstes Duell ohne Malmittel:** ja.
+5. **Market und Trades nach unten:** ja.
+6. **Desktop:** so lassen, nach der Freigabe durch Reddit eine breitere Anordnung planen.
+
+## Gebaut (Playtest v0.0.1.141)
+
+Bild docs/entwuerfe/neuer-spieler-gebaut.png.
+
+- **Startbild:** Solange das Lern-Duell nicht gemacht ist (gleiche Regel wie beim Tagesblatt: Lern-Duell bezahlt oder schon ein Duell gespielt), ist „Learn with Sepia“ der einzige große Knopf. „Start duel“, „Gallery duel“ und „Today’s sheet“ stehen klein und gesperrt in einer Reihe mit „after the lesson“, die Wahl der Rivalenstärke ist ausgeblendet. Nach dem Lern-Duell sieht das Startbild aus wie bisher. Dabei behoben: Kam man nach dem Lern-Duell über „Your dice“ zurück, blieb „Today’s sheet“ gesperrt, bis man neu lud.
+- **Lern-Duell:** Sepias Blasen zusammengefasst, 14 statt 24 Texte, gezeigt werden 12 (zwei erscheinen nur, wenn der Schritt verlangt ist). Das Lern-Duell endet nach Sepias drei Runden, die Kopfzeile zeigt „Round 1/3“, das Ergebnis zählt nach dem Stand wie sonst (feste Würfe: immer 49 zu 16 gewonnen). Sepia sagt im Ergebnis, dass ein echtes Duell sechs Runden dauert und niemand den nächsten Schritt zeigt. Der alte Text „Finish the duel on your own“ ist weg.
+- **Skip:** Beim Ziehen von 9 Startwürfeln und beim Zehnerzug steht oben rechts „Skip“. Der Tipp bricht die Animation ab und zeigt sofort die Übersicht. Einzelzüge laufen wie bisher ganz. „Tap to speed up“ bleibt.
+- **Erstes Duell ohne Malmittel:** Im ersten Duell nach dem Lern-Duell wählen weder du noch der Rivale ein Malmittel, auch nicht nach Runde 2 und 4 (Duell-Feld `noMedia`, der Server setzt es, solange noch kein Duell fertig ist). Ab dem zweiten Duell wie bisher. Beim ersten Malmittel sagt Sepia einmal: „Mediums. A drop in the water and the rules bend a little, for the rest of the duel. Pick one of these three, the rival takes one too. Another comes after rounds two and four.“
+- **Your dice:** Market und Trades stehen unter „Dip the brush“.
+- DUEL_PROTOCOL 20 (Lern-Duell endet anders). Laufende Duelle bleiben gültig.
 
 ## Test mit u/Vegatest (normaler Spieler ohne Mod-Rechte)
 
 Im Playtest r/beforeitdries mit u/Vegatest anmelden:
 
-1. Den angepinnten Spiel-Post öffnen: Es darf kein 🛠 oben rechts zu sehen sein.
-2. „Learn with Sepia“ bis zum Ende, dann „Collect your free dice“ und die neun Würfel ziehen.
-3. Ein Duell gegen Apprentice, danach „Today’s sheet“ und am Ende „Share as a comment“ (zweiter Tipp). Im Playtest kommt der Kommentar vom App-Konto, nicht von u/Vegatest, das ist von Reddit so vorgesehen.
-4. Bei einer Art ohne Namen „What do you see?“ (zweiter Tipp). Auch dieser Post kommt im Playtest vom App-Konto.
-5. Blank canvas: etwas zeichnen. Die Zeichnung muss danach bei u/Vegavild unter 🛠, Review drawings auftauchen.
-6. Market und Trades: Bei einem neuen Konto steht dort, ab wann Handeln geht (Konto 7 Tage alt, 5 Duelle).
+1. Den angepinnten Spiel-Post öffnen: Es darf kein 🛠 oben rechts zu sehen sein. Nur „Learn with Sepia“ ist groß, darunter die drei kleinen gesperrten Knöpfe.
+2. „Learn with Sepia“ bis zum Ende (drei Runden), dann „Collect your free dice“ und die neun Würfel ziehen, dabei einmal „Skip“ probieren.
+3. Zurück zum Startbild: jetzt sind alle Knöpfe groß und „Today’s sheet“ ist offen.
+4. Ein Duell gegen Apprentice (ohne Malmittel), danach ein zweites (mit Malmittel und Sepias Satz dazu).
+5. „Today’s sheet“ und am Ende „Share as a comment“ (zweiter Tipp). Im Playtest kommt der Kommentar vom App-Konto, nicht von u/Vegatest, das ist von Reddit so vorgesehen.
+6. Bei einer Art ohne Namen „What do you see?“ (zweiter Tipp). Auch dieser Post kommt im Playtest vom App-Konto.
+7. Blank canvas: etwas zeichnen. Die Zeichnung muss danach bei u/Vegavild unter 🛠, Review drawings auftauchen.
+8. Market und Trades (jetzt unter „Dip the brush“): Bei einem neuen Konto steht dort, ab wann Handeln geht (Konto 7 Tage alt, 5 Duelle).

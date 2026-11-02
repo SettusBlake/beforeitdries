@@ -62,6 +62,8 @@ In zwei Teilen: 1a Posts, Teilen und Löschen von Posts und Kommentaren, 1b gel�
 
 **Gemessen und kleine Brüche behoben (02.11.2026).** Bericht mit Zahlen, Bild und 6 Fragen: docs/entwuerfe/neuer-spieler-bericht.md, Bild docs/entwuerfe/neuer-spieler.png.
 
+**Empfehlungen gebaut (02.11.2026, Playtest v0.0.1.141).** Startbild mit nur einem großen Knopf bis zum Lern-Duell, Lern-Duell mit 12 statt 22 Blasen und Ende nach Runde 3 (87 s statt 161 s), Skip beim Ziehen mehrerer Würfel, erstes Duell ohne Malmittel, Market und Trades unter „Dip the brush“. Desktop-Anordnung nach der Freigabe. Bild docs/entwuerfe/neuer-spieler-gebaut.png. Offen: Test als u/Vegatest.
+
 - **Erster Weg durchgespielt** mit leerem Stand in der Vorschau: Startbild, Lern-Duell, Startzüge, erstes Duell, Tagesblatt. Gemessen: Taps, Wartezeiten, Stellen ohne klaren nächsten Schritt. Bilder davon. Kleine Brüche behebe ich gleich, größere kommen als Frage.
 - **Ladezeit:** Der Inline-Spielpost lädt gut 110 KB Renderer (gepackt) und Schriften. Ich messe am gedrosselten Handy und mache ihn leichter, falls er spürbar wartet.
 - **Desktop:** alle Bildschirme im Breitbild prüfen.

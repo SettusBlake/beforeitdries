@@ -89,10 +89,10 @@ export function takeMedium(side: Side, id: MediumId): void {
 }
 /**
  * Malmittel-Wahl: der Rivale wählt gleich, der Spieler bekommt drei zur Wahl (Phase medium), danach geht es mit resume weiter.
- * Nicht im Lern-Duell. Gibt false zurück, wenn es nichts zu wählen gibt
+ * Nicht im Lern-Duell und nicht im ersten Duell danach. Gibt false zurück, wenn es nichts zu wählen gibt
  */
 export function startOffer(resume: Phase): boolean {
-  if (S.tutorial > 0 || S.over) return false;
+  if (S.tutorial > 0 || S.noMedia || S.over) return false;
   const ro = (S.teams[1].media?.length ?? 0) < MEDIA_MAX ? makeOffer(2, S.rivalMedia.length ? S.rivalMedia : MEDIA.map((m) => m.id)) : [];
   if (ro.length) takeMedium(2, aiMedium(ro));
   const offer = (S.teams[0].media?.length ?? 0) < MEDIA_MAX ? makeOffer(1, S.unlocked) : [];
@@ -605,6 +605,8 @@ export const S = {
   heartsTurn: 0,
   /** Lern-Duell: bis zu dieser Runde gibt Sepia jeden Schritt vor (0 = aus) */
   tutorial: 0,
+  /** Erstes Duell nach dem Lern-Duell: keine Malmittel, für beide Seiten */
+  noMedia: false,
   log: [] as { t: string; c: string }[],
   tally: {} as Record<string, number>,
   events: [] as Ev[],
@@ -705,6 +707,7 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.unlocked = [...START_MEDIA];
   S.heartsTurn = 0;
   S.tutorial = 0;
+  S.noMedia = false;
   S.dieIds = [];
   S.foeName = '';
   S.foeDice = [];
@@ -2036,6 +2039,8 @@ export function checkWipe(): boolean {
 }
 
 /* Ende einer Runde */
+/** Letzte Runde: Bleach nach der letzten Welle, das Lern-Duell nach Sepias geführten Runden (neuer Spieler, 02.11.2026), sonst nach ROUNDS */
+export const lastRound = (): number => (S.bleach ? S.bleach.waves.length : S.tutorial > 0 ? S.tutorial : ROUNDS);
 export function endRound(): void {
   const r = RNG(S.gameSeed + S.round * 977);
   const spreads: [number, Cell][] = [];
@@ -2109,8 +2114,8 @@ export function endRound(): void {
   }
   if (notes.length) logAdd(notes.join('. ') + '.', 'muted');
   S.round++;
-  // Bleach endet nach der letzten Welle
-  if (!checkWipe() && S.round > (S.bleach ? S.bleach.waves.length : ROUNDS)) finish();
+  // Bleach endet nach der letzten Welle, das Lern-Duell nach Sepias Runden
+  if (!checkWipe() && S.round > lastRound()) finish();
   if (!S.over) emit({ k: 'round', round: S.round });
   sync();
 }

@@ -121,6 +121,8 @@ export type DuelState = {
   log: { t: string; c: string }[];
   /** Lern-Duell bis zu dieser Runde (0 = aus) */
   tutorial: number;
+  /** Erstes Duell nach dem Lern-Duell: keine Malmittel für beide Seiten (neuer Spieler, 02.11.2026) */
+  noMedia?: true;
   /** Galerie-Duell: Besitzer des Decks (leer: kein Galerie-Duell) und je Würfel des Rivalen, was seine Karte zeigt */
   foeName?: string;
   foeDice?: (FoeDie | null)[];
@@ -166,6 +168,7 @@ export function publicState(): DuelState {
     stamp: S.stamp,
     log: S.log.slice(0, 40),
     tutorial: S.tutorial,
+    ...(S.noMedia ? { noMedia: true as const } : {}),
     ...(S.foeName ? { foeName: S.foeName } : {}),
     ...(S.foeDice.some(Boolean) ? { foeDice: S.foeDice } : {}),
     colors: S.colors,
@@ -204,6 +207,7 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, Hidden>>): void 
   S.stamp = s.stamp;
   S.log = s.log;
   S.tutorial = s.tutorial ?? 0;
+  S.noMedia = !!s.noMedia;
   S.rng = s.rng ?? 0;
   S.gameSeed = s.gameSeed ?? 0;
   S.dieIds = s.dieIds ?? [];

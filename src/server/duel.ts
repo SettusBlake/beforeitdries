@@ -101,6 +101,8 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
     }
     // Malmittel zur Wahl kommen aus den freigeschalteten (vorher geladen, nach newGame kein await mehr)
     S.unlocked = [...unlocked];
+    // Das erste Duell nach dem Lern-Duell ist ohne Malmittel, ab dem zweiten wie sonst (neuer Spieler, 02.11.2026)
+    S.noMedia = !tutorial && (mine?.duels ?? 0) === 0;
     // Spielfarben: der Gegner behält seine, du nimmst deine oder die Ausweichfarbe
     S.colors = duelColors(mine?.color, mine?.color2, foe ? (foe.color ?? COLOR_DEFAULT) : COLOR_RIVAL);
     const events = [...drain(), ...openDuel()];

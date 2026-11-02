@@ -19,9 +19,12 @@
   </div>
   <button type="button" class="primary" id="continue" hidden>Continue duel</button>
   <button type="button" class="primary" id="learn">Learn with Sepia</button>
-  <button type="button" class="primary" id="start">Start duel</button>
-  <button type="button" class="primary gal-btn" id="gallery-b">Gallery duel</button>
-  <button type="button" class="primary bleach-btn" id="bleach-b" hidden><b>Today’s sheet</b><small id="bleach-sub"></small></button>
+  <!-- Neuer Spieler: bis zum Lern-Duell klein in einer Reihe (#title.newbie), sonst wie gewohnt untereinander -->
+  <div class="tgo">
+    <button type="button" class="primary" id="start"><b>Start duel</b><small class="after">after the lesson</small></button>
+    <button type="button" class="primary gal-btn" id="gallery-b"><b>Gallery duel</b><small class="after">after the lesson</small></button>
+    <button type="button" class="primary bleach-btn" id="bleach-b" hidden><b>Today’s sheet</b><small id="bleach-sub"></small></button>
+  </div>
   <button type="button" class="gal-note linkish" id="bleach-note" hidden></button>
   <button type="button" class="ghost share-t" id="bleach-share" hidden>Share your sheet as a comment</button>
   <p class="gal-note" id="gal-note" hidden></p>
@@ -85,7 +88,6 @@
     <div class="sepia-say note galnote" id="gallery-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="gallery-say"></p><p class="gal-who" id="gallery-who"></p><button type="button" class="tool" id="gallery-ok">Collect</button></div>
     <div class="sepia-say note" id="painted-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="painted-say"></p><button type="button" class="tool" id="painted-ok">OK</button></div>
     <div class="sepia-say note" id="news-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="news-say"></p><button type="button" class="tool" id="news-ok">OK</button></div>
-    <div class="mkrow" id="mkrow"><button type="button" class="mkbtn" id="market-b"><b>Market</b><small id="market-sub">dice for pigment</small></button><button type="button" class="mkbtn" id="trades-b"><b>Trades</b><small id="trades-sub">dice for dice</small><span class="badge" id="trades-n" hidden>0</span></button></div>
     <section class="dbox dip">
       <p class="eyebrow">Dip the brush</p>
       <div id="dip-btns"></div>
@@ -93,6 +95,7 @@
       <p class="pity" id="pity"></p>
       <button type="button" class="blankbtn" id="blank-b"><b>Blank canvas</b><small id="blank-sub"></small><span id="blank-n">0</span></button>
     </section>
+    <div class="mkrow" id="mkrow"><button type="button" class="mkbtn" id="market-b"><b>Market</b><small id="market-sub">dice for pigment</small></button><button type="button" class="mkbtn" id="trades-b"><b>Trades</b><small id="trades-sub">dice for dice</small><span class="badge" id="trades-n" hidden>0</span></button></div>
     <section class="dbox">
       <div class="bagrow"><span class="eyebrow">Deck</span><small id="bag-hint"></small></div>
       <div id="bag"></div>
@@ -143,6 +146,7 @@
 <div class="overlay" id="dip" hidden>
   <div id="dip-stage" aria-label="Dip animation"></div>
   <p id="dip-hint" hidden>Tap to speed up</p>
+  <button type="button" class="ghost" id="dip-skip" hidden>Skip</button>
   <div class="dipwrap" id="dip-body"></div>
 </div>
 

@@ -80,8 +80,10 @@ export class Reveal {
   private loops: ((dt: number) => void)[] = [];
   private shake = { amp: 0, t: 0 };
   private faceCache = new Map<string, Texture>();
-  /** Tempo: 1 normal, beim Überspringen schneller */
+  /** Tempo: 1 normal, beim Antippen schneller */
   speed = 1;
+  /** Lauf-Nummer: Skip bricht den laufenden Ablauf ab. Dessen Wartestellen lösen sich danach nie mehr auf, er läuft nicht weiter */
+  private gen = 0;
   W = 390;
   H = 760;
 
@@ -127,6 +129,8 @@ export class Reveal {
   /** Bühne verstecken: abräumen und die Uhr anhalten, damit nichts im Hintergrund rechnet */
   hide(): void {
     this.reset();
+    // Einmal leer zeichnen, sonst bleibt nach Skip das letzte Bild stehen
+    this.app.render();
     this.app.ticker.stop();
   }
 
@@ -174,6 +178,26 @@ export class Reveal {
     this.flash.alpha = alpha;
     void this.tween(ms, (p) => (this.flash.alpha = alpha * (1 - p)), ease.out);
   }
+  /** Nur auflösen, solange der Lauf, der darauf wartet, noch gilt (Malen und Bilder laufen nach Skip im Hintergrund fertig) */
+  private held<T>(p: Promise<T>): Promise<T> {
+    const g = this.gen;
+    return new Promise((res, rej) =>
+      p.then(
+        (v) => {
+          if (g === this.gen) res(v);
+        },
+        (e: unknown) => {
+          if (g === this.gen) rej(e);
+        },
+      ),
+    );
+  }
+  /** Skip: der laufende Ablauf bleibt stehen, wo er ist, und wird nie fortgesetzt. Danach hide() */
+  abort(): void {
+    this.gen++;
+    this.tweens = [];
+    this.loops = [];
+  }
   /** Alles abräumen für den nächsten Zug */
   reset(): void {
     for (const tw of this.tweens) tw.res();
@@ -191,10 +215,12 @@ export class Reveal {
   private monsterCanvas(m: Monster, px: number, prio = 0, keep?: string, deco = false): Promise<HTMLCanvasElement> {
     const c = document.createElement('canvas');
     c.width = c.height = 1;
-    return paintLater(c, m, px, { dpr: 1, deco }, prio).then((x) => {
-      if (keep) keepLoose(keep, x);
-      return x;
-    });
+    return this.held(
+      paintLater(c, m, px, { dpr: 1, deco }, prio).then((x) => {
+        if (keep) keepLoose(keep, x);
+        return x;
+      }),
+    );
   }
   private monsterTex(m: Monster, px: number, prio = 0, keep?: string, deco = false): Promise<Texture> {
     return this.monsterCanvas(m, px, prio, keep, deco).then((x) => Texture.from(x));
@@ -210,7 +236,7 @@ export class Reveal {
     const key = `${look.skin}:${look.tint.join(',')}:${faceKey(f)}`;
     const hit = this.faceCache.get(key);
     if (hit) return Promise.resolve(hit);
-    return new Promise((res) => {
+    const p = new Promise<Texture>((res) => {
       const img = new Image();
       img.onload = () => {
         const c = document.createElement('canvas');
@@ -225,6 +251,7 @@ export class Reveal {
       };
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceSvg(f, look.skin, 90, look.tint).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
     });
+    return this.held(p);
   }
   private burstRing(x: number, y: number, tint: number, size: number, ms = 700, flat = 1): void {
     const s = new Sprite(ringTex());

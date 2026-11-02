@@ -30,7 +30,7 @@ import { elementBadge, elementIcon, elementText, ringSvg } from './duel/elements
 import { elementDef } from '../shared/elements';
 import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
-import { closeMod, diceBadge, initDice, openDice } from './duel/collection';
+import { closeMod, diceBadge, initDice, lessonDone, openDice } from './duel/collection';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
 import { initColors, openColors } from './duel/colors';
 import { colorDef } from '../shared/colors';
@@ -753,31 +753,25 @@ const tutGo = () => {
   const a = tutorialAction();
   return a?.k === 'go' ? a : null;
 };
+/*
+ * Neuer Spieler (02.11.2026): Blasen zusammengefasst (14 statt 24, gezeigt etwa 12), das Lern-Duell endet nach Sepias drei Runden.
+ * Reihenfolge zählt: es erscheint die erste noch nicht gesehene, deren Bedingung gilt
+ */
 const LESSONS: [string, () => boolean, string][] = [
-  ['welcome', () => phase() === 'opening', 'This is the sheet, and I am Master Sepia. Today you duel my apprentice. I will tell you exactly what to do: always the gold ring.'],
-  ['bag', () => phase() === 'opening', 'This is your deck, nine dice. Every blot is a die, its sides come from the blot itself. Hold a die to read it.'],
-  ['net', () => phase() === 'opening' && !!summonU, 'I put the net where I would. A net must touch your own paint. Tap it to unfold.'],
-  ['rival', () => phase() === 'roll' && S.round === 1, 'The apprentice unfolded first, up there by its palette. Each palette has three hearts. Break theirs, or cover more paper than them when it dries after six rounds.'],
-  ['roll', () => phase() === 'roll' && S.round === 1, 'Each turn you roll three dice from your deck. I picked three for you. Roll them.'],
-  ['deck', () => phase() === 'roll' && me().units.some((u) => u.used), 'Rolled dice are used up, like cards: grey in your deck. When fewer than three are ready, I shuffle the used ones back in. Plan which dice you spend.'],
-  ['keep', () => phase() === 'keep', 'The roll lies open. Every face carries a colour, its blot’s pigment, and the two letters name it. Same colours pay: two of one colour make a Glaze, three are Pure. Hold what matches and reroll the rest. I marked what I would hold.'],
-  ['mud', () => phase() === 'keep' && S.lastRoll.some((r) => r.mud), 'Mud. That is the water I warned you about: the muddy die counts nothing until it is rerolled. Sometimes the wiser brush stops early.'],
-  ['wet', () => phase() === 'keep' && R.rerollsDone() >= 1 && S.rerolls > 0, 'That reroll was dry. The next ones are wet: each may turn one die to mud, held ones too, and mud counts nothing. The drops on the button show the chance. Knowing when to stop is half of painting.'],
-  ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step lets a blot walk further, Splash hits a palette, Guard halves a hit by itself, Glow pours into your blots and fills their brim. I lent you two Glow.'],
-  ['glaze', () => (phase() === 'summon' || phase() === 'act') && S.turn === 1 && !!S.combo && (S.combo.kind === 'glaze' || S.combo.kind === 'pure'), 'A Glaze. Until your turn ends, every splash on a rival blot hits half again as hard, the number up top says so. Three faces of one colour would be Pure: twice as hard, and a Joker.'],
-  ['summon', () => phase() === 'summon', 'Stars bring blots out. A die may unfold if the other dice show stars worth at least its level. This one qualifies, and the net is already placed.'],
-  ['drag', () => phase() === 'act' && !!tutGo() && (tutGo()!.a === 'stamp' || tutGo()!.a === 'splash'), 'Now the fun part. Drag a blot along the gold arrow and let go. Paper means stamp, a rival means splash. One drag per blot, the turn ends by itself.'],
+  ['welcome', () => phase() === 'opening', 'This is the sheet, and I am Master Sepia. You duel my apprentice, and I tell you every step: always the gold ring. Every blot is a die, these nine are your deck. Hold one to read it. Now tap the net to unfold your first blot.'],
+  ['roll', () => phase() === 'roll' && S.round === 1, 'The apprentice unfolded by its palette up there. Break its three hearts, or cover more paper when the sheet dries, today after three rounds. Each turn you roll three dice from your deck, and rolled dice are used up until I shuffle them back. I picked three. Roll them.'],
+  ['keep', () => phase() === 'keep', 'The roll lies open. Every face carries its blot’s colour, the two letters name it. Same colours pay: two make a Glaze, three are Pure. Hold what matches and reroll the rest. I marked what I would hold.'],
+  ['wet', () => phase() === 'keep' && R.rerollsDone() >= 1 && S.rerolls > 0, 'That reroll was dry. The next ones are wet: each may turn a die to mud, held ones too, and mud counts nothing. The drops on the button show the chance. Knowing when to stop is half of painting.'],
+  ['crests', () => (phase() === 'summon' || phase() === 'act') && S.round === 1, 'Symbols go into your pool and stay. Step walks a blot further, Splash hits a palette, Guard halves a hit, Glow fills your blots. Stars bring blots out: a die unfolds if the other dice show stars worth its level, and its net must touch your paint.'],
+  ['glaze', () => (phase() === 'summon' || phase() === 'act') && S.turn === 1 && !!S.combo && (S.combo.kind === 'glaze' || S.combo.kind === 'pure'), 'A Glaze. Until your turn ends, every splash on a rival blot hits half again as hard: watch the sum when it lands. Three faces of one colour would be Pure, twice as hard and a Joker.'],
+  ['drag', () => phase() === 'act' && !!tutGo() && (tutGo()!.a === 'stamp' || tutGo()!.a === 'splash'), 'Now the fun part. Drag a blot along the gold arrow and let go. Onto paper it stamps its shape in wet paint, onto a rival it splashes, and two or three hits burst a blot. One drag per blot, the turn ends by itself.'],
   ['palette', () => { const a = tutGo(); return a?.a === 'splash' && a.at === S.teams[1].home; }, 'Their palette is unguarded. One Splash symbol, one heart, one per turn. A palette is safe while one of its own blots stands within two cells.'],
-  ['stamp', () => tutGo()?.a === 'stamp', 'A stamp paints the blot’s shape in wet paint. Over dried paint it needs a roll: your Opacity against their Grain. Wet paint bleeds into free paper when the round ends.'],
-  ['mult', () => { const a = tutGo(); return a?.a === 'splash' && a.at !== S.teams[1].home && R.turnMult(1) > 1; }, 'Your Glaze still holds. Splash this one and watch the sum: the hit times one and a half, and its element on top if it beats the target.'],
-  ['splash', () => tutGo()?.a === 'splash', 'Splash hits a rival in reach: Saturation and a d20 against Grain and a d20. A hit paints the cell under the target. Two or three hits and a blot bursts.'],
-  ['elem', () => { const a = tutGo(); if (a?.a !== 'splash' || a.at === S.teams[1].home) return false; const t = R.unitAt(a.at! % COLS, Math.floor(a.at! / COLS)); const u = R.unitById(a.id); return !!t && !!u; }, 'Every blot carries an element: Wash, Vermilion, Gilt, Sap, Ochre or Fluoro, the small badge by its feet. They stand in a ring. Each hits the next one twice as hard and the one after a little harder. Tap a badge on a card to see the ring.'],
+  ['elem', () => { const a = tutGo(); if (a?.a !== 'splash' || a.at === S.teams[1].home) return false; const t = R.unitAt(a.at! % COLS, Math.floor(a.at! / COLS)); const u = R.unitById(a.id); return !!t && !!u; }, 'Every blot carries an element, the badge by its feet: Wash, Vermilion, Gilt, Sap, Ochre, Fluoro, in a ring. Each hits the next one twice as hard and the one after a little harder. Tap a badge on a card to see the ring.'],
   ['brim', () => phase() === 'act' && onSheetFull(), 'Paint soaks in. Every stamp, splash and hit fills a blot’s brim, and Glow pours into all of them. I filled this one to the top. A full blot shines gold: its next move is a master stroke.'],
   ['soak', () => tutGo()?.a === 'soak', 'Tap a blot twice to soak: it heals and rinses stains.'],
   ['end', () => tutorialAction()?.k === 'end', 'Nothing worth doing. End your turn.'],
-  ['react', () => S.round >= 2 && phase() === 'act', 'Paint reacts. The same pigment over your own dried paint glazes it: a second layer, worth double, harder to paint over. A neighbouring colour bleeds into free paper. A complementary colour turns wet rival paint into mud.'],
+  ['react', () => S.round >= 2 && phase() === 'act', 'Paint reacts. Your pigment over your own dried paint glazes it: worth double, harder to paint over. A neighbouring colour bleeds into free paper, a complementary one turns wet rival paint into mud.'],
   ['eraser', () => S.round >= 3 && phase() === 'roll', 'Did you see the Eraser? Someone keeps wiping rows of my sheet. Lightfastness protects paint and blots.'],
-  ['free', () => S.round > S.tutorial && !S.over, 'That is all I can teach without doing it for you. Finish the duel on your own. In a hurry, Sepia paints plays a turn for you. Do not get used to it.'],
 ];
 let lessonsSeen = new Set((store.get('bid-duel-lessons') ?? '').split(',').filter(Boolean));
 function lessonCheck(): void {
@@ -791,8 +785,19 @@ function lessonCheck(): void {
     return;
   }
 }
+/* Einmal erklärt Sepia auch außerhalb des Lern-Duells: das erste Malmittel (im ersten Duell danach gibt es keine, neuer Spieler 02.11.2026) */
+const MEDIUM_INTRO = 'Mediums. A drop in the water and the rules bend a little, for the rest of the duel. Pick one of these three, the rival takes one too. Another comes after rounds two and four.';
+function sepiaOnce(key: string, text: string): void {
+  const seen = new Set((store.get('bid-sepia-once') ?? '').split(',').filter(Boolean));
+  if (seen.has(key) || S.tutorial > 0 || !$('tip').hidden) return;
+  seen.add(key);
+  store.set('bid-sepia-once', [...seen].join(','));
+  $('tip-text').textContent = text;
+  $('tip').hidden = false;
+}
 function tipForPhase(): void {
   const p = phase();
+  if (p === 'medium' && S.turn === 1 && !S.over) sepiaOnce('medium', MEDIUM_INTRO);
   if (p === 'opening' || p === 'medium' || p === 'roll' || p === 'keep' || p === 'summon' || p === 'act') tip(p);
   if (p === 'act' && R.setBonus(1)) tip('set');
 }
@@ -950,8 +955,8 @@ function renderTop(): void {
   $('bar-you').style.width = (a / tot) * 100 + '%';
   $('bar-mud').style.width = (m / tot) * 100 + '%';
   $('bar-rival').style.width = (b / tot) * 100 + '%';
-  const last = S.bleach ? S.bleach.waves.length : ROUNDS;
-  $('round').textContent = S.over ? 'Done' : bleach ? `Wave ${Math.min(V.round, last)}/${last}` : `Round ${Math.min(V.round, ROUNDS)}/${ROUNDS}`;
+  const last = R.lastRound();
+  $('round').textContent = S.over ? 'Done' : bleach ? `Wave ${Math.min(V.round, last)}/${last}` : `Round ${Math.min(V.round, last)}/${last}`;
   const left = last - V.round + 1;
   $('dries').textContent = S.over ? S.winReason : !bleach && R.ERASER_ROUNDS.includes(V.round) ? 'Eraser next' : left <= 1 ? 'last wave' : `dries in ${left}`;
   hearts($('rival-hearts'), V.teams[1]!.hearts);
@@ -2184,6 +2189,12 @@ function sepiaEnd(): string {
   if (S.winReason === 'washed out') return S.winner === 1 ? 'Not a single rival die left. Thorough.' : 'Every die washed away. We will speak about this.';
   return S.winner === 1 ? 'The paper remembers who painted it. Today, you.' : S.winner === 2 ? 'The rival covered more paper. Paper keeps score, not excuses.' : 'A draw. The paper cannot decide either.';
 }
+/** Nach dem Lern-Duell (endet nach drei Runden) */
+function sepiaLesson(): string {
+  return S.winner === 1
+    ? 'For beginners the paper dries early. A real duel runs six rounds, and nobody marks the next step. Now go and fetch your own dice.'
+    : 'Well. A real duel runs six rounds and forgives more. Go and fetch your own dice.';
+}
 function sepiaBleach(): string {
   if (S.winReason === 'given up') return 'You let it dry early. A choice. Not a good one, but a choice.';
   const h = S.teams[0].hearts;
@@ -2254,7 +2265,7 @@ async function finishDuel(): Promise<void> {
     ['Dice lost', S.teams[0].units.filter((u) => u.state === 'gone').length, S.teams[1].units.filter((u) => u.state === 'gone').length],
   ] as [string, number, number][])
     st.append(html('div', '', `<span>${k}</span><b class="y">${x}</b><b class="r">${y}</b>`));
-  $('result-sepia').textContent = bl ? sepiaBleach() : S.foeName ? sepiaGallery() : sepiaEnd();
+  $('result-sepia').textContent = bl ? sepiaBleach() : S.foeName ? sepiaGallery() : S.tutorial > 0 ? sepiaLesson() : sepiaEnd();
   // Nach dem Lern-Duell geht es zu den freien Würfeln (sonst startete „Again“ ein Duell ohne eigene Würfel)
   lessonResult = S.tutorial > 0;
   $('again').textContent = bl ? 'Today’s board' : lessonResult ? 'Collect your free dice' : 'Again';
@@ -2299,8 +2310,15 @@ function showScreen(id: 'title' | 'game' | 'dice'): void {
   }
   if (id === 'dice') openDice();
 }
+/** Neuer Spieler (02.11.2026): bis zum Lern-Duell ist „Learn with Sepia“ der einzige große Knopf, Duell und Galerie gibt es danach */
+function titleFor(learned: boolean): void {
+  $('title').classList.toggle('newbie', !learned);
+  ($('start') as HTMLButtonElement).disabled = !learned;
+  ($('gallery-b') as HTMLButtonElement).disabled = !learned;
+}
 async function updateBadge(): Promise<void> {
   const t = await diceBadge();
+  titleFor(lessonDone() ?? !!store.get('bid-duel-learned'));
   $('dice-badge').hidden = !t;
   $('dice-badge').textContent = t;
   galleryNote();
@@ -2414,7 +2432,7 @@ async function bleachTitle(): Promise<Awaited<ReturnType<typeof api.bleach>> | n
     $('bleach-test').hidden = !i.tester;
     b.disabled = !i.unlocked || (!!i.played && !i.running);
     $('bleach-sub').textContent = !i.unlocked
-      ? 'after the lesson duel'
+      ? 'after the lesson'
       : i.running
         ? 'continue'
         : i.played
@@ -2593,6 +2611,8 @@ for (const id of ['sound-t', 'sound-m'])
     soundLabel();
     sfx.tap();
   });
+// Bis der Spielstand da ist, gilt, was dieses Gerät weiß
+titleFor(!!store.get('bid-duel-learned'));
 $('start').addEventListener('click', () => void startDuel());
 $('gallery-b').addEventListener('click', () => {
   initAudio();
@@ -2636,9 +2656,12 @@ $('dice-m').addEventListener('click', () => {
 });
 initDice({
   back: () => {
-    showScreen(diceFrom);
+    const to = diceFrom;
+    showScreen(to);
     diceFrom = 'title';
     renderAll();
+    // Der Stand fürs Tagesblatt kann sich geändert haben (nach dem Lern-Duell ist es offen)
+    if (to === 'title') void bleachTitle();
   },
   error: onError,
 });
