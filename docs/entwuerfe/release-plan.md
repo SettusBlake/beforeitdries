@@ -60,6 +60,8 @@ In zwei Teilen: 1a Posts, Teilen und Löschen von Posts und Kommentaren, 1b gel�
 
 ### 3 Neuer Spieler und Qualität
 
+**Gemessen und kleine Brüche behoben (02.11.2026).** Bericht mit Zahlen, Bild und 6 Fragen: docs/entwuerfe/neuer-spieler-bericht.md, Bild docs/entwuerfe/neuer-spieler.png.
+
 - **Erster Weg durchgespielt** mit leerem Stand in der Vorschau: Startbild, Lern-Duell, Startzüge, erstes Duell, Tagesblatt. Gemessen: Taps, Wartezeiten, Stellen ohne klaren nächsten Schritt. Bilder davon. Kleine Brüche behebe ich gleich, größere kommen als Frage.
 - **Ladezeit:** Der Inline-Spielpost lädt gut 110 KB Renderer (gepackt) und Schriften. Ich messe am gedrosselten Handy und mache ihn leichter, falls er spürbar wartet.
 - **Desktop:** alle Bildschirme im Breitbild prüfen.

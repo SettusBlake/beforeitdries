@@ -163,6 +163,10 @@ button { font: inherit; color: inherit; }
 /* Schmale Handys (360 px): nichts darf breiter werden als der Bildschirm */
 .panel { grid-template-columns: minmax(0, 1fr); }
 .pool .deck { min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
+/* Bis 400 px (viele Handys haben 390): „0 used“ weg, sonst wird „9 ready“ abgeschnitten. Das Deck zeigt es beim Antippen */
+@media (max-width: 400px) {
+  .pool .deck span { display: none; }
+}
 @media (max-width: 380px) {
   .pool { gap: 5px; }
   .crests { gap: 5px; }

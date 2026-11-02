@@ -2255,7 +2255,9 @@ async function finishDuel(): Promise<void> {
   ] as [string, number, number][])
     st.append(html('div', '', `<span>${k}</span><b class="y">${x}</b><b class="r">${y}</b>`));
   $('result-sepia').textContent = bl ? sepiaBleach() : S.foeName ? sepiaGallery() : sepiaEnd();
-  $('again').textContent = bl ? 'Today’s board' : 'Again';
+  // Nach dem Lern-Duell geht es zu den freien Würfeln (sonst startete „Again“ ein Duell ohne eigene Würfel)
+  lessonResult = S.tutorial > 0;
+  $('again').textContent = bl ? 'Today’s board' : lessonResult ? 'Collect your free dice' : 'Again';
   $('result-eyebrow').textContent = bl ? (bleachRes?.ranked === false ? 'Test sheet' : 'Today’s sheet') : 'Duel over';
   const rw = $('result-reward');
   rw.hidden = !reward;
@@ -2689,7 +2691,17 @@ $('tip-ok').addEventListener('click', () => {
   lessonCheck();
 });
 // Nach einem Galerie-Duell sucht „Again“ ein neues Deck
+/** Ergebnis des Lern-Duells: „Again“ führt zu den freien Würfeln */
+let lessonResult = false;
 $('again').addEventListener('click', () => {
+  if (lessonResult) {
+    lessonResult = false;
+    $('result').hidden = true;
+    resumable = false;
+    sfx.tap();
+    showScreen('dice');
+    return;
+  }
   if (S.mode === 'bleach') {
     $('result').hidden = true;
     resumable = false;
@@ -2792,5 +2804,7 @@ api
     guide: guideNow,
   }),
   speed: (s: number) => (V.speed = s),
+  /** Lage der Felder für Testläufe: Feldgröße und Abstand oben im Blatt */
+  geo: () => ({ cell: View.cellSize(), padTop: View.padTop() }),
 };
 (window as unknown as { done: boolean }).done = true;
