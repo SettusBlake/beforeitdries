@@ -10,7 +10,7 @@ import { duelAct, duelGet, duelStart } from './duel';
 import { bleachAct, bleachGet, bleachShare, bleachStart, ensureSheetPost, sheetGet } from './bleach';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf } from './gallery';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
-import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
+import { adoptNaming, diceShare, namingGet, speciesNames, withdrawName, type NamingResult } from './naming';
 import { cleanTestData, refreshLinks, setupCommunity, setupToast } from './community';
 import { ensurePlayPost, playInfo } from './play';
 import { commentGone, postGone } from './deletion';
@@ -460,6 +460,16 @@ app.post(
   wrap(async (req, res) => {
     const target = (req.body as MenuItemRequest | undefined)?.targetId ?? '';
     res.json({ showToast: namingToast(await adoptNaming(await deps(), target, true)) } satisfies UiResponse);
+  }),
+);
+/* Mod-Menü am Kommentar: einen anstößigen Artnamen zurücknehmen, die Art wird wieder offen */
+app.post(
+  '/internal/menu/withdraw-name',
+  wrap(async (req, res) => {
+    const target = (req.body as MenuItemRequest | undefined)?.targetId ?? '';
+    const r = await withdrawName(await deps(), target);
+    console.log('withdraw name', target, r.text);
+    res.json({ showToast: r.text } satisfies UiResponse);
   }),
 );
 

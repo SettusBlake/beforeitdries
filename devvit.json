@@ -78,6 +78,13 @@
         "forUserType": "moderator",
         "postFilter": "currentApp",
         "endpoint": "/internal/menu/cancel-naming"
+      },
+      {
+        "label": "Before It Dries: withdraw this name",
+        "description": "Use on the comment with a species name (or Sepia's Bestiary comment): removes the name comment and opens the species again",
+        "location": "comment",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/withdraw-name"
       }
     ]
   },

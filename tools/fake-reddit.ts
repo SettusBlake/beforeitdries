@@ -38,10 +38,23 @@ export class FakeReddit implements RedditLike {
     };
   }
   async getCommentById(id: `t1_${string}`) {
+    const app = this.appComments.find((x) => x.cid === id);
+    let postId: string | undefined = app?.id;
+    let theirs: CommentLike | undefined;
+    for (const [p, list] of this.comments) {
+      const c = list.find((x) => x.id === id);
+      if (c) {
+        postId = p;
+        theirs = c;
+      }
+    }
     return {
+      postId,
       delete: async () => {
-        const c = this.appComments.find((x) => x.cid === id);
-        if (c) c.deleted = true;
+        if (app) app.deleted = true;
+      },
+      remove: async () => {
+        if (theirs) theirs.removed = true;
       },
     };
   }

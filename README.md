@@ -64,6 +64,10 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 - *Before It Dries: name it now* takes the top valid name from a “What do you see?” post right away.
 - *Before It Dries: cancel naming* closes such a post without a name.
 
+**Comment menu (moderators only).**
+
+- *Before It Dries: withdraw this name*, used on the comment that named a species (or on the Bestiary comment of the app), takes the name back: the comment is removed, the name is free again, and the species can be named in a new “What do you see?” post. Nobody is paid twice for the same species.
+
 **Moderator tools in the game.** Moderators see a 🛠 button in the top right corner of the start screen and of Your dice. It opens:
 
 - **Review drawings:** every new drawing and every reported drawing. **OK** lets others see it. **Paint over** (second tap) replaces the drawing with the blot’s random shape and keeps the die. Two paint-overs within 30 days lock drawing for 14 days, a third one until a moderator lifts the lock in the same screen. The number of waiting drawings shows on the 🛠 button.

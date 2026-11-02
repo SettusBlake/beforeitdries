@@ -198,6 +198,29 @@ export async function namingPostGone(d: Pick<Deps, 'redis'>, postId: string): Pr
  * Der Kommentar, der einer Art ihren Namen gab, ist gelöscht (festgelegt am 02.11.2026: die Art wird wieder offen).
  * Name, Namensgeber und Sepias Bestiary-Kommentar verschwinden, der Name ist wieder frei, das Pigment bleibt.
  */
+/**
+ * Mod-Menü „withdraw this name“ (gewünscht am 02.11.2026): am Kommentar mit dem Namen oder an Sepias Bestiary-Kommentar.
+ * Wie ein gelöschter Namens-Kommentar: der Name ist frei, die Art wieder offen, der Bestiary-Kommentar weg. Dazu wird der
+ * Kommentar mit dem Namen entfernt (nicht als Spam). Das Pigment für Finder und Namensgeber bleibt, zahlt aber kein zweites Mal
+ */
+export async function withdrawName(d: Pick<Deps, 'redis' | 'reddit'>, commentId: string): Promise<{ ok: boolean; text: string }> {
+  if (!commentId.startsWith('t1_') || !d.reddit.getCommentById) return { ok: false, text: 'Use this on the comment with the name.' };
+  const c = await d.reddit.getCommentById(commentId as `t1_${string}`);
+  const postId = c.postId ?? '';
+  // Bestiary-Kommentar der App: der Name steht im Kommentar, den Sepia übernommen hat
+  const info = postId ? parse<NamingInfo>(await d.redis.get(K.naming(postId))) : null;
+  const nameId = info?.sayId === commentId && info.commentId ? info.commentId : commentId;
+  const name = info?.commentId === nameId ? info.name : undefined;
+  const key = await nameCommentGone(d, nameId, postId);
+  if (!key) return { ok: false, text: 'This comment did not name a species.' };
+  try {
+    const nc = nameId === commentId ? c : await d.reddit.getCommentById(nameId as `t1_${string}`);
+    await nc.remove?.(false);
+  } catch (e) {
+    console.error('remove name comment', e);
+  }
+  return { ok: true, text: `Name ${name ? `"${name}" ` : ''}withdrawn. The species is open again and can be named in a new post.` };
+}
 export async function nameCommentGone(d: Pick<Deps, 'redis' | 'reddit'>, commentId: string, postId: string): Promise<string | null> {
   // Die Art finden: über den Post, sonst alle benannten Arten durchsehen (auch Namen aus alten Tagesposts)
   const info = parse<NamingInfo>(await d.redis.get(K.naming(postId)));

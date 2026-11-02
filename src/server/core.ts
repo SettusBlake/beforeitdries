@@ -59,7 +59,7 @@ export interface RedditLike {
   /** runAs USER: im Namen des Spielers (Teilen), sonst vom App-Konto. id: Post oder Kommentar (Antwort) */
   submitComment(opts: { id: `t3_${string}` | `t1_${string}`; text: string; runAs?: 'USER' | 'APP' }): Promise<CommentRef>;
   /** Kommentar der App wiederfinden (zum Löschen). Fehlt in alten Attrappen */
-  getCommentById?(id: `t1_${string}`): Promise<{ delete(): Promise<void> }>;
+  getCommentById?(id: `t1_${string}`): Promise<{ delete(): Promise<void>; postId?: string; remove?(isSpam?: boolean): Promise<void> }>;
   /** Mit username: ist dieser Spieler Mod? (leere Liste, wenn nicht) */
   getModerators(opts: { subredditName: string; username?: string }): { all(): Promise<{ username: string }[]> };
   /** Konto eines Spielers (Alter fürs Handeln). Fehlt in alten Attrappen */

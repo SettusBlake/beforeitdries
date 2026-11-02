@@ -8,7 +8,7 @@ import { reviewOk, reviewOver } from '../src/server/drawings';
 import { K } from '../src/server/keys';
 import { marketBuy, marketList, marketSell, marketTestList, rememberName, tradeCollection, tradeOffer } from '../src/server/market';
 import { commentGone } from '../src/server/deletion';
-import { adoptNaming, diceShare, NAMING_MS, namingGet } from '../src/server/naming';
+import { adoptNaming, diceShare, NAMING_MS, namingGet, withdrawName } from '../src/server/naming';
 import { REWARD, TRADE } from '../src/shared/dice';
 import { encodeDrawing } from '../src/shared/drawn';
 import { BLEACH, bleachScore, forecast, newBleach } from '../src/shared/duel/bleach';
@@ -451,4 +451,35 @@ describe('Regeln im Tagesblatt', () => {
     expect(a.paintSeed).toBe(b.paintSeed);
     expect((a.paintSeed ^ 0x5eed) >>> 0).not.toBe(a.gameSeed);
   });
+});
+
+describe('Mod-Menü „withdraw this name“', () => {
+  for (const on of ['name', 'bestiary'] as const) {
+    it(`am ${on === 'name' ? 'Namens-Kommentar' : 'Bestiary-Kommentar'}: Name frei, Art offen, Kommentar entfernt, kein zweites Pigment`, async () => {
+      const d = setup(on === 'name' ? 20 : 21);
+      await dicePull(d, A, 'starter');
+      const [x] = (await loadDice(d, A)).dice;
+      const { postId } = await diceShare(d, A, 'finder', x!.id);
+      d.reddit.addComment(postId, 'namer', 'Rudeword', 20);
+      await adoptNaming({ ...d, now: d.now + NAMING_MS }, postId);
+      const info = (await namingGet(d, postId)).naming!;
+      expect(info.status).toBe('named');
+      const pig = (await loadDice(d, 't2_namer')).pigment;
+      const r = await withdrawName(d, on === 'name' ? info.commentId! : info.sayId!);
+      expect(r.ok).toBe(true);
+      const after = (await namingGet(d, postId)).naming!;
+      expect(after.status).toBe('withdrawn');
+      expect(await d.redis.hGet(K.speciesNames, 'rudeword')).toBeUndefined();
+      expect(d.reddit.comments.get(postId)!.find((c) => c.body === 'Rudeword')!.removed).toBe(true);
+      expect(d.reddit.appComments.find((c) => c.cid === info.sayId)!.deleted).toBe(true);
+      // Noch einmal: nichts mehr zu tun
+      expect((await withdrawName(d, info.commentId!)).ok).toBe(false);
+      // Neu benennen zahlt dem alten Namensgeber kein zweites Mal
+      const next = { ...d, now: d.now + 2 * DAY };
+      const again = (await diceShare(next, A, 'finder', x!.id)).postId;
+      d.reddit.addComment(again, 'namer', 'Inkmoth', 20);
+      expect((await adoptNaming({ ...next, now: next.now + NAMING_MS }, again)).status).toBe('named');
+      expect((await loadDice(d, 't2_namer')).pigment).toBe(pig);
+    });
+  }
 });
