@@ -150,8 +150,12 @@ describe('Galerie-Duell', () => {
     expect((await galleryCollect(d, A)).collected).toBe(0);
   });
 
-  it('Gebühr höchstens 60 am Tag', async () => {
+  it('Gebühr höchstens 60 am Tag, nichts für Decks, die nicht mehr hängen (gelöschte Konten)', async () => {
     const d = setup();
+    // Ohne Abzug in der Galerie (Konto gelöscht): keine Gebühr, kein neuer Eintrag
+    await payOwner(d, A, 2, 'early');
+    expect(await d.redis.hLen(K.galleryInbox(A))).toBe(0);
+    await d.redis.set(K.gallery(A), JSON.stringify({ name: 'a', dice: [], media: [], power: 1, at: d.now }));
     for (let i = 0; i < 10; i++) await payOwner({ ...d, now: d.now + i }, A, 2, `p${i}`);
     const st = await galleryStatus(d, A, await loadDice(d, A));
     expect(st.inbox?.w).toBe(10);

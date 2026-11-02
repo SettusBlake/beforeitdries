@@ -88,6 +88,13 @@
       "daily-sheet": {
         "endpoint": "/internal/scheduler/daily-sheet",
         "cron": "2 0 * * *"
+      },
+      "account-check": {
+        "endpoint": "/internal/scheduler/account-check",
+        "cron": "37 3 * * *"
+      },
+      "account-purge": {
+        "endpoint": "/internal/scheduler/account-purge"
       }
     }
   },

@@ -49,7 +49,10 @@ export class FakeReddit implements RedditLike {
   }
   /** Anlage der Konten (fehlt: ein Jahr alt) */
   born = new Map<string, number>();
+  /** Gelöschte oder gesperrte Konten: Reddit findet sie nicht */
+  gone = new Set<string>();
   async getUserById(id: `t2_${string}`) {
+    if (this.gone.has(id)) return undefined;
     return { createdAt: new Date(this.born.get(id) ?? Date.parse('2025-10-01T00:00:00Z')) };
   }
   messages: { to: string; subject: string; text: string }[] = [];

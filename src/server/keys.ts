@@ -2,7 +2,7 @@
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
  * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at,
  * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, drawn:reports, naming:posts, naming:open, gallery:power, gallery:record,
- * names, market, market:at, market:sales, trades, bleach:days, bleach:players, bleach:postday). Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id},
+ * names, market, market:at, market:sales, trades, bleach:days, bleach:players, bleach:postday, account:miss, account:purge). Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id},
  * gallery:inbox:{id}, deliver:{id}, market:by:{id}, trade:in:{id}, trade:out:{id}) folgen aus dice:players.
  */
 export const K = {
@@ -111,4 +111,10 @@ export const K = {
   bleachPost: (day: string) => `bleach:post:${day}`,
   /** Hash: Post-ID → Tag, für alle Tagesposts (auch ältere desselben Tages) */
   bleachPostDay: 'bleach:postday',
+  /** Gelöschte Konten (src/server/accounts.ts): wo die tägliche Prüfung in dice:players weitermacht */
+  accountCursor: 'account:cursor',
+  /** Hash: Spieler → seit wann Reddit sein Konto nicht findet (ms) */
+  accountMiss: 'account:miss',
+  /** Hash: Spieler → JSON der laufenden Bereinigung (Name, Schritt, Stand) */
+  purgeQueue: 'account:purge',
 } as const;

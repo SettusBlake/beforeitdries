@@ -13,6 +13,7 @@ import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marke
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
 import { ensurePlayPost, playInfo } from './play';
 import { commentGone, postGone } from './deletion';
+import { accountCheck, purgeRun } from './accounts';
 import { secureUint32 } from './rand';
 
 async function deps(): Promise<Deps> {
@@ -397,6 +398,25 @@ app.post(
     const b = req.body as Partial<OnCommentDeleteRequest> | undefined;
     const done = await commentGone(await deps(), b?.commentId, b?.postId);
     if (done.length) console.log('comment deleted', b?.commentId, done.join(', '));
+    res.json({});
+  }),
+);
+
+/* Gelöschte Konten: täglich reihum bei Reddit nachfragen, nach 21 Tagen am Stück bereinigen (src/server/accounts.ts) */
+app.post(
+  '/internal/scheduler/account-check',
+  wrap(async (_req, res) => {
+    const r = await accountCheck(await deps());
+    console.log('account check', JSON.stringify(r));
+    res.json({});
+  }),
+);
+/* Angefangene Bereinigung fortsetzen (plant sich selbst eine Minute später, solange etwas offen ist) */
+app.post(
+  '/internal/scheduler/account-purge',
+  wrap(async (_req, res) => {
+    const done = await purgeRun(await deps());
+    if (done.length) console.log('accounts purged', done.length);
     res.json({});
   }),
 );

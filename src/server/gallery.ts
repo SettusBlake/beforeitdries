@@ -228,6 +228,8 @@ export async function driftDice(d: Deps, uid: string, own: boolean): Promise<Dri
 
 /** Gebühr und Bilanz für den Besitzer nach einem Galerie-Duell. winner aus Sicht des Herausforderers */
 export async function payOwner(d: Deps, owner: string, winner: 0 | 1 | 2, challenger: string | undefined): Promise<void> {
+  // Gelöschtes Konto (src/server/accounts.ts): sein Abzug ist weg, also nichts mehr für ihn anlegen
+  if (owner === 'gone' || !(await d.redis.get(K.gallery(owner)))) return;
   const k = winner === 2 ? 'w' : winner === 1 ? 'l' : 'd';
   const fee = winner === 2 ? GALLERY_FEE.win : winner === 1 ? GALLERY_FEE.loss : GALLERY_FEE.draw;
   const box = K.galleryInbox(owner);

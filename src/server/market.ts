@@ -152,6 +152,39 @@ const loadListing = async (d: Pick<Deps, 'redis'>, id: string) => parse<MarketRe
 const loadTrade = async (d: Pick<Deps, 'redis'>, id: string) => parse<TradeRec>(await d.redis.hGet(K.trades, id));
 
 /**
+ * Gelöschtes Konto (src/server/accounts.ts): seine Markt-Einträge und Angebote verschwinden mit ihm. Angebote anderer an ihn
+ * gehen an den Absender zurück, wie bei einer Ablehnung
+ */
+export async function marketForget(d: Pick<Deps, 'redis' | 'now' | 'rand'>, uid: string): Promise<number> {
+  let n = 0;
+  for (const { member: id } of await d.redis.zRange(K.marketBy(uid), 0, -1, { by: 'rank' })) {
+    const r = await loadListing(d, id);
+    if (r?.seller === uid) await dropListing(d, r);
+    n++;
+  }
+  for (const { member: id } of await d.redis.zRange(K.tradeOut(uid), 0, -1, { by: 'rank' })) {
+    const r = await loadTrade(d, id);
+    if (r?.from === uid) await dropTrade(d, r);
+    n++;
+  }
+  for (const { member: id } of await d.redis.zRange(K.tradeIn(uid), 0, -1, { by: 'rank' })) {
+    const r = await loadTrade(d, id);
+    if (r?.to !== uid) continue;
+    await dropTrade(d, r);
+    await deliver(d, r.from, { k: 'back', dice: r.give, pig: r.pig, text: `The painter you made an offer to has left Reddit. Your dice${r.pig ? ' and pigment' : ''} are back.` });
+    n++;
+  }
+  // Auch abgelaufene Einträge in fremden Listen: alles, was diesem Spieler gehört, ist weg
+  for (const [id, raw] of Object.entries(await d.redis.hGetAll(K.market))) if ((JSON.parse(raw) as MarketRec).seller === uid) await dropListing(d, JSON.parse(raw) as MarketRec);
+  for (const [, raw] of Object.entries(await d.redis.hGetAll(K.trades))) {
+    const r = JSON.parse(raw) as TradeRec;
+    if (r.from === uid) await dropTrade(d, r);
+  }
+  await d.redis.del(K.marketBy(uid), K.tradeIn(uid), K.tradeOut(uid));
+  return n;
+}
+
+/**
  * Lieferungen abholen und eigene abgelaufene Einträge und Angebote zurücknehmen. Nur innerhalb der eigenen Sperre.
  * Gibt die abgeholten Lieferungen zurück: erst nach dem Speichern löschen
  */

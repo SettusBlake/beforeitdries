@@ -34,6 +34,13 @@ In zwei Teilen: 1a Posts, Teilen und Löschen von Posts und Kommentaren, 1b gel�
 - Löschen: `onPostDelete` (Benennen-Post: Eintrag weg, offene Art wieder frei; Tagespost und Spiel-Post: der nächste wird neu angelegt), `onCommentDelete` (Namens-Kommentar: Art wieder offen, Name frei, Sepias Bestiary-Kommentar gelöscht, Post zeigt „The comment that named it was deleted“; angehefteter Teilen-Kommentar: neuer beim nächsten Teilen). Code src/server/deletion.ts.
 - devvit.json: `asUser` SUBMIT_POST und SUBMIT_COMMENT, `scope: "user"`, Trigger `onPostDelete` und `onCommentDelete`.
 
+**1b gebaut (02.11.2026).** Gelöschte Konten (src/server/accounts.ts, Tests tests/accounts.test.ts).
+- **Prüfen:** täglicher Auftrag `account-check` (03:37 UTC) fragt reihum 100 Spieler bei Reddit nach. Reddit meldet gesperrte Konten genauso wie gelöschte („nicht gefunden“), deshalb wird erst bereinigt, wenn ein Konto 21 Tage am Stück fehlt (`GONE.confirmDays`). Taucht es wieder auf, beginnt die Frist neu. Fehler bei Reddit zählen nicht.
+- **Bereinigen in Stücken:** eigene Daten (Spielstand, Duelle, Tagesblatt-Lauf und Ranglisten, Galerie, Markt-Einträge, Angebote, Lieferungen, Zeichnungen, Sperren, Namen, alte Fänge), dann gemeinsame Sammlungen (Register, Archiv, fremde Markt-Einträge und Angebote, Meldungen, Benennen-Posts, Bestiary, Tagesblätter), dann die Daten aller anderen Spieler (Herkunft auf Würfeln, Nachrichten, Lieferungen, laufende Duelle, Galerie). Die ID wird zu „gone“, der Name zu „a painter“. Dauert es länger, geht es eine Minute später weiter (`account-purge`).
+- **Was bleibt:** ausgewaschene Würfel des Kontos als namenlose Gegner im Archiv, ohne seine Zeichnung. Benannte Arten behalten ihren Namen, der Namensgeber wird „a painter“. Seriennummern und Register bleiben belegt.
+- **Andere Spieler:** Angebote an das gelöschte Konto gehen an den Absender zurück („The painter you made an offer to has left Reddit“). Ein laufendes Galerie-Duell gegen sein Deck zahlt keine Gebühr mehr aus.
+- **Test:** Nach der Bereinigung enthält Redis weder ID noch Name des Kontos (Test durchsucht alle Schlüssel).
+
 - **Tagespost ohne Scrollen:** Top 6 mit Blättern und dein Platz passen in den Post. Die ganze Liste gibt es im Spiel.
 - **Teilen nach Regel:** Die App setzt im Tagespost einen angehefteten Kommentar („Share your sheet here“). „Share as a comment“ antwortet darauf. Über dem Knopf steht: „Posts a reply as u/name under today’s sheet. Everyone can see it.“
 - **Benennen-Posts im Namen des Finders** (`runAs: 'USER'` mit `userGeneratedContent`). Der Knopf sagt vorher, dass der Post unter deinem Namen erscheint (zweiter Tipp).
