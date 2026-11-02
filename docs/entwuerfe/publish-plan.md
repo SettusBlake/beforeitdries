@@ -58,7 +58,7 @@ Geprüft in der Devvit-Doku (Launch Guide, Feature Guide, In-app Catalog Assets,
 
 ### 2 Test-Subreddit für Playtests
 
-Beim Veröffentlichen (Schritt 4). Empfehlung: das private Test-Subreddit, das Devvit beim ersten Upload automatisch angelegt hat (meist r/beforeitdries_dev, nur Mods, du bist Mod). Ich stelle `dev.subreddit` in devvit.json darauf um. u/Vegatest wird dort genehmigter Nutzer, damit du auch als normaler Spieler testen kannst. Danach gilt: Playtests nur dort, r/beforeitdries bekommt nur geprüfte Versionen.
+**Umgestellt am 02.11.2026 auf r/beforeitdries_dev** (devvit.json `dev.subreddit`). Bisherige Empfehlung: das private Test-Subreddit, das Devvit beim ersten Upload automatisch angelegt hat (meist r/beforeitdries_dev, nur Mods, du bist Mod). Ich stelle `dev.subreddit` in devvit.json darauf um. u/Vegatest wird dort genehmigter Nutzer, damit du auch als normaler Spieler testen kannst. Danach gilt: Playtests nur dort, r/beforeitdries bekommt nur geprüfte Versionen.
 
 ### 3 Testdaten vor dem Start
 

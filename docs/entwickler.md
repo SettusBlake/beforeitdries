@@ -105,7 +105,7 @@ npm run playtest:upload
 
 - `preview`: lokale Vorschau ohne Reddit unter http://localhost:5174/duel.html, dazu sheet.html, play.html und name.html (Testnutzer ist Mod, Redis im Speicher). Hilfen: `/dev/pigment?n=1000&unlock=1`, `/dev/sheet?n=11` (Maler fürs Tagesblatt), `/dev/sheet?later=1` (Tagespost am nächsten Tag), `/dev/drops?karmin=5`, `/dev/wear?n=10`, `/dev/comments`.
 - `compare` braucht Playwright mit Chromium (in der Cloud-Umgebung vorhanden).
-- `playtest:upload` baut und lädt eine Playtest-Version nach r/beforeitdries. Node-Programme brauchen in der Cloud `NODE_USE_ENV_PROXY=1`.
+- `playtest:upload` baut und lädt eine Playtest-Version in das private Test-Subreddit r/beforeitdries_dev (seit 02.11.2026, devvit.json `dev.subreddit`). Ein Playtest ersetzt dort die installierte Version, deshalb nie in r/beforeitdries. Node-Programme brauchen in der Cloud `NODE_USE_ENV_PROXY=1`.
 - Login: `NODE_USE_ENV_PROXY=1 npx devvit login --copy-paste`, Link im Browser öffnen, Code zurück ins Terminal.
 - Veröffentlichen: `npx devvit publish` (siehe docs/entwuerfe/release-plan.md).
 
