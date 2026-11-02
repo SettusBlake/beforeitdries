@@ -76,9 +76,13 @@ Generation 2 (neue Formen, 2b, Stile) hat eigene Zufallsströme, damit Generatio
 
 - Alle IDs stehen zusätzlich in bekannten Sammlungen, weil Redis keine Schlüssel auflisten kann. Die Liste steht oben in src/server/keys.ts.
 - Laden, Aktion und Speichern eines Duells laufen ohne `await` dazwischen (die Regeln haben einen gemeinsamen Zustand `S`).
-- Schreibvorgänge eines Spielers laufen unter seiner Sperre (`playerLock`, Hash `locks`, 15 Sekunden).
+- Schreibvorgänge eines Spielers laufen unter seiner Sperre (`playerLock`, Hash `locks`, 15 Sekunden). Eine Sperre gibt nur frei, wer sie hält. Eine liegengebliebene (15 Sekunden und älter) übernimmt genau eine Anfrage.
+- Belohnungen fürs Benennen stehen in `naming:paid` (Art und Spieler), damit jeder Name höchstens einmal zahlt, auch wenn Auftrag und Mod-Menü gleichzeitig laufen.
+- Übermalte Zeichnungen stehen mit ihrem Monster-Seed in `drawn:over`. Wer einen solchen Würfel bekommt (Markt, Tausch, Archiv), bekommt ihn ohne Zeichnung.
+- Tagesblatt: `seed` des Tages folgt aus dem Datum (Farbe, Pales, öffentlicher Seed für Aufträge), `secret` in `bleach:day:{Tag}` nur am Server. Die Würfe kommen aus beiden, damit sie für alle gleich, aber nicht vorausrechenbar sind.
 - `DUEL_PROTOCOL` in src/shared/api.ts bei jeder Änderung an Aktionen, Phasen oder Ereignissen erhöhen: alte Oberflächen bekommen dann „close this post and open it again“.
 - Test-Knöpfe nur in Playtest-Versionen (vierte Stelle in der Versionsnummer) und nur für Mods, der Server prüft beides.
+- Testlauf vom 02.11.2026 (etwa 1 340 Duelle und Tagesblätter über die Server-Schnittstelle, Wirtschaft, Bedienung im Browser): Befunde und Regressionstests in tests/qa-fixes.test.ts.
 - Tagesklecks, Fangen und das alte Malblatt sind seit dem 02.11.2026 aus dem Code. Ihre Redis-Schlüssel (`day:*`, `days`, `post:*`, `user:*:monsters`, `monster:*`) stehen noch in keys.ts, damit die Bereinigung gelöschter Konten alte Fänge findet.
 
 ## Reddit-Regeln, die der Code einhält
