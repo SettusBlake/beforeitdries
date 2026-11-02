@@ -38,14 +38,32 @@ const parse = <T>(raw: string | undefined | null): T | null => (raw ? (JSON.pars
 
 /* ---------- Text bereinigen ---------- */
 
+/*
+ * Namen nur dort ersetzen, wo wirklich ein Name steht (QA 02.11.2026): in Feldern, die Namen tragen, und als u/Name in
+ * Sätzen (ganzes Wort). Sonst würde das Konto „sepia“ oder „ultra“ Pigmente, Farben und Stile anderer Spieler umschreiben.
+ * Erfundene Test-Maler („Test Inkwell“) sind keine Reddit-Namen und kommen auch ohne u/ in Sätzen vor: die werden überall ersetzt.
+ */
+const NAME_KEYS = ['u', 'name', 'user', 'by', 'seller', 'fromName', 'toName', 'namedBy', 'foundBy', 'who'];
+const esc = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const redditName = (n: string): boolean => /^[\w-]+$/.test(n);
+function namePatterns(name: string): RegExp[] {
+  const e = esc(JSON.stringify(name).slice(1, -1));
+  const out = [new RegExp(`"(${NAME_KEYS.join('|')})":"${e}"`, 'g'), new RegExp(`u/${e}(?![\\w-])`, 'g')];
+  if (!redditName(name)) out.push(new RegExp(e, 'g'));
+  return out;
+}
 /** Kommt das Konto in diesem Text vor (ID oder Name)? */
 export function mentions(raw: string, uid: string, name: string): boolean {
-  return raw.includes(uid) || (!!name && (raw.includes(`"${name}"`) || raw.includes(`u/${name}`)));
+  return raw.includes(uid) || (!!name && namePatterns(name).some((r) => r.test(raw)));
 }
-/** ID und Name in einem JSON-Text ersetzen (nur ganze Werte und u/Name in Sätzen, damit die Struktur bleibt) */
+/** ID und Name in einem JSON-Text ersetzen (Namensfelder und u/Name in Sätzen, damit die Struktur bleibt) */
 export function scrub(raw: string, uid: string, name: string): string {
   let s = raw;
-  if (name) s = s.split(`u/${name}`).join(GONE_NAME).split(`"${name}"`).join(`"${GONE_NAME}"`);
+  if (name) {
+    const [keyed, tagged, plain] = namePatterns(name);
+    s = s.replace(keyed!, `"$1":"${GONE_NAME}"`).replace(tagged!, GONE_NAME);
+    if (plain) s = s.replace(plain, GONE_NAME);
+  }
   return s.split(`"${uid}"`).join('"gone"').split(`"${uid}:`).join('"gone:').split(`:${uid}:`).join(':gone:');
 }
 
@@ -131,6 +149,10 @@ async function purgeStep(d: Deps, uid: string, st: PurgeState): Promise<boolean>
   }
   if (st.step === 'globals') {
     await purgeGlobals(d, uid, st.name);
+    // Feste Liste der Spieler, die noch dran sind (die Rangfolge in dice:players verschiebt sich bei jedem Speichern)
+    await d.redis.del(K.purgeTodo(uid));
+    const all = (await d.redis.zRange(K.dicePlayers, 0, -1, { by: 'rank' })).map((x) => x.member).filter((x) => x !== uid);
+    for (let i = 0; i < all.length; i += 500) await d.redis.zAdd(K.purgeTodo(uid), ...all.slice(i, i + 500).map((member, k) => ({ member, score: i + k })));
     st.step = 'players';
     st.cursor = 0;
     return false;
@@ -155,6 +177,8 @@ async function purgeOwn(d: Deps, uid: string, name: string): Promise<void> {
     if (mine.length) await d.redis.hDel(h, mine);
   }
   await d.redis.hDel(K.drawnStrikes, [uid]);
+  const paid = Object.keys(await d.redis.hGetAll(K.namingPaid)).filter((k) => k.endsWith(`:${uid}`));
+  if (paid.length) await d.redis.hDel(K.namingPaid, paid);
   await d.redis.hDel(K.galleryRecord, [`${uid}:w`, `${uid}:l`, `${uid}:d`]);
   if (name && (await d.redis.hGet(K.names, name.toLowerCase())) === uid) await d.redis.hDel(K.names, [name.toLowerCase()]);
   await d.redis.hDel(K.nameOf, [uid]);
@@ -206,10 +230,12 @@ async function purgeGlobals(d: Deps, uid: string, name: string): Promise<void> {
   // Fremde Markt-Einträge und Angebote (Herkunft auf den Würfeln, Namen im Angebot)
   await scrubHash(d, K.market, uid, name);
   await scrubHash(d, K.trades, uid, name);
-  // Meldungen anderer Zeichnungen, die dieser Spieler gemacht hat
+  // Meldungen anderer Zeichnungen, die dieser Spieler gemacht hat, und gemeldete Zeichnungen in der Prüfliste
   await scrubHash(d, K.drawnReports, uid, name);
+  await scrubHash(d, K.drawnQueue, uid, name);
   await scrubHash(d, K.drawnOk, uid, name);
   await scrubHash(d, K.drawnWashed, uid, name);
+  await scrubHash(d, K.drawnOver, uid, name);
   // Benennen und Bestiary
   const posts = (await d.redis.zRange(K.namingPosts, 0, -1, { by: 'rank' })).map((x) => K.naming(x.member));
   await scrubKeys(d, posts, uid, name);
@@ -228,18 +254,22 @@ async function purgeGlobals(d: Deps, uid: string, name: string): Promise<void> {
 
 /* ---------- players: Daten aller anderen Spieler, in Stücken ---------- */
 
-/** Ein Stück der Spielerliste. Gibt den nächsten Stand zurück, -1 wenn fertig */
+/** Ein Stück der festen Spielerliste. Gibt den nächsten Stand zurück, -1 wenn fertig */
 async function purgePlayers(d: Deps, uid: string, st: PurgeState): Promise<number> {
-  const total = await d.redis.zCard(K.dicePlayers);
-  const part = (await d.redis.zRange(K.dicePlayers, st.cursor, st.cursor + GONE.chunk - 1, { by: 'rank' })).map((x) => x.member);
+  const part = (await d.redis.zRange(K.purgeTodo(uid), 0, GONE.chunk - 1, { by: 'rank' })).map((x) => x.member);
   // Am Ende: die, deren Sperre beim ersten Mal belegt war, noch einmal
-  const list = st.cursor >= total ? st.retry.splice(0) : part;
+  const list = part.length ? part : st.retry.splice(0);
   for (const x of list) {
     if (x === uid) continue;
     if (!(await scrubPlayer(d, x, uid, st.name))) st.retry.push(x);
   }
-  if (st.cursor >= total) return st.retry.length ? total : -1;
-  return st.cursor + GONE.chunk;
+  if (part.length) {
+    await d.redis.zRem(K.purgeTodo(uid), part);
+    return st.cursor + part.length;
+  }
+  if (st.retry.length) return st.cursor;
+  await d.redis.del(K.purgeTodo(uid));
+  return -1;
 }
 
 /** Die Daten eines anderen Spielers bereinigen. false, wenn er gerade beschäftigt ist (dann später) */

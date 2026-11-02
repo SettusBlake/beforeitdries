@@ -7,8 +7,8 @@
 import type { CleanTestResponse } from '../shared/api';
 import { dayKey } from '../shared/day';
 import { queuePurge, purgeRun } from './accounts';
-import { GameError, type Deps } from './core';
-import { loadDice, saveDice, isTester } from './dice';
+import { GameError, withLock, type Deps } from './core';
+import { isTester, loadDice, playerLock, saveDice } from './dice';
 import { flairPost, type FlairKey } from './flair';
 import { K } from './keys';
 import { adoptNaming } from './naming';
@@ -267,9 +267,11 @@ export async function cleanTestData(d: Deps, userId: string | undefined, usernam
   out.pending = await d.redis.hLen(K.purgeQueue);
 
   // Test-Schalter im eigenen Stand (würden sonst den ersten echten Zug erzwingen)
-  const s = await loadDice(d, userId);
-  for (const k of ['forceStyle', 'forceHolo', 'forceShiny', 'testSelf'] as const) Reflect.deleteProperty(s, k);
-  await saveDice(d, userId, s);
+  await withLock(d, playerLock(userId), async () => {
+    const s = await loadDice(d, userId);
+    for (const k of ['forceStyle', 'forceHolo', 'forceShiny', 'testSelf'] as const) Reflect.deleteProperty(s, k);
+    await saveDice(d, userId, s);
+  });
 
   // Alte Posts: alle der App und alle bekannten Benennen- und Tagesposts, außer Spiel-Post und heutigem Tagespost
   try {

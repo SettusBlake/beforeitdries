@@ -119,16 +119,27 @@ export class GameError extends Error {
   }
 }
 
+let lockSeq = 0;
+/**
+ * Sperre je Spieler oder Vorgang. Der Wert ist Zeit und Marke: eine liegengebliebene Sperre (älter als 15 s) übernimmt nur
+ * genau eine Anfrage (hIncrBy auf diesen Wert ist atomar), und am Ende löscht jede Anfrage nur ihre eigene Sperre (QA 02.11.2026)
+ */
 export async function withLock<T>(d: Pick<Deps, 'redis' | 'now'>, id: string, fn: () => Promise<T>): Promise<T> {
-  if (!(await d.redis.hSetNX(K.locks, id, String(d.now)))) {
-    const since = Number(await d.redis.hGet(K.locks, id));
-    if (d.now - since < 15000) throw new GameError('busy', 'Still painting. Try again in a moment.', 409);
-    await d.redis.hSet(K.locks, { [id]: String(d.now) });
+  const mine = `${d.now}:${(++lockSeq).toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  if (!(await d.redis.hSetNX(K.locks, id, mine))) {
+    const held = (await d.redis.hGet(K.locks, id)) ?? '';
+    if (d.now - (parseInt(held, 10) || 0) < 15000) throw new GameError('busy', 'Still painting. Try again in a moment.', 409);
+    // Liegengeblieben: nur die erste Anfrage für genau diesen Wert darf übernehmen
+    const race = `take:${id}:${held}`;
+    const first = (await d.redis.hIncrBy(K.locks, race, 1)) === 1;
+    if (!first || (await d.redis.hGet(K.locks, id)) !== held) throw new GameError('busy', 'Still painting. Try again in a moment.', 409);
+    await d.redis.hSet(K.locks, { [id]: mine });
+    await d.redis.hDel(K.locks, [race]);
   }
   try {
     return await fn();
   } finally {
-    await d.redis.hDel(K.locks, [id]);
+    if ((await d.redis.hGet(K.locks, id)) === mine) await d.redis.hDel(K.locks, [id]);
   }
 }
 

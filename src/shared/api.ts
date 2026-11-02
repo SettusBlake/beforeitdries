@@ -106,6 +106,8 @@ export interface BleachResult {
   col?: ColorId;
   /** Schon als Kommentar geteilt (höchstens einmal am Tag) */
   shared?: boolean;
+  /** Erst nach Mitternacht (UTC) fertig: zählt nicht mehr für die Rangliste des Tages */
+  late?: true;
 }
 /** Was das Startbild zu Bleach zeigt (Tagesblatt): läuft gerade, schon gespielt, Rangliste oben */
 export interface BleachInfo {

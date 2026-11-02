@@ -13,6 +13,7 @@ import { monsterSeed } from '../shared/monster';
 import { GameError, withLock, type Deps } from './core';
 import { claimPulls, isPlaytest, isTester, loadDice, needUser, playerLock, pullOne, respond, saveDice } from './dice';
 import { K } from './keys';
+import { paintedOver } from './overpaint';
 
 const DAY = 86_400_000;
 const FAR = 9e15;
@@ -39,6 +40,8 @@ type TradeRec = { id: string; from: string; fromName: string; to: string; toName
 /** Reddit-Name merken (bei jedem Besuch), damit andere per u/Name tauschen können */
 export async function rememberName(d: Pick<Deps, 'redis'>, uid: string, name: string | undefined): Promise<void> {
   if (!name) return;
+  // Die Konto-Bereinigung prüft die Spielerliste: wer noch keinen Spielstand hat, kommt mit Punktzahl 0 hinein (QA 02.11.2026)
+  if ((await d.redis.zScore(K.dicePlayers, uid)) === undefined) await d.redis.zAdd(K.dicePlayers, { member: uid, score: 0 });
   await d.redis.hSet(K.names, { [name.toLowerCase()]: uid });
   await d.redis.hSet(K.nameOf, { [uid]: name });
 }
@@ -111,6 +114,8 @@ function takeOut(s: DiceSave, ids: string[]): DieRec[] {
 async function takeIn(d: Pick<Deps, 'redis'>, uid: string, s: DiceSave, m: Moving, h: Hist): Promise<DieRec> {
   const die: DieRec = { ...copy(m.die), id: `d${s.next++}` };
   delete die.bound;
+  // Unterwegs übermalt: kommt ohne Zeichnung an
+  if (await paintedOver(d, die)) delete die.draw;
   die.hist = [...(die.hist ?? []), h].slice(-TRADE.histMax);
   s.dice.push(die);
   await d.redis.hSet(K.seeds, { [seedOf(die)]: `${uid}:${die.id}` });
@@ -122,6 +127,7 @@ async function takeIn(d: Pick<Deps, 'redis'>, uid: string, s: DiceSave, m: Movin
 }
 /** Ein Würfel kommt zurück (abgelaufen, abgelehnt, zurückgezogen): dieselbe ID, das Register zeigt noch auf ihn */
 async function restore(d: Pick<Deps, 'redis'>, uid: string, s: DiceSave, die: DieRec): Promise<void> {
+  if (await paintedOver(d, die)) delete die.draw;
   if (!s.dice.some((x) => x.id === die.id)) {
     s.dice.push(die);
     return;
@@ -130,7 +136,8 @@ async function restore(d: Pick<Deps, 'redis'>, uid: string, s: DiceSave, die: Di
   s.dice.push(again);
   await d.redis.hSet(K.seeds, { [seedOf(again)]: `${uid}:${again.id}` });
 }
-async function deliver(d: Pick<Deps, 'redis' | 'now' | 'rand'>, uid: string, x: Omit<Delivery, 'id' | 'at'>): Promise<void> {
+/** Etwas für einen Spieler hinterlegen (Würfel, Pigment, Nachricht). Er bekommt es beim nächsten Öffnen von Your dice */
+export async function deliver(d: Pick<Deps, 'redis' | 'now' | 'rand'>, uid: string, x: Omit<Delivery, 'id' | 'at'>): Promise<void> {
   const id = `${d.now.toString(36)}-${(d.rand() % 1_000_000).toString(36)}`;
   await d.redis.hSet(K.deliver(uid), { [id]: JSON.stringify({ ...x, id, at: d.now }) });
 }
@@ -496,14 +503,22 @@ export async function tradeOffer(d: Deps, userId: string | undefined, username: 
   const tester = await isTester(d, username);
   const otherSave = await loadDice(d, other);
   if (!isTest(other) && (otherSave.duels ?? 0) < TRADE.minDuels) throw new GameError('bad_request', `${tag(toName)} cannot trade yet.`);
-  const { out: id } = await withSave(d, uid, name, async (s) => {
+  const { out: id, s: saved } = await withSave(d, uid, name, async (s) => {
     const gt = await tradeGate(d, uid, s, tester);
     if (!gt.ok) refuse(gt);
     return offerCore(d, uid, name, s, other, toName, g, p as number, w, confirm === true);
   });
-  // Test-Händler (Playtest) nehmen sofort an
-  if (isTest(other) && isPlaytest(d.appVersion)) await withSave(d, other, toName, async (t) => acceptCore(d, other, toName, t, id, true));
-  else if (otherSave.tradeMsg && d.reddit.sendPrivateMessage && toName) {
+  let after = saved;
+  // Test-Händler (Playtest, nur für Mods) nehmen sofort an, die Würfel kommen gleich mit. Klappt das nicht, bleibt das Angebot stehen
+  if (isTest(other) && isPlaytest(d.appVersion)) {
+    if (tester)
+      try {
+        await withSave(d, other, toName, async (t) => acceptCore(d, other, toName, t, id, true));
+        after = (await withSave(d, uid, name, async () => undefined)).s;
+      } catch (e) {
+        console.log('test trader did not accept', e instanceof Error ? e.message : e);
+      }
+  } else if (otherSave.tradeMsg && d.reddit.sendPrivateMessage && toName) {
     // Nur wer das im Menü eingeschaltet hat, bekommt eine Nachricht (keine ungefragten Nachrichten)
     try {
       await d.reddit.sendPrivateMessage({
@@ -515,7 +530,8 @@ export async function tradeOffer(d: Deps, userId: string | undefined, username: 
       // Die Nachricht ist nur ein Hinweis, das Angebot steht trotzdem
     }
   }
-  return { ...(await tradeList(d, userId, username)), dice: respond(d, (await withSave(d, uid, name, async () => undefined)).s) };
+  // Antwort aus dem Stand von eben (eine zweite Sperre könnte „busy“ melden, obwohl das Angebot steht)
+  return { ...(await tradeList(d, userId, username)), dice: respond(d, after) };
 }
 
 /** Annehmen, innerhalb der Sperre des Empfängers. Der Absender bekommt die gewünschten Würfel als Lieferung */

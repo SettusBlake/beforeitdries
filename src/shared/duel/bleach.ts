@@ -30,6 +30,7 @@ import {
   S,
   setHp,
   snap,
+  startTurn,
   sync,
   unitAt,
   unitById,
@@ -85,10 +86,11 @@ export type BleachState = {
 };
 export type BleachScore = { cells: number; layers: number; washed: number; boss: number; hearts: number; total: number };
 
-/** Neues Tagesblatt. deck: die neun Würfel (Sepias Tagesdeck), pales: die Pales in Wellenreihenfolge */
-export function newBleach(o: { seed: number; day: string; colour: PigmentId; deck: Monster[]; deckMods?: FaceMod[][]; pales: Monster[]; paleMods?: FaceMod[][]; ranked: boolean }): void {
+/** Neues Tagesblatt. deck: die neun Würfel (Sepias Tagesdeck), pales: die Pales in Wellenreihenfolge. seed geheim, paintSeed öffentlich */
+export function newBleach(o: { seed: number; paintSeed?: number; day: string; colour: PigmentId; deck: Monster[]; deckMods?: FaceMod[][]; pales: Monster[]; paleMods?: FaceMod[][]; ranked: boolean }): void {
   // Echte Werte wie im Galerie-Duell, dann wird die Seite des Rivalen zur Bleiche
-  newGame(o.seed, 'gallery', o.deck, o.pales, o.seed ^ 0x5eed, o.deckMods ?? [], o.paleMods ?? []);
+  // paintSeed ist öffentlich (Aufträge, Aussehen), seed bleibt am Server: der Server gibt beide getrennt (Testlauf 02.11.2026)
+  newGame(o.seed, 'gallery', o.deck, o.pales, o.paintSeed ?? o.seed ^ 0x5eed, o.deckMods ?? [], o.paleMods ?? []);
   S.mode = 'bleach';
   const t2 = S.teams[1];
   // Keine Palette und keine Farbe für die Bleiche
@@ -258,7 +260,7 @@ export type PaleCast = { id: number; path: number[]; through: boolean; caught: b
  */
 export function forecast(): PaleCast[] {
   if (!S.bleach || S.over) return [];
-  const keep = { cells: S.cells, teams: S.teams, bleach: S.bleach, over: S.over, winner: S.winner, winReason: S.winReason, headless: S.headless, tally: S.tally, events: S.events };
+  const keep = { cells: S.cells, teams: S.teams, bleach: S.bleach, over: S.over, winner: S.winner, winReason: S.winReason, headless: S.headless, tally: S.tally, events: S.events, stamp: S.stamp, rng: S.rng };
   const out = new Map<number, PaleCast>();
   try {
     S.cells = structuredClone(S.cells);
@@ -329,6 +331,26 @@ export function bleachRoundEnd(): void {
   bleachMove();
   if (!S.over && !checkWipe()) endRound();
   if (!S.over) spawnWave(S.round);
+}
+
+/**
+ * Aufgeben (Testlauf 02.11.2026): die Bleiche zieht trotzdem bis zur letzten Welle, als würdest du jede Runde passen.
+ * Vorher zählte das Blatt, wie es gerade stand, und Aufgeben vor dem letzten Zug der Bleiche brachte mehr Punkte als Weiterspielen.
+ * Ohne Ereignisse: die Anzeige zeigt gleich den Endstand
+ */
+export function bleachGiveUp(): void {
+  const headless = S.headless;
+  S.headless = true;
+  try {
+    for (let g = 0; g < 12 && !S.over; g++) {
+      bleachRoundEnd();
+      if (!S.over) startTurn(1);
+    }
+  } finally {
+    S.headless = headless;
+  }
+  S.winReason = 'given up';
+  sync();
 }
 
 /** Punkte: Felder in deiner Farbe (jede Lasur-Schicht zählt mit), ausgewaschene Pales, Herzen */

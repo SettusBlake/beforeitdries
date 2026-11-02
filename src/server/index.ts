@@ -467,8 +467,16 @@ app.post(
 app.post(
   '/internal/scheduler/daily-sheet',
   wrap(async (_req, res) => {
-    const r = await ensureSheetPost(await deps());
-    console.log('daily sheet', r.created ? 'created' : 'exists', r.id);
+    const d = await deps();
+    try {
+      const r = await ensureSheetPost(d);
+      console.log('daily sheet', r.created ? 'created' : 'exists', r.id);
+    } catch (e) {
+      // Gerade baut jemand den Tag auf: in einer Minute noch einmal, sonst gäbe es heute keinen Tagespost (QA 02.11.2026)
+      if (!(e instanceof GameError && e.code === 'busy')) throw e;
+      console.log('daily sheet busy, again in a minute');
+      await d.schedule?.('daily-sheet', new Date(d.now + 60_000), {});
+    }
     res.json({});
   }),
 );
@@ -484,6 +492,13 @@ app.post(
 
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   void _next;
+  // Kaputtes oder zu großes JSON: eine abgelehnte Anfrage, kein Serverfehler
+  const type = (err as { type?: string } | null)?.type;
+  if (type === 'entity.parse.failed' || type === 'entity.too.large') {
+    const body: ErrorResponse = { error: 'That request did not make sense.', code: 'bad_request' };
+    res.status(400).json(body);
+    return;
+  }
   if (err instanceof GameError) {
     // Abgelehnte Anfragen ins Log (devvit logs), damit man sieht, was am Handy schiefgeht
     console.log(`${req.method} ${req.path} → ${err.code}: ${err.message}`);

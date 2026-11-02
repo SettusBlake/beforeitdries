@@ -94,7 +94,7 @@ export function defaultBand(r: Rarity, holo: boolean, style: boolean): [number, 
   return [a * k, b * k];
 }
 /** Nachricht für Sepia: verkauft, getauscht, abgelehnt, zurück. Sie sagt es einmal beim Öffnen von „Your dice“ */
-export type News = { k: 'sold' | 'traded' | 'declined' | 'back' | 'offer'; text: string; at: number; pig?: number };
+export type News = { k: 'sold' | 'traded' | 'declined' | 'back' | 'offer' | 'named'; text: string; at: number; pig?: number };
 
 /** Stil: eine andere Malweise statt Aquarell, nur Aussehen (seit 31.10.2026 getrennt von Holo) */
 export type StyleId = 'pencil' | 'comic' | 'plate' | 'anime' | 'oil' | 'pixel' | 'ukiyoe' | 'stained' | 'neon' | 'blueprint' | 'crayon' | 'papercut' | 'mosaic' | 'graffiti' | 'nouveau';

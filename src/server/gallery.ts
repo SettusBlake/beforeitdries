@@ -14,6 +14,7 @@ import { TEAM_COLORS, type ColorId } from '../shared/colors';
 import { GameError, withLock, type Deps } from './core';
 import { bagForDuel, isTester, loadDice, needUser, playerLock, respond, saveDice, type Recycled } from './dice';
 import { K } from './keys';
+import { paintedOver } from './overpaint';
 
 /** Abzug eines Decks in der Galerie */
 export type GallerySnap = { name: string; dice: DieRec[]; media: MediumId[]; power: number; at: number; color?: ColorId };
@@ -76,7 +77,7 @@ export async function visibleDice(d: Pick<Deps, 'redis'>, owner: string, dice: D
   return Promise.all(
     dice.map(async (x) => {
       if (!x.draw) return x;
-      const ok = await d.redis.hGet(K.drawnOk, `${owner}:${x.id}`);
+      const ok = !(await paintedOver(d, x)) && (await d.redis.hGet(K.drawnOk, `${owner}:${x.id}`));
       if (ok) return x;
       const { draw: _hidden, ...rest } = x;
       return rest;

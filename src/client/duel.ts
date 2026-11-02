@@ -2269,7 +2269,7 @@ async function finishDuel(): Promise<void> {
   // Nach dem Lern-Duell geht es zu den freien Würfeln (sonst startete „Again“ ein Duell ohne eigene Würfel)
   lessonResult = S.tutorial > 0;
   $('again').textContent = bl ? 'Today’s board' : lessonResult ? 'Collect your free dice' : 'Again';
-  $('result-eyebrow').textContent = bl ? (bleachRes?.ranked === false ? 'Test sheet' : 'Today’s sheet') : 'Duel over';
+  $('result-eyebrow').textContent = bl ? (bleachRes?.late ? 'Dried at midnight · not ranked' : bleachRes?.ranked === false ? 'Test sheet' : 'Today’s sheet') : 'Duel over';
   const rw = $('result-reward');
   rw.hidden = !reward;
   if (reward)

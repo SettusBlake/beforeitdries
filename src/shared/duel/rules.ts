@@ -61,7 +61,7 @@ export const FAMILY_TEXT: Record<Family, [string, string]> = {
 /** Set-Bonus einer Seite: zwei oder drei Kleckse derselben Farbfamilie auf dem Blatt */
 export function setBonus(side: Side): { fam: Family; n: number } | null {
   const t = S.teams[side - 1];
-  if (!t) return null;
+  if (!t || isPaleSide(side)) return null;
   const n: Record<Family, number> = { warm: 0, cool: 0, earth: 0 };
   for (const u of t.units) if (u.state === 'sheet') n[FAMILY[u.m.main]]++;
   for (const fam of ['warm', 'cool', 'earth'] as Family[]) if (n[fam] >= 2) return { fam, n: n[fam] };
@@ -155,6 +155,8 @@ export type Unit = {
   acted: boolean;
   /** Nachsetzen (S2): hat in diesem Zug schon einmal nach einem Auswaschen nachgesetzt */
   again?: boolean;
+  /** Eingewickelt (Coil): steht diesen ganzen Zug, auch beim Nachsetzen (Testlauf 02.11.2026) */
+  held?: boolean;
   /** Deck: in diesem Durchgang schon geworfen (liegt auf der Ablage, bis neu gemischt wird) */
   used: boolean;
   /** Sättigung (Brim): füllt sich durch Tun, voll wird der nächste Wisch ein Meisterzug (festgelegt am 30.10.2026) */
@@ -646,6 +648,8 @@ export const snap = (i: number): CellSnap => ({ i, c: { ...S.cells[i]! } });
 export const idx = (x: number, y: number) => y * COLS + x;
 export const inside = (x: number, y: number) => x >= 0 && x < COLS && y >= 0 && y < ROWS;
 export const cheb = (ax: number, ay: number, bx: number, by: number) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+/** Bleach: die Seite des Rivalen sind Pales, sie haben nur Lebenskraft und ein Element (Testlauf 02.11.2026) */
+export const isPaleSide = (side: Side): boolean => S.mode === 'bleach' && side === 2;
 export const allUnits = () => [...S.teams[0].units, ...S.teams[1].units].filter((u) => u.state === 'sheet');
 export const onSheet = (t: Team) => t.units.filter((u) => u.state === 'sheet');
 export const unitAt = (x: number, y: number) => allUnits().find((u) => u.x === x && u.y === y) ?? null;
@@ -758,12 +762,14 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   sync();
 }
 
+/** Wie lange frische Farbe einer Seite nass bleibt (Retarder eine Runde länger) */
+const wetTurns = (side: Side): number => WET_TURNS + (hasMedium(side, 'retarder') ? 1 : 0);
 function paintCell(c: Cell, u: Unit, pig: PigmentId, wet: boolean): void {
   if (c.home) return;
   c.owner = u.side;
   c.rgb = PIG[pig].rgb;
   c.hue = pig;
-  c.wet = wet ? WET_TURNS + (hasMedium(u.side, 'retarder') ? 1 : 0) : 0;
+  c.wet = wet ? wetTurns(u.side) : 0;
   c.atk = bonus(u.sat) - (pig !== u.m.main ? 1 : 0);
   c.def = bonus(u.grn) + (has(u, 'granulating') ? 2 : 0);
   c.lf = u.lf;
@@ -1133,6 +1139,18 @@ export function summonable(t: Team, rolled: Rolled[]): Unit[] {
 }
 
 /**
+ * Beschworen: verbraucht werden nur die Joker, die als fehlende Sterne gebraucht wurden, dazu ein Joker auf dem beschworenen
+ * Würfel selbst. Übrige Joker bleiben und werden Symbole (Testlauf 02.11.2026, vorher verfielen alle)
+ */
+export function spendStars(rolled: Rolled[], u: Unit): void {
+  const r = rolled.find((o) => o.u === u);
+  const real = rolled.filter((o) => o !== r && o.face.k === 'star').reduce((a, o) => a + starValue(o.face), 0) + S.starBonus;
+  const used = Math.max(0, Math.ceil((u.lv - real) / 3)) + (r?.face.k === 'joker' ? 1 : 0);
+  S.joker = Math.max(0, S.joker - used);
+  S.freeJoker = 0;
+  S.starBonus = 0;
+}
+/**
  * Warum ein geworfener Stern nicht beschwören kann (festgelegt am 31.10.2026, Hinweis am Würfel): full heißt schon drei Kleckse
  * auf dem Blatt, short fehlende Sterne, room kein Platz für das Netz. null: kein Stern oder er kann
  */
@@ -1472,8 +1490,8 @@ const critOf = (u: Unit) => 0.05 + (has(u, 'salt') ? 0.08 : 0) + (hasMedium(u.si
  * Schaden eines Spritzers vor dem Würfeln. x: Multiplikator der Kombi (Kampf A), gilt für die Seite am Zug.
  * em: Element-Multiplikator (Ring), an derselben Stelle wie früher der Farbkreis
  */
-export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean, x = turnMult(u.side), em = elemMult(u, t)): number {
-  let dmg = (HIT.base + u.sat / HIT.satDiv - (pig !== u.m.main ? 1 : 0)) * em;
+export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean, x = turnMult(u.side), em = elemMult(u, t), cf = 1): number {
+  let dmg = HIT.base + u.sat / HIT.satDiv - (pig !== u.m.main ? 1 : 0);
   if (GAIT[u.m.bp].key === 'pinch' && near) dmg += 3;
   if (has(u, 'fugitive')) dmg += 2;
   // Warme Familie: zwei Kleckse +1, drei +2
@@ -1481,7 +1499,9 @@ export function baseDamage(u: Unit, t: Unit, pig: PigmentId, near: boolean, x = 
   if (warm) dmg += warm >= 3 ? 2 : 1;
   if (GAIT[u.m.bp].key === 'twin') dmg *= 0.6;
   if (has(t, 'bloom3')) dmg *= 0.85;
-  return Math.max(1, Math.round(dmg * x));
+  // Erst die Grundzahl (mit Krit oder Streifen), dann Element und Kombi darauf: so stimmt die Rechnung am Feld genau (Testlauf 02.11.2026)
+  const base = Math.max(1, Math.round(dmg * cf));
+  return Math.max(1, Math.round(base * em * x));
 }
 /**
  * Wäscht ein normaler Treffer (ohne Krit) das Ziel aus? Für die Vorschau beim Zielen (G4): Meisterzug von Charge und Crush,
@@ -1539,8 +1559,8 @@ function strike(u: Unit, t: Unit, pig: PigmentId, mult: number, plus = 0, ignore
   const crit = !graze && (a === 20 || rand01() < critOf(u));
   const near = cheb(u.x, u.y, t.x, t.y) <= 1;
   const cf = mult * (crit ? 1.5 : graze ? HIT.graze : 1);
-  let dmg = Math.max(1, Math.round(baseDamage(u, t, pig, near, x) * cf));
-  const calc = { base: Math.max(1, Math.round(baseDamage(u, t, pig, near, 1, 1) * cf)), pre: dmg };
+  let dmg = baseDamage(u, t, pig, near, x, em, cf);
+  const calc = { base: baseDamage(u, t, pig, near, 1, 1, cf), pre: dmg };
   let guard = false;
   const ft = teamOf(t);
   if (ft.crests.guard > 0) {
@@ -1585,7 +1605,7 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
   const hits = GAIT[u.m.bp].key === 'twin' ? 2 : 1;
   const parts: string[] = [];
   let total = 0;
-  for (let h = 0; h < hits && t.state === 'sheet'; h++) {
+  for (let h = 0; h < hits && t.state === 'sheet' && t.hp > 0; h++) {
     const [s, dmg] = masterHit ? strike(u, t, pig, masterHit.mult, masterHit.plus, masterHit.ignoreGrain) : strike(u, t, pig, 1);
     parts.push(s);
     total += dmg;
@@ -1623,7 +1643,7 @@ export function washOut(t: Unit, by?: Unit): string {
     }
   if (burst.length) emit({ k: 'cells', how: 'burst', cells: burst.map(snap) });
   // Abgang: wer mindestens halb voll platzt, läuft über und tut noch einmal, was er kann
-  const sp = t.brim >= BRIM.spill ? spill(t, by) : '';
+  const sp = t.brim >= BRIM.spill && !isPaleSide(t.side) ? spill(t, by) : '';
   return `. ${t.name} burst and washed out, its die is lost${sp ? `. It spilled: ${sp}` : ''}`;
 }
 /** Abgang beim Platzen (festgelegt am 30.10.2026): Ziel-Fähigkeiten treffen den, der ihn zum Platzen brachte */
@@ -1685,7 +1705,7 @@ function doSoak(u: Unit): string {
 export const BRIM = { max: 6, act: 2, soak: 1, hit: 1, glow: 1, spill: 3 };
 export const brimFull = (u: Unit): boolean => u.brim >= BRIM.max;
 export function fillBrim(u: Unit, n: number): void {
-  if (u.state !== 'sheet' || n <= 0) return;
+  if (u.state !== 'sheet' || n <= 0 || isPaleSide(u.side)) return;
   u.brim = Math.min(BRIM.max, u.brim + n);
 }
 /** Glow im Vorrat gießt sich in alle eigenen Kleckse auf dem Blatt. Steht keiner, wartet es */
@@ -1786,7 +1806,7 @@ function doAbility(u: Unit, at: number, how: 'master' | 'spill' = 'master'): str
       const list: number[] = [];
       const own = S.cells.map((c, i) => [c, i] as const).filter(([c, i]) => c.owner === u.side && !c.home && cheb(u.x, u.y, i % COLS, Math.floor(i / COLS)) <= 2);
       for (const [c, i] of own) {
-        c.wet = WET_TURNS;
+        c.wet = Math.max(c.wet, wetTurns(u.side));
         list.push(i);
       }
       let n = 0;
@@ -1839,7 +1859,7 @@ function doAbility(u: Unit, at: number, how: 'master' | 'spill' = 'master'): str
           const c = S.cells[idx(x, y)]!;
           if (c.home) continue;
           if (c.owner === u.side) {
-            c.wet = WET_TURNS;
+            c.wet = Math.max(c.wet, wetTurns(u.side));
             mine++;
             list.push(idx(x, y));
           } else if ((c.owner === 1 || c.owner === 2) && c.wet === 0) {
@@ -1909,7 +1929,11 @@ function doAbility(u: Unit, at: number, how: 'master' | 'spill' = 'master'): str
         const h = Math.min(6, a.max - a.hp);
         setHp(a, a.hp + h, 'sprout');
         healed += h;
-        paintCell(S.cells[idx(a.x, a.y)]!, a, a.m.main, true);
+        // Eigene Farbe wird nass (Lasur bleibt), blankes Papier bekommt Farbe, fremde Farbe bleibt fremd (Testlauf 02.11.2026)
+        const c = S.cells[idx(a.x, a.y)]!;
+        if (c.owner === a.side) c.wet = Math.max(c.wet, wetTurns(a.side));
+        else if (c.owner === 0) paintCell(c, a, a.m.main, true);
+        else continue;
         list.push(idx(a.x, a.y));
       }
       changed('wet', list);
@@ -1990,7 +2014,7 @@ export function act(u: Unit, a: Action, pig: PigmentId, at: number | null): stri
   if (TUNE.again && !S.over && !tutorialRound && u.state === 'sheet' && !u.again && onSheet(foeTeam(u)).length < foesBefore) {
     u.again = true;
     u.acted = false;
-    u.moved = u.rooted > 0;
+    u.moved = !!u.held;
     count(`${u.side}again`);
     emit({ k: 'again', id: u.id });
     s += ', and it goes again';
@@ -2006,6 +2030,9 @@ export function startTurn(side: Side): void {
   S.combo = null;
   S.starBonus = 0;
   S.freeJoker = 0;
+  // Übrige Joker und der letzte Wurf gehören zum Zug davor, nicht zur Seite, die jetzt dran ist (Testlauf 02.11.2026)
+  S.joker = 0;
+  S.lastRoll = [];
   const t = S.teams[side - 1]!;
   refillDeck(t);
   for (const c of CRESTS) t.crests[c.k] = Math.min(CREST_MAX, t.crests[c.k] + (TURN_GIFT[c.k] ?? 0));
@@ -2018,6 +2045,7 @@ export function startTurn(side: Side): void {
   }
   for (const u of S.teams[side - 1]!.units) {
     u.moved = u.rooted > 0;
+    u.held = u.rooted > 0 || undefined;
     u.rooted = 0;
     u.acted = false;
     u.again = false;
@@ -2042,6 +2070,8 @@ export function checkWipe(): boolean {
 /** Letzte Runde: Bleach nach der letzten Welle, das Lern-Duell nach Sepias geführten Runden (neuer Spieler, 02.11.2026), sonst nach ROUNDS */
 export const lastRound = (): number => (S.bleach ? S.bleach.waves.length : S.tutorial > 0 ? S.tutorial : ROUNDS);
 export function endRound(): void {
+  // Die Kombi gehört zum Zug davor: Abgänge am Rundenende spritzen ohne ihren Multiplikator (Testlauf 02.11.2026)
+  S.combo = null;
   const r = RNG(S.gameSeed + S.round * 977);
   const spreads: [number, Cell][] = [];
   S.cells.forEach((c, i) => {
@@ -2070,6 +2100,8 @@ export function endRound(): void {
   }
   const notes: string[] = [];
   for (const u of allUnits()) {
+    // Schon ausgewaschen (ein Abgang in dieser Schleife): nichts mehr zu tun
+    if (u.state !== 'sheet') continue;
     const c = S.cells[idx(u.x, u.y)]!;
     let hp = u.hp;
     if (u.stain > 0) {
@@ -2077,11 +2109,13 @@ export function endRound(): void {
       u.stain--;
       notes.push(`${u.name} is stained (-2)`);
     }
-    if (has(u, 'fugitive')) hp -= 1;
-    if (has(u, 'bloom0')) hp = Math.min(u.max, hp + 1);
+    // Pales haben keine eigenen Eigenschaften, Boni und keine eigene Farbe
+    const pale = isPaleSide(u.side);
+    if (has(u, 'fugitive') && !pale) hp -= 1;
+    if (has(u, 'bloom0') && !pale) hp = Math.min(u.max, hp + 1);
     const earth = setN(u.side, 'earth');
     if (earth) hp = Math.min(u.max, hp + (earth >= 3 ? 2 : 1));
-    if (c.owner === u.side && c.wet > 0) hp = Math.min(u.max, hp + 1);
+    if (c.owner === u.side && c.wet > 0 && !pale) hp = Math.min(u.max, hp + 1);
     if (c.owner !== 0 && c.owner !== u.side && c.owner !== 3 && c.wet > 0 && c.hue && relation(u.m.main, c.hue) === 'komplementaer') {
       hp -= 2;
       notes.push(`${u.name} stands in its complementary colour (-2)`);
@@ -2105,7 +2139,7 @@ export function endRound(): void {
     }
     emit({ k: 'eraser', row, cells: gone.map(snap) });
     for (const u of allUnits())
-      if (u.y === row && !hasMedium(u.side, 'tape') && d20() + bonus(u.lf) < 18) {
+      if (u.state === 'sheet' && u.y === row && !hasMedium(u.side, 'tape') && d20() + bonus(u.lf) < 18) {
         setHp(u, u.hp - 4, 'eraser');
         notes.push(`the Eraser grazed ${u.name} (-4)`);
         if (u.hp <= 0) notes.push(washOut(u).slice(2));
@@ -2340,7 +2374,9 @@ function aiSummon(side: Side, rolled: Rolled[], look: number, r: Rand): string |
   for (const u of summonable(t, rolled)) for (const p of placements(u)) cands.push({ v: evalPlacement(u, p.list, p.at), u, o: p.o, at: p.at });
   if (!cands.length) return null;
   const b = pickBest(cands, look, r, () => false);
-  return doSummon(b.u, b.o, b.at);
+  const s = doSummon(b.u, b.o, b.at);
+  spendStars(rolled, b.u);
+  return s;
 }
 /** Beste Lage für ein Netz, wie der Meister sie wählen würde */
 export function bestPlacement(u: Unit): { o: number; at: number } | null {
@@ -2537,11 +2573,6 @@ export function aiTurnSteps(side: Side, look: number): () => boolean {
       stage = 1;
       const s = aiSummon(side, rolled, look, r);
       if (s) logAdd(`${side === 2 ? 'Rival' : 'You'} ${s}.`, side === 2 ? 'rival' : 'you');
-      if (s) {
-        S.joker = 0;
-        S.freeJoker = 0;
-        S.starBonus = 0;
-      }
       while (S.joker > 0) takeJoker(team, aiJokerCrest(team));
       sync();
       return true;

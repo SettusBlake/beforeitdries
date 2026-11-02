@@ -1,7 +1,7 @@
 /*
  * Redis-Schlüssel. Redis kann keine Keys auflisten, deshalb liegen alle IDs zusätzlich
  * in bekannten Sammlungen (days, user:{id}:monsters, day:{datum}:catchers, species:index, duel:players, dice:players, seeds, recycled:at,
- * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, drawn:reports, naming:posts, naming:open, gallery:power, gallery:record,
+ * drawn:queue, drawn:ok, drawn:washed, drawn:strikes, drawn:reports, drawn:over, naming:posts, naming:open, naming:paid, gallery:power, gallery:record,
  * names, market, market:at, market:sales, trades, bleach:days, bleach:players, bleach:postday, account:miss, account:purge). Schlüssel je Spieler (dice:{id}, duel:{id}, gallery:{id}, gallery:me:{id},
  * gallery:inbox:{id}, deliver:{id}, market:by:{id}, trade:in:{id}, trade:out:{id}) folgen aus dice:players.
  */
@@ -64,6 +64,8 @@ export const K = {
   naming: (postId: string) => `naming:${postId}`,
   /** Sorted Set aller „What do you see?“-Posts, Score = angelegt */
   namingPosts: 'naming:posts',
+  /** Hash: {Art}:{Spieler} → Zeit. Pigment fürs Finden oder Benennen gibt es je Art und Spieler nur einmal */
+  namingPaid: 'naming:paid',
   /** Hash: Art → Post, solange ihr Post läuft (je Art nur einer) */
   namingOpen: 'naming:open',
   /** JSON des Galerie-Abzugs eines Spielers (GallerySnap): sein Deck am Ende seines letzten fertigen Duells */
@@ -123,4 +125,8 @@ export const K = {
   accountMiss: 'account:miss',
   /** Hash: Spieler → JSON der laufenden Bereinigung (Name, Schritt, Stand) */
   purgeQueue: 'account:purge',
+  /** Sorted Set: feste Liste der Spieler, die eine laufende Bereinigung noch durchsehen muss */
+  purgeTodo: (uid: string) => `account:purge:todo:${uid}`,
+  /** Hash: Seed eines übermalten Monsters → JSON (Mod, Zeit). Die Zeichnung verschwindet überall, auch nach Handel */
+  drawnOver: 'drawn:over',
 } as const;

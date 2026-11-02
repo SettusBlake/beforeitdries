@@ -23,8 +23,11 @@ import { K } from './keys';
 
 /** Ein Würfel im Tagesaufbau (genug, um Monster und Seiten daraus zu machen) */
 type DieLite = Pick<DieRec, 'sheet' | 'idx' | 'paper' | 'gen' | 'draw' | 'style' | 'holo' | 'no'> & { mods: FaceMod[] };
-/** Aufbau eines Tages: für alle gleich, einmal angelegt */
-export type BleachDay = { day: string; seed: number; colour: PigmentId; deck: DieLite[]; pales: { die: DieLite; name?: string }[] };
+/**
+ * Aufbau eines Tages: für alle gleich, einmal angelegt. seed folgt aus dem Datum (Farbe, Pales, öffentlicher Seed),
+ * secret ist ein Zufall nur am Server: daraus kommen die Würfe, damit sie niemand vorausrechnen kann (Testlauf 02.11.2026)
+ */
+export type BleachDay = { day: string; seed: number; secret?: number; colour: PigmentId; deck: DieLite[]; pales: { die: DieLite; name?: string }[] };
 /** Ein laufender oder fertiger Lauf. res: Ergebnis eines fertigen Testlaufs (zum Teilen) */
 type Run = { day: string; test?: true; save: string; res?: StoredRes };
 /** Ergebnis in bleach:res:{Tag} (und beim Testlauf im Lauf selbst) */
@@ -65,14 +68,19 @@ async function buildDay(d: Deps, day: string, seed: number): Promise<BleachDay> 
     pales.push({ die: { sheet: x.sheet, idx: x.idx, paper: x.paper, gen: x.gen, draw: x.draw, style: x.style, holo: x.holo, no: x.no, mods: x.mods ?? [] }, ...(rec.name ? { name: rec.name } : {}) });
   }
   for (let i = pales.length; i < paleTotal(); i++) pales.push({ die: { sheet: `pale:${day}`, idx: i + 1, gen: 2, mods: [] } });
-  return { day, seed, colour, deck, pales };
+  return { day, seed, secret: d.rand() >>> 0, colour, deck, pales };
 }
 /** Der Aufbau des Tages, beim ersten Lauf angelegt (unter einer Sperre, damit alle denselben bekommen) */
 export async function bleachDay(d: Deps, day: string): Promise<BleachDay> {
   const have = parse<BleachDay>(await d.redis.get(K.bleachDay(day)));
-  if (have) return have;
+  if (have && have.secret !== undefined) return have;
   return withLock(d, `lock:bleach:${day}`, async () => {
     const again = parse<BleachDay>(await d.redis.get(K.bleachDay(day)));
+    // Ein Aufbau von vor dem 02.11.2026 bekommt sein Geheimnis nachträglich
+    if (again && again.secret === undefined) {
+      again.secret = d.rand() >>> 0;
+      await d.redis.set(K.bleachDay(day), JSON.stringify(again));
+    }
     if (again) return again;
     const built = await buildDay(d, day, daySeed(day));
     await d.redis.set(K.bleachDay(day), JSON.stringify(built));
@@ -157,7 +165,8 @@ export async function bleachStart(d: Deps, userId: string | undefined, username?
     // Aufbau: der des Tages, im Test ein eigener aus einem anderen Seed (vor newBleach, danach kein await mehr)
     const setup = test ? await buildDay(d, `test-${d.rand()}`, d.rand()) : await bleachDay(d, day);
     newBleach({
-      seed: setup.seed,
+      seed: (setup.seed ^ (setup.secret ?? 0)) >>> 0,
+      paintSeed: (setup.seed ^ 0x5eed) >>> 0,
       day,
       colour: setup.colour,
       deck: setup.deck.map(strip),
@@ -199,9 +208,11 @@ export async function bleachAct(d: Deps, userId: string | undefined, action: unk
     const blob = saveState();
     // Endstand vor dem ersten await festhalten: danach kann ein anderer Lauf S belegen
     const fin: Final | null = !wasOver && S.over ? { score: bleachScore(), sheet: sheetCode(), col: S.colors[0], colour: S.bleach?.colour ?? 'ultra' } : null;
-    const ranked = !run.test && !!S.bleach?.ranked;
+    // Über Mitternacht (UTC) fertig: zählt nicht mehr, die Rangliste des Tages ist zu (QA 02.11.2026)
+    const late = !run.test && !!S.bleach?.ranked && run.day !== dayKey(d.now);
+    const ranked = !run.test && !!S.bleach?.ranked && !late;
     const next: Run = { ...run, save: blob };
-    if (fin && !ranked) next.res = { day: run.day, points: fin.score.total, parts: fin.score, ranked: false, sheet: fin.sheet, col: fin.col };
+    if (fin && !ranked) next.res = { day: run.day, points: fin.score.total, parts: fin.score, ranked: false, sheet: fin.sheet, col: fin.col, ...(late ? { late: true as const } : {}) };
     await d.redis.set(K.bleachRun(uid), JSON.stringify(next));
     if (fin) out.bleach = ranked ? await finishRun(d, uid, username, run.day, fin, out) : next.res!;
     return out;

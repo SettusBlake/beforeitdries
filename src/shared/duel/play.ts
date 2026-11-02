@@ -7,7 +7,7 @@ import { sameAction, tutorialAction, tutorialActive } from './tutorial';
 import { isMedium, START_MEDIA, type MediumId } from './media';
 import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
 import type { PigmentId } from '../data';
-import { aiFlick, bleachRoundEnd, doFlick, type BleachState } from './bleach';
+import { aiFlick, bleachGiveUp, bleachRoundEnd, doFlick, type BleachState } from './bleach';
 import {
   ABILITY,
   aiJokerCrest,
@@ -42,6 +42,7 @@ import {
   splashCells,
   startTurn,
   suggest,
+  spendStars,
   summonable,
   sync,
   takeJoker,
@@ -322,9 +323,11 @@ export function perform(a: DuelAction): Ev[] {
       const hold = Array.isArray(a.hold) ? [...new Set(a.hold)] : [];
       if (hold.some((id) => !ids.has(id as number))) bad('Hold only dice from this roll.');
       if (hold.length >= ids.size) bad('Pick at least one die to reroll.');
-      rerollDice(me, hold);
+      const again = rerollDice(me, hold);
       sync();
-      if (S.rerolls < 1) settle(me);
+      // Wie beim ersten Wurf: Pure und drei Sterne gelten sofort (Testlauf 02.11.2026)
+      const ck = comboOf(again)?.kind;
+      if (S.rerolls < 1 || ck === 'pure' || ck === 'stars') settle(me);
       break;
     }
     case 'keep': {
@@ -336,12 +339,11 @@ export function perform(a: DuelAction): Ev[] {
       if (S.phase !== 'summon') bad('Nothing to summon.');
       const u = place(a.id, a.o, a.at);
       if (!summonable(me, lastRolled()).includes(u)) bad('The stars do not add up for that die.');
+      const rolled = lastRolled();
       const s = doSummon(u, a.o, a.at);
       logAdd(`You ${s}.`, 'you');
-      // Die Joker haben als Sterne gezählt
-      S.joker = 0;
-      S.freeJoker = 0;
-      S.starBonus = 0;
+      // Nur die Joker, die als Sterne gezählt haben, sind verbraucht
+      spendStars(rolled, u);
       sync();
       S.phase = 'act';
       break;
@@ -388,11 +390,8 @@ export function perform(a: DuelAction): Ev[] {
     }
     case 'giveup': {
       if (S.mode !== 'bleach') bad('Only in Bleach.');
-      S.over = true;
-      S.winner = me.hearts > 0 ? 1 : 2;
-      S.winReason = 'given up';
-      logAdd('You let the sheet dry as it is.', 'you');
-      sync();
+      logAdd('You let the sheet dry. The Bleach takes its course.', 'you');
+      bleachGiveUp();
       break;
     }
     default:
@@ -452,10 +451,9 @@ function autoTurn(): void {
     const u = summonable(me, lastRolled())[0];
     const p = u ? bestPlacement(u) : null;
     if (u && p) {
+      const rolled = lastRolled();
       logAdd(`You ${doSummon(u, p.o, p.at)}.`, 'you');
-      S.joker = 0;
-      S.freeJoker = 0;
-      S.starBonus = 0;
+      spendStars(rolled, u);
       sync();
     }
     S.phase = 'act';

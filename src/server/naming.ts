@@ -11,6 +11,7 @@ import { GameError, withLock, type Deps } from './core';
 import { loadDice, needUser, playerLock, respond, saveDice } from './dice';
 import { flairPost } from './flair';
 import { K } from './keys';
+import { deliver } from './market';
 
 /** So lange kann die Community Namen vorschlagen */
 export const NAMING_MS = 24 * 3600 * 1000;
@@ -86,21 +87,28 @@ export async function namingGet(d: Pick<Deps, 'redis' | 'now'>, postId: string |
   return { naming, now: d.now };
 }
 
-/** Pigment gutschreiben. Ist der Spieler gerade beschäftigt, kurz warten. Wer noch nie gespielt hat, findet es beim ersten Öffnen */
-async function pay(d: Deps, uid: string): Promise<void> {
-  for (let k = 0; ; k++) {
+/**
+ * Pigment gutschreiben, je Art und Spieler nur einmal (QA 02.11.2026: sonst ließ sich eine Art über gelöschte
+ * Namens-Kommentare jeden Tag neu benennen und auszahlen). Ist der Spieler gerade beschäftigt, kurz warten, sonst kommt das
+ * Pigment als Lieferung, die er beim nächsten Öffnen von Your dice bekommt. Wer noch nie gespielt hat, findet es dort auch
+ */
+async function pay(d: Deps, uid: string, key: string, label: string): Promise<boolean> {
+  if (!(await d.redis.hSetNX(K.namingPaid, `${key}:${uid}`, String(d.now)))) return false;
+  for (let k = 0; k < 4; k++) {
     try {
       await withLock(d, playerLock(uid), async () => {
         const s = await loadDice(d, uid);
         s.pigment += REWARD.name;
         await saveDice(d, uid, s);
       });
-      return;
+      return true;
     } catch (e) {
-      if (!(e instanceof GameError && e.code === 'busy') || k >= 5) throw e;
-      await new Promise((r) => setTimeout(r, 400));
+      if (!(e instanceof GameError && e.code === 'busy')) throw e;
+      await new Promise((r) => setTimeout(r, 300));
     }
   }
+  await deliver(d, uid, { k: 'named', pig: REWARD.name, text: `The Bestiary paid you ${REWARD.name} pigment for ${label}.` });
+  return true;
 }
 
 export type NamingResult = { status: 'named' | 'empty' | 'cancelled' | 'closed' | 'none'; name?: string; namedBy?: string };
@@ -110,6 +118,17 @@ export type NamingResult = { status: 'named' | 'empty' | 'cancelled' | 'closed' 
  * Läuft nach 24 Stunden über den Scheduler oder sofort über das Mod-Menü. cancel schließt ohne Namen
  */
 export async function adoptNaming(d: Deps, postId: string, cancel = false): Promise<NamingResult> {
+  // Eine Sperre je Post: „name it now“ und der 24-Stunden-Auftrag dürfen nicht gleichzeitig benennen (QA 02.11.2026)
+  for (let k = 0; ; k++) {
+    try {
+      return await withLock(d, `naming:${postId}`, () => adoptLocked(d, postId, cancel));
+    } catch (e) {
+      if (!(e instanceof GameError && e.code === 'busy') || k >= 5) throw e;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+}
+async function adoptLocked(d: Deps, postId: string, cancel: boolean): Promise<NamingResult> {
   const info = parse<NamingInfo>(await d.redis.get(K.naming(postId)));
   if (!info) return { status: 'none' };
   if (info.status !== 'open') return { status: 'closed', ...(info.name ? { name: info.name } : {}) };
@@ -152,8 +171,8 @@ export async function adoptNaming(d: Deps, postId: string, cancel = false): Prom
     await d.redis.hSetNX(K.species(info.key), 'firstSeen', dayKey(info.at));
     await d.redis.zAdd(K.speciesIndex, { member: info.key, score: d.now });
     await close('named', { name: c.name, namedBy: c.by, commentId: c.id });
-    await pay(d, info.uid);
-    if (c.byId) await pay(d, c.byId);
+    await pay(d, info.uid, info.key, `finding ${c.name}`);
+    if (c.byId) await pay(d, c.byId, info.key, `naming ${c.name}`);
     const sayId = await say(`The Bestiary records **${c.name}** (${label}), found by u/${info.user}, named by u/${c.by}. Both get ${REWARD.name} pigment.`);
     if (sayId) await close('named', { sayId });
     return { status: 'named', name: c.name, namedBy: c.by };
