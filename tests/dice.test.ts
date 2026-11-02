@@ -17,7 +17,7 @@ import { FakeReddit } from '../tools/fake-reddit';
 const USER = 't2_collector';
 function setup(seed = 5, rand?: () => number): Deps {
   const r = RNG(seed);
-  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-28T12:00:00Z'), rand: rand ?? (() => (r() * 4294967296) >>> 0), subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: 0 };
+  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-28T12:00:00Z'), rand: rand ?? (() => (r() * 4294967296) >>> 0), subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
 }
 async function code(p: Promise<unknown>): Promise<string> {
   try {

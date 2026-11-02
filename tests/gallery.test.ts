@@ -21,7 +21,7 @@ const A = 't2_owner',
   B = 't2_challenger';
 function setup(seed = 3): Deps {
   const r = RNG(seed);
-  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-31T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: 0 };
+  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-31T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
 }
 async function code(p: Promise<unknown>): Promise<string> {
   try {

@@ -25,7 +25,7 @@ function setup(seed = 7): Deps & { reddit: FakeReddit; redis: FakeRedis; jobs: J
     rand: () => (r() * 4294967296) >>> 0,
     subredditName: 'beforeitdries',
     appSlug: 'beforeitdries',
-    dryMs: 0,
+
     schedule: async (name, runAt) => {
       jobs.push({ name, runAt });
     },

@@ -11,7 +11,7 @@ import { FakeReddit } from '../tools/fake-reddit';
 
 function setup(): Deps & { reddit: FakeReddit } {
   const r = RNG(3);
-  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-28T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: 0 };
+  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-28T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
 }
 
 describe('Spiel-Post', () => {

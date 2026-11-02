@@ -10,28 +10,6 @@ export function weekKey(ms: number = Date.now()): string {
   return 'w' + Math.floor((Math.floor(ms / 86400000) + 3) / 7);
 }
 
-export function shiftDay(day: string, delta: number): string {
-  return dayKey(Date.parse(day + 'T00:00:00Z') + delta * 86400000);
-}
-
-export function isDayKey(s: unknown): s is string {
-  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'));
-}
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-/** "October 28" */
-export function prettyDay(day: string): string {
-  const [, m, d] = day.split('-').map(Number);
-  return `${MONTHS[(m ?? 1) - 1]} ${d}`;
-}
-
-/** Restzeit bis Mitternacht UTC */
-export function msUntilDayEnds(now: number = Date.now()): number {
-  const end = Date.parse(dayKey(now) + 'T00:00:00Z') + 86400000;
-  return end - now;
-}
-
 export const NAME_MAX = 28;
 
 /**

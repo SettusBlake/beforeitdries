@@ -1,9 +1,9 @@
 /* Devvit-Web-Server: /api/* für die Webviews, /internal/* für Menü, Trigger und Scheduler */
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { context, createServer, getServerPort, reddit, redis, scheduler, settings } from '@devvit/web/server';
+import { context, createServer, getServerPort, reddit, redis, scheduler } from '@devvit/web/server';
 import type { MenuItemRequest, OnCommentDeleteRequest, OnPostDeleteRequest, UiResponse } from '@devvit/web/shared';
 import { DUEL_PROTOCOL, PROTO_HEADER, type ErrorResponse } from '../shared/api';
-import { dryMsFromHours, GameError, type Deps, type RedditLike } from './core';
+import { GameError, type Deps, type RedditLike } from './core';
 import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, dicePull, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceTint, diceWash } from './dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from './drawings';
 import { duelAct, duelGet, duelStart } from './duel';
@@ -17,12 +17,6 @@ import { accountCheck, purgeRun } from './accounts';
 import { secureUint32 } from './rand';
 
 async function deps(): Promise<Deps> {
-  let dryHours: unknown;
-  try {
-    dryHours = await settings.get<number>('dryHours');
-  } catch {
-    dryHours = undefined;
-  }
   return {
     redis,
     reddit: reddit as unknown as RedditLike,
@@ -30,7 +24,6 @@ async function deps(): Promise<Deps> {
     rand: secureUint32,
     subredditName: context.subredditName,
     appSlug: context.appSlug ?? context.appName ?? '',
-    dryMs: dryMsFromHours(dryHours),
     appVersion: context.appVersion,
     schedule: async (name, runAt, data) => {
       await scheduler.runJob({ name, runAt, data });
@@ -56,10 +49,6 @@ app.use(express.json({ limit: '16kb' }));
 
 /* ---------- API für die Webviews ---------- */
 
-/*
- * Tagesklecks, Fangen und das alte Malblatt sind seit dem 30.10.2026 aus dem Spiel: jedes Monster ist einzigartig
- * und kommt nur aus einem eigenen Zug. Der Code dafür liegt noch in core.ts, ohne Wege dorthin.
- */
 
 /* ---------- Farbschlacht ---------- */
 
@@ -472,11 +461,6 @@ app.post(
   }),
 );
 
-/* Der tägliche Post ist abgeschafft. Falls ein alter Auftrag noch einmal feuert, passiert nichts */
-app.post('/internal/scheduler/daily-blot', (_req, res) => {
-  res.json({});
-});
-
 /* ---------- Fehler ---------- */
 
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
@@ -484,7 +468,7 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof GameError) {
     // Abgelehnte Anfragen ins Log (devvit logs), damit man sieht, was am Handy schiefgeht
     console.log(`${req.method} ${req.path} → ${err.code}: ${err.message}`);
-    const body: ErrorResponse = { error: err.message, code: err.code, ...(err.dryUntil ? { dryUntil: err.dryUntil } : {}) };
+    const body: ErrorResponse = { error: err.message, code: err.code };
     res.status(err.status).json(body);
     return;
   }

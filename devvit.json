@@ -98,16 +98,6 @@
       }
     }
   },
-  "settings": {
-    "subreddit": {
-      "dryHours": {
-        "type": "number",
-        "label": "Drying time between glazes (hours)",
-        "helpText": "0 to 72. Default 8. Set to 0 for playtests.",
-        "defaultValue": 8
-      }
-    }
-  },
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build"

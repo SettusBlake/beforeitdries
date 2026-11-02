@@ -1,117 +1,96 @@
 # Before It Dries
 
-Reddit-Spiel auf Devvit Web (Arbeitstitel war Wetbloom). Jedes Monster ist ein zufälliger Aquarell-Klecks, den es nur einmal gibt. Man zieht sie als Würfel, duelliert sich damit, und die Community gibt den Arten ihre Namen. Grafik komplett prozedural aus Code, keine Bilddateien, keine Libraries im Renderer.
+A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-kind watercolour blot, and every blot is also a die. Players collect blots, duel with them, defend a shared daily sheet against the Bleach, and the community gives each new species its name.
 
-Subreddit: [r/beforeitdries](https://www.reddit.com/r/beforeitdries/)
+## Overview
 
-## Stand
+**What it is.** Before It Dries is a game for the members of one community (it runs in r/beforeitdries). It opens from a pinned post in the feed and plays on phones and on desktop.
 
-- Spiel-Post (`play` und `default`, inline): eigener, angepinnter Post fürs Duell. Wird bei Installation oder Update angelegt, falls es keinen gibt, Mod-Menü „post a new play post“ legt einen neuen an. Alte Tagesposts zeigen dasselbe Startbild
-- Farbschlacht (`duel`, ausgeklappt, aus dem Spiel-Post): Würfelduell gegen einen Rivalen in drei Stufen, Lern-Duell mit Meisterin Sepia, der Server prüft und würfelt jede Aktion. Regeln: docs/entwuerfe/farbschlacht-vorschlag.md
-- Würfelsammlung: Ziehen mit offenem W100 und Schutz vor Pech, Seltenheit aus dem Papier, Deck aus 9 Würfeln. Jedes Monster gibt es nur einmal (Seed-Register, Seriennummer), jeder Zug bleibt als eigener Würfel. Auswaschen gibt Lasur für Würfelseiten. Pigment nur durchs Spielen
-- Abgeschafft am 30.10.2026: Tagesklecks, Fangen, täglicher Post, altes Malblatt (`game`). Der Code liegt noch in `src/server/core.ts` und `src/client/game.ts`, ohne Wege dorthin
+**Who it is for.** Players who like collecting, short tactical duels and a daily challenge with a leaderboard. Moderators get a small set of tools to run it and to look after what players draw.
 
-Noch nicht drin: Falten, Käufe (kein Pay-to-win), Verblassen von Opera-Rosa (nur Hinweistext).
+**How a session goes.**
 
-## Aufbau
+1. Open the pinned play post and tap **Play**.
+2. Learn the game in a short guided duel with Master Sepia. Every step is explained and only the next step can be tapped.
+3. Collect free starter dice. Each one is a newly painted blot that nobody else has.
+4. Duel the rival (Apprentice, Journeyman, Master) or the decks of other players in the **Gallery**. A duel takes about two to four minutes.
+5. Play **Today’s sheet** once a day: everyone gets the same sheet, the same nine dice and the same rolls, and the best sheets top the daily board.
 
-```
-devvit.json              App-Konfiguration: Einstiegsseiten, Server, Menü, Trigger, Einstellungen
-src/shared/              Regeln und Daten, von Server und Client genutzt
-  rng.ts                 mulberry32, FNV-1a, Box-Muller (wörtlich aus dem Prototyp)
-  data.ts                Werte, Pigmente, Papiere, Baupläne, Gesichter
-  monster.ts             Monster würfeln, Werte-Formel, Eigenschaften
-  glaze.ts               Lasieren: Beziehungen, Chancen, Ergebnis, Meisterin Sepia
-  day.ts                 Tageskalender (UTC), Namensvorschläge lesen
-  dice.ts                Seltenheiten, Chancen, Schutz vor Pech, Preise, Sammlung
-  duel/rules.ts          Farbschlacht: Regeln, Würfel, Rivale, Ereignisse
-  duel/play.ts           Duell als Folge geprüfter Aktionen
-  duel/tutorial.ts       Lern-Duell: fester Seed, nur Sepias Schritt erlaubt
-  api.ts                 Datenformate Server und Client
-src/client/
-  renderer/watercolor.ts Aquarell-Renderer (Canvas 2D), wörtlich aus dem Prototyp
-  lib/paint.ts           Mal-Warteschlange: erst bei Sichtbarkeit, Leistungsstufen
-  splash.html/.ts        Launch-Screen
-  game.html/.ts          Spiel
-  play.html/.ts          Startbild des Spiel-Posts
-  duel.html/.ts          Farbschlacht und Würfelsammlung (duel/: Blatt, 3D-Würfel, Ton, Symbole, Sammlung)
-src/server/
-  index.ts               Express-Routen: /api/* und /internal/*
-  core.ts                Spiellogik am Server, alle Würfe hier
-  duel.ts                Duelle: laden, Aktion prüfen und ausführen, speichern, Pigment beim Ende
-  dice.ts                Würfelsammlung: Ziehen, Beutel, Lasur auf Würfelseiten
-  play.ts                Spiel-Post anlegen und anpinnen, Stand fürs Startbild
-  keys.ts                Redis-Schlüssel
-prototype/               Abgenommener Browser-Prototyp als Referenz
-tests/                   Regeln gegen den Prototyp, Server-Logik
-tools/                   Pixelvergleich, lokale Vorschau, Redis/Reddit-Attrappen
-```
+**Important things to know.**
 
-## Gleicher Seed, gleiches Bild
+- **No purchases.** Nothing in the game is sold for money or Reddit Gold. Pigment, the in-game currency, is only earned by playing. Dice can be traded or sold between players for pigment only.
+- **Fair rolls.** Every random roll (new dice, duel rolls, rewards) happens on the server. The game never stores pictures: each monster is painted on the device from a stored seed.
+- **Posts and comments in a player’s name only on an explicit tap.** The game says beforehand what will be posted and where. Nothing is ever needed to keep playing.
+- **Player drawings are reviewed.** Players can draw their own monster once a week. Other players only see a drawing after a moderator approved it, and anyone can report a drawing they see.
+- **Deletions are honoured.** Deleted posts and comments, and deleted Reddit accounts, are removed from the game’s data (details below).
 
-Renderer und Regeln sind aus `prototype/wetbloom-prototyp.html` übernommen, Reihenfolge aller Zufallsaufrufe unverändert. Geprüft wird das doppelt:
+## The posts the app creates
 
-- `npm test`: RNG, Hash, Gauss, 3.660 Monster, 4.800 Bauplan-Geometrien, Chancen für alle Pigmente und 7.200 Lasuren mit identischen Würfen müssen exakt dem Prototyp entsprechen
-- `npm run compare`: rendert 72 Monster (mit Lasuren, Schlamm, Mutation) mit Prototyp und Portierung in Chromium, bei Pixeldichte 1 und 2, und vergleicht jedes Pixel. Stand: 144/144 pixelgleich
-
-Abweichung von der Übergabe: dort steht, Gauss sei auf plus/minus 2 begrenzt. Im Prototyp ist er unbegrenzt. Übernommen ist der Prototyp, sonst sähen manche Monster anders aus.
-
-## Server und Speicher
-
-Der Client malt nur. Züge, Duellwürfe, Lasuren und Mutationen würfelt der Server mit kryptografischem Zufall. Die Schlüssel `day:*`, `post:*`, `user:*:monsters` und `monster:*` stammen vom abgeschafften Tagesklecks.
-
-| Schlüssel | Typ | Inhalt |
+| Post | Created | What it shows |
 |---|---|---|
-| `day:{datum}` | Hash | seed, humidity, postId, bp, main, createdAt, named |
-| `day:{datum}:catchers` | Hash | userId → monsterId, sperrt doppeltes Fangen |
-| `days` | Sorted Set | alle Tage |
-| `post:{postId}` | String | Datum des Tagesklecks |
-| `user:{id}:monsters` | Sorted Set | Monster-IDs nach Fangzeit |
-| `monster:{datum}:{userId}` | String (JSON) | Seed, Bauplan, Papier, Pigmente, Würfe, Ereignisse, Gesicht, Lasuren, Gewinne, Farbreste, Schlamm, Mutationen, Name, Besitzer, letzte Lasur, Protokoll |
-| `species:{bauplan}:{pigment}` | Hash | name, namedBy, firstSeen, day, commentId |
-| `species:index` | Sorted Set | benannte Arten |
-| `species:names` | Hash | Name → Art, jeder Name nur einmal |
-| `locks` | Hash | kurze Sperren gegen doppelte Lasuren, Duell- und Würfelaktionen |
-| `play:post` | String | ID des Spiel-Posts |
-| `duel:{userId}` | String (JSON) | laufendes Duell mit Würfelzufall (bleibt am Server) |
-| `duel:players` | Sorted Set | Spieler mit Duell |
-| `dice:{userId}` | String (JSON) | Würfel (Bogen-Seed, Nummer, Seriennummer, seltenes Papier, Lasuren), Deck, Pigment, Schutz vor Pech, Lasur je Art, Startzüge, freier Tageszug, Belohnungen |
-| `dice:players` | Sorted Set | Spieler mit Würfelsammlung |
-| `seeds` | Hash | Monster-Seed → `{userId}:{Würfel-ID}`, jeder Seed nur einmal, auch nach dem Auswaschen |
-| `serial` | String | Zähler der Seriennummern |
+| **Play post** | On install and on every update if missing, pinned. Moderators can create a new one from the subreddit menu. | Two blots and a **Play** button. This is the main entry. |
+| **Today’s sheet** | Every day at 00:02 UTC by the app. Moderators can create it right away from the subreddit menu. | The day’s waves, a button to play, the top six with small pictures of their sheets, your place. The next day the same post shows the final board and the best sheet. A pinned comment from the app (“Share your sheet here”) collects the shared results. |
+| **What do you see?** | By a player, in their own name, when they tap **What do you see?** on a species that has no name yet (one per player per day, one per species at a time). | The blot, large. After 24 hours the top comment with a valid name names the species for everyone. Finder and namer get 50 pigment each. |
 
-Das Bild wird nie gespeichert. Ein gezogenes Monster hat einen zufälligen Bogen-Seed (`dip-…`) und eine Nummer, daraus kommt der Monster-Seed.
+## Playing
 
-Endpunkte: `GET /api/play`, `GET /api/duel`, `POST /api/duel/start`, `POST /api/duel/act`, `GET /api/dice`, `POST /api/dice/pull`, `POST /api/dice/bag`, `POST /api/dice/glaze`, `POST /api/dice/wash`. Intern: Trigger bei Installation und Update, Mod-Menü "post a new play post".
+**Duels.** A sheet of 6 × 8 fields. Roll three dice from your deck of nine, keep or reroll, then spend the symbols: stars unfold a blot onto the sheet, Step moves, Splash throws paint, Guard protects, Glow fills a blot until it can do its master move. Win by painting more of the sheet or by breaking the rival’s palette (three hearts). Matching colours on the dice multiply damage (Glaze ×1.5, Pure ×2), and each blot has an element that beats two others.
 
-Einstellung pro Subreddit: `dryHours` (Trockenzeit, Standard 8, für Playtests 0).
+**Today’s sheet (the Bleach).** Pale, bleached blots slide down from the top edge in five waves. Paint slows them, blots in their way take hits, and every Pale that slips off the bottom bleaches a heart. Points come from paint left, Pales washed out, the great Pale and hearts kept. One ranked run per day. After the run, **Share as a comment** posts your sheet as a reply to the pinned comment in today’s post, in your name, only after a second tap.
 
-## Befehle
+**Your dice.**
+
+- **Dip the brush:** a free dip every day, more for pigment. A visible d100 decides the paper and with it the rarity. Rare style and holo dice exist.
+- **Deck:** choose the nine dice you duel with.
+- **Blank canvas:** draw your own monster with your finger. Colour, rarity and the die are rolled as usual.
+- **Wash out:** give a blot up for glaze on its species. It drifts into an archive and may return as a pale opponent.
+- **Drops:** won in duels, used to repaint a face of a die.
+- **Market and Trades:** sell dice for pigment or trade dice with another player. Starter dice stay bound to you. Trading needs a Reddit account older than 7 days and 5 finished duels.
+
+## For moderators
+
+**Setup.** Install the app in the subreddit. It creates and pins the play post. There are no settings to configure.
+
+**Subreddit menu (moderators only).**
+
+- *Before It Dries: post a new play post* creates and pins a new play post.
+- *Before It Dries: post today's sheet now* creates today’s sheet post right away (normally the scheduler does this shortly after midnight UTC).
+
+**Post menu on app posts (moderators only).**
+
+- *Before It Dries: name it now* takes the top valid name from a “What do you see?” post right away.
+- *Before It Dries: cancel naming* closes such a post without a name.
+
+**Moderator tools in the game.** Moderators see a 🛠 button in the top right corner of the start screen and of Your dice. It opens:
+
+- **Review drawings:** every new drawing and every reported drawing. **OK** lets others see it. **Paint over** (second tap) replaces the drawing with the blot’s random shape and keeps the die. Two paint-overs within 30 days lock drawing for 14 days, a third one until a moderator lifts the lock in the same screen. The number of waiting drawings shows on the 🛠 button.
+- **Test buttons** (only in playtest versions, they disappear in published versions).
+
+**Scheduled jobs.**
+
+- Today’s sheet post, daily at 00:02 UTC.
+- Naming: 24 hours after a “What do you see?” post.
+- Account check: daily at 03:37 UTC, see below.
+
+## Data and privacy
+
+- **Stored (in the app’s Redis):** game state per player (dice, deck, pigment, running duel or sheet), usernames for leaderboards, trades and the history of a die, results of daily sheets, the gallery deck, market listings and trade offers, drawings as strokes, reports and the moderators’ decisions. Pictures are never stored.
+- **Not used:** no external services, no tracking, no ads, no AI.
+- **Deleted posts and comments:** when a “What do you see?” post is deleted, its data goes and the species is free again. When the comment that named a species is deleted, the name goes and the species is open again. A deleted daily sheet or play post is replaced.
+- **Deleted accounts:** a daily job asks Reddit about every player in turn. Reddit reports suspended and deleted accounts the same way, so the game waits until an account has been missing for 21 days in a row. Then the player’s data is deleted and every mention elsewhere (the history of a die, the bestiary, the archive) becomes “a painter”. Offers to that player go back to the sender.
+
+## Support
+
+Questions and feedback: send modmail to r/beforeitdries.
+
+## Development
+
+Developer notes (German) are in [docs/entwickler.md](docs/entwickler.md).
 
 ```bash
 npm install
 npm test
-npm run compare
+npm run type-check
 npm run preview
-npm run login
-npm run deploy
-npm run dev
+npm run playtest:upload
 ```
-
-- `preview`: lokale Vorschau ohne Reddit unter http://localhost:5174/game.html und /duel.html (Testnutzer, Redis im Speicher, `/dev/pigment?n=1000` gibt Pigment und Lasur)
-- `compare` braucht Playwright mit Chromium (in der Cloud-Umgebung vorhanden)
-- `login` nutzt `devvit login --copy-paste`: Link im Browser öffnen, Code zurück ins Terminal
-- `deploy` baut und lädt die App hoch, `dev` startet einen Playtest in r/beforeitdries
-
-## Handy zuerst
-
-- Aquarelle werden erst gemalt, wenn sie in Sichtweite kommen, höchstens 40 ms pro Frame
-- Leistungsstufen: Stufe 1 malt mit Pixeldichte 1 (gleiches Bild, etwa halbe Malzeit), Stufe 2 zusätzlich mit halber Schichtzahl (Optik etwas härter, nur als letzte Stufe). Gemessen: weniger Schichten spart allein nur 8 bis 35 %, die Auflösung ist der größere Hebel
-- Schriften liegen lokal im Build (SIL Open Font License), weil der Reddit-Webview externe Quellen blockt
-
-## Offene Punkte
-
-- Verhältnis zu Amberroot
-- Trockenzeit: 8 Stunden oder kürzer (per Einstellung änderbar)
-- Upload-Weg auf Dauer (Cloud-Sitzung oder GitHub-Action mit Devvit-Token als Secret)
-- App-Icon für die Veröffentlichung

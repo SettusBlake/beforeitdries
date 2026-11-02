@@ -17,7 +17,7 @@ const USER = 't2_painter';
 const NOW = Date.parse('2026-11-02T10:00:00Z');
 function setup(seed = 3, now = NOW): Deps {
   const r = RNG(seed);
-  return { redis: new FakeRedis(), reddit: new FakeReddit(), now, rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: 0, appVersion: '0.0.1.99' };
+  return { redis: new FakeRedis(), reddit: new FakeReddit(), now, rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries', appVersion: '0.0.1.99' };
 }
 async function code(p: Promise<unknown>): Promise<string> {
   try {

@@ -20,7 +20,7 @@ function setup(): Deps {
   const reddit = new FakeReddit();
   reddit.mods.push('Vegavild');
   // Veröffentlichte Version: die Prüfliste gibt es auch ohne Playtest
-  return { redis: new FakeRedis(), reddit, now: Date.parse('2026-10-30T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: 0, appVersion: '0.0.2' };
+  return { redis: new FakeRedis(), reddit, now: Date.parse('2026-10-30T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries', appVersion: '0.0.2' };
 }
 async function code(p: Promise<unknown>): Promise<string> {
   try {

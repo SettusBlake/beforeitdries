@@ -15,7 +15,7 @@ import { FakeReddit } from '../tools/fake-reddit';
 const USER = 't2_tester';
 function setup(seed = 7) {
   const r = RNG(seed);
-  const d: Deps = { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-28T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: 0 };
+  const d: Deps = { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-28T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
   return d;
 }
 /** Den Stand so laden, wie der Client ihn sieht, und daraus Züge wählen */

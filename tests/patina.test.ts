@@ -10,7 +10,7 @@ import { FakeReddit } from '../tools/fake-reddit';
 
 function setup(seed = 3): Deps {
   const r = RNG(seed);
-  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-30T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries', dryMs: 0 };
+  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-30T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
 }
 const die = (k: number): DieRec => ({ id: 'd' + k, sheet: 'P' + k, idx: k % 12, mods: [], at: 0, gen: 2 });
 /** Wie viele Symbole die Seiten zusammen zeigen */

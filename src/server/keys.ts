@@ -6,6 +6,10 @@
  * gallery:inbox:{id}, deliver:{id}, market:by:{id}, trade:in:{id}, trade:out:{id}) folgen aus dice:players.
  */
 export const K = {
+  /*
+   * Altbestand aus der Zeit des Tagesklecks (bis 30.10.2026, Code am 02.11.2026 entfernt). Die Schlüssel bleiben,
+   * damit die Bereinigung gelöschter Konten (accounts.ts) alte Fänge findet.
+   */
   /** Hash: seed, humidity, postId, bp, main, createdAt, named */
   day: (day: string) => `day:${day}`,
   /** Hash: userId → monsterId, zugleich Sperre gegen doppeltes Fangen */

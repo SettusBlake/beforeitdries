@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type CatchResponse, type CollectionResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type GlazeResponse, type InitResponse, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type ShareSheetResponse, type SheetResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type ShareSheetResponse, type SheetResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
 import type { PullKind, StyleId } from '../../shared/dice';
 import type { ColorId } from '../../shared/colors';
 import type { DuelAction } from '../../shared/duel/play';
@@ -11,7 +11,6 @@ export class ApiError extends Error {
     public code: ErrorCode,
     message: string,
     public status: number,
-    public dryUntil?: number,
   ) {
     super(message);
   }
@@ -26,15 +25,11 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
     throw new ApiError('server', 'No connection. The paint will wait.', 0);
   }
   const json = (await res.json().catch(() => null)) as (T & Partial<ErrorResponse>) | null;
-  if (!res.ok || !json) throw new ApiError(json?.code ?? 'server', json?.error ?? `Error ${res.status}`, res.status, json?.dryUntil);
+  if (!res.ok || !json) throw new ApiError(json?.code ?? 'server', json?.error ?? `Error ${res.status}`, res.status);
   return json;
 }
 
 export const api = {
-  init: () => call<InitResponse>('/api/init'),
-  collection: () => call<CollectionResponse>('/api/collection'),
-  catchBlot: () => call<CatchResponse>('/api/catch', {}),
-  glaze: (id: string, pigment: PigmentId) => call<GlazeResponse>('/api/glaze', { id, pigment }),
   duel: () => call<DuelResponse>('/api/duel'),
   duelStart: (level: Level, tutorial = false, gallery = false) => call<DuelResponse>('/api/duel/start', { level, tutorial, gallery }),
   duelAct: (action: DuelAction) => call<DuelResponse>('/api/duel/act', { action }),
@@ -86,10 +81,3 @@ export const api = {
   tradeMsg: (on: boolean) => call<DiceResponse>('/api/trade/msg', { on }),
   tradeTestOffer: () => call<TradeResponse>('/api/trade/test-offer', {}),
 };
-
-/** Abstand zwischen Server- und Geräteuhr, für Trockenzeit und Tagesende */
-let skew = 0;
-export const syncClock = (serverNow: number): void => {
-  skew = serverNow - Date.now();
-};
-export const serverNow = (): number => Date.now() + skew;

@@ -53,6 +53,8 @@ In zwei Teilen: 1a Posts, Teilen und Löschen von Posts und Kommentaren, 1b gel�
 
 ### 2 Aufräumen
 
+**Gebaut (02.11.2026).** Alter Code raus wie geplant, dazu alte Datenformate, Fehlercodes und unbenutzte Tageshilfen. README englisch, docs/entwickler.md deutsch. Die alten Redis-Schlüssel bleiben in keys.ts, damit die Konto-Bereinigung alte Fänge findet.
+
 - **Alter Code raus:** altes Malblatt (src/client/game.*, splash.*), Tagesklecks und Fangen aus src/server/core.ts, alte Tests dazu, Einstellung `dryHours` (Mods sähen eine Einstellung ohne Wirkung), leere Route `daily-blot`.
 - **README neu auf Englisch** für Spieler und Mods: was das Spiel ist, die Post-Arten (Spiel, Tagesblatt, Benennen), Mod-Menüs, Mod-Werkzeuge, Prüfen von Zeichnungen, Zeitpläne. Die deutsche Entwickler-Beschreibung wandert nach docs/entwickler.md.
 

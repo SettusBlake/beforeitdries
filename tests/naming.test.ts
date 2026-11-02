@@ -29,7 +29,7 @@ function setup(): Deps & { reddit: FakeReddit; jobs: Job[] } {
     rand: () => (r() * 4294967296) >>> 0,
     subredditName: 'beforeitdries',
     appSlug: 'beforeitdries',
-    dryMs: 0,
+
     appVersion: '0.0.2',
     schedule: async (name, runAt, data) => {
       jobs.push({ name, runAt, data });
