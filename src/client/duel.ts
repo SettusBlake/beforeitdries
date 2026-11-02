@@ -144,11 +144,25 @@ function renameUnits(): void {
 }
 
 /* ---------- Server ---------- */
+/**
+ * Wessen Zug gerade abgespielt wird. Der Server spielt den Zug des Rivalen in derselben Anfrage, S.turn ist dann schon
+ * wieder 1: deshalb zählt hier das Ereignis (Testlauf 02.11.2026, vorher ließ sich der Rivale nie beschleunigen)
+ */
+let playing: 1 | 2 | null = null;
+const rivalPlaying = (): boolean => busy && playing === 2;
 async function playEvents(evs: Ev[]): Promise<void> {
-  for (const e of evs) {
-    // Jeder Zug beginnt im normalen Tempo (Tippen aufs Blatt beschleunigt den Rivalen)
-    if (e.k === 'turn') V.speed = 1;
-    await View.playEvent(e);
+  try {
+    for (const e of evs) {
+      // Jeder Zug beginnt im normalen Tempo (Tippen aufs Blatt beschleunigt den Rivalen)
+      if (e.k === 'turn') {
+        V.speed = 1;
+        playing = e.side;
+        renderHint();
+      }
+      await View.playEvent(e);
+    }
+  } finally {
+    playing = null;
   }
 }
 /** Eine Anfrage an den Server, danach die Ereignisse abspielen */
@@ -214,11 +228,11 @@ function onError(e: unknown): void {
     /* außerhalb von Reddit */
   }
   showTicker(msg, 'rival');
-  // Stand neu holen, damit Anzeige und Server wieder übereinstimmen
-  void api
-    .duel()
+  // Stand neu holen, damit Anzeige und Server wieder übereinstimmen. Im Tagesblatt das Tagesblatt, nicht das Duell (Testlauf 02.11.2026)
+  const bleach = S.mode === 'bleach';
+  void (bleach ? api.bleach() : api.duel())
     .then((r) => {
-      if (!r.state) return;
+      if (!r.state || (r.state.mode === 'bleach') !== bleach) return;
       loadState(r.state);
       renameUnits();
       R.sync();
@@ -1270,7 +1284,7 @@ function previewBase(u: Unit, p: Plan | null): Preview | null {
 function renderHint(): void {
   const p = phase();
   if (S.over) return setHint('');
-  if (busy && S.turn === 2) return setHint('Rival turn. Tap the sheet to speed it up.');
+  if (rivalPlaying()) return setHint('Rival turn. Tap the sheet to speed it up.');
   if (busy) return setHint('');
   if (S.turn !== 1) return setHint('');
   const th = tut() ? tutHint() : null;
@@ -1278,7 +1292,7 @@ function renderHint(): void {
   if (th) return setHint(th);
   if (p === 'opening') return setHint(summonU ? `Tap the net to unfold ${summonU.name}. Tap a blue dot to move it, Turn to rotate it.` : 'Opening: pick one of your dice below to unfold first.');
   if (p === 'roll') return setHint(`Roll ${need()} dice. Tap to swap, hold to read. Rolled dice stay used until you reshuffle.`);
-  if (p === 'keep') return setHint(`Same colours pay. Hold dice, reroll the rest (${S.rerolls} left): the first is dry, later ones may turn a die to mud. Or keep.`);
+  if (p === 'keep') return setHint(`Same colours pay. Hold dice, reroll the rest (${S.rerolls} left) or keep. Later rerolls risk mud.`);
   if (p === 'medium') return setHint('Pick a medium. It bends one rule for you until the paper dries.');
   if (p === 'summon') return setHint(summonU ? `Tap the net to unfold ${summonU.name}, or skip. Blue dots move it.` : 'Tap a glowing die to unfold it, or skip.');
   if (flickMode) return setHint(`Flick: tap a row. Every Pale in it loses ${BLEACH.flick}.`);
@@ -1862,7 +1876,7 @@ function grabAt(e: PointerEvent): number | null {
   return mine(y) ?? (fy - y > 0.3 ? mine(y + 1) : null) ?? cellAt(e);
 }
 board.addEventListener('pointerdown', (e) => {
-  if (busy && S.turn === 2) {
+  if (rivalPlaying()) {
     V.speed = 3;
     return;
   }
@@ -1927,7 +1941,7 @@ async function sendFlick(row: number): Promise<void> {
   if (await request(act({ k: 'flick', row }))) afterAction();
 }
 function tapCell(i: number): void {
-  if (busy && S.turn === 2) return;
+  if (rivalPlaying()) return;
   if (!myTurn()) return;
   const u = R.unitAt(i % COLS, Math.floor(i / COLS));
   const p = phase();
@@ -2064,10 +2078,11 @@ $('deck').addEventListener('click', () => {
 $('go').addEventListener('click', () => {
   if (busy) return;
   if (S.over && S.mode === 'bleach') {
-    // Bleach: zurück zum Startbild mit der Rangliste
+    // Bleach: zurück zum Startbild, die Rangliste geht auf
     $('result').hidden = true;
     resumable = false;
     showScreen('title');
+    void openBoard();
     return void bleachTitle();
   }
   if (S.over) return void startDuel();
@@ -2589,9 +2604,12 @@ for (const p of ['t-', 'm-'])
   for (const l of ['apprentice', 'journeyman', 'master'] as Level[])
     $(p + 'lv-' + l).addEventListener('click', () => {
       sfx.tap();
-      const changed = l !== level;
-      setLevel(l);
-      if (p === 'm-' && changed) void startDuel();
+      if (p === 'm-' && l !== level)
+        askNew(l, () => {
+          setLevel(l);
+          void startDuel();
+        });
+      else setLevel(l);
     });
 function soundLabel(): void {
   for (const id of ['sound-t', 'sound-m']) $(id).textContent = isMuted() ? 'Sound: off' : 'Sound: on';
@@ -2685,11 +2703,35 @@ $('menu-btn').addEventListener('click', () => {
   giveupArmed = false;
   $('giveup-m').hidden = !bl;
   $('giveup-m').textContent = 'Let the sheet dry now (counts as today’s run)';
-  $('new-m').hidden = bl;
+  // Im Lern-Duell und vor dem ersten fertigen Duell gibt es kein neues Duell (sonst ließe sich die Lektion überspringen),
+  // im Tagesblatt keine Stärke und keine Galerie (Testlauf 02.11.2026)
+  const lesson = (S.tutorial > 0 && !S.over) || lessonDone() === false;
+  $('new-m').hidden = bl || lesson;
+  $('m-lv-lbl').hidden = $('m-lv-seg').hidden = S.mode === 'bleach' || lesson;
+  $('gallery-m').hidden = S.mode === 'bleach' || lesson;
+  newArmed = null;
+  $('new-m').textContent = 'New duel';
+  $('m-lv-lbl').textContent = 'Rival strength (starts a new duel)';
   $('menu').hidden = false;
 });
 $('close-m').addEventListener('click', () => ($('menu').hidden = true));
-$('new-m').addEventListener('click', () => void startDuel());
+/** Ein laufendes Duell endet nur nach einem zweiten Tipp (Testlauf 02.11.2026) */
+let newArmed: string | null = null;
+const duelRunning = (): boolean => S.teams.length > 0 && !S.over && S.mode !== 'bleach';
+function askNew(what: string, go: () => void): void {
+  if (duelRunning() && newArmed !== what) {
+    newArmed = what;
+    $('new-m').textContent = what === 'new' ? 'Tap again: this duel ends' : 'New duel';
+    $('m-lv-lbl').textContent = what === 'new' ? 'Rival strength (starts a new duel)' : 'Tap again: this duel ends, a new one starts';
+    return;
+  }
+  newArmed = null;
+  go();
+}
+$('new-m').addEventListener('click', () => {
+  sfx.tap();
+  askNew('new', () => void startDuel());
+});
 $('title-m').addEventListener('click', () => {
   $('menu').hidden = true;
   showScreen('title');
@@ -2729,6 +2771,7 @@ $('again').addEventListener('click', () => {
     $('result').hidden = true;
     resumable = false;
     showScreen('title');
+    void openBoard();
     void bleachTitle();
     return;
   }
@@ -2739,7 +2782,7 @@ $('again').addEventListener('click', () => {
 });
 // Bleach: aufgeben (zweiter Tipp), der Lauf zählt mit dem jetzigen Stand
 $('giveup-m').addEventListener('click', () => {
-  if (busy || S.over || S.mode !== 'bleach') return;
+  if (S.over || S.mode !== 'bleach') return;
   sfx.tap();
   if (!giveupArmed) {
     giveupArmed = true;
@@ -2748,7 +2791,12 @@ $('giveup-m').addEventListener('click', () => {
   }
   giveupArmed = false;
   $('menu').hidden = true;
-  void request(act({ k: 'giveup' })).then((ok) => ok && afterAction());
+  void (async () => {
+    // Spielt gerade noch etwas ab: danach aufgeben, nicht stumm verwerfen (Testlauf 02.11.2026)
+    while (busy) await new Promise((r) => setTimeout(r, 120));
+    if (S.over || S.mode !== 'bleach') return;
+    if (await request(act({ k: 'giveup' }))) afterAction();
+  })();
 });
 $('to-title').addEventListener('click', () => {
   $('result').hidden = true;

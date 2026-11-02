@@ -121,7 +121,8 @@ export function parts(d: Drawing): Part[] {
     const a = s[0]!,
       b = s[s.length - 1]!,
       L = strokeLen(s);
-    if (d.mirror && L > 0.1 && Math.abs(a[0] - 0.5) < DRAW.axis && Math.abs(b[0] - 0.5) < DRAW.axis) {
+    // Eine gerade Linie (zwei Punkte) ist keine halbe Form: sie bekäme keine Fläche und verlöre ihr Spiegelbild (Testlauf 02.11.2026)
+    if (d.mirror && L > 0.1 && s.length >= 3 && Math.abs(a[0] - 0.5) < DRAW.axis && Math.abs(b[0] - 0.5) < DRAW.axis) {
       // Halbe Form, die an der Mitte beginnt und endet: mit dem Spiegelbild eine Fläche
       out.push({ pts: [...s, ...s.slice(1, -1).reverse().map(mirrorPt)], closed: true });
       continue;

@@ -585,7 +585,7 @@ function namingRow(d: DieRec, s: DiceSave, u: Unit): HTMLElement {
     void share(d);
   });
   small.textContent = open
-    ? 'Someone found this species first. Suggest or vote for a name in the comments.'
+    ? 'This species is being named. Suggest or vote for a name in the comments.'
     : today
       ? 'You shared a blot today. Share another one tomorrow.'
       : armed
@@ -972,6 +972,8 @@ async function testTrade(): Promise<void> {
     const r = await api.tradeTestOffer();
     busy = false;
     await load();
+    // Das Fenster der Mod-Werkzeuge liegt sonst über dem Tausch-Fenster (Testlauf 02.11.2026)
+    closeMod();
     showTrades(r);
   } catch (e) {
     hooks.error(e);

@@ -74,7 +74,14 @@ button { font: inherit; color: inherit; }
 .rd .lvb { position: absolute; right: 0; top: -2px; }
 .mini-hp { width: 24px; height: 3px; background: var(--track); border-radius: 2px; overflow: hidden; margin-top: 2px; }
 .mini-hp i { display: block; height: 100%; background: var(--rival); }
-.rside { display: grid; justify-items: end; gap: 3px; }
+.rside { display: grid; justify-items: end; gap: 3px; flex-shrink: 0; }
+/* Neun Würfel des Rivalen und drei Herzen passen auch auf 360 Pixel (Testlauf 02.11.2026) */
+@media (max-width: 380px) {
+  #rival-dice { gap: 1px; min-width: 0; }
+  .rd { width: 28px; }
+  .rd canvas { width: 25px; height: 25px; }
+  .rivalrow { gap: 4px; }
+}
 .rside .r1 { display: flex; gap: 6px; align-items: center; }
 .hearts { display: inline-flex; gap: 1px; }
 .hearts i { font-style: normal; font-size: 15px; line-height: 1; color: #cfc9bc; }

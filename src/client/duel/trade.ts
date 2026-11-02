@@ -254,13 +254,17 @@ async function look(name: string): Promise<void> {
   gift = 0;
   sendArmed = false;
   renderNew();
+  let err = '';
   try {
     other = await api.tradeCollection(n);
   } catch (e) {
+    err = e instanceof Error ? e.message : 'Nobody found.';
     hooks.error(e);
   }
   busy = false;
   renderNew();
+  // Der Grund steht auch im Fenster, nicht nur kurz als Meldung (Testlauf 02.11.2026)
+  if (err) $('tn-sum').textContent = err;
 }
 async function send(): Promise<void> {
   if (!other || busy) return;
@@ -277,12 +281,13 @@ async function send(): Promise<void> {
     sfx.combo('pair');
     $('tradenew').hidden = true;
     other = null;
-    render();
   } catch (e) {
     hooks.error(e);
   }
   busy = false;
   sendArmed = false;
+  // Erst nach busy = false neu zeichnen, sonst bleiben die Knöpfe gesperrt (Testlauf 02.11.2026)
+  render();
   renderNew();
 }
 function openNew(): void {

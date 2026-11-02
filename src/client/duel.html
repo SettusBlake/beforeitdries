@@ -155,8 +155,8 @@
     <button type="button" class="close" id="close-m">✕</button>
     <h2>Menu</h2>
     <div class="mlist">
-      <span class="lbl">Rival strength (starts a new duel)</span>
-      <div class="seg" role="group" aria-label="Rival strength">
+      <span class="lbl" id="m-lv-lbl">Rival strength (starts a new duel)</span>
+      <div class="seg" id="m-lv-seg" role="group" aria-label="Rival strength">
         <button type="button" id="m-lv-apprentice" aria-pressed="true">Apprentice</button>
         <button type="button" id="m-lv-journeyman" aria-pressed="false">Journeyman</button>
         <button type="button" id="m-lv-master" aria-pressed="false">Master</button>
@@ -180,7 +180,7 @@
     <button type="button" class="close" id="rules-close">✕</button>
     <h2>How to play</h2>
     <ul>
-      <li><b>Every blot is a die.</b> Its sides come from the blot itself: stars (★ with its level) and symbols from its stats. Flow gives Step, Saturation gives Splash, Grain or Opacity gives Guard, Glow gives Glow. Every symbol side is painted in the blot's main pigment or, about one in three, its second pigment. Stars and Jokers have no colour. Tap ⓘ on a die to see its net.</li>
+      <li><b>Every blot is a die.</b> Its sides come from the blot itself: stars (★ with its level) and symbols from its stats. Flow gives Step, Saturation gives Splash, Grain or Opacity gives Guard, Glow gives Glow. Every symbol side is painted in the blot's main pigment or, about one in three, its second pigment. Stars and Jokers have no colour. Hold a die to see its net.</li>
       <li><b>Opening:</b> both sides unfold one blot for free next to their palette. The net is already placed, tap it to unfold.</li>
       <li><b>Your deck</b> holds nine dice. Each turn pick three ready dice and roll them (I suggest three, tap to swap). Rolled dice are used up, like cards. When fewer than three are ready, the used ones are shuffled back in. A die whose blot stands on the sheet stays out of the deck. Symbols go to your pool and keep.</li>
       <li><b>Hold and reroll:</b> the roll lies open first. Tap dice to hold them and reroll the rest, up to four times, or keep the roll. Then it counts.</li>
@@ -202,7 +202,7 @@
       <li><b>Palettes:</b> three hearts each. A blot next to the rival palette hits it with a Splash symbol: one heart, at most one per turn. A palette is safe while one of its own blots stands within two cells. Break all three and you win.</li>
       <li><b>Gallery:</b> after every finished duel your deck hangs in the gallery. A gallery duel finds the deck of another painter of about your strength, the rival plays it with its real dice. When their deck wins, its painter earns a small fee, and so do you when yours wins. Take yours down in the menu. Drawings of others only show once a moderator has seen them, report anything that does not belong.</li>
       <li><b>The Eraser</b> wipes a row after rounds 2 and 4. After 6 rounds the paper dries: cells plus 3 per heart left.</li>
-      <li><b>The gold ring and arrow</b> show what Master Sepia would do. Sepia paints plays the rest of your turn for you. Turn hints off in the menu.</li>
+      <li><b>The gold ring and arrow</b> show what Master Sepia would do. Sepia paints plays the rest of your turn for you. Turn the ring on or off with Hints in the menu.</li>
     </ul>
   </div>
 </div>
@@ -228,7 +228,7 @@
     <h2>Your colours</h2>
     <p class="clbl">Your colour · <b id="colors-1-name"></b></p>
     <div class="cgrid" id="colors-1"></div>
-    <p class="cnote">You paint the sheet in it. Your blots, your palette and your score wear it too.</p>
+    <p class="cnote">You paint the sheet in it. Your blots, your palette and your score wear it too. A change shows from your next duel.</p>
     <p class="clbl">Backup colour · <b id="colors-2-name"></b></p>
     <div class="cgrid" id="colors-2"></div>
     <p class="cnote">Used when your rival paints in a colour too close to yours. The house rival paints in Carmine, gallery decks in their painter's colour.</p>
