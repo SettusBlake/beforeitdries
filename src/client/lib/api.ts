@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type ShareSheetResponse, type SheetResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type CleanTestResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type ShareSheetResponse, type SheetResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
 import type { PullKind, StyleId } from '../../shared/dice';
 import type { ColorId } from '../../shared/colors';
 import type { DuelAction } from '../../shared/duel/play';
@@ -49,6 +49,7 @@ export const api = {
   diceDraw: (drawing: string) => call<DiceResponse>('/api/dice/draw', { drawing }),
   diceTestBlank: () => call<DiceResponse>('/api/dice/test-blank', {}),
   diceTestPigment: () => call<DiceResponse>('/api/dice/test-pigment', {}),
+  modCleanTest: () => call<CleanTestResponse>('/api/mod/clean-test', {}),
   diceTestShiny: (style: StyleId | null, holo = false) => call<DiceResponse>('/api/dice/test-shiny', { style, holo }),
   diceSeen: () => call<DiceResponse>('/api/dice/seen', {}),
   diceShare: (id: string) => call<ShareResponse>('/api/dice/share', { id }),

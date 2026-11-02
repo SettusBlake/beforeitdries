@@ -5,6 +5,7 @@
 import type { PlayInfo } from '../shared/api';
 import { dayKey } from '../shared/day';
 import type { Deps } from './core';
+import { flairPost } from './flair';
 import { loadDice } from './dice';
 import { K } from './keys';
 
@@ -27,6 +28,7 @@ export async function ensurePlayPost(d: Deps, force = false): Promise<{ postId: 
   } catch (e) {
     console.error('sticky play post', e);
   }
+  await flairPost(d, post.id, 'play');
   console.log('Play post', post.id, post.url);
   return { postId: post.id, url: post.url, created: true };
 }

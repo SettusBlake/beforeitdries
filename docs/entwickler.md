@@ -53,8 +53,11 @@ src/server/
   naming.ts                Benennen per Post, Bestiary
   drawings.ts              Prüfliste, Übermalen, Sperren, Meldungen
   deletion.ts              gelöschte Posts und Kommentare
+  community.ts             Auftritt des Subreddits (Regeln, Gründe, Flairs, Seitenleiste, Wiki), Testdaten vor dem Start
+  flair.ts                 Flairs auf den eigenen Posts der App
   accounts.ts              gelöschte Konten prüfen und bereinigen
   play.ts                  Spiel-Post anlegen und anpinnen
+assets/icon.png            App-Icon für den Katalog (devvit.json marketingAssets, 1024 × 1024, höchstens 500 KB)
 prototype/                 abgenommener Browser-Prototyp als Referenz
 tests/                     Regeln gegen den Prototyp, Server-Logik
 tools/                     Pixelvergleich, lokale Vorschau, Redis- und Reddit-Attrappen, Entwürfe (mockup/)

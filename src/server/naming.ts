@@ -9,6 +9,7 @@ import { dieMonster, REWARD } from '../shared/dice';
 import { speciesKey, speciesLabel } from '../shared/monster';
 import { GameError, withLock, type Deps } from './core';
 import { loadDice, needUser, playerLock, respond, saveDice } from './dice';
+import { flairPost } from './flair';
 import { K } from './keys';
 
 /** So lange kann die Community Namen vorschlagen */
@@ -71,6 +72,7 @@ export async function diceShare(d: Deps, userId: string | undefined, username: s
     await d.redis.set(K.naming(post.id), JSON.stringify(info));
     await d.redis.hSet(K.namingOpen, { [key]: post.id });
     await d.redis.zAdd(K.namingPosts, { member: post.id, score: d.now });
+    await flairPost(d, post.id, 'name');
     s.nameDay = today;
     await saveDice(d, uid, s);
     await d.schedule?.(NAMING_JOB, new Date(info.ends), { postId: post.id });

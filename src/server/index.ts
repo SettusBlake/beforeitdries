@@ -11,6 +11,7 @@ import { bleachAct, bleachGet, bleachShare, bleachStart, ensureSheetPost, sheetG
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf } from './gallery';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, type NamingResult } from './naming';
+import { cleanTestData, refreshLinks, setupCommunity, setupToast } from './community';
 import { ensurePlayPost, playInfo } from './play';
 import { commentGone, postGone } from './deletion';
 import { accountCheck, purgeRun } from './accounts';
@@ -343,9 +344,27 @@ app.post(
 app.post(
   '/internal/menu/post-play',
   wrap(async (_req, res) => {
-    const r = await ensurePlayPost(await deps(), true);
+    const d = await deps();
+    const r = await ensurePlayPost(d, true);
+    await refreshLinks(d);
     const body: UiResponse = { showToast: { text: 'The play post is up and pinned.', appearance: 'success' }, ...(r.url ? { navigateTo: r.url } : {}) };
     res.json(body);
+  }),
+);
+
+/* Auftritt des Subreddits: Regeln, Gründe, Flairs, Seitenleiste, Wiki (docs/entwuerfe/publish-plan.md) */
+app.post(
+  '/internal/menu/setup-community',
+  wrap(async (_req, res) => {
+    const r = await setupCommunity(await deps());
+    res.json({ showToast: { text: setupToast(r), appearance: r.errors.length ? 'neutral' : 'success' } } satisfies UiResponse);
+  }),
+);
+/* Testdaten vor dem Start entfernen (Playtest, nur Mods) */
+app.post(
+  '/api/mod/clean-test',
+  wrap(async (_req, res) => {
+    res.json(await cleanTestData(await deps(), context.userId, await username()));
   }),
 );
 

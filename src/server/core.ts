@@ -66,7 +66,34 @@ export interface RedditLike {
   getUserById?(id: `t2_${string}`): Promise<{ createdAt: Date } | undefined>;
   /** Private Nachricht der App (nur an Spieler, die das eingeschaltet haben) */
   sendPrivateMessage?(opts: { to: string; subject: string; text: string }): Promise<void>;
+  /* Auftritt des Subreddits (community.ts): Regeln, Gründe, Flairs, Seitenleiste, Wiki. Fehlen in alten Attrappen */
+  getRules?(subredditName: string): Promise<{ shortName: string; update(o: RuleInput): Promise<void> }[]>;
+  createRule?(subredditName: string, o: RuleInput): Promise<void>;
+  getSubredditRemovalReasons?(subredditName: string): Promise<{ id: string; title: string }[]>;
+  addSubredditRemovalReason?(subredditName: string, o: { title: string; message: string }): Promise<string>;
+  updateSubredditRemovalReason?(subredditName: string, id: string, o: { title: string; message: string }): Promise<void>;
+  getPostFlairTemplates?(subredditName: string): Promise<{ id: string; text: string }[]>;
+  createPostFlairTemplate?(o: FlairInput): Promise<{ id: string }>;
+  editFlairTemplate?(o: FlairInput & { id: string }): Promise<{ id: string }>;
+  setPostFlair?(o: { subredditName: string; postId: `t3_${string}`; flairTemplateId: string }): Promise<void>;
+  getWidgets?(subredditName: string): Promise<{ id: string; name: string }[]>;
+  addWidget?(o: WidgetInput): Promise<{ id: string }>;
+  updateWidget?(o: WidgetInput & { id: string }): Promise<unknown>;
+  getWikiPage?(subredditName: string, page: string): Promise<{ content: string }>;
+  createWikiPage?(o: WikiInput): Promise<unknown>;
+  updateWikiPage?(o: WikiInput): Promise<unknown>;
+  /* Testdaten vor dem Start: alte Posts der App finden und entfernen */
+  getAppUser?(): Promise<{ username: string } | undefined>;
+  getNewPosts?(o: { subredditName: string; limit?: number; pageSize?: number }): { all(): Promise<PostLike[]> };
 }
+export type RuleInput = { shortName: string; description: string; kind: 'all' | 'link' | 'comment'; violationReason?: string };
+export type FlairInput = { subredditName: string; text: string; backgroundColor?: string; textColor?: 'light' | 'dark'; modOnly?: boolean };
+export type WidgetInput =
+  | { type: 'textarea'; subreddit: string; shortName: string; text: string }
+  | { type: 'button'; subreddit: string; shortName: string; description: string; buttons: { kind: string; text: string; url: string; color?: string }[] };
+export type WikiInput = { subredditName: string; page: string; content: string; reason?: string };
+/** Ein Post aus der Liste des Subreddits */
+export type PostLike = { id: string; authorName: string; removed: boolean; remove(isSpam?: boolean): Promise<void> };
 
 export interface Deps {
   redis: RedisLike;

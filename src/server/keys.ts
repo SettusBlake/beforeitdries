@@ -36,6 +36,8 @@ export const K = {
   duelPlayers: 'duel:players',
   /** String: ID des Spiel-Posts (Duell und Würfel) */
   playPost: 'play:post',
+  /** Hash: Flair (play, sheet, name, discussion, feedback, bug) → ID der Flair-Vorlage, von „set up the community“ */
+  communityFlair: 'community:flair',
   /** JSON der Würfelsammlung (DiceSave): Würfel, Beutel, Pigment, Schutz vor Pech, Lasur je Art */
   dice: (userId: string) => `dice:${userId}`,
   /** Sorted Set aller Spieler mit Würfelsammlung, Score = letzte Änderung */

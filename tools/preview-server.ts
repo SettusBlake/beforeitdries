@@ -18,6 +18,7 @@ import { DUEL_PROTOCOL, PROTO_HEADER, type DuelReward } from '../src/shared/api'
 import { loadState } from '../src/shared/duel/play';
 import { placements, rollable, ROLL_N, S, suggest } from '../src/shared/duel/rules';
 import { K } from '../src/server/keys';
+import { cleanTestData } from '../src/server/community';
 import { ensurePlayPost, playInfo } from '../src/server/play';
 import { dayKey } from '../src/shared/day';
 import { monsterSeed } from '../src/shared/monster';
@@ -116,6 +117,7 @@ createServer(async (req, res) => {
     }
     if (url.pathname === '/dev/comments') return send(200, reddit.appComments);
     if (url.pathname === '/api/play') return send(200, await playInfo(d, asUser));
+    if (url.pathname === '/api/mod/clean-test') return send(200, await cleanTestData(d, asUser, USER.name));
     if (url.pathname.startsWith('/api/dice')) {
       let raw = '';
       for await (const c of req) raw += c;

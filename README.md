@@ -49,12 +49,15 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 
 ## For moderators
 
-**Setup.** Install the app in the subreddit. It creates and pins the play post. There are no settings to configure.
+**Setup.** Install the app in the subreddit. It creates and pins the play post. Then run *Before It Dries: set up the community* once from the subreddit menu. There are no settings to configure.
 
 **Subreddit menu (moderators only).**
 
 - *Before It Dries: post a new play post* creates and pins a new play post.
 - *Before It Dries: post today's sheet now* creates today’s sheet post right away (normally the scheduler does this shortly after midnight UTC).
+- *Before It Dries: set up the community* adds or updates the rules, removal reasons, post flairs (Play, Today's sheet, What do you see?, Discussion, Feedback, Bug), the sidebar (How to play, Links) and the wiki page `how-to-play`. Running it again replaces the texts and creates nothing twice. The wiki has to be enabled in the subreddit settings. Banner, icon, colours and the description are set in the moderator settings as usual.
+
+**Post flairs.** After the setup, the app gives its own posts their flair: the play post *Play*, the daily post *Today's sheet*, naming posts *What do you see?*. These three can only be set by moderators and the app.
 
 **Post menu on app posts (moderators only).**
 
@@ -64,7 +67,7 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 **Moderator tools in the game.** Moderators see a 🛠 button in the top right corner of the start screen and of Your dice. It opens:
 
 - **Review drawings:** every new drawing and every reported drawing. **OK** lets others see it. **Paint over** (second tap) replaces the drawing with the blot’s random shape and keeps the die. Two paint-overs within 30 days lock drawing for 14 days, a third one until a moderator lifts the lock in the same screen. The number of waiting drawings shows on the 🛠 button.
-- **Test buttons** (only in playtest versions, they disappear in published versions).
+- **Test buttons** (only in playtest versions, they disappear in published versions), among them *Before launch: remove test data*, which removes the invented test painters and traders and old posts of the app.
 
 **Scheduled jobs.**
 

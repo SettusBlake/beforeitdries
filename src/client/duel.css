@@ -746,3 +746,5 @@ button.gal-note.linkish u { color: var(--ink); text-underline-offset: 2px; }
 .brow .hs { font-size: 11px; color: var(--rival); letter-spacing: -1px; }
 .brow .pt { font: 700 14px var(--f-mono); }
 .bgap { text-align: center; color: var(--muted); font-size: 12px; }
+/* Vor dem Start: Testdaten entfernen (Playtest, nur Mods) */
+.testbtn.cleanbtn { border-color: #a63a2a; color: #a63a2a; margin-top: 8px; }

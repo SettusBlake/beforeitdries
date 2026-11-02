@@ -57,6 +57,13 @@
         "endpoint": "/internal/menu/post-sheet"
       },
       {
+        "label": "Before It Dries: set up the community",
+        "description": "Adds or updates the rules, removal reasons, post flairs, sidebar and the how-to-play wiki page",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/setup-community"
+      },
+      {
         "label": "Before It Dries: name it now",
         "description": "Takes the top valid name from the comments right away",
         "location": "post",
@@ -101,6 +108,9 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build"
+  },
+  "marketingAssets": {
+    "icon": "assets/icon.png"
   },
   "dev": {
     "subreddit": "beforeitdries"

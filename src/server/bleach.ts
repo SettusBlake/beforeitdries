@@ -18,6 +18,7 @@ import { RNG } from '../shared/rng';
 import { GameError, withLock, type Deps } from './core';
 import { isTester, loadDice, playerLock, saveDice, type Recycled } from './dice';
 import { visibleDice } from './gallery';
+import { flairPost } from './flair';
 import { K } from './keys';
 
 /** Ein Würfel im Tagesaufbau (genug, um Monster und Seiten daraus zu machen) */
@@ -285,6 +286,7 @@ export async function ensureSheetPost(d: Deps, day: string = dayKey(d.now), forc
       textFallback: { text: 'Today’s watercolour sheet: hold the edge against the Bleach. Open this post in the Reddit app or on reddit.com to play.' },
     });
     const thread = await openThread(d, post.id);
+    await flairPost(d, post.id, 'sheet');
     const ref: PostRef = { id: post.id, url: post.url, ...(thread ? { thread } : {}) };
     await d.redis.set(K.bleachPost(day), JSON.stringify(ref));
     await d.redis.hSet(K.bleachPostDay, { [post.id]: day });

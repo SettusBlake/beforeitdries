@@ -900,7 +900,7 @@ function renderMod(): void {
   $('bleach-test').hidden = !tester;
   $('modp-note').hidden = tester || !mod;
   // Test-Knöpfe (nur Playtest und Mods)
-  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test']) {
+  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test', 'clean-test']) {
     $(id).hidden = !tester;
     ($(id) as HTMLButtonElement).disabled = busy;
   }
@@ -1009,6 +1009,40 @@ async function testShiny(style: StyleId | null, holo: boolean): Promise<void> {
   busy = false;
   render();
 }
+/**
+ * Vor dem Start (Playtest, nur Mods): Test-Maler, Test-Händler und alte App-Posts entfernen. Erster Tipp sagt, was passiert,
+ * der zweite räumt auf (docs/entwuerfe/publish-plan.md, Variante A)
+ */
+let cleanArmed = false;
+async function testClean(): Promise<void> {
+  if (busy) return;
+  const b = $('clean-test'),
+    note = $('clean-note');
+  sfx.tap();
+  if (!cleanArmed) {
+    cleanArmed = true;
+    b.textContent = 'Tap again to remove test data';
+    note.hidden = false;
+    note.textContent = 'Removes the test painters and test traders (gallery, market, trades) and old posts of the app. The pinned play post and today’s sheet stay. Your dice and the species names stay.';
+    return;
+  }
+  cleanArmed = false;
+  busy = true;
+  b.textContent = 'Removing…';
+  try {
+    const r = await api.modCleanTest();
+    note.textContent =
+      `${r.painters} test painters removed${r.pending ? ` (${r.pending} still finishing in the background)` : ''}, ${r.posts} old posts removed` +
+      `${r.namings ? `, ${r.namings} namings cancelled` : ''}.${r.errors.length ? ` Problems: ${r.errors.join(' · ')}` : ''}`;
+    apply(await api.dice());
+  } catch (e) {
+    note.hidden = true;
+    hooks.error(e);
+  }
+  b.textContent = 'Before launch: remove test data';
+  busy = false;
+  render();
+}
 /** Test-Knopf (Playtest, nur Mods): 1000 Pigment mehr */
 async function testPigment(): Promise<void> {
   if (busy) return;
@@ -1104,6 +1138,7 @@ export function initDice(h: Hooks): void {
   $('blank-b').addEventListener('click', openBlank);
   $('blank-test').addEventListener('click', () => void testBlank());
   $('pigment-test').addEventListener('click', () => void testPigment());
+  $('clean-test').addEventListener('click', () => void testClean());
   $('gallery-ok').addEventListener('click', () => void collectGallery());
   $('gallery-test').addEventListener('click', () => void testGallery());
   $('gallery-decks-test').addEventListener('click', () => void testDecks());
