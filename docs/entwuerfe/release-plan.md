@@ -71,6 +71,8 @@ In zwei Teilen: 1a Posts, Teilen und Löschen von Posts und Kommentaren, 1b gel�
 
 ### 4 Veröffentlichen
 
+**Plan mit Entwurf (02.11.2026):** docs/entwuerfe/publish-plan.md mit Bild subreddit-entwurf.png (Banner, Icon, Regeln, Flairs, Seitenleiste, Wiki, Test-Subreddit, Testdaten, Katalog). Wartet auf Freigabe (8 Fragen).
+
 - **Test-Subreddit:** vorerst keins (Frage 1). Vor dem Einreichen klären wir, wie Playtests danach laufen, denn ein Playtest in r/beforeitdries ersetzt die Version für alle.
 - **Version 0.1.0 einreichen** mit `npx devvit publish`. Danach in r/beforeitdries installieren, Spiel-Post und Tagespost anlegen.
 - **Nach der Freigabe:**
