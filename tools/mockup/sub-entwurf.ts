@@ -259,6 +259,67 @@ function mobileA(w = 1600, h = 480): HTMLCanvasElement {
   return c;
 }
 
+/*
+ * ---------- Kompakt (02.11.2026, „die Banner sind zu lang“): 3:1 statt 5:1 ----------
+ * Alles Wichtige liegt im mittleren Band (Höhe w/5), damit Reddit beim Zuschneiden auf 4:1 oder 5:1 nur Papier wegnimmt.
+ */
+function compact(withTitle: boolean, w = 1800, h = 600): HTMLCanvasElement {
+  const [c, x] = paper(w, h, [
+    [withTitle ? 1300 : 560, 330, 300, 'rgb(43,63,163)', 0.17],
+    [withTitle ? 1500 : 1240, 250, 240, 'rgb(232,62,128)', 0.14],
+    [withTitle ? 520 : 900, 470, 260, 'rgb(240,172,12)', 0.13],
+  ]);
+  const cy = h / 2;
+  if (withTitle) {
+    title(x, 110, cy + 8, 92, '“Every blot is a die.”');
+    const row: [Monster, number, number, number][] = [
+      [PICK.cat, 1040, cy + 22, 290],
+      [PICK.hat, 1250, cy, 340],
+      [PICK.puff, 1455, cy + 14, 300],
+      [PICK.bird, 1650, cy - 6, 300],
+    ];
+    row.forEach(([m, px, py, sz], k) => put(x, m, px, py, sz, k % 2 ? 0.04 : -0.05));
+    drops(x, [
+      [955, cy - 130, 9, 'rgb(176,30,62)'],
+      [980, cy - 102, 5, 'rgb(176,30,62)'],
+      [160, cy + 110, 7, 'rgb(43,63,163)'],
+    ]);
+  } else {
+    const row: [Monster, number, number, number][] = [
+      [PICK.cat, 310, cy + 22, 310],
+      [PICK.hat, 590, cy, 350],
+      [PICK.puff, 1220, cy + 12, 320],
+      [PICK.bird, 1500, cy - 6, 320],
+    ];
+    row.forEach(([m, px, py, sz], k) => put(x, m, px, py, sz, k % 2 ? 0.04 : -0.05));
+    drops(x, [
+      [880, cy - 60, 10, 'rgb(176,30,62)'],
+      [912, cy - 28, 6, 'rgb(176,30,62)'],
+      [860, cy - 100, 5, 'rgb(12,108,92)'],
+    ]);
+  }
+  bleachEdge(x, w, h, w - 110, 'both');
+  return c;
+}
+/** Zeigt, was bei 4:1 und 5:1 übrig bleibt (gestrichelte Bänder) */
+function cropGuide(c: HTMLCanvasElement): HTMLCanvasElement {
+  const [g, x] = cnv(c.width, c.height);
+  x.drawImage(c, 0, 0);
+  for (const [ratio, col] of [[4, 'rgba(43,63,163,.9)'], [5, 'rgba(176,30,62,.9)']] as [number, string][]) {
+    const bh = c.width / ratio,
+      y0 = (c.height - bh) / 2;
+    x.setLineDash([18, 12]);
+    x.lineWidth = 5;
+    x.strokeStyle = col;
+    x.strokeRect(6, y0, c.width - 12, bh);
+    x.setLineDash([]);
+    x.fillStyle = col;
+    x.font = '700 30px Figtree, sans-serif';
+    x.fillText(`${ratio}:1`, 20, y0 + 36);
+  }
+  return g;
+}
+
 /* ---------- Icons ---------- */
 function icon(m: Monster, s: number, ring: string, wcol: string, scale = 0.86, dy = 0.02): HTMLCanvasElement {
   const [c, x] = paper(s, s, [[s * 0.5, s * 0.6, s * 0.36, wcol, 0.28]]);
@@ -320,6 +381,34 @@ if (location.hash === '#pick') {
       d.append(blot(mon(bp, pig, salt), 150), `${bp} ${pig} ${salt}`);
       root.append(d);
     }
+} else if (location.hash === '#compact') {
+  void Promise.all(['400 104px "Young Serif"', '700 52px Caveat'].map((f) => document.fonts.load(f))).then(() => {
+    const cT = compact(true),
+      cN = compact(false),
+      iA = iconA();
+    root.innerHTML = `<p class="eyebrow">Entwurf · Banner kompakt</p><h1>Banner 3:1 statt 5:1</h1>
+      <p class="sub">1800 × 600. Titel und Kleckse stehen im mittleren Band. Schneidet Reddit auf 4:1 (blau) oder 5:1 (rot) zu, fällt nur Papier weg.</p>`;
+    const g1 = document.createElement('div');
+    g1.className = 'col';
+    g1.append(
+      show('banner-3x1', cT, '<b>Banner mit Titel</b> 1800 × 600 · für Desktop', 1160),
+      show('banner-3x1-plain', cN, '<b>Banner ohne Titel</b> 1800 × 600 · fürs Handy, Mitte frei', 1160),
+    );
+    const g2 = document.createElement('div');
+    g2.className = 'row';
+    const guide = (c: HTMLCanvasElement, label: string) => {
+      const f = show('guide-' + label, cropGuide(c), `<b>Zuschnitt</b> ${label}`, 570);
+      delete OUT['guide-' + label];
+      return f;
+    };
+    g2.append(guide(cT, 'mit Titel'), guide(cN, 'ohne Titel'));
+    const g3 = document.createElement('div');
+    g3.className = 'row';
+    g3.append(phone(cN, iA, 'Reddit-App: Banner ohne Titel, Icon A'), phone(cT, iA, 'Reddit-App: Banner mit Titel'));
+    root.append(g1, g2, g3);
+    const w = window as unknown as { assets: Record<string, string> };
+    w.assets = Object.fromEntries(Object.entries(OUT).map(([k, v]) => [k, v.toDataURL('image/png')]));
+  });
 } else {
   void Promise.all(['400 104px "Young Serif"', '700 52px Caveat', '700 120px Caveat'].map((f) => document.fonts.load(f))).then(() => {
     const bA = bannerA(),

@@ -29,8 +29,8 @@ Geprüft in der Devvit-Doku (Launch Guide, Feature Guide, In-app Catalog Assets,
 
 **Bilder** in docs/entwuerfe/subreddit/ (am Handy aus GitHub laden):
 
-- `banner-desktop.jpg` 1920 × 384, Banner A „Parade“ (Titel links, Kleckse ziehen nach rechts, der rechte Rand bleicht aus, dort ausgebleichte Pales), 118 KB.
-- `banner-mobile.jpg` 1600 × 480, Kleckse oben, Mitte unten frei für Icon und Name, 109 KB.
+- **Kompakt (02.11.2026, Rückmeldung „die Banner sind zu lang“):** `banner-3x1-titel.jpg` (fürs Desktop-Banner) und `banner-3x1-ohne-titel.jpg` (fürs Handy-Banner), je 1800 × 600 (3:1). Titel und Kleckse stehen im mittleren Band, schneidet Reddit auf 4:1 oder 5:1 zu, fällt nur Papier weg. Bild docs/entwuerfe/banner-kompakt.png (Quelle tools/mockup/sub-entwurf.ts#compact).
+- Erste Fassung, zu lang: `banner-desktop.jpg` 1920 × 384 (5:1) und `banner-mobile.jpg` 1600 × 480.
 - `community-icon.jpg` 512 × 512, Icon A (Klecks mit Hut), wird rund geschnitten, 56 KB.
 - `app-icon.png` 1024 × 1024 im selben Motiv, 472 KB, liegt auch als `assets/icon.png` und steht in devvit.json (`marketingAssets.icon`).
 
