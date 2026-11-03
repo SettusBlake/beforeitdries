@@ -76,7 +76,7 @@ Test tests/community.test.ts durchsucht danach ganz Redis nach den IDs und Namen
 1. Test als u/Vegatest (Liste in docs/entwuerfe/neuer-spieler-bericht.md), Rückmeldung einbauen.
 2. Letzter Playtest in r/beforeitdries: „Before launch: remove test data“, „set up the community“, Banner, Icon, Farben, Beschreibung.
 3. Playtests auf das Test-Subreddit umstellen.
-4. `npx devvit publish --version 0.1.0`, ungelistet. Danach läuft Reddits Prüfung. In der Zeit bleibt der letzte Playtest in r/beforeitdries installiert.
+4. `npx devvit publish --version 0.1.0`, ungelistet. **Eingereicht am 03.11.2026.** Danach läuft Reddits Prüfung. In der Zeit bleibt der letzte Playtest in r/beforeitdries installiert.
 5. Nach der Freigabe: `npx devvit install beforeitdries` (die geprüfte Version ersetzt den Playtest), Spiel-Post und Tagespost prüfen. Test-Knöpfe sind dann von selbst weg (Version ohne vierte Stelle).
 
 ### 5 Katalog und Feedback (nach der Freigabe)
