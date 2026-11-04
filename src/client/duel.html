@@ -23,7 +23,7 @@
   <div class="tgo">
     <button type="button" class="primary" id="start"><b>Start duel</b><small class="after">after the lesson</small></button>
     <button type="button" class="primary gal-btn" id="gallery-b"><b>Gallery duel</b><small class="after">after the lesson</small></button>
-    <button type="button" class="primary bleach-btn" id="bleach-b" hidden><b>Today’s sheet</b><small id="bleach-sub"></small></button>
+    <button type="button" class="primary bleach-btn" id="bleach-b" hidden><b>Today’s sheet</b><small id="bleach-sub"></small><small class="streak-t" id="bleach-streak" hidden></small></button>
   </div>
   <button type="button" class="gal-note linkish" id="bleach-note" hidden></button>
   <button type="button" class="ghost share-t" id="bleach-share" hidden>Share your sheet as a comment</button>
@@ -168,6 +168,7 @@
       <button type="button" class="ghost" id="new-m">New duel</button>
       <button type="button" class="ghost" id="dice-m">Your dice</button>
       <button type="button" class="ghost" id="gallery-m">Gallery: my deck hangs</button>
+      <button type="button" class="ghost" id="flair-m" hidden>Streak as user flair: off</button>
       <button type="button" class="ghost cmenu" id="colors-m"><i></i><span>Colours: <b id="colors-m-name"></b></span></button>
       <button type="button" class="ghost danger" id="giveup-m" hidden>Let the sheet dry now (counts as today’s run)</button>
       <button type="button" class="ghost" id="title-m">Back to title</button>
@@ -348,6 +349,8 @@
     <button type="button" class="ghost share-b" id="share-b" hidden>Share as a comment</button>
     <p class="share-note" id="share-note" hidden>Posts a reply in your name under today’s sheet. Everyone can see it. Only when you tap.</p>
     <p id="result-sepia"></p>
+    <button type="button" class="ghost join-b" id="join-b" hidden>Join r/beforeitdries</button>
+    <p class="share-note" id="join-note" hidden>A new sheet every day. Joins from your account, only when you tap.</p>
     <div class="trow" style="margin: 0 auto;">
       <button type="button" class="primary" id="again">Again</button>
       <button type="button" class="ghost" id="to-title">Title</button>

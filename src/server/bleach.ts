@@ -19,6 +19,8 @@ import { GameError, withLock, type Deps } from './core';
 import { isTester, loadDice, playerLock, saveDice, type Recycled } from './dice';
 import { visibleDice } from './gallery';
 import { flairPost } from './flair';
+import { askJoin, streakFlairPaint } from './daily';
+import { streakNow, streakPaint, streakReward } from '../shared/streak';
 import { K } from './keys';
 
 /** Ein Würfel im Tagesaufbau (genug, um Monster und Seiten daraus zu machen) */
@@ -134,6 +136,8 @@ export async function bleachGet(d: Deps, userId: string | undefined, username?: 
     waves: BLEACH.waves.length,
     pales: paleTotal(),
     ...(tester ? { tester } : {}),
+    streak: streakNow(dice.streak, day),
+    ...(dice.streakFlair ? { flair: true } : {}),
     state,
   };
 }
@@ -230,13 +234,28 @@ async function finishRun(d: Deps, uid: string, username: string | undefined, day
   await d.redis.hSet(K.bleachRes(day), { [uid]: JSON.stringify({ ...res, name: username ?? '', at: d.now }) });
   res.rank = await rankOf(d, day, uid);
   res.players = await d.redis.zCard(K.bleachBoard(day));
-  // Belohnung: Pigment und ein Tropfen der Tagesfarbe
+  // Belohnung: Pigment und ein Tropfen der Tagesfarbe, dazu die Strähne (T2): ab 2 Tagen Pigment, alle 7 Tage ein Tropfen mehr
   const s = await loadDice(d, uid);
   const colour = fin.colour;
-  s.pigment += BLEACH.reward.pigment;
-  s.drops = { ...s.drops, [colour]: (s.drops?.[colour] ?? 0) + BLEACH.reward.drops };
+  const step = streakPaint(s.streak, day);
+  s.streak = step.s;
+  s.sheets = (s.sheets ?? 0) + 1;
+  const bonus = streakReward(step.s.n);
+  const drops = BLEACH.reward.drops + (bonus.drop ? 1 : 0);
+  s.pigment += BLEACH.reward.pigment + bonus.pigment;
+  s.drops = { ...s.drops, [colour]: (s.drops?.[colour] ?? 0) + drops };
+  res.streak = { n: step.s.n, best: step.s.best, pigment: bonus.pigment, drop: bonus.drop, held: step.held, broke: step.broke };
+  await streakFlairPaint(d, uid, s);
+  const join = askJoin(d, s);
   await saveDice(d, uid, s);
-  out.reward = { pigment: BLEACH.reward.pigment, why: 'bleach', total: s.pigment, drops: Array.from({ length: BLEACH.reward.drops }, () => ({ pig: colour, why: 'win' as const })) };
+  await d.redis.hSet(K.bleachRes(day), { [uid]: JSON.stringify({ ...res, name: username ?? '', at: d.now }) });
+  out.reward = {
+    pigment: BLEACH.reward.pigment,
+    why: 'bleach',
+    total: s.pigment,
+    drops: Array.from({ length: drops }, () => ({ pig: colour, why: 'win' as const })),
+    ...(join ? { join } : {}),
+  };
   return res;
 }
 
@@ -344,6 +363,8 @@ export async function sheetGet(d: Deps, userId: string | undefined, postId: stri
     const save = runSave(run);
     running = !!save && !save.over && run!.day === today && !run!.test;
     if (!me && mine && score !== undefined && score !== null) me = rowOf((await rankOf(d, day, userId)) ?? players, mine, score, true);
+    const st = streakNow(dice.streak, today);
+    if (me && day === today && st.n >= 2) me.streak = st.n;
   }
   return {
     day,
@@ -390,6 +411,7 @@ export async function bleachShare(d: Deps, userId: string | undefined, username?
       pales: paleTotal(),
       sheet: res.sheet,
       ...(res.col ? { col: res.col } : {}),
+      ...(!test && res.streak && res.streak.n >= 2 ? { streak: res.streak.n } : {}),
     });
     let post: PostRef = await ensureSheetPost(d, day);
     if (!post.thread) post = await ensureThread(d, day);

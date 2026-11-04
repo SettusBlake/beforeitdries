@@ -85,6 +85,11 @@ export interface RedditLike {
   /* Testdaten vor dem Start: alte Posts der App finden und entfernen */
   getAppUser?(): Promise<{ username: string } | undefined>;
   getNewPosts?(o: { subredditName: string; limit?: number; pageSize?: number }): { all(): Promise<PostLike[]> };
+  /* Tägliche Aktivität (src/server/daily.ts): Beitreten im Namen des Spielers, Strähne als User-Flair. Fehlen in alten Attrappen */
+  subscribeToCurrentSubreddit?(): Promise<void>;
+  setUserFlair?(o: { subredditName: string; username: string; text: string }): Promise<void>;
+  removeUserFlair?(subredditName: string, username: string): Promise<void>;
+  getSubredditByName?(name: string): Promise<{ getUserFlair(o: { usernames: string[] }): Promise<{ users: { user?: string; flairText?: string }[] }> }>;
 }
 export type RuleInput = { shortName: string; description: string; kind: 'all' | 'link' | 'comment'; violationReason?: string };
 export type FlairInput = { subredditName: string; text: string; backgroundColor?: string; textColor?: 'light' | 'dark'; modOnly?: boolean };

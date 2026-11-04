@@ -168,4 +168,24 @@ export class FakeReddit implements RedditLike {
     list.push({ id: `t1_c${++this.n}`, parentId: postId, body, score, authorName, authorId: `t2_${authorName}`, removed: false, createdAt: new Date(1e12 + this.n * 1000), ...extra });
     this.comments.set(postId, list);
   }
+
+  /* Tägliche Aktivität: Beitreten und User-Flairs */
+  subscribed = 0;
+  userFlairs = new Map<string, string>();
+  async subscribeToCurrentSubreddit() {
+    this.subscribed++;
+  }
+  async setUserFlair(o: { subredditName: string; username: string; text: string }) {
+    this.userFlairs.set(o.username, o.text);
+  }
+  async removeUserFlair(_sub: string, username: string) {
+    this.userFlairs.delete(username);
+  }
+  async getSubredditByName(_name: string) {
+    return {
+      getUserFlair: async (o: { usernames: string[] }) => ({
+        users: o.usernames.filter((u) => this.userFlairs.has(u)).map((u) => ({ user: u, flairText: this.userFlairs.get(u) })),
+      }),
+    };
+  }
 }

@@ -28,6 +28,7 @@ import { isPigment } from '../src/shared/data';
 import { secureUint32 } from '../src/server/rand';
 import { FakeRedis } from './fake-redis';
 import { FakeReddit } from './fake-reddit';
+import { joinSub, streakFlairToggle } from '../src/server/daily';
 
 const PORT = Number(process.env.PORT ?? 5174);
 const ROOT = path.resolve(process.env.DIST ?? 'dist/client');
@@ -117,6 +118,25 @@ createServer(async (req, res) => {
     }
     if (url.pathname === '/dev/comments') return send(200, reddit.appComments);
     if (url.pathname === '/api/play') return send(200, await playInfo(d, asUser));
+    // Tägliche Aktivität: Beitreten und Strähne als Flair (die Flair steht in reddit.userFlairs, /dev/flair zeigt sie)
+    if (url.pathname === '/api/join') return send(200, await joinSub(d, asUser));
+    if (url.pathname === '/api/streak/flair') {
+      let raw = '';
+      for await (const c of req) raw += c;
+      return send(200, await streakFlairToggle(d, asUser, USER.name, JSON.parse(raw || '{}').on));
+    }
+    if (url.pathname === '/dev/flair') return send(200, { flair: reddit.userFlairs.get(USER.name) ?? null, subscribed: reddit.subscribed });
+    // Nur in der Vorschau: Strähne setzen (/dev/streak?n=6&last=2026-11-03), damit der heutige Lauf Tag 7 wird. Schaltet das Lern-Duell frei
+    if (url.pathname === '/dev/streak') {
+      const s = await loadDice(d, USER.id);
+      const n = Number(url.searchParams.get('n') ?? 0);
+      const last = url.searchParams.get('last') ?? dayKey(Date.now() - 86_400_000);
+      s.tutorialPaid = true;
+      if (n > 0) s.streak = { n, last, best: Math.max(n, Number(url.searchParams.get('best') ?? n)) };
+      else delete s.streak;
+      await saveDice(d, USER.id, s);
+      return send(200, s.streak ?? null);
+    }
     if (url.pathname === '/api/mod/clean-test') return send(200, await cleanTestData(d, asUser, USER.name));
     if (url.pathname.startsWith('/api/dice')) {
       let raw = '';

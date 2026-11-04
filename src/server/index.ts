@@ -9,6 +9,7 @@ import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '.
 import { duelAct, duelGet, duelStart } from './duel';
 import { bleachAct, bleachGet, bleachShare, bleachStart, ensureSheetPost, sheetGet } from './bleach';
 import { galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestDecks, galleryTestSelf } from './gallery';
+import { joinSub, streakFlairSweep, streakFlairToggle } from './daily';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, withdrawName, type NamingResult } from './naming';
 import { cleanTestData, refreshLinks, setupCommunity, setupToast } from './community';
@@ -289,6 +290,9 @@ route('/api/trade/accept', (d, u, n, b) => tradeAccept(d, u, n, b.id, b.confirm)
 route('/api/trade/decline', (d, u, n, b) => tradeDecline(d, u, n, b.id));
 route('/api/trade/cancel', (d, u, n, b) => tradeCancel(d, u, n, b.id));
 route('/api/trade/msg', (d, u, n, b) => tradeMsg(d, u, n, b.on));
+/* Tägliche Aktivität (T1, T2): Beitreten und Strähne als Flair */
+route('/api/join', (d, u) => joinSub(d, u));
+route('/api/streak/flair', (d, u, n, b) => streakFlairToggle(d, u, n, b.on));
 route('/api/trade/test-offer', (d, u, n) => tradeTestOffer(d, u, n));
 
 /* ---------- Benennen: „What do you see?“-Posts ---------- */
@@ -481,6 +485,9 @@ app.post(
     try {
       const r = await ensureSheetPost(d);
       console.log('daily sheet', r.created ? 'created' : 'exists', r.id);
+      // Strähnen, die getrocknet sind, nehmen die Flair wieder ab (nur bei Spielern mit dem Schalter)
+      const off = await streakFlairSweep(d).catch((e: unknown) => (console.error('streak flair sweep', e), 0));
+      if (off) console.log('streak flairs dried', off);
     } catch (e) {
       // Gerade baut jemand den Tag auf: in einer Minute noch einmal, sonst gäbe es heute keinen Tagespost (QA 02.11.2026)
       if (!(e instanceof GameError && e.code === 'busy')) throw e;

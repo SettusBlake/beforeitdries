@@ -755,3 +755,9 @@ button.gal-note.linkish u { color: var(--ink); text-underline-offset: 2px; }
 .bgap { text-align: center; color: var(--muted); font-size: 12px; }
 /* Vor dem Start: Testdaten entfernen (Playtest, nur Mods) */
 .testbtn.cleanbtn { border-color: #a63a2a; color: #a63a2a; margin-top: 8px; }
+
+/* ---------- Tägliche Aktivität (T1, T2): Strähne im Startbild und im Ergebnis, Beitreten ---------- */
+.bleach-btn small.streak-t { color: #2f5f8a; font-weight: 600; }
+.streak-r { display: block; margin-top: 6px; color: #2f5f8a; }
+.streak-r small { color: var(--muted); font-weight: 400; }
+.join-b { display: block; width: 100%; margin: 8px 0 0; border-style: solid; }

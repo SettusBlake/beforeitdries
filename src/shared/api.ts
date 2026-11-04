@@ -1,3 +1,4 @@
+import type { StreakState, StreakStep } from './streak';
 import type { ElementId } from './elements';
 import type { BleachScore } from './duel/bleach';
 /* Datenformate zwischen Server und Client */
@@ -33,6 +34,8 @@ export interface SheetRow {
   col?: ColorId;
   hearts?: number;
   me?: boolean;
+  /** Strähne (nur in deiner eigenen Zeile) */
+  streak?: number;
 }
 /** Was der Tagespost zeigt: heute mit Knopf und laufender Rangliste, danach die fertige mit dem besten Blatt */
 export interface SheetResponse {
@@ -108,6 +111,8 @@ export interface BleachResult {
   shared?: boolean;
   /** Erst nach Mitternacht (UTC) fertig: zählt nicht mehr für die Rangliste des Tages */
   late?: true;
+  /** Strähne nach diesem Lauf (nur Wertungsläufe) */
+  streak?: StreakStep;
 }
 /** Was das Startbild zu Bleach zeigt (Tagesblatt): läuft gerade, schon gespielt, Rangliste oben */
 export interface BleachInfo {
@@ -123,6 +128,9 @@ export interface BleachInfo {
   pales: number;
   /** Playtest und Mod: Test-Knopf für ein neues Blatt */
   tester?: boolean;
+  /** Strähne am heutigen Tag, flair: als User-Flair eingeschaltet */
+  streak: { n: number; state: StreakState; best: number };
+  flair?: boolean;
 }
 
 /** Antwort der Würfel-Anfragen: die ganze Sammlung, dazu Züge und ob der freie Tageszug bereit ist */
@@ -275,4 +283,6 @@ export interface DuelReward {
   patina?: { id: string; level: number; i: number; to: 'x2' | 'x3' | 'mix'; name: string; face: Face }[];
   /** Tropfen (Kampf A Schritt 4): je ausgewaschenem Rivalen-Klecks einer seines Hauptpigments, beim Sieg einer aus dem eigenen Deck */
   drops?: { pig: PigmentId; why: 'wash' | 'win' }[];
+  /** Beitreten anbieten (T1): Name des Subreddits, beim ersten und fünften Ergebnis, nie nach einem Tipp darauf */
+  join?: string;
 }

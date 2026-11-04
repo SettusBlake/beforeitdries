@@ -111,6 +111,8 @@ export const K = {
   /** Lauf eines Spielers (Tag und gespeicherter Stand), Spieler in bleach:players */
   bleachRun: (userId: string) => `bleach:run:${userId}`,
   bleachPlayers: 'bleach:players',
+  /** Spieler mit der Strähne als Flair (Score: Tagesnummer des letzten gemalten Tags), damit getrocknete Flairs verschwinden */
+  streakFlair: 'streak:flair',
   /** Sorted Set der Rangliste eines Tages: Spieler → Punkte × 100000 + Vorsprung (wer früher fertig war, steht vorn) */
   bleachBoard: (day: string) => `bleach:board:${day}`,
   /** Hash: Spieler → Ergebnis des Tages (JSON mit Punkten, Teilen, Name, Zeit) */

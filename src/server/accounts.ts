@@ -185,7 +185,7 @@ async function purgeOwn(d: Deps, uid: string, name: string): Promise<void> {
   // Alte Fänge aus der Zeit des Tagesklecks
   for (const { member: id } of await d.redis.zRange(K.userMonsters(uid), 0, -1, { by: 'rank' })) await d.redis.del(K.monster(id));
   for (const { member: day } of await d.redis.zRange(K.days, 0, -1, { by: 'rank' })) await d.redis.hDel(K.dayCatchers(day), [uid]);
-  for (const z of [K.dicePlayers, K.duelPlayers, K.bleachPlayers, K.galleryPower]) await d.redis.zRem(z, [uid]);
+  for (const z of [K.dicePlayers, K.duelPlayers, K.bleachPlayers, K.galleryPower, K.streakFlair]) await d.redis.zRem(z, [uid]);
   await d.redis.del(K.dice(uid), K.duel(uid), K.gallery(uid), K.galleryMe(uid), K.galleryInbox(uid), K.deliver(uid), K.bleachRun(uid), K.userMonsters(uid));
 }
 

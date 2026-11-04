@@ -38,6 +38,10 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 
 **Today’s sheet (the Bleach).** Pale, bleached blots slide down from the top edge in five waves. Paint slows them, blots in their way take hits, and every Pale that slips off the bottom bleaches a heart. Points come from paint left, Pales washed out, the great Pale and hearts kept. One ranked run per day. After the run, **Share as a comment** posts your sheet as a reply to the pinned comment in today’s post, in your name, only after a second tap.
 
+**Streak.** Every day you finish your ranked run of Today’s sheet adds a day to your streak (days follow UTC). One missed day per week is forgiven (“the Retarder holds it”), a second one ends the streak. From day 2 a run pays 5 extra pigment per day of the streak, at most 50, and every seventh day one extra drop of the day’s colour. The streak shows on the title screen, in the result, next to your place in today’s post and in the shared comment. In the menu, **Streak as user flair** (off by default) shows it as your user flair in this community, for example “🖌 12 days”. Switching it off brings your previous flair back, and when a streak dries the flair goes back the next night.
+
+**Join.** After your first finished duel or sheet, and once more after the fifth, the result offers **Join r/beforeitdries**. Only a tap on it joins, from your account. Reddit does not tell apps who is already a member, so the button may show to members too; after a tap it never shows again.
+
 **Your dice.**
 
 - **Dip the brush:** a free dip every day, more for pigment. A visible d100 decides the paper and with it the rarity. Rare style and holo dice exist. Several dips at once can be skipped straight to the overview.
@@ -75,13 +79,13 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 
 **Scheduled jobs.**
 
-- Today’s sheet post, daily at 00:02 UTC.
+- Today’s sheet post, daily at 00:02 UTC. The same job takes the streak flair back from players whose streak dried.
 - Naming: 24 hours after a “What do you see?” post.
 - Account check: daily at 03:37 UTC, see below.
 
 ## Data and privacy
 
-- **Stored (in the app’s Redis):** game state per player (dice, deck, pigment, running duel or sheet), usernames for leaderboards, trades and the history of a die, results of daily sheets, the gallery deck, market listings and trade offers, drawings as strokes, reports and the moderators’ decisions. Pictures are never stored.
+- **Stored (in the app’s Redis):** game state per player (dice, deck, pigment, running duel or sheet, the streak, whether the streak flair is on and the previous flair text, whether you tapped Join), usernames for leaderboards, trades and the history of a die, results of daily sheets, the gallery deck, market listings and trade offers, drawings as strokes, reports and the moderators’ decisions. Pictures are never stored.
 - **Not used:** no external services, no tracking, no ads, no AI.
 - **Deleted posts and comments:** when a “What do you see?” post is deleted, its data goes and the species is free again. When the comment that named a species is deleted, the name goes and the species is open again. A deleted daily sheet or play post is replaced.
 - **Deleted accounts:** a daily job asks Reddit about every player in turn. Reddit reports suspended and deleted accounts the same way, so the game waits until an account has been missing for 21 days in a row. Then the player’s data is deleted and every mention elsewhere (the history of a die, the bestiary, the archive) becomes “a painter”. Offers to that player go back to the sender.

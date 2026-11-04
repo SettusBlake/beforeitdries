@@ -81,4 +81,7 @@ export const api = {
   tradeCancel: (id: string) => call<TradeResponse>('/api/trade/cancel', { id }),
   tradeMsg: (on: boolean) => call<DiceResponse>('/api/trade/msg', { on }),
   tradeTestOffer: () => call<TradeResponse>('/api/trade/test-offer', {}),
+  /* Tägliche Aktivität: Beitreten (nur auf Tipp) und Strähne als Flair */
+  join: () => call<{ ok: true; sub: string }>('/api/join', {}),
+  streakFlair: (on: boolean) => call<DiceResponse>('/api/streak/flair', { on }),
 };

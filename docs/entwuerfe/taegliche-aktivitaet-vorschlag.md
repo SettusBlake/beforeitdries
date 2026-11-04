@@ -1,6 +1,6 @@
 # Tägliche Aktivität: Vorschlag
 
-Stand 04.11.2026, Fassung 1. Nichts davon ist gebaut. Fragen am Ende.
+Stand 04.11.2026, Fassung 2. T1 und T2 sind gebaut (Entscheidungen in Abschnitt 6), der Rest ist offen.
 
 Quellen: Devvit-Doku (Feature Guide, User Actions, Adding Streaks, Devvit Rules, Blog vom 18.12.2025), die Analyse anderer Reddit-Spiele im Repo SettusBlake/RedditGame (reddit-spiele-analyse.md) und der Stand des Spiels.
 
@@ -97,3 +97,13 @@ Warum das zählt:
 4. T2: Flair mit der Strähne als Schalter, der standardmäßig aus ist? Empfehlung: ja.
 5. T3: Malmittel des Tages und schwerer zum Sonntag hin, sonntags Punkte × 1,5? Empfehlung: ja.
 6. T4: Soll ich die ersten vier Kapitel als Entwurf schreiben?
+
+## 6 Entscheidungen (04.11.2026)
+
+- Gewählt: T1 und T2 („T1 und T2 erstmal“). T3 bis T7 bleiben offen.
+- Frage 2 offen gelassen, gebaut nach Empfehlung: nur der Wertungslauf des Tagesblatts zählt.
+- Frage 3: kleiner Lohn wie vorgeschlagen (ab 2 Tagen +5 Pigment je Tag, höchstens +50, alle 7 Tage ein Tropfen der Tagesfarbe).
+- Frage 4: Flair als Schalter im Menü, Standard aus.
+- Abweichung im Text: Die Flair heißt „🖌 12 days“ statt „🖌 12“, sonst versteht man sie im Feed nicht.
+- Dazu: Eine getrocknete Strähne nimmt die Flair in der Nacht danach wieder ab (Auftrag `daily-sheet`), die vorige Flair kommt zurück.
+- Bild: docs/entwuerfe/straehne-im-spiel.png

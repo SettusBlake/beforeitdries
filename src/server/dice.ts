@@ -42,6 +42,7 @@ import { humidityFor, makeMonster, monsterSeed, speciesKey } from '../shared/mon
 import { isPigment, PIG, type PigmentId } from '../shared/data';
 import { GameError, isMod, withLock, type Deps } from './core';
 import { K } from './keys';
+import { askJoin } from './daily';
 import { isColor } from '../shared/colors';
 
 export function needUser(userId: string | undefined): string {
@@ -551,6 +552,8 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
       s.media = [...have, next];
       reward.unlocked = next;
     }
+    const join = askJoin(d, s);
+    if (join) reward.join = join;
   }
   await saveDice(d, uid, s);
   return reward;

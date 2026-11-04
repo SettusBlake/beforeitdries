@@ -81,7 +81,7 @@ function show(): void {
   play.textContent = !i.today ? 'Play today’s sheet' : i.running ? 'Continue your sheet' : done ? 'Open the game' : i.user && !i.unlocked ? 'Learn with Sepia first' : 'Play today’s sheet';
   play.className = done ? 'primary soft' : 'primary';
   const me = $('s-me');
-  me.innerHTML = i.me ? `You: <b>#${i.me.rank}</b> of ${i.players} · <b>${i.me.points}</b> points` : i.today && i.running ? 'Your sheet is still wet.' : '';
+  me.innerHTML = i.me ? `You: <b>#${i.me.rank}</b> of ${i.players} · <b>${i.me.points}</b> points${i.me.streak ? ` · 🖌 ${i.me.streak} days` : ''}` : i.today && i.running ? 'Your sheet is still wet.' : '';
   // Rangliste: die Besten (6), dein Platz dazu, wenn du nicht dabei bist. Die volle Liste gibt es im Spiel
   const board = $('s-board');
   board.replaceChildren();

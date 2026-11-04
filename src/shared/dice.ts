@@ -2,6 +2,7 @@
  * Würfel als Sammelobjekt. Die Seltenheit kommt vom Papier, das jedes Monster ohnehin würfelt.
  * Legendary sind seltene Papiere, die nur hier vergeben werden. Chancen, Schutz vor Pech und Preise stehen hier.
  */
+import type { Streak } from './streak';
 import type { PaperId, PigmentId } from './data';
 import type { ColorId } from './colors';
 import type { MediumId } from './duel/media';
@@ -243,6 +244,14 @@ export type DiceSave = {
   postSeen?: string[];
   /** Tropfen je Pigment: Beute aus Duellen, DROP_COST färben eine Seite um */
   drops?: Partial<Record<PigmentId, number>>;
+  /** Strähne beim Tagesblatt (src/shared/streak.ts) und fertige Wertungsläufe */
+  streak?: Streak;
+  sheets?: number;
+  /** Strähne als User-Flair (Schalter im Menü, Standard aus): Name, vorige Flair zum Zurücksetzen, zuletzt gezeigte Zahl */
+  streakFlair?: { user: string; was?: string; shown?: number };
+  /** Beitreten (T1): auf den Knopf getippt, und wie oft wir gefragt haben (höchstens zweimal) */
+  joined?: true;
+  joinAsked?: number;
 };
 export function emptyDice(): DiceSave {
   return { v: 3, dice: [], bag: [], pigment: 0, pity: { rare: 0, epic: 0, legendary: 0 }, glaze: {}, starter: STARTER_PULLS, freeDay: '', rewardDay: '', rewardN: 0, tutorialPaid: false, pulls: 0, next: 1 };

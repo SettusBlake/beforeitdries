@@ -80,6 +80,7 @@ Generation 2 (neue Formen, 2b, Stile) hat eigene Zufallsströme, damit Generatio
 - Belohnungen fürs Benennen stehen in `naming:paid` (Art und Spieler), damit jeder Name höchstens einmal zahlt, auch wenn Auftrag und Mod-Menü gleichzeitig laufen.
 - Übermalte Zeichnungen stehen mit ihrem Monster-Seed in `drawn:over`. Wer einen solchen Würfel bekommt (Markt, Tausch, Archiv), bekommt ihn ohne Zeichnung.
 - Tagesblatt: `seed` des Tages folgt aus dem Datum (Farbe, Pales, öffentlicher Seed für Aufträge), `secret` in `bleach:day:{Tag}` nur am Server. Die Würfe kommen aus beiden, damit sie für alle gleich, aber nicht vorausrechenbar sind.
+- Tägliche Aktivität (T1, T2, src/server/daily.ts, src/shared/streak.ts): Strähne im Spielstand (`streak`, `sheets`), gezählt nur in `finishRun` (Wertungslauf, UTC-Tag des Blatts), Retarder über die Woche des verpassten Tags (`held`). Flair nur mit Schalter (`streakFlair` mit `was` und `shown`), Spieler mit Flair in `streak:flair` (Score: Tagesnummer des letzten Blatts), der Auftrag `daily-sheet` nimmt getrockneten die Flair ab. Beitreten: `joined`, `joinAsked`, gefragt beim 1. und 5. Ergebnis (`JOIN_AT`), Reddit verrät nicht, wer Mitglied ist. Vorschau: /dev/streak?n=6 (schaltet auch das Lern-Duell frei), /dev/flair
 - `DUEL_PROTOCOL` in src/shared/api.ts bei jeder Änderung an Aktionen, Phasen oder Ereignissen erhöhen: alte Oberflächen bekommen dann „close this post and open it again“.
 - Test-Knöpfe nur in Playtest-Versionen (vierte Stelle in der Versionsnummer) und nur für Mods, der Server prüft beides.
 - Testlauf vom 02.11.2026 (etwa 1 340 Duelle und Tagesblätter über die Server-Schnittstelle, Wirtschaft, Bedienung im Browser): Befunde und Regressionstests in tests/qa-fixes.test.ts.
@@ -88,7 +89,7 @@ Generation 2 (neue Formen, 2b, Stile) hat eigene Zufallsströme, damit Generatio
 ## Reddit-Regeln, die der Code einhält
 
 - Kein Scrollen in Inline-Posts (Spiel-Post, Tagespost, Benennen-Post).
-- Aktionen im Namen des Spielers nur auf ausdrücklichen Tipp mit Hinweis: Benennen-Post (`runAs: 'USER'` mit `userGeneratedContent`), geteiltes Tagesblatt als Antwort auf den angehefteten Kommentar der App.
+- Aktionen im Namen des Spielers nur auf ausdrücklichen Tipp mit Hinweis: Benennen-Post (`runAs: 'USER'` mit `userGeneratedContent`), geteiltes Tagesblatt als Antwort auf den angehefteten Kommentar der App, Beitreten (`subscribeToCurrentSubreddit`, eigener Knopf, nie Bedingung zum Weiterspielen).
 - Löschpflichten: `onPostDelete`, `onCommentDelete` (src/server/deletion.ts), gelöschte Konten (src/server/accounts.ts, tägliche Prüfung, 21 Tage Frist, weil Reddit gesperrte und gelöschte Konten gleich meldet).
 - Handel nur gegen Pigment, Pigment nie für Geld.
 

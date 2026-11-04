@@ -7,7 +7,8 @@ import { statBlock } from './duel/statcard';
 import './lib/fonts';
 import './duel.css';
 import { context, navigateToPost, showLoginPrompt, showToast } from '@devvit/web/client';
-import type { BleachResult, DuelResponse, DuelReward } from '../shared/api';
+import type { BleachInfo, BleachResult, DuelResponse, DuelReward } from '../shared/api';
+import { streakReward, streakSepia } from '../shared/streak';
 import { DROP_COST, rarityDef, serialText, TINT_MAX } from '../shared/dice';
 import { BLEACH, bleachScore, forecast, type PaleCast } from '../shared/duel/bleach';
 import { shareText } from '../shared/sheet';
@@ -2298,8 +2299,10 @@ async function finishDuel(): Promise<void> {
             : `<span class="patina-r">Patina grew on ${reward.patina.length} dice: ${reward.patina.map((p) => `${iconSvg(p.face, 16)}`).join(' ')}<br><small>See their cards in Your dice.</small></span>`) +
           `<span class="patina-s">Master Sepia: “Wear suits it. That face has learned something.”</span>`
         : '') +
-      dropsText(reward.drops ?? []);
+      dropsText(reward.drops ?? []) +
+      (bl && bleachRes?.streak ? streakText(bleachRes.streak) : '');
   if (reward?.patina?.length) setTimeout(() => sfx.upface(2), 500);
+  joinSetup(reward?.join);
   reward = null;
   // Bleach: das Blatt als Kommentar teilen (erster Tipp zeigt es, zweiter postet)
   shareSetup(bl ? bleachRes : null);
@@ -2434,6 +2437,62 @@ async function startBleach(test = false): Promise<void> {
 }
 const BLEACH_INTRO = `Something is bleaching my sheet from the top edge, and today everyone gets the same sheet and the same nine dice of mine. Every round the Pales slide ${BLEACH.steps} steps down: your paint costs them a step, a blot in the way takes a hit, and one that slips off the bottom bleaches a heart. Splash flicks a whole row, Guard catches one at the edge, and the dashed lanes show where they will be once you end your turn.`;
 /** Startbild: Knopf fürs Tagesblatt mit Stand. Gibt den Stand zurück (der Tagespost startet damit gleich das Blatt) */
+/* ---------- Tägliche Aktivität (T1 Beitreten, T2 Strähne), freigegeben am 04.11.2026 ---------- */
+let streakFlairOn = false;
+/** Strähne im Knopf „Today’s sheet“ */
+function streakLine(st: BleachInfo['streak']): string {
+  const n = st.n;
+  if (st.state === 'done') return n === 1 ? '🖌 day 1 · see you tomorrow' : `🖌 ${n} days in a row`;
+  if (st.state === 'open') return n === 1 ? '🖌 1 day · paint today for 2' : `🖌 ${n} days · paint today to keep them`;
+  if (st.state === 'held') return `🖌 ${n} ${n === 1 ? 'day' : 'days'} · the Retarder holds today`;
+  if (st.state === 'dry' && st.best >= 2) return '🖌 your streak dried · start again';
+  return '';
+}
+/** Strähne im Ergebnis eines Wertungslaufs: Tage, Lohn, morgen, Sepia bei besonderen Tagen */
+function streakText(sk: NonNullable<BleachResult['streak']>): string {
+  const next = streakReward(sk.n + 1).pigment;
+  const say = streakSepia(sk);
+  return (
+    `<span class="streak-r">🖌 <b>${sk.n === 1 ? 'Day 1' : `${sk.n} days in a row`}</b>${sk.held ? ' · Retarder used' : ''}${sk.pigment ? ` · +${sk.pigment} pigment` : ''}${sk.drop ? ' · +1 drop' : ''}` +
+    `<br><small>${sk.best > sk.n ? `Best ${sk.best} · ` : ''}Tomorrow +${next} pigment${!streakFlairOn && sk.n >= 2 ? ' · Menu: show it as your user flair' : ''}</small></span>` +
+    (say ? `<span class="patina-s">Master Sepia: “${say}”</span>` : '')
+  );
+}
+/** Knopf „Join r/…“ im Ergebnis (nur wenn der Server es anbietet: erstes und fünftes Ergebnis) */
+function joinSetup(sub: string | undefined): void {
+  const b = $('join-b') as HTMLButtonElement;
+  b.hidden = $('join-note').hidden = !sub;
+  if (!sub) return;
+  b.textContent = `Join r/${sub}`;
+  b.disabled = false;
+}
+$('join-b').addEventListener('click', async () => {
+  const b = $('join-b') as HTMLButtonElement;
+  b.disabled = true;
+  sfx.tap();
+  try {
+    const r = await api.join();
+    b.textContent = `Joined r/${r.sub}. See you tomorrow.`;
+    $('join-note').hidden = true;
+  } catch (e) {
+    b.disabled = false;
+    onError(e);
+  }
+});
+const flairLabel = (): string => `Streak as user flair: ${streakFlairOn ? 'on' : 'off'}`;
+$('flair-m').addEventListener('click', () => {
+  sfx.tap();
+  const on = !streakFlairOn;
+  api
+    .streakFlair(on)
+    .then((r) => {
+      streakFlairOn = !!r.dice.streakFlair;
+      $('flair-m').textContent = flairLabel();
+      showTicker(on ? `Your user flair here shows your streak ${r.dice.streakFlair?.shown ? 'now' : 'after your next sheet'}. Switch it off for your old flair.` : 'Streak flair is off. Your old flair is back.', 'you');
+    })
+    .catch(onError);
+});
+
 async function bleachTitle(): Promise<Awaited<ReturnType<typeof api.bleach>> | null> {
   const b = $('bleach-b') as HTMLButtonElement,
     note = $('bleach-note');
@@ -2453,6 +2512,10 @@ async function bleachTitle(): Promise<Awaited<ReturnType<typeof api.bleach>> | n
         : i.played
           ? `${i.played.points} points${i.played.rank ? ` · #${i.played.rank} of ${i.players}` : ''}`
           : `${i.waves} waves · ${i.pales} Pales`;
+    streakFlairOn = !!i.flair;
+    const sl = streakLine(i.streak);
+    $('bleach-streak').hidden = !sl || !i.unlocked;
+    $('bleach-streak').textContent = sl;
     note.hidden = !i.top.length;
     note.innerHTML = '';
     if (i.top.length) note.append(`Today: ${i.top.map((t, k) => `${k + 1}. ${t.name || 'a painter'} ${t.points}`).join(' · ')} · `, html('u', '', 'full board'));
@@ -2709,6 +2772,8 @@ $('menu-btn').addEventListener('click', () => {
   $('new-m').hidden = bl || lesson;
   $('m-lv-lbl').hidden = $('m-lv-seg').hidden = S.mode === 'bleach' || lesson;
   $('gallery-m').hidden = S.mode === 'bleach' || lesson;
+  $('flair-m').hidden = lessonDone() === false || (S.tutorial > 0 && !S.over);
+  $('flair-m').textContent = flairLabel();
   newArmed = null;
   $('new-m').textContent = 'New duel';
   $('m-lv-lbl').textContent = 'Rival strength (starts a new duel)';

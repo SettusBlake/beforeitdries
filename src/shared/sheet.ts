@@ -97,6 +97,8 @@ export type ShareInput = {
   pales: number;
   sheet: string;
   col?: ColorId;
+  /** Strähne in Tagen (ab 2 im Kommentar) */
+  streak?: number;
 };
 
 /** Der Kommentar unter dem Tagespost (Markdown, Zeilenumbruch mit zwei Leerzeichen) */
@@ -105,5 +107,6 @@ export function shareText(r: ShareInput): string {
   const hearts = '❤️'.repeat(Math.max(0, r.hearts)) + '🤍'.repeat(Math.max(0, r.heartsMax - r.hearts));
   const place = r.ranked && r.rank ? ` · #${r.rank} of ${r.players ?? r.rank}` : '';
   const pales = `${r.washed + r.boss} of ${r.pales} Pales washed out${r.boss ? ', the great one too' : ''}`;
-  return [head, '', emojiRows(r.sheet, r.col).join('  \n'), '', `**${r.points} points**${place} · ${hearts}  \n${pales}`].join('\n');
+  const streak = r.streak && r.streak >= 2 ? `  \n🖌 ${r.streak} days in a row` : '';
+  return [head, '', emojiRows(r.sheet, r.col).join('  \n'), '', `**${r.points} points**${place} · ${hearts}  \n${pales}${streak}`].join('\n');
 }
