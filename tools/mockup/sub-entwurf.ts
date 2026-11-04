@@ -1,12 +1,13 @@
 /*
  * Entwurfsbogen „Subreddit-Auftritt“ (nur für docs/entwuerfe, docs/entwuerfe/publish-plan.md):
  * Banner für Desktop und Handy, Community-Icon, App-Icon. Alles aus dem echten Renderer und Canvas, keine Bilddateien.
- * #pick zeigt Kandidaten zum Aussuchen, sonst der Bogen. window.assets liefert die fertigen Bilder als PNG-Daten.
+ * #pick zeigt Kandidaten zum Aussuchen, #compact die kompakten Banner, #catalog die Katalogbilder (04.11.2026), sonst der Bogen. window.assets liefert die fertigen Bilder als PNG-Daten.
  * Bauen: npx esbuild tools/mockup/sub-entwurf.ts --bundle --format=iife --outfile=tools/mockup/sub-entwurf.js
  */
 import { renderMonster, grainTex } from '../../src/client/renderer/watercolor';
-import { find } from '../../src/shared/duel/rules';
-import type { BlueprintId, PigmentId } from '../../src/shared/data';
+import { find, type Face } from '../../src/shared/duel/rules';
+import { faceSvg } from '../../src/client/duel/faceskin';
+import { PIG, type BlueprintId, type PigmentId } from '../../src/shared/data';
 import type { Monster } from '../../src/shared/monster';
 
 const BPS: BlueprintId[] = ['kriecher', 'flatterer', 'schwebeblase', 'vierbeiner', 'schlange', 'turm', 'krabbe', 'qualle', 'huepfer', 'knolle', 'strahler', 'doppelkopf'];
@@ -343,6 +344,128 @@ function appIcon(m: Monster, s = 1024, wcol = 'rgb(176,30,62)', scale = 0.78): H
   return c;
 }
 
+
+/* ---------- Katalog (04.11.2026, docs/entwuerfe/katalog-und-feedback.md): Featuring 1500 × 1000, Kachel 560 × 256 ---------- */
+async function faceImg(f: Face, pig: PigmentId | null, px = 256): Promise<HTMLImageElement> {
+  const img = new Image();
+  const tint = pig ? PIG[pig].rgb : PIG.ultra.rgb;
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceSvg(f, 'tag', px, tint).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
+  await img.decode();
+  return img;
+}
+type Dice = [HTMLImageElement, HTMLImageElement, HTMLImageElement];
+/** Ein Würfel schräg von oben: Vorderseite, Deckel, rechte Seite, mit weichem Schatten */
+function cube(x: CanvasRenderingContext2D, cx: number, cy: number, s: number, rot: number, [front, top, side]: Dice): void {
+  const dx = s * 0.34,
+    dy = s * 0.26;
+  x.save();
+  x.translate(cx, cy);
+  x.rotate(rot);
+  // Schatten auf dem Papier
+  x.save();
+  x.filter = `blur(${Math.round(s * 0.08)}px)`;
+  x.fillStyle = 'rgba(60,45,30,.32)';
+  x.beginPath();
+  x.ellipse(dx * 0.4, s * 0.52, s * 0.62, s * 0.13, 0, 0, Math.PI * 2);
+  x.fill();
+  x.restore();
+  const ox = -s / 2,
+    oy = -s / 2 + dy / 2;
+  const face = (img: HTMLImageElement, a: number, b: number, c: number, d: number, e: number, f: number, shade: number) => {
+    x.save();
+    x.transform(a, b, c, d, e, f);
+    x.drawImage(img, 0, 0, s, s);
+    if (shade) {
+      x.fillStyle = `rgba(30,20,10,${shade})`;
+      x.fillRect(0, 0, s, s);
+    }
+    x.strokeStyle = 'rgba(40,30,20,.45)';
+    x.lineWidth = s * 0.012;
+    x.strokeRect(0, 0, s, s);
+    x.restore();
+  };
+  // Deckel: hintere Kante oben rechts, vordere Kante an der Oberkante der Vorderseite
+  face(top, 1, 0, -dx / s, dy / s, ox + dx, oy - dy, 0.02);
+  // Rechte Seite
+  face(side, dx / s, -dy / s, 0, 1, ox + s, oy, 0.2);
+  // Vorderseite
+  face(front, 1, 0, 0, 1, ox, oy, 0);
+  x.restore();
+}
+function featuring(d: Dice[], w = 1500, h = 1000): HTMLCanvasElement {
+  const [c, x] = paper(w, h, [
+    [400, 650, 470, 'rgb(43,63,163)', 0.24],
+    [1120, 330, 430, 'rgb(176,30,62)', 0.22],
+    [760, 860, 220, 'rgb(240,172,12)', 0.12],
+  ]);
+  // Feines Gitter des Blatts
+  x.strokeStyle = 'rgba(80,70,60,.12)';
+  x.lineWidth = 1.5;
+  for (let gx = 150; gx <= 1350; gx += 120) {
+    x.beginPath();
+    x.moveTo(gx, 70);
+    x.lineTo(gx, h - 70);
+    x.stroke();
+  }
+  for (let gy = 70; gy <= h - 70; gy += 120) {
+    x.beginPath();
+    x.moveTo(150, gy);
+    x.lineTo(1350, gy);
+    x.stroke();
+  }
+  bleachEdge(x, w, h, 1390, 'both');
+  put(x, PICK.twins, 1430, 170, 230, 0.1, 0.32);
+  put(x, PICK.hat, 470, 440, 600, -0.05);
+  put(x, PICK.puff, 1080, 390, 540, 0.05);
+  // Spritzer fliegt vom Klecks links zum rechten
+  drops(x, [
+    [735, 300, 16, 'rgb(43,63,163)'],
+    [790, 268, 10, 'rgb(43,63,163)'],
+    [835, 252, 6, 'rgb(43,63,163)'],
+    [700, 335, 7, 'rgb(43,63,163)'],
+    [1310, 640, 9, 'rgb(176,30,62)'],
+    [180, 880, 8, 'rgb(12,108,92)'],
+  ]);
+  cube(x, 600, 815, 185, -0.12, d[0]!);
+  cube(x, 885, 850, 160, 0.13, d[1]!);
+  cube(x, 1150, 820, 145, -0.06, d[2]!);
+  return c;
+}
+function tile(d: Dice[], w = 560, h = 256): HTMLCanvasElement {
+  const [c, x] = paper(w, h, [
+    [170, 150, 150, 'rgb(43,63,163)', 0.2],
+    [420, 110, 140, 'rgb(232,62,128)', 0.16],
+  ]);
+  bleachEdge(x, w, h, w - 40, 'both');
+  put(x, PICK.hat, 150, 120, 220, -0.05);
+  put(x, PICK.puff, 405, 112, 205, 0.05);
+  drops(x, [
+    [262, 82, 7, 'rgb(43,63,163)'],
+    [284, 70, 4, 'rgb(43,63,163)'],
+  ]);
+  cube(x, 278, 188, 74, -0.1, d[0]!);
+  return c;
+}
+/** So ungefähr zeigt der Katalog die Bilder: Karte mit Name, Kategorie, Beschreibung und Play, dazu Kachel und Icon */
+function catalogCard(img: HTMLCanvasElement, desc: string): HTMLElement {
+  const f = document.createElement('figure');
+  f.className = 'fig';
+  f.innerHTML = `<div class="cc"><img src="${img.toDataURL()}"><div class="cc-b"><b>beforeitdries</b><small>STRATEGY · 999K PLAYERS</small><p>${desc}</p><span>Play</span></div></div><figcaption><b>Featuring-Karte</b> wie in der Vorschau des Editors</figcaption>`;
+  return f;
+}
+function catalogTile(t: HTMLCanvasElement, ic: string, tag: string): HTMLElement {
+  const f = document.createElement('figure');
+  f.className = 'fig';
+  f.innerHTML = `<div class="ct"><div class="ct-r"><img class="ct-i" src="${ic}"><div><b>beforeitdries</b><small>${tag}</small></div><span class="ct-p">Play</span></div><img class="ct-t" src="${t.toDataURL()}"><b>beforeitdries</b></div><figcaption><b>Icon und Kachel</b> wie in der Vorschau</figcaption>`;
+  return f;
+}
+function grey(c: HTMLCanvasElement): HTMLCanvasElement {
+  const [g, x] = cnv(c.width, c.height);
+  x.filter = 'grayscale(1)';
+  x.drawImage(c, 0, 0);
+  return g;
+}
+
 /* ---------- Bogen ---------- */
 const OUT: Record<string, HTMLCanvasElement> = {};
 function show(id: string, c: HTMLCanvasElement, label: string, cssW: number, round = false): HTMLElement {
@@ -381,6 +504,37 @@ if (location.hash === '#pick') {
       d.append(blot(mon(bp, pig, salt), 150), `${bp} ${pig} ${salt}`);
       root.append(d);
     }
+} else if (location.hash === '#catalog') {
+  void (async () => {
+    await Promise.all(['400 104px "Young Serif"', '700 52px Caveat'].map((f) => document.fonts.load(f)));
+    const F = (k: Face['k'], n: number, c?: PigmentId): Face => ({ k, n, ...(c ? { c } : {}) });
+    const dice: Dice[] = [
+      [await faceImg(F('star', 3), 'ultra'), await faceImg(F('splash', 1, 'ultra'), 'ultra'), await faceImg(F('step', 2, 'ultra'), 'ultra')],
+      [await faceImg(F('splash', 2, 'karmin'), 'karmin'), await faceImg(F('star', 2), 'karmin'), await faceImg(F('guard', 1, 'karmin'), 'karmin')],
+      [await faceImg(F('joker', 0), 'kadmium'), await faceImg(F('glow', 1, 'kadmium'), 'kadmium'), await faceImg(F('step', 1, 'kadmium'), 'kadmium')],
+    ];
+    const feat = featuring(dice),
+      tl = tile(dice),
+      ic = appIcon(PICK.hat, 512).toDataURL();
+    root.innerHTML = `<p class="eyebrow">Entwurf · In-app catalog</p><h1>Bilder für den Spiele-Katalog</h1>
+      <p class="sub">Featuring 1500 × 1000 und Kachel 560 × 256, ohne Text im Bild. Alles aus dem Renderer, Würfelseiten aus dem Spiel. Unten in Graustufen zum Prüfen des Kontrasts.</p>`;
+    const g1 = document.createElement('div');
+    g1.className = 'col';
+    g1.append(show('featuring', feat, '<b>Featuring asset</b> 1500 × 1000 · auch als Fallback', 760));
+    const g2 = document.createElement('div');
+    g2.className = 'row';
+    g2.append(show('tile', tl, '<b>Tile image</b> 560 × 256', 420), catalogCard(feat, 'Roll watercolour monsters as dice'), catalogTile(tl, ic, 'Every blot is a die.'));
+    const g3 = document.createElement('div');
+    g3.className = 'row';
+    const gf = show('grey-f', grey(feat), '<b>Graustufen</b> Featuring', 360);
+    const gt = show('grey-t', grey(tl), '<b>Graustufen</b> Kachel', 280);
+    delete OUT['grey-f'];
+    delete OUT['grey-t'];
+    g3.append(gf, gt);
+    root.append(g1, g2, g3);
+    const w = window as unknown as { assets: Record<string, string> };
+    w.assets = Object.fromEntries(Object.entries(OUT).map(([k, v]) => [k, v.toDataURL('image/png')]));
+  })();
 } else if (location.hash === '#compact') {
   void Promise.all(['400 104px "Young Serif"', '700 52px Caveat'].map((f) => document.fonts.load(f))).then(() => {
     const cT = compact(true),

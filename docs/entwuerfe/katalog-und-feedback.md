@@ -1,36 +1,41 @@
 # Katalog und Feedback-Posts
 
-Stand 04.11.2026, Fassung 1. Publish-Plan Schritt 5. Version 0.1.0 ist freigegeben und in r/beforeitdries installiert.
+Stand 04.11.2026, Fassung 2. Publish-Plan Schritt 5. Version 0.1.0 ist freigegeben und in r/beforeitdries installiert.
 
-Quelle: Devvit-Doku (In-app Catalog Assets, Feature Guide, Launch Guide). Die Bildmaße stehen dort nicht, die zeigt erst der Editor im Developer Portal.
+Quelle: Devvit-Doku (In-app Catalog Assets, Feature Guide, Launch Guide) und der Editor im Developer Portal (Screenshot vom 04.11.2026).
 
 ## 1 Katalog im Developer Portal
 
-**Wo:** developers.reddit.com, App „beforeitdries“, Developer Settings, Abschnitt **In-app catalog**. Geht im Handy-Browser. Der Editor hat eine Vorschau. Fehlt der Abschnitt, hat die App den Zugang noch nicht.
+**Wo:** developers.reddit.com, App „beforeitdries“, Developer Settings, Abschnitt **In-app catalog**. Geht im Handy-Browser. Der Editor hat eine Vorschau.
 
-**Was Reddit verlangt:**
+**Vorgaben des Editors:** JPG oder PNG, bis 800 KB empfohlen, höchstens 3 MB. Featuring 1500 × 1000 (mindestens 1000 × 667), Kachel 560 × 256 (mindestens 280 × 128). Featuring description höchstens 35 Zeichen, Tile tagline höchstens 20.
 
-| Feld | Pflicht | Was ich vorschlage |
+**Was hochladen** (alles in docs/entwuerfe/katalog/, Vorschau in docs/entwuerfe/katalog-entwurf.png):
+
+| Feld | Datei | Größe |
 | --- | --- | --- |
-| App icon | ja | `assets/icon.png` (Klecks mit Hut, 1024 × 1024), liegt auch in docs/entwuerfe/subreddit/app-icon.png |
-| Featuring asset | ja | großes Bild: Duell mit Klecksen, Würfeln und Aquarell-Blatt, wenig Text. Male ich aus dem Renderer, sobald ich die Maße habe |
-| Fallback asset | nur bei Video | entfällt, wir nehmen ein Bild |
-| Tile image | ja | kleines Bild: zwei Kleckse über einem Würfel, ohne Text. Male ich ebenso |
-| Featuring description | ja | siehe unten |
-| Tile tagline | ja | siehe unten |
-| Game category | ja (Spiel) | Strategy, falls es sie gibt, sonst die nächstpassende |
-| App subreddit | ja | r/beforeitdries |
-| Post sort order | nein | Hot (Standard) |
-| Post flairs | nein, empfohlen | `Play` und `Today's sheet` (ohne Emojis) |
+| Promotional icon | `icon-1024.png` (Klecks mit Hut, wie das App-Icon, wird rund geschnitten) | 1024 × 1024, 472 KB |
+| Featuring asset | `featuring-1500x1000.jpg` (zwei Kleckse auf dem Blatt, Spritzer, drei Würfel, rechts bleicht der Rand aus, ein Pale) | 1500 × 1000, 258 KB |
+| Fallback asset | dieselbe Datei `featuring-1500x1000.jpg` | |
+| Tile image | `tile-560x256.png` (die beiden Kleckse und ein Würfel) | 560 × 256, 262 KB |
+
+Kein Text im Bild, weil der Katalog Name und Beschreibung darunter setzt und kleine Plätze zuschneiden. In Graustufen geprüft: Kleckse und Würfel bleiben gut unterscheidbar.
+
+Der Editor bevorzugt beim Featuring asset ein Video (MP4). Ein Bild geht auch. Ein kurzes Video aus dem Spiel (etwa 10 Sekunden: Würfeln, Beschwören, Spritzer, Auswaschen) kann ich später aus der Vorschau aufnehmen, wenn du willst.
 
 **Texte:**
 
-- **Tile tagline:** Every blot is a die.
-- **Featuring description:** Collect one-of-a-kind watercolour monsters, roll them as dice and paint the sheet before it dries. Duel rivals, hold the daily sheet against the Bleach, and name new species with your community.
+- **Featuring description** (35): `Roll watercolour monsters as dice` (33 Zeichen). Andere Möglichkeit: `Watercolour monsters. Dice duels.` (33)
+- **Tile tagline** (20): `Every blot is a die.` (genau 20)
+- **Game category:** Strategy (steht in der Vorschau schon so)
 
-**Hinweise aus der Doku:** wenig Text im Bild (kleine Plätze schneiden zu), genug Kontrast auch in Graustufen, kein Flackern. Eine falsche Kategorie kann zur Ablehnung führen. Die Bilder werden noch einmal geprüft, bevor sie im Katalog erscheinen.
+**Featured surfaces:**
 
-**Was ich von dir brauche:** die Maße, die der Editor bei Featuring asset und Tile image anzeigt (Screenshot reicht). Dann male ich beide Bilder und lege sie als PNG in docs/entwuerfe/katalog/.
+- App subreddit: r/beforeitdries
+- Post sort order: Hot (Standard)
+- Post flairs: `Play` und `Today's sheet` (ohne Emojis)
+
+Die Bilder werden von Reddit noch einmal geprüft, bevor sie im Katalog erscheinen.
 
 ## 2 Feedback-Posts
 
@@ -69,3 +74,4 @@ Laut Launch Guide: den Spiel-Post nach r/Devvit mit Flair **Feedback Friday** cr
 
 - Rhythmus: Playtests jederzeit in r/beforeitdries_dev, Releases gesammelt höchstens einmal pro Woche (`npx devvit publish`, dann `npx devvit install beforeitdries`).
 - Nächste kleine Punkte: Kleckse am Rand leicht abgeschnitten, Benennen-Post unter 512 Pixel Höhe, nie gezeigtes Ergebnis, Node 24.
+- Quelle der Bilder: tools/mockup/sub-entwurf.ts, Modus `#catalog`.
