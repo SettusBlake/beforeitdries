@@ -1,6 +1,6 @@
 # Katalog und Feedback-Posts
 
-Stand 04.11.2026, Fassung 2. Publish-Plan Schritt 5. Version 0.1.0 ist freigegeben und in r/beforeitdries installiert.
+Stand 04.11.2026, Fassung 3. Publish-Plan Schritt 5. Version 0.1.0 ist freigegeben und in r/beforeitdries installiert.
 
 Quelle: Devvit-Doku (In-app Catalog Assets, Feature Guide, Launch Guide) und der Editor im Developer Portal (Screenshot vom 04.11.2026).
 
@@ -15,13 +15,13 @@ Quelle: Devvit-Doku (In-app Catalog Assets, Feature Guide, Launch Guide) und der
 | Feld | Datei | Größe |
 | --- | --- | --- |
 | Promotional icon | `icon-1024.png` (Klecks mit Hut, wie das App-Icon, wird rund geschnitten) | 1024 × 1024, 472 KB |
-| Featuring asset | `featuring-1500x1000.jpg` (zwei Kleckse auf dem Blatt, Spritzer, drei Würfel, rechts bleicht der Rand aus, ein Pale) | 1500 × 1000, 258 KB |
-| Fallback asset | dieselbe Datei `featuring-1500x1000.jpg` | |
+| Featuring asset | `featuring-video-1500x1000.mp4` (Video, siehe unten) oder als Bild `featuring-1500x1000.jpg` | 1500 × 1000, 2,5 MB oder 258 KB |
+| Fallback asset | `featuring-1500x1000.jpg` (zwei Kleckse auf dem Blatt, Spritzer, drei Würfel, rechts bleicht der Rand aus, ein Pale) | 1500 × 1000, 258 KB |
 | Tile image | `tile-560x256.png` (die beiden Kleckse und ein Würfel) | 560 × 256, 262 KB |
 
 Kein Text im Bild, weil der Katalog Name und Beschreibung darunter setzt und kleine Plätze zuschneiden. In Graustufen geprüft: Kleckse und Würfel bleiben gut unterscheidbar.
 
-Der Editor bevorzugt beim Featuring asset ein Video (MP4). Ein Bild geht auch. Ein kurzes Video aus dem Spiel (etwa 10 Sekunden: Würfeln, Beschwören, Spritzer, Auswaschen) kann ich später aus der Vorschau aufnehmen, wenn du willst.
+**Video** (gewählt am 04.11.2026, der Editor bevorzugt MP4): 11,5 Sekunden, 30 Bilder pro Sekunde, ohne Ton. Das erste Bild ist das Featuring-Bild (falls nichts abspielt). Dann ein echtes Duell aus der Vorschau im Handy-Rahmen neben dem Klecks mit Hut: Würfel fallen, ein Netz klappt auf, Treffer mit Zahlen, „WASHED OUT“, „PALETTE HIT“, Meisterzug „Rain“. Am Ende Titel und Tagline. Kein schnelles Flackern. Übersicht docs/entwuerfe/katalog-video-entwurf.png, Herstellung tools/mockup/video/LIESMICH.md.
 
 **Texte:**
 

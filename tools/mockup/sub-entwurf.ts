@@ -431,6 +431,52 @@ function featuring(d: Dice[], w = 1500, h = 1000): HTMLCanvasElement {
   cube(x, 1150, 820, 145, -0.06, d[2]!);
   return c;
 }
+/** Hintergrund fürs Katalog-Video: Klecks und Würfel links, rechts Platz für das Spiel im Handy-Rahmen */
+function videoBg(d: Dice[], w = 1500, h = 1000): HTMLCanvasElement {
+  const [c, x] = paper(w, h, [
+    [380, 600, 430, 'rgb(43,63,163)', 0.22],
+    [1150, 380, 420, 'rgb(176,30,62)', 0.16],
+  ]);
+  bleachEdge(x, w, h, 1430, 'both');
+  put(x, PICK.hat, 400, 400, 560, -0.05);
+  drops(x, [
+    [700, 250, 12, 'rgb(43,63,163)'],
+    [740, 222, 7, 'rgb(43,63,163)'],
+    [180, 880, 8, 'rgb(12,108,92)'],
+  ]);
+  cube(x, 300, 820, 170, -0.12, d[0]!);
+  cube(x, 545, 845, 150, 0.12, d[1]!);
+  // Schatten unter dem Handy-Rahmen (das Video liegt bei x 900, y 50, 544 × 900)
+  x.save();
+  x.filter = 'blur(18px)';
+  x.fillStyle = 'rgba(60,45,30,.35)';
+  x.beginPath();
+  x.roundRect(912, 72, 544, 900, 34);
+  x.fill();
+  x.restore();
+  return c;
+}
+/** Schlussbild: Titel und Tagline, zwei Kleckse, Würfel */
+function endCard(d: Dice[], w = 1500, h = 1000): HTMLCanvasElement {
+  const [c, x] = paper(w, h, [
+    [360, 640, 380, 'rgb(43,63,163)', 0.2],
+    [1140, 640, 380, 'rgb(176,30,62)', 0.18],
+  ]);
+  bleachEdge(x, w, h, 1420, 'both');
+  put(x, PICK.hat, 330, 640, 430, -0.05);
+  put(x, PICK.puff, 1170, 630, 400, 0.05);
+  cube(x, 660, 790, 150, -0.1, d[0]!);
+  cube(x, 850, 810, 135, 0.12, d[1]!);
+  x.textAlign = 'center';
+  x.fillStyle = '#1d2130';
+  x.font = '400 120px "Young Serif", serif';
+  x.fillText('Before It Dries', w / 2, 250);
+  x.fillStyle = '#6b4a2f';
+  x.font = '700 76px Caveat, cursive';
+  x.fillText('Every blot is a die.', w / 2, 350);
+  x.textAlign = 'left';
+  return c;
+}
 function tile(d: Dice[], w = 560, h = 256): HTMLCanvasElement {
   const [c, x] = paper(w, h, [
     [170, 150, 150, 'rgb(43,63,163)', 0.2],
@@ -515,6 +561,8 @@ if (location.hash === '#pick') {
     ];
     const feat = featuring(dice),
       tl = tile(dice),
+      vb = videoBg(dice),
+      ec = endCard(dice),
       ic = appIcon(PICK.hat, 512).toDataURL();
     root.innerHTML = `<p class="eyebrow">Entwurf · In-app catalog</p><h1>Bilder für den Spiele-Katalog</h1>
       <p class="sub">Featuring 1500 × 1000 und Kachel 560 × 256, ohne Text im Bild. Alles aus dem Renderer, Würfelseiten aus dem Spiel. Unten in Graustufen zum Prüfen des Kontrasts.</p>`;
@@ -531,7 +579,10 @@ if (location.hash === '#pick') {
     delete OUT['grey-f'];
     delete OUT['grey-t'];
     g3.append(gf, gt);
-    root.append(g1, g2, g3);
+    const g4 = document.createElement('div');
+    g4.className = 'row';
+    g4.append(show('video-bg', vb, '<b>Video</b> Hintergrund', 360), show('video-end', ec, '<b>Video</b> Schlussbild', 360));
+    root.append(g1, g2, g3, g4);
     const w = window as unknown as { assets: Record<string, string> };
     w.assets = Object.fromEntries(Object.entries(OUT).map(([k, v]) => [k, v.toDataURL('image/png')]));
   })();
