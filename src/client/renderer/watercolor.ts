@@ -21,8 +21,6 @@ export interface RenderOptions {
   paper?: boolean;
   /** Nur für Entwürfe: true oder false schaltet 2b für Generation 2 ein oder aus, ein Look erzwingt dieses Aussehen */
   look?: Look | boolean;
-  /** Nur für Entwürfe: diese Form statt der aus dem Seed (Entwicklung, src/shared/evolve.ts) */
-  geometry?: Geometry;
 }
 /** Generation 2b im Spiel: freigegeben am 30.10.2026 (docs/entwuerfe/gen2b-entwurf.png). false malt Generation 2 wie davor */
 export const GEN2B = true;
@@ -721,7 +719,7 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   ctx.save();
   if (opts.paper !== false) drawPaper(ctx, S, pa, r);
   yield* pause();
-  const geo = opts.geometry ?? geometryOf(m);
+  const geo = geometryOf(m);
   // Generation 2b: eigener Farbton, Muster, Gesicht und Malereignisse (eigener Zufall, nur Aussehen). Generation 1 bleibt
   const on = typeof opts.look === 'object' || (opts.look ?? GEN2B);
   const picked = m.gen === 2 && on ? (typeof opts.look === 'object' ? opts.look : lookOf(m, isThing(geo))) : null;

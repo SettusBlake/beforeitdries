@@ -1,6 +1,6 @@
 # Entwicklung: Vorschlag
 
-Stand 04.11.2026, Fassung 2. Nichts davon ist im Spiel. Fragen am Ende.
+Stand 04.11.2026, Fassung 2. **Verworfen am 04.11.2026** („gefällt mir leider gar nicht, vielleicht lassen wir die Idee“). Der Entwurfscode (src/shared/evolve.ts, `geometry` in RenderOptions, tools/mockup/entwicklung2-entwurf.ts) ist wieder entfernt und liegt nur noch in der Git-Geschichte (Commit cfa8399). Die Bilder bleiben als Erinnerung.
 
 Rückmeldung zu Fassung 1 (Schichten, die nur obendrauf gemalt werden): „so wie in Pokémon oder Digimon, aber die Farbe oder sonst was verläuft und die Form ändert sich halt“.
 
