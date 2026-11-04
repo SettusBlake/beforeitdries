@@ -1,110 +1,104 @@
 # Entwicklung: Vorschlag
 
-Stand 04.11.2026, Fassung 1. Nichts davon ist gebaut. Fragen am Ende.
+Stand 04.11.2026, Fassung 2. Nichts davon ist im Spiel. Fragen am Ende.
 
-Bild: docs/entwuerfe/entwicklung-entwurf.png (Quelle tools/mockup/entwicklung-entwurf.ts). Die Kleckse sind echt aus dem Renderer, die Schichten sind im Entwurf nachträglich aufgemalt. Alle Zahlen sind Vorschläge und werden vor dem Bau simuliert.
+Rückmeldung zu Fassung 1 (Schichten, die nur obendrauf gemalt werden): „so wie in Pokémon oder Digimon, aber die Farbe oder sonst was verläuft und die Form ändert sich halt“.
 
-## 1 Was es schon gibt
+Bild: docs/entwuerfe/entwicklung2-entwurf.png (Quelle tools/mockup/entwicklung2-entwurf.ts). Diesmal ist alles mit dem echten Renderer gemalt. Die Formen kommen aus dem Entwurf src/shared/evolve.ts, der Renderer nimmt sie nur im Entwurf an (`geometry` in RenderOptions). Im Spiel ändert sich dadurch nichts. Das Bild zu Fassung 1 bleibt als entwicklung-entwurf.png liegen.
 
-| Was | Wirkung |
+## 1 Idee
+
+- **Wie bei Pokémon:** Nach der gezogenen Form kommen drei Stufen. Jede Stufe ist eine neue Form und eine eigene Art mit eigenem Namen.
+- **Wie bei Digimon:** Ab Stufe 2 entscheidet, was der Klecks im Duell meistens getan hat, welche Richtung er nehmen kann.
+- **Anders als dort:** Es gibt keine festen Formen. Jedes Monster entwickelt sich aus seinem eigenen Seed.
+  - Zwei Kleckse derselben Art mit derselben Richtung bekommen dieselbe Art von Teilen und dieselbe neue Farbe, sehen aber nie gleich aus.
+  - Das Gesicht bleibt, so erkennt man den Klecks wieder.
+- **Abgrenzung zu Amber Delve:** Dort entwickelt sich lebende Ausrüstung, die mit Bernstein gefüttert wird. Hier entwickelt sich das Monster selbst, durch Einsatz im Spiel. Gefüttert wird nichts.
+
+## 2 Wie sich die Form ändert
+
+Das gilt für alle Formen: Generation 1, Generation 2 und selbst gemalte Monster. Verändert wird nur die fertige Form aus dem Seed, Stufe 0 bleibt genau wie heute.
+
+**Wachsen:**
+- Der Körper wächst stärker als der Kopf, um 12, 24 und 34 % je Stufe.
+- Beine, Fühler und Schwänze werden länger, um 12, 22 und 30 %.
+- Der Klecks steht mit jeder Stufe größer im Bild.
+
+**Stufe 1** (für alle gleich): Das erste Teil sprießt, der Seed wählt aus Hörnchen, Rückenzacken oder Schwanz.
+
+**Stufe 2 und 3** hängen von der Richtung ab:
+
+| Richtung | kommt von | Stufe 2 | Stufe 3 | Farbe, die hineinläuft |
+| --- | --- | --- | --- | --- |
+| Spatter | oft gespritzt | Stacheln am Rücken, Hörner | mehr und größere Stacheln, große Hörner, Stachelschwanz | Carmine |
+| Impasto | oft getroffen und überlebt | Panzerplatten | mehr Platten, Krone, Rückenzacken | Cadmium Yellow (deckt) |
+| Bloom | viele Felder gemalt | Flügel, Blüte am Kopf | Schmetterlingsflügel, Mähne aus Blütenblättern | Opera Rose |
+| Lift | viel gegangen, ausgewichen | Spiralschwanz, Flügelchen | Pfauenschwanz, schwebende Kugeln, Heiligenschein | Ultramarine |
+
+Ist die neue Farbe schon die eigene, läuft die zweite hinein: Opera, Sienna, Carmine oder Phthalo.
+
+- **Teile:** Sie kommen aus dem vorhandenen Bausatz der Formen (Hüte, Schwänze, Flügel) und neuen Teilen (Stacheln, Platten, Mähne, Kugeln). Gesetzt werden sie an Kopf, Rücken, Schulter und das hintere Ende des Kleckses.
+- **Farbe verläuft:**
+  - Stufe 1: Die neue Farbe läuft in die Zweitfarbe.
+  - Stufe 2: eine Lasur der neuen Farbe darüber.
+  - Stufe 3: eine zweite Lasur. Bei Lift nicht, denn Lift hebt Farbe aus.
+  - Dazu je Stufe etwas mehr Wasser, damit es nasser verläuft.
+- **Festes Bild:** gleicher Seed, gleiche Stufe, gleiche Richtung, gleiches Bild. Gespeichert werden nur Stufe und Richtung, nie das Bild.
+- **Was im Entwurf noch nicht stimmt:**
+  - Manche Kleckse werden zu dunkel (Lift auf Braun).
+  - Teile sitzen nicht immer gut, zum Beispiel Hörner zwischen Ohren.
+  - Das stimme ich in Schritt 1 mit vielen Zufallsmonstern ab.
+
+## 3 Wann sich ein Klecks entwickelt
+
+- **Erfahrung:** Jedes Beschwören zählt, die Stufen kommen bei 5, 15 und 30 Beschwörungen.
+  - Gerechnet sind das etwa 0,4 Beschwörungen je Würfel und Duell.
+  - Mit 5 Duellen und dem Tagesblatt am Tag dauert es bis Stufe 1 etwa 2 Tage, bis Stufe 3 etwa 2 Wochen.
+- **Kosten:** Pigment, 100, 250 und 500.
+- **Richtung:** Der Server zählt je Würfel Spritzer, eingesteckte Treffer, gemalte Felder und Schritte. Bei Stufe 2 bietet Sepia die zwei häufigsten an, du wählst.
+- **Der Moment:**
+  - Die Würfelkarte leuchtet, ein Tipp startet die Verwandlung.
+  - Das Papier wird nass, die neue Farbe läuft hinein, die alte Form verblasst, die neue wird Schritt für Schritt gemalt.
+  - Danach zählen die Werte sichtbar hoch, dazu Ton und Sepia.
+- **Ablehnen:** „Keep it as it is“ lässt die Stufe aus, wie bei Pokémon. Später geht es trotzdem noch.
+
+## 4 Was die Entwicklung bewirkt
+
+**Werte** (Vorschlag, vor dem Bau simuliert):
+
+| Stufe | Wirkung |
 | --- | --- |
-| Lasur (aus ausgewaschenen Würfeln derselben Art) | 3 Lasur machen eine einfache Seite doppelt |
-| Patina | nach 10, 30 und 60 Würfen wird eine Seite besser |
-| Umfärben | 5 Tropfen färben eine Seite um, höchstens 2 je Würfel |
-| Holo | hebt die Seltenheit, aber nur einmal beim Ziehen |
+| 1 | +2 Lebenskraft, eine Seite wird besser (wie bei der Patina) |
+| 2 | Wert der Richtung: Spatter Schaden +2, Impasto Lebenskraft +4, Bloom verläuft 1 Feld weiter, Lift Ausweichen +5 % und 1 Schritt weiter |
+| 3 | Meisterzug schon ab 5 statt 6 Sättigung, die Stufe (Tier) kann steigen |
 
-All das ändert nur Würfelseiten. Der Klecks selbst sieht immer gleich aus. Lebenskraft, Schaden, Reichweite und die Fähigkeit bleiben, wie sie beim Ziehen gewürfelt wurden.
+**Neue Arten:**
+- Art heißt dann Bauplan, Hauptpigment, Stufe und Richtung.
+- Wer als Erster eine neue Stufe einer Art erreicht, kann einen Post „What does it become?“ anlegen. Der Ablauf ist wie beim Benennen: Nach 24 Stunden wird der oberste gültige Kommentar der Name.
+- So entsteht mit der Zeit ein Bestiarium mit Entwicklungsreihen wie im Pokédex.
 
-Das Ziel in CLAUDE.md lautet: „der Spieler malt sein Exemplar Schicht für Schicht (Lasuren) stärker“. Das alte Malblatt mit Lasieren und Trockenzeit ist seit dem 02.11.2026 weg. Dieser Teil des Ziels fehlt im Spiel also gerade.
+**Gilt überall:**
+- Duell und Tagesblatt.
+- Galerie: die Stärke zählt mit.
+- Archiv: Pales behalten ihre Form.
+- Markt und Tausch: Stufe und Richtung wandern mit.
 
-## 2 Grenzen
+## 5 Umsetzung in Schritten
 
-- **Kein Füttern und kein fester Baum:** keine Gegenstände, die man einem Klecks gibt, und keine vorgegebenen Entwicklungsformen je Art. Das wäre Amber Delve oder Digimon. Jeder Klecks bleibt einzigartig.
-- **Kein Austrocknen und kein Reifen über Zeit:** Austrocknen wurde am 29.10.2026 abgelehnt.
-- **Gleicher Seed, gleiches Bild:** Schichten kommen als eigener Zufallsstrom obendrauf. Die Grundform bleibt gleich, Generation 1 bleibt pixelgleich.
-- **Alle Würfe am Server.**
+1. **Formen und Farbe fertig:** evolve.ts abstimmen und einen Entwurfsbogen mit etwa 30 Zufallsmonstern je Richtung zeigen. Dabei Ausreißer beheben: zu dunkel, Teile an falscher Stelle, zu viele Kleckse für das Handy. Danach deine Rückmeldung.
+2. **Server:** Zähler je Würfel, Stufen, Werte, Simulation der Siegquoten.
+3. **Verwandlung:** das Ritual, die Würfelkarte mit Fortschritt, Sepias Angebot.
+4. **Arten:** „What does it become?“ und die Namen der Stufen.
 
-## 3 Vorschläge
+Falten (zwei Kleckse zu einem, aus „Später“) danach als eigener Vorschlag.
 
-### E1 Schichten (mittel)
+## 6 Fragen
 
-Jeder Würfel kann drei Schichten mehr bekommen. Jede braucht Erfahrung im Spiel und kostet etwas.
-
-| Schicht | Name | Aussehen | Wirkung (Vorschlag) |
-| --- | --- | --- | --- |
-| 0 | First wash | wie heute | |
-| 1 | Second wash | Farbe tiefer, deckender, dunkler Wasserrand | +2 Lebenskraft, eine Seite wird besser (Server würfelt, wie bei der Patina) |
-| 2 | eine Richtung (E2) | je nach Richtung | Wert der Richtung |
-| 3 | Signed | Tuschelinie am Rand, Blattgold | Meisterzug schon ab 5 statt 6 Sättigung, die Stufe kann steigen, „painted by u/name“ auf der Karte |
-
-- **Erfahrung:** jedes Beschwören zählt (der Klecks klappt aufs Blatt), im Duell und im Tagesblatt. Schwellen 5, 15 und 30 Mal.
-  - Grob gerechnet: etwa 3,6 Beschwörungen je Duell und Seite, verteilt auf 9 Würfel, also etwa 0,4 je Würfel und Duell.
-  - Mit 5 Duellen und dem Tagesblatt am Tag ist Schicht 1 nach etwa 2 Tagen erreicht, Schicht 2 nach etwa einer Woche, Schicht 3 nach etwa 2 Wochen. Das gilt für alle Würfel im Deck gleichzeitig.
-- **Kosten** (Frage 3): Pigment 100, 250 und 500.
-- **Anzeige:**
-  - Fortschritt steht auf der Würfelkarte („Layer 1/3 · Unfolded 9/15“).
-  - Ist die Schicht bereit, leuchtet die Karte. Ein Tipp malt sie: Pinsel, Lasur und Ton wie beim Ziehen, die Werte zählen sichtbar hoch, Sepia sagt etwas dazu.
-  - Im Duell sieht man die Schichten am Klecks, der Chip zeigt eine kleine Ziffer.
-- **Gilt überall:**
-  - Duell und Tagesblatt.
-  - Galerie: die Stärke zählt mit, die Suche nach ähnlicher Stärke bleibt fair.
-  - Archiv: Pales behalten ihre Schichten.
-  - Markt und Tausch: die Schichten wandern mit, die Signatur bleibt als Herkunft.
-
-### E2 Richtung bei Schicht 2 (Teil von E1)
-
-Bei Schicht 2 bietet Sepia zwei von vier Richtungen an. Es sind die zwei, die zu dem passen, was der Klecks im Duell am meisten getan hat. Du wählst eine.
-
-| Richtung | Kommt von | Aussehen | Wirkung (Vorschlag) |
-| --- | --- | --- | --- |
-| Spatter | oft gespritzt | Spritzerkranz in seiner Farbe | Schaden +2 |
-| Impasto | oft getroffen und überlebt | dicke, deckende Farbe mit Pinselrelief | Lebenskraft +4 |
-| Bloom | viele Felder gemalt | Blumenkohl-Ränder, wo Farbe zurückläuft | seine Farbe verläuft 1 Feld weiter (wie Ox Gall, nur für diesen Klecks) |
-| Lift | viel gegangen, ausgewichen | ausgehobene Lichter, Papier scheint durch | Ausweichen +5 %, 1 Schritt weiter |
-
-- Gezählt wird je Würfel am Server, wie die Würfe für die Patina.
-- Sepia sagt zum Beispiel: „It keeps throwing paint at things. Shall we lean into that, or let it bloom?“
-- Zwei Würfel derselben Art können so ganz verschieden enden.
-
-### E3 Falten (groß, später)
-
-Steht in CLAUDE.md unter „Später“: zwei Monster spiegelsymmetrisch verschmelzen.
-
-- **Ablauf:** Zwei Kleckse kommen auf eine Hälfte des Blatts, das Blatt klappt zu. Heraus kommt ein neuer, spiegelgleicher Klecks, wie beim Rorschach-Test. Wo beide übereinanderlagen, mischen sich die Farben.
-- **Was der neue Klecks bekommt (Skizze):**
-  - Hauptpigment vom einen, Zweitfarbe vom anderen. Das Element würfelt der Server aus beiden.
-  - Die Seltenheit des besseren, Holo, wenn einer Holo hatte.
-  - Werte im Mittel beider und +1. Schichten fangen wieder bei 0 an.
-- **Folgen:**
-  - Beide alten Würfel gehen ins Archiv.
-  - Es entsteht eine neue Art, also ein neuer „What do you see?“-Post.
-  - Später auch mit Faltpartnern aus den Kommentaren.
-- **Aufwand:** Der Renderer braucht dafür eine eigene Form aus zwei Seeds, die echt gefaltet wird. Im Entwurf ist es nur nachgestellt.
-- Größer als E1. Ich würde es als eigenen Vorschlag nach E1 bringen.
-
-### Was ich nicht vorschlage
-
-- **Reifen über Zeit** (Kleckse ändern sich nach Tagen von selbst): zu nah am abgelehnten Austrocknen, und es baut Druck auf statt Freude.
-- **Feste Entwicklungsformen je Art:** widerspricht „jedes Monster einzigartig“ und ist zu nah an Amber Delve.
-- **Schichten nur gegen Pigment, ohne Spielen:** dann wäre es ein Kauf, keine Entwicklung.
-
-## 4 Empfehlung
-
-E1 mit E2 als ein Plan in drei Schritten:
-
-1. Regeln und Server: Zähler je Würfel, Schichten, Werte, Simulation der Siegquoten.
-2. Renderer: Schichten als eigener Zufallsstrom. Vorher ein Entwurf mit echtem Renderer statt nachgemalt.
-3. Bedienung: Würfelkarte mit Fortschritt, Ritual beim Malen einer Schicht, Sepias Angebot.
-
-E3 Falten danach als eigener Vorschlag.
-
-## 5 Fragen
-
-1. Erst E1 Schichten mit E2 Richtung, E3 Falten später? Empfehlung: ja.
-2. Was zählt als Erfahrung: Beschwören, alle Würfe (wie die Patina) oder ausgewaschene Rivalen? Empfehlung: Beschwören, das ist sichtbar und belohnt, den Klecks wirklich einzusetzen.
-3. Was kostet eine Schicht: Pigment (100, 250, 500), Tropfen seiner Hauptfarbe (2, 4, 6) oder nichts? Empfehlung: Pigment.
-4. Richtung: Sepia bietet zwei passende an und du wählst, alle vier frei wählbar, oder der Server würfelt? Empfehlung: zwei passende zur Wahl.
-5. Wie stark: Werte wie oben und nach der Simulation nachgestimmt, oder nur Aussehen ohne Werte? Empfehlung: Werte, aber so, dass Siegquoten gegen gleich starke Galerie-Decks im bisherigen Rahmen bleiben.
-6. Stil- und Holo-Würfel: Sie bekommen Schichten nur als Werte, Rahmen und Signatur, ihr Stil bleibt unverändert. Oder bekommen sie gar keine? Empfehlung: Werte, Rahmen und Signatur.
-7. Signatur bei Schicht 3: dein Name auf der Karte, der beim Handel bleibt? Empfehlung: ja.
-8. Patina: bleibt sie wie sie ist (Würfe verbessern Seiten) und Schichten kommen dazu, oder geht die Patina in den Schichten auf? Empfehlung: bleibt, viele Würfel haben schon Patina.
+1. Passt die Richtung: wachsen, Teile sprießen, die Farbe läuft hinein? Oder soll sich die Form noch stärker ändern, zum Beispiel ein anderer Kopf, mehr Beine oder ein ganz anderer Körper bei Stufe 3?
+2. Drei Stufen nach der gezogenen Form oder nur zwei? Empfehlung: drei.
+3. Erfahrung durch Beschwören, Kosten in Pigment? Empfehlung: ja, beides.
+4. Richtung: Sepia bietet zwei passende an und du wählst? Empfehlung: ja.
+5. Jede Stufe eine eigene Art mit Namen aus der Community? Empfehlung: ja.
+6. Verwandlung ablehnen können wie bei Pokémon? Empfehlung: ja.
+7. Entwickeln sich Stil-Würfel (Pencil, Oil, Anime und so weiter) mit, also neue Form und gleicher Stil? Empfehlung: ja, die Stile malen dieselbe Form.
+8. Falten später als eigener Vorschlag? Empfehlung: ja.
