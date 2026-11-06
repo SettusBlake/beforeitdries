@@ -1,6 +1,6 @@
 # Einstieg neu: Vorschlag
 
-Stand 06.11.2026, Fassung 4. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“, dann „los, mach E2“. E3 und E1 sind im Spiel (Playtest v0.1.0.4), E2 ebenso (Playtest v0.1.0.6).
+Stand 06.11.2026, Fassung 5. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“, dann „los, mach E2“. E3 und E1 sind im Spiel (Playtest v0.1.0.4), E2 ebenso (Playtest v0.1.0.6).
 
 ## 1 Rückmeldung eines Spielers (06.11.2026)
 
@@ -138,7 +138,7 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt oben auf dem Blatt eine
 4. **Tagesblatt:** A, gleich nach der Lektion mit allen Regeln.
 5. **Sepias Sprüche:** nur noch an Meilensteinen. Ja.
 
-## 7 Offen
+## 7 Entschieden zu E2 (06.11.2026, „ja passt“)
 
-1. **Glow vor Duell 4:** Ohne Ring tut eine Glow-Seite noch nichts. Sie ist im Vorrat ausgeblendet, und Antippen sagt „Not in play yet“. Wie bisher lassen, oder soll Glow bis dahin etwas Einfaches tun, zum Beispiel jeden eigenen Klecks um 1 heilen? Empfehlung: so lassen, die Simulation zeigt keinen Nachteil.
-2. **Würfelkarten außerhalb des Duells:** In „Your dice“, Markt und Tausch zeigen die Karten weiter Element und Set. Erst ab Stufe 3 beziehungsweise 6 zeigen? Empfehlung: so lassen, dort liest man in Ruhe nach.
+1. **Glow vor Duell 4:** bleibt, wie gebaut. Eine Glow-Seite tut ohne Ring noch nichts, Glow ist im Vorrat ausgeblendet, Antippen sagt „Not in play yet“.
+2. **Würfelkarten außerhalb des Duells:** bleiben, wie sie sind. In „Your dice“, Markt und Tausch zeigen sie weiter Element und Set-Bonus.
