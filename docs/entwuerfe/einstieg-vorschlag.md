@@ -1,6 +1,6 @@
 # Einstieg neu: Vorschlag
 
-Stand 06.11.2026, Fassung 4. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“, dann „los, mach E2“. E3 und E1 sind im Spiel (Playtest v0.1.0.4), E2 ebenso (Playtest v0.1.0.5).
+Stand 06.11.2026, Fassung 4. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“, dann „los, mach E2“. E3 und E1 sind im Spiel (Playtest v0.1.0.4), E2 ebenso (Playtest v0.1.0.6).
 
 ## 1 Rückmeldung eines Spielers (06.11.2026)
 
