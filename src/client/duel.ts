@@ -33,8 +33,9 @@ import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
 import { closeMod, diceBadge, initDice, lessonDone, openDice } from './duel/collection';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
-import { initColors, openColors } from './duel/colors';
-import { colorDef } from '../shared/colors';
+import { colorChoice, initColors, openColors } from './duel/colors';
+import { colorDef, duelColors } from '../shared/colors';
+import { mountFirstSteps, type FirstSteps } from './duel/firststeps';
 import { applyDiceResponse } from './duel/collection';
 import * as View from './duel/view';
 import { V } from './duel/view';
@@ -69,7 +70,7 @@ const store = {
 };
 
 /* ---------- Zustand der Bedienung ---------- */
-let screen: 'title' | 'game' | 'dice' = 'title';
+let screen: 'title' | 'game' | 'dice' | 'first' = 'title';
 let reward: DuelReward | null = null;
 /** Bleach: Ergebnis des Tagesblatts (Punkte, Rang), kommt mit der letzten Aktion */
 let bleachRes: BleachResult | null = null;
@@ -2315,8 +2316,14 @@ async function finishDuel(): Promise<void> {
   if (S.tutorial > 0) store.set('bid-duel-learned', '1');
 }
 
-function showScreen(id: 'title' | 'game' | 'dice'): void {
+function showScreen(id: 'title' | 'game' | 'dice' | 'first'): void {
   screen = id;
+  // Erste Schritte beenden, sobald man woanders hingeht (Bildwechsel und Lektion halten an)
+  if (id !== 'first' && firstSteps) {
+    firstSteps.stop();
+    firstSteps = null;
+  }
+  $('first').hidden = id !== 'first';
   $('title').hidden = id !== 'title';
   $('game').hidden = id !== 'game';
   $('dice').hidden = id !== 'dice';
@@ -2372,6 +2379,39 @@ function resetUi(): void {
   summonU = null;
   anchor = null;
   chosen = new Set();
+}
+
+/**
+ * Erste Schritte (Einstieg E1, 06.11.2026) statt Lern-Duell: fünf Schritte auf wachsendem Blatt, gescriptet im Client.
+ * Am Ende zahlt der Server die Belohnung einmal (/api/dice/lesson), dann geht es zu den freien Würfeln
+ */
+let firstSteps: FirstSteps | null = null;
+function startFirstSteps(): void {
+  initAudio();
+  resetUi();
+  showScreen('first');
+  const [a, b] = duelColors(...colorChoice(), undefined).map((k) => colorDef(k).rgb);
+  let starter = 0;
+  firstSteps = mountFirstSteps($('first'), {
+    you: a,
+    rival: b,
+    finish: async () => {
+      const r = await api.lessonDone();
+      applyDiceResponse(r);
+      store.set('bid-duel-learned', '1');
+      starter = r.dice.starter;
+      const p = r.lesson?.pigment ?? 0;
+      const got = p ? `+${p} pigment. ` : '';
+      return starter > 0
+        ? { line: `${got}First, ${starter} free dice for your deck.`, button: 'Collect your free dice' }
+        : { line: `${got}Six dice, three rounds, the Apprentice.`, button: 'Start duel' };
+    },
+    go: () => {
+      resumable = false;
+      if (starter > 0) showScreen('dice');
+      else void startDuel();
+    },
+  });
 }
 
 async function startDuel(tutorial = false, gallery = false): Promise<void> {
@@ -2748,7 +2788,7 @@ initDice({
   },
   error: onError,
 });
-$('learn').addEventListener('click', () => void startDuel(true));
+$('learn').addEventListener('click', () => startFirstSteps());
 $('bleach-b').addEventListener('click', () => void startBleach());
 $('bleach-test').addEventListener('click', () => {
   closeMod();
@@ -2919,6 +2959,7 @@ api
 
 /* Nur für automatische Probeläufe */
 (window as unknown as { __duel: unknown }).__duel = {
+  fs: () => firstSteps?.probe ?? null,
   state: () => S.teams.length < 2 ? { busy: true, phase: 'none', guide: {}, over: false } : ({
     phase: phase(),
     busy,

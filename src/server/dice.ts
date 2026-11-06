@@ -239,6 +239,22 @@ export async function diceSeen(d: Deps, userId: string | undefined): Promise<Dic
   });
 }
 
+/**
+ * Erste Schritte fertig (Einstieg E1, 06.11.2026): die Lektion läuft gescriptet im Client (feste Würfe, verlieren geht nicht),
+ * der Server zahlt die Belohnung des Lern-Duells genau einmal (200 Pigment) und schaltet damit Duell, Galerie und Tagesblatt frei
+ */
+export async function lessonDone(d: Deps, userId: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    const pigment = s.tutorialPaid ? 0 : REWARD.tutorial;
+    s.tutorialPaid = true;
+    s.pigment += pigment;
+    await saveDice(d, uid, s);
+    return { ...respond(d, s), lesson: { pigment } };
+  });
+}
+
 /** Test-Knopf (Playtest, nur Mods): der nächste Zug hat diesen Stil (null: keinen) und, wenn holo, Holo */
 export async function diceTestShiny(d: Deps, userId: string | undefined, username: string | undefined, style: unknown, holo: unknown = false): Promise<DiceResponse> {
   const uid = needUser(userId);

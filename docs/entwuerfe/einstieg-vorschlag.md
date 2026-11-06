@@ -1,6 +1,6 @@
 # Einstieg neu: Vorschlag
 
-Stand 06.11.2026, Fassung 2. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“. E3 ist im Spiel (Playtest), E1 ist als Artifact zum Ausprobieren gebaut, E2 kommt danach.
+Stand 06.11.2026, Fassung 3. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“. E3 und E1 sind im Spiel (Playtest v0.1.0.3), E2 kommt danach.
 
 ## 1 Rückmeldung eines Spielers (06.11.2026)
 
@@ -40,7 +40,7 @@ Der Spieler hat recht: Das ist eine Textwand mit Wörtern, die man noch nie gese
 
 ### E1 Erste Schritte auf kleinem Blatt (ersetzt das Lern-Duell)
 
-**Stand:** als Artifact gebaut, https://claude.ai/artifact/6rdYt2zv767ViG25g3Qvnx (Quelle tools/mockup/einstieg/, Bild docs/entwuerfe/einstieg-e1-artifact.png). Wartet auf deine Rückmeldung, erst danach kommt es in die App.
+**Stand:** im Spiel, ersetzt das Lern-Duell (Bild docs/entwuerfe/einstieg-im-spiel.png). Das Artifact https://claude.ai/artifact/6rdYt2zv767ViG25g3Qvnx baut aus derselben Quelle (src/client/duel/firststeps.ts, Seite drumherum in tools/mockup/einstieg/, Bild docs/entwuerfe/einstieg-e1-artifact.png).
 
 Fünf kurze Schritte. Das Blatt wächst mit: Die Kamera zeigt anfangs nur 2 × 2 Felder und zoomt mit jedem Schritt heraus, bis das ganze Blatt zu sehen ist. Ein goldener Ring zeigt immer genau einen Schritt.
 
@@ -52,15 +52,16 @@ Fünf kurze Schritte. Das Blatt wächst mit: Die Kamera zeigt anfangs nur 2 × 2
 | 4 | 6 × 8 | Näher an die Palette des Rivalen gehen, ein Splash im Wurf, wischen auf die Palette, ein Herz ist weg. | „Walk closer. Splash cracks their palette.“ |
 | 5 | 6 × 8 | Der Rivale beschwört einen Klecks. Zwei Würfel in derselben Farbe: Glaze, der Treffer zählt anderthalbfach, der Klecks platzt. | „Same colours hit harder.“ |
 
-- **Am Ende:** „Now a real duel.“ Im Artifact eine Karte mit „Start duel“ und „Again“, in der App geht es direkt ins erste richtige Duell (E2).
+- **Am Ende:** „Now a real duel.“ Eine Karte mit „+200 pigment. First, 9 free dice for your deck.“, dem Knopf „Collect your free dice“ und „Again“. Nach den freien Würfeln steht im Startbild „Start duel“ für das erste richtige Duell (E2). Wer die Würfel schon hat, bekommt gleich „Start duel“.
 - **Umfang:** etwa 60 Sekunden mit Lesen, ein schneller Durchlauf 23 Sekunden. Sepia sagt 6 Sätze mit 33 Wörtern.
 - **Hinweis unten:** erscheint erst, wenn man 5 Sekunden nicht weiterweiß oder etwas Falsches tippt (Zeile ruckt). Sonst reicht Sepias Satz.
 - **Bedienung wie im Spiel:** wischen oder antippen und Ziel antippen. Kleckse aus dem echten Renderer, 3D-Würfel mit der Würfel-Haut aus dem Spiel, Klänge aus dem Spiel.
 - **Abweichungen vom Vorschlag:** Schritt 2 auf 4 × 4 statt 3 × 3 (das Netz braucht 4 Felder Höhe), Schritt 3 auf 6 × 6 statt 3 × 3 (der Rivale steht weiter weg), Schritt 4 mit einem Schritt näher zur Palette. Das Ziel in Schritt 1 liegt rechts neben dem Klecks, weil der Klecks ins Feld darüber ragt und den Ring sonst verdeckt.
-- **Für die App geplant:**
-  - Feste Würfe wie heute: Der Server prüft jeden Schritt, verlieren kann man nicht.
-  - Belohnung wie heute: 200 Pigment und die freien Startwürfel.
-  - Technik: Das Blatt bleibt in den Regeln 6 × 8. Die Lektion zeigt einen Ausschnitt und sperrt den Rest.
+- **In der App gebaut:**
+  - „Learn with Sepia“ im Startbild öffnet die ersten Schritte statt des Lern-Duells. Die Lektion läuft gescriptet im Spiel mit festen Würfen, verlieren kann man nicht. Die Kleckse werden nebenbei gemalt (bis dahin ein Farbfleck), die Spielfarben sind deine und die des Rivalen.
+  - Belohnung wie bisher: Am Ende zahlt der Server einmal 200 Pigment (/api/dice/lesson, `tutorialPaid`), damit sind Duell, Galerie und Tagesblatt frei. Ein zweiter Durchlauf zahlt nichts mehr. Klappt die Verbindung nicht, steht „Try again“ auf der Karte.
+  - Abweichung vom Plan: Der Server prüft nicht jeden Schritt einzeln, sondern zahlt am Ende. In einer Lektion ohne Zufall und ohne Verlieren bringt die Prüfung je Schritt nichts, die Belohnung gibt es trotzdem nur einmal.
+  - Das alte Lern-Duell ist nicht mehr zu erreichen. Sein Code bleibt liegen, ein schon laufendes Lern-Duell lässt sich noch zu Ende spielen.
 
 ### E2 Regeln kommen nach und nach
 
@@ -85,7 +86,7 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Sa
 
 ### E3 Weniger Text überall
 
-**Stand:** gebaut, Playtest v0.1.0.3.
+**Stand:** gebaut, Playtest v0.1.0.3. Die Blasen gelten nur noch für ein schon laufendes altes Lern-Duell, die Sätze zu Malmitteln und Tagesblatt für alle.
 
 - **Kurze Blasen:** 12 Blasen mit zusammen 117 Wörtern statt 14 mit 477, keine länger als 12 Wörter. Einzelheiten stehen in den Erklärkarten, die es schon gibt (Symbol antippen).
 - **Ohne „Got it“:** Die Blase sitzt oben über dem Blatt, lässt Tipps durch und verschwindet mit der nächsten Handlung.
@@ -96,7 +97,7 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Sa
 ## 5 Reihenfolge
 
 1. **E3:** gebaut.
-2. **E1:** Artifact ausprobieren, Text und Tempo abstimmen, dann in die App.
+2. **E1:** gebaut, als Artifact abgestimmt und in der App.
 3. **E2:** danach, mit Simulation, damit der Apprentice im ersten Duell schlagbar bleibt.
 
 ## 6 Entscheidungen (06.11.2026)
@@ -107,8 +108,6 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Sa
 4. **Tagesblatt:** A, gleich nach der Lektion mit allen Regeln.
 5. **Sepias Sprüche:** nur noch an Meilensteinen. Ja.
 
-## 7 Fragen zum Artifact
+## 7 Offen
 
-1. Passt das Tempo (Zoom, Pausen zwischen den Schritten)?
-2. Passen die sechs Sätze von Sepia, oder soll ein Schritt weg oder dazu (zum Beispiel Neuwurf)?
-3. Hinweis unten erst nach 5 Sekunden: passt das, oder lieber gleich?
+- **E2:** Regeln über die ersten 6 Duelle freischalten, mit Simulation. Wartet auf dein „los“.

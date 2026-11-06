@@ -1,0 +1,66 @@
+/* Erste Schritte (Einstieg E1): Kopf mit fünf Punkten, Sepia oben, das Blatt, Würfel und Hinweis unten. Helles Papier wie das Duell */
+.fs { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+
+.fs-top { display: flex; align-items: center; gap: 12px; }
+.fs-name { font: 400 1.05rem var(--f-display, "Young Serif", Georgia, serif); white-space: nowrap; }
+.fs-dots { display: flex; gap: 6px; margin-left: auto; }
+.fs-dots i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line, #cfcabd); background: var(--sheet, #fbfaf6); transition: background .3s, border-color .3s, transform .3s; }
+.fs-dots i.on { background: var(--gold, #c9961e); border-color: #8a6410; }
+.fs-dots i.now { transform: scale(1.3); }
+.fs-restart { border: 1px solid var(--line, #cfcabd); background: var(--sheet, #fbfaf6); color: var(--muted, #5f6474); border-radius: 999px; padding: 4px 10px;
+  font: 700 11px var(--f-mono, ui-monospace, monospace); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+
+/* Sepia: eine Zeile oben, kein Knopf, wechselt mit dem nächsten Schritt */
+.fs-bubble { display: flex; gap: 10px; align-items: center; min-height: 52px; padding: 6px 14px 6px 8px; border-radius: 14px;
+  background: var(--sheet, #fbfaf6); border: 1px solid var(--line, #cfcabd); box-shadow: 0 2px 0 rgba(110,75,51,.12); }
+.fs-bubble.in { animation: fs-down .3s ease; }
+.fs-seal { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--sepia, #6e4b33); color: #fbf3e6;
+  font: 400 1.15rem var(--f-display, "Young Serif", Georgia, serif); }
+.fs-bt { min-width: 0; }
+.fs-bt small { display: block; font: 700 10px var(--f-mono, ui-monospace, monospace); letter-spacing: .12em; text-transform: uppercase; color: var(--muted, #5f6474); }
+.fs-say { margin: 0; font: 700 1.5rem/1.05 var(--f-hand, "Caveat", cursive); color: var(--sepia, #6e4b33); text-wrap: balance; }
+
+/* Blatt */
+.fs-boardwrap { flex: 1 1 auto; min-height: 0; position: relative; }
+.fs-board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.fs-banner { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.6); opacity: 0; pointer-events: none; white-space: nowrap;
+  padding: 8px 18px; border-radius: 12px; background: var(--ink, #1d2130); color: #fbfaf6; font: 400 clamp(1.4rem, 7vw, 2rem) var(--f-display, "Young Serif", Georgia, serif);
+  box-shadow: 0 8px 24px rgba(29,33,48,.25); }
+.fs-banner.show { animation: fs-pop 1.15s ease forwards; }
+.fs-banner.hit { background: var(--rival, #a33a3a); }
+.fs-banner.rival { background: #fbfaf6; color: var(--rival, #a33a3a); border: 2px solid var(--rival, #a33a3a); font-size: clamp(1.1rem, 5.5vw, 1.5rem); }
+.fs-banner.glaze { background: linear-gradient(180deg, #e2b647, #b9851a); color: #2a1d05; }
+
+/* Würfel und Hinweis unten */
+.fs-foot { flex: none; display: grid; gap: 6px; justify-items: center; }
+.fs-traywrap { position: relative; width: 100%; height: 92px; display: grid; place-items: center; }
+.fs-tray { display: flex; gap: 26px; align-items: center; justify-content: center; perspective: 600px; transform-style: preserve-3d; cursor: pointer; min-height: 70px; }
+.fs-slot { transform-style: preserve-3d; transition: filter .3s; }
+.fs-slot.star .die3 { filter: drop-shadow(0 0 9px rgba(43,63,163,.6)); }
+.fs-slot.glaze .die3 { filter: drop-shadow(0 0 10px rgba(201,150,30,.85)); }
+.fs-roll { position: absolute; right: 0; top: 50%; transform: translateY(-50%); border: 0; border-radius: 14px; padding: 12px 18px; background: var(--ink, #1d2130); color: #fbfaf6;
+  font: 800 1rem var(--f-body, system-ui, sans-serif); cursor: pointer; }
+.fs-roll.glow { box-shadow: 0 0 0 3px var(--gold, #c9961e), 0 0 0 6px rgba(201,150,30,.35); animation: fs-pulse 1.2s ease-in-out infinite; }
+.fs-hint { margin: 0; min-height: 1.3em; font: 600 12px var(--f-mono, ui-monospace, monospace); color: var(--muted, #5f6474); text-align: center; }
+.fs-hint.nudge { animation: fs-nudge .4s ease; color: var(--rival, #a33a3a); }
+
+/* Schluss */
+.fs-end { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(228,225,216,.72); }
+.fs-card { width: min(100%, 320px); display: grid; gap: 12px; justify-items: center; text-align: center; padding: 22px 20px; border-radius: 18px;
+  background: var(--sheet, #fbfaf6); border: 1px solid var(--line, #cfcabd); box-shadow: 0 12px 34px rgba(29,33,48,.18); animation: fs-rise .35s ease; }
+.fs-card h2 { margin: 0; font: 400 1.6rem var(--f-display, "Young Serif", Georgia, serif); text-wrap: balance; }
+.fs-line { margin: 0; color: var(--muted, #5f6474); max-width: 30ch; min-height: 1.4em; }
+.fs-row { display: flex; gap: 10px; }
+.fs-row button { border-radius: 12px; padding: 11px 18px; font: 800 1rem var(--f-body, system-ui, sans-serif); cursor: pointer; }
+.fs-go { border: 0; background: var(--you, #2b3fa3); color: #fbfaf6; }
+.fs-go:disabled { opacity: .55; cursor: default; }
+.fs-again { border: 1px solid var(--line, #cfcabd); background: var(--sheet, #fbfaf6); color: var(--ink, #1d2130); }
+
+@keyframes fs-down { from { transform: translateY(-8px); opacity: 0; } }
+@keyframes fs-rise { from { transform: translateY(10px); opacity: 0; } }
+@keyframes fs-pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 18% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  28% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -60%) scale(.96); } }
+@keyframes fs-pulse { 50% { transform: translateY(-50%) scale(1.06); } }
+@keyframes fs-nudge { 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+@media (prefers-reduced-motion: reduce) { .fs-roll.glow, .fs-bubble.in, .fs-card { animation: none; } }
+@media (max-width: 360px) { .fs-name { font-size: .95rem; } .fs-say { font-size: 1.35rem; } }

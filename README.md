@@ -11,7 +11,7 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 **How a session goes.**
 
 1. Open the pinned play post and tap **Play**.
-2. Learn the game in a short guided duel with Master Sepia: three rounds, every step is explained and only the next step can be tapped. Duels and Today’s sheet open after this lesson.
+2. Take the first steps with Master Sepia: five short steps on a small sheet that grows with you, one line from Sepia per step, about a minute. Duels and Today’s sheet open after this lesson.
 3. Collect free starter dice. Each one is a newly painted blot that nobody else has.
 4. Duel the rival (Apprentice, Journeyman, Master) or the decks of other players in the **Gallery**. A duel takes about two to four minutes.
 5. Play **Today’s sheet** once a day: everyone gets the same sheet, the same nine dice and the same rolls, and the best sheets top the daily board.

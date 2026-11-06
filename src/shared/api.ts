@@ -147,6 +147,8 @@ export interface DiceResponse {
   gallery?: GalleryStatus;
   /** Markt und Tausch: offene Angebote an dich, deine Einträge im Markt, Einträge insgesamt (kommt mit dem Laden der Sammlung) */
   trade?: TradeStatus;
+  /** Erste Schritte fertig: so viel Pigment gab es (0, wenn die Lektion schon bezahlt war) */
+  lesson?: { pigment: number };
 }
 /** Darf dieser Spieler handeln? why: der Grund, wenn nicht */
 export type TradeGate = { ok: boolean; why?: string };

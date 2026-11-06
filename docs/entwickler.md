@@ -31,21 +31,22 @@ src/shared/                Regeln und Daten für Server und Client
   duel/play.ts             Duell als Folge geprüfter Aktionen
   duel/bleach.ts           Tagesblatt gegen die Bleiche (Spielart der Duell-Engine)
   duel/media.ts            Malmittel
-  duel/tutorial.ts         Lern-Duell mit festen Würfen
+  duel/tutorial.ts         altes Lern-Duell mit festen Würfen (seit 06.11.2026 nur noch für laufende Lektionen, ersetzt durch die ersten Schritte)
   duel/statinfo.ts         Werte in Spielworten
 src/client/
   play.html/.ts            Startbild des Spiel-Posts (inline)
   sheet.html/.ts           Tagespost (inline, ohne Scrollen)
   name.html/.ts            „What do you see?“-Post (inline)
   duel.html/.ts            Spiel (ausgeklappt): Titel, Duell, Tagesblatt, Ergebnis
-  duel/                    Blatt (view), 3D-Würfel, Ton, Sammlung, Ziehen (gacha), Zeichnen, Prüfen, Markt, Tausch, Galerie, Farben
+  duel/                    Blatt (view), 3D-Würfel, Ton, Sammlung, Ziehen (gacha), Zeichnen, Prüfen, Markt, Tausch, Galerie, Farben,
+                           erste Schritte (firststeps.ts: Lektion auf wachsendem Blatt, auch Quelle des Artifacts tools/mockup/einstieg)
   renderer/                Aquarell (watercolor, wörtlich aus dem Prototyp), 2b, Stile
   lib/                     Server-Aufrufe, Mal-Warteschlange, Holo, Artnamen, kleine Blätter, Schriften
 src/server/
   index.ts                 Express-Routen: /api/* und /internal/* (Menü, Trigger, Scheduler)
   core.ts                  Schnittstellen zu Redis und Reddit, Fehler, Sperren, Mod-Prüfung
   keys.ts                  alle Redis-Schlüssel und die Sammlungen, in denen ihre IDs stehen
-  dice.ts                  Sammlung: Ziehen, Deck, Auswaschen, Lasur, Umfärben, Patina, Test-Knöpfe
+  dice.ts                  Sammlung: Ziehen, Deck, Auswaschen, Lasur, Umfärben, Patina, Belohnung der ersten Schritte, Test-Knöpfe
   duel.ts                  Duelle laden, Aktion prüfen und ausführen, Belohnung
   bleach.ts                Tagesblatt, Rangliste, Tagespost, Teilen
   gallery.ts               Galerie-Duelle, Abzüge, Gebühr, Archiv-Würfel beim Rivalen

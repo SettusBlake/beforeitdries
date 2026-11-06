@@ -52,6 +52,7 @@ export const api = {
   modCleanTest: () => call<CleanTestResponse>('/api/mod/clean-test', {}),
   diceTestShiny: (style: StyleId | null, holo = false) => call<DiceResponse>('/api/dice/test-shiny', { style, holo }),
   diceSeen: () => call<DiceResponse>('/api/dice/seen', {}),
+  lessonDone: () => call<DiceResponse>('/api/dice/lesson', {}),
   diceShare: (id: string) => call<ShareResponse>('/api/dice/share', { id }),
   species: () => call<SpeciesResponse>('/api/species'),
   naming: () => call<NamingResponse>('/api/naming'),

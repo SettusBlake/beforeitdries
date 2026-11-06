@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { GameError, type Deps } from '../src/server/core';
-import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, diceTint, diceSeen, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
+import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, diceTint, diceSeen, lessonDone, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from '../src/server/market';
@@ -158,6 +158,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/wash') return send(200, await diceWash(d, asUser, b.id, b.confirm, USER.name));
       if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing, USER.name));
       if (url.pathname === '/api/dice/seen') return send(200, await diceSeen(d, asUser));
+      if (url.pathname === '/api/dice/lesson') return send(200, await lessonDone(d, asUser));
       if (url.pathname === '/api/dice/share') {
         const r = await diceShare(d, asUser, USER.name, b.id);
         lastNaming = r.postId;
