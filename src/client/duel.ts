@@ -31,7 +31,8 @@ import { elementBadge, elementIcon, elementText, ringSvg } from './duel/elements
 import { elementDef } from '../shared/elements';
 import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
-import { closeMod, diceBadge, initDice, lessonDone, openDice } from './duel/collection';
+import { closeMod, diceBadge, initDice, lessonDone, openDice, ruleStageNow } from './duel/collection';
+import { duelsToGallery, galleryOpen, RULE_NEWS, UNLOCK as UNLOCK_AT } from '../shared/duel/stages';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
 import { colorChoice, initColors, openColors } from './duel/colors';
 import { colorDef, duelColors } from '../shared/colors';
@@ -172,6 +173,8 @@ async function request(p: Promise<DuelResponse>, onState?: () => void): Promise<
   busy = true;
   // Sepias Blase verschwindet mit der nächsten Handlung (Einstieg E3, kein „Got it“ mehr)
   $('tip').hidden = true;
+  // Die Ankündigung einer neuen Regel verschwindet mit der ersten Handlung (Einstieg E2)
+  $('newrule').hidden = true;
   deckOpen = false;
   renderAll();
   let res: DuelResponse;
@@ -681,6 +684,9 @@ function crestExplain(k: R.Crest, sd: Side = 1): Explain {
         side: sd,
       };
     case 'glow': {
+      // Regeln nach und nach (Einstieg E2): ohne Ring tut Glow noch nichts
+      if (!R.ruleOn('brim'))
+        return { icon, fx: 'glow', title: 'Glow', text: 'Not in play yet. It comes alive in a later duel.', now: '', cells: [], col: 'rgba(201,150,30,.95)', side: sd };
       const brims = mine.map((u) => `${u.name.split(' ')[1] ?? u.name} ${u.brim}/${R.BRIM.max}`).join(', ');
       return {
         icon,
@@ -841,6 +847,8 @@ function crestRow(box: HTMLElement, side: Side, small: boolean): void {
     const n = t.crests[c.k];
     s.classList.toggle('zero', !n);
     s.querySelector('b')!.textContent = String(n);
+    // Glow füllt den Ring: ohne Ring (Stufe unter 4, Einstieg E2) nicht im Vorrat zeigen
+    s.hidden = c.k === 'glow' && !R.ruleOn('brim');
   }
 }
 function hearts(box: HTMLElement, n: number): void {
@@ -989,7 +997,7 @@ function renderTop(): void {
     b2.type = 'button';
     b2.style.setProperty('--c', rarityDef(u.rarity).col);
     b2.title = u.name;
-    b2.append(portraitEl(u.id, 26, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 12)), html('span', 'elc', elementIcon(u.el, 12)));
+    b2.append(portraitEl(u.id, 26, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 12)), ...(R.ruleOn('elements') ? [html('span', 'elc', elementIcon(u.el, 12))] : []));
     if (st === 'sheet' && v) {
       const hp = el('span', 'mini-hp');
       const i = el('i');
@@ -1027,7 +1035,7 @@ function dieChip(u: Unit): HTMLElement {
   b.dataset.id = String(u.id);
   b.classList.add(`r-${u.rarity}`);
   b.style.setProperty('--c', rarityDef(u.rarity).col);
-  b.append(portraitEl(u.id, 34, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 15)), html('span', 'elc', elementIcon(u.el, 14)), el('span', 'st', used ? 'used' : st === 'bag' ? 'ready' : st === 'sheet' ? 'on sheet' : 'lost'));
+  b.append(portraitEl(u.id, 34, st === 'gone' ? 0.3 : 1), html('span', 'lvb', iconSvg({ k: 'star', n: u.lv }, 15)), ...(R.ruleOn('elements') ? [html('span', 'elc', elementIcon(u.el, 14))] : []), el('span', 'st', used ? 'used' : st === 'bag' ? 'ready' : st === 'sheet' ? 'on sheet' : 'lost'));
   // Halten zeigt die Seiten, auch wenn man den Würfel gerade wählen kann
   let hold = 0,
     held = false;
@@ -1198,7 +1206,7 @@ function renderGo(): void {
     aux.hidden = false;
     // Nässe (Kampf A): Tropfen und Chance je Nachbarpaar für den nächsten Neuwurf
     const wet = R.wetChance(1);
-    aux.innerHTML = `${n ? `Reroll ${n}` : 'Reroll'}<small class="wetc${wet ? ' on' : ''}">${S.rerolls < 1 ? 'none left' : wet ? `${'●'.repeat(Math.round(wet * 4))} ${Math.round(wet * 100)}% mud` : '○ dry'}</small>`;
+    aux.innerHTML = `${n ? `Reroll ${n}` : 'Reroll'}<small class="wetc${wet ? ' on' : ''}">${S.rerolls < 1 ? 'none left' : wet ? `${'●'.repeat(Math.round(wet * 4))} ${Math.round(wet * 100)}% mud` : R.ruleOn('wet') ? '○ dry' : ''}</small>`;
     aux.disabled = !n || S.rerolls < 1;
     return;
   }
@@ -1281,7 +1289,7 @@ function previewBase(u: Unit, p: Plan | null): Preview | null {
       em = R.elemMult(u, t);
     const fs = [em, x].filter((v) => v !== 1).map((v) => ` ×${v}`).join('');
     const xs = fs ? ` (${R.atSpot(u, p.to, () => R.baseDamage(u, t, pig, R.cheb(u.x, u.y, t.x, t.y) <= 1, 1, 1))}${fs})` : '';
-    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% full hit (else a graze), -${dmg}${xs}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}, ${R.elemWord(u, t)}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
+    pv.text = `${p.to !== here ? 'Walk and splash' : 'Splash'} ${t.name}: ${pct}% full hit (else a graze), -${dmg}${xs}${GAIT[u.m.bp].key === 'twin' ? ' twice' : ''}${R.ruleOn('elements') ? `, ${R.elemWord(u, t)}` : ''}${S.teams[1].crests.guard ? '. They hold a Guard' : ''}.${kill ? ' A hit washes it out!' : ''}`;
   }
   return pv;
 }
@@ -2135,7 +2143,7 @@ function openInspect(u: Unit): void {
   const eb = html('button', 'elb-btn', elementBadge(u.el)) as HTMLButtonElement;
   eb.type = 'button';
   eb.addEventListener('click', () => explain(eb, elementExplain(u)));
-  info.append(eb);
+  if (R.ruleOn('elements')) info.append(eb);
   if (st === 'sheet' && v) {
     const hp = el('div', 'card-hp');
     const i = el('i');
@@ -2151,8 +2159,13 @@ function openInspect(u: Unit): void {
     html('p', '', `<b>Die</b> ${u.faces.map(R.faceText).join(', ')}`),
     ...(['joker', 'gold'] as const).filter((k) => u.faces.some((f) => f.k === k)).map((k) => html('p', 'special', R.FACE_HELP[k])),
     html('p', '', `<b>Moves</b> ${GAIT[u.m.bp].text}`),
-    html('p', 'ab', `<b>Master stroke · ${ab.name}</b> <span>Brim ${u.brim}/${R.BRIM.max}</span> ${ab.text}`),
-    html('p', '', 'Stamps, splashes, soaks and hits fill the brim, Glow pours in. Full, its next move does this on top. Bursting at least half full, it spills once more.'),
+    // Meisterzug und Ring erst ab Stufe 4 (Einstieg E2)
+    ...(R.ruleOn('brim')
+      ? [
+          html('p', 'ab', `<b>Master stroke · ${ab.name}</b> <span>Brim ${u.brim}/${R.BRIM.max}</span> ${ab.text}`),
+          html('p', '', 'Stamps, splashes, soaks and hits fill the brim, Glow pours in. Full, its next move does this on top. Bursting at least half full, it spills once more.'),
+        ]
+      : []),
   );
   for (const t of u.traits) lines.append(html('p', 'trait', `<b>${t.label}</b> ${t.text}`));
   box.append(top);
@@ -2341,7 +2354,14 @@ function showScreen(id: 'title' | 'game' | 'dice' | 'first'): void {
 function titleFor(learned: boolean): void {
   $('title').classList.toggle('newbie', !learned);
   ($('start') as HTMLButtonElement).disabled = !learned;
-  ($('gallery-b') as HTMLButtonElement).disabled = !learned;
+  // Galerie-Duelle erst, wenn alle Regeln frei sind (Einstieg E2): bis dahin klein mit „after n duels“
+  const st = ruleStageNow();
+  const gal = $('gallery-b') as HTMLButtonElement;
+  const locked = learned && !galleryOpen(st);
+  gal.disabled = !learned || locked;
+  gal.classList.toggle('locked', locked);
+  const n = duelsToGallery(st);
+  gal.querySelector('.after')!.textContent = locked ? `after ${n} more duel${n === 1 ? '' : 's'}` : 'after the lesson';
 }
 async function updateBadge(): Promise<void> {
   const t = await diceBadge();
@@ -2370,7 +2390,7 @@ new ResizeObserver(() => {
   if (screen === 'game') layout();
 }).observe($('boardwrap'));
 function resetUi(): void {
-  for (const id of ['result', 'menu', 'rules', 'inspect', 'tip', 'logview']) $(id).hidden = true;
+  for (const id of ['result', 'menu', 'rules', 'inspect', 'tip', 'logview', 'newrule']) $(id).hidden = true;
   reward = null;
   drag = null;
   armed = null;
@@ -2436,6 +2456,7 @@ async function startDuel(tutorial = false, gallery = false): Promise<void> {
   resumable = true;
   renderAll();
   tipForPhase();
+  showNewRule();
 }
 /** Bleach: Tagesblatt starten oder weiterspielen (test: Playtest und Mod, anderes Blatt ohne Wertung) */
 async function startBleach(test = false): Promise<void> {
@@ -2696,6 +2717,7 @@ async function resumeDuel(): Promise<void> {
   if (phase() === 'roll') chosen = defaultPick();
   refreshCast();
   renderAll();
+  showNewRule();
   if (S.over) void finishDuel();
 }
 
@@ -2795,10 +2817,48 @@ $('bleach-test').addEventListener('click', () => {
   void startBleach(true);
 });
 $('continue').addEventListener('click', () => void resumeDuel());
-$('how-t').addEventListener('click', () => ($('rules').hidden = false));
+$('how-t').addEventListener('click', () => openRules());
 $('how-m').addEventListener('click', () => {
   $('menu').hidden = true;
+  openRules();
+});
+/** Hilfe öffnen: nur Regeln, die schon gelten (Einstieg E2). focus: zu diesem Abschnitt scrollen und ihn kurz hervorheben */
+function openRules(focus?: string): void {
+  const st = screen === 'game' && S.teams.length ? S.stage : ruleStageNow();
+  document.querySelectorAll<HTMLElement>('#rules li[data-stage]').forEach((li) => (li.hidden = st < Number(li.dataset.stage)));
   $('rules').hidden = false;
+  const li = focus ? document.getElementById(focus) : null;
+  if (!li) return;
+  li.scrollIntoView({ block: 'center' });
+  li.classList.remove('flash');
+  void li.offsetWidth;
+  li.classList.add('flash');
+}
+/** Regeln nach und nach (Einstieg E2): im ersten Duell einer neuen Stufe ein Satz dazu, „?“ zeigt die Regel in der Hilfe */
+let newRuleTimer = 0;
+function showNewRule(): void {
+  const n = RULE_NEWS[S.stage];
+  const seen = Number(store.get('bid-rule-seen') ?? 1);
+  if (!n || S.mode === 'bleach' || S.tutorial > 0 || S.round > 1 || S.over || seen >= S.stage) return;
+  store.set('bid-rule-seen', String(S.stage));
+  // Malmittel: Sepia sagt es schon bei der Wahl (MEDIUM_INTRO), die Karten der Wahl stehen oben
+  if (UNLOCK_AT.media === S.stage) return;
+  $('newrule-t').textContent = n.title;
+  $('newrule-p').textContent = n.text;
+  $('newrule-q').dataset.help = n.help;
+  $('newrule').hidden = false;
+  sfx.upface(1);
+  // Sie deckt oben die Würfelleiste ab: nach 8 Sekunden weg, sonst mit der ersten Handlung
+  clearTimeout(newRuleTimer);
+  newRuleTimer = window.setTimeout(() => ($('newrule').hidden = true), 8000);
+}
+$('newrule-x').addEventListener('click', () => {
+  sfx.tap();
+  $('newrule').hidden = true;
+});
+$('newrule-q').addEventListener('click', () => {
+  sfx.tap();
+  openRules($('newrule-q').dataset.help);
 });
 $('menu-btn').addEventListener('click', () => {
   sfx.tap();

@@ -31,6 +31,7 @@ src/shared/                Regeln und Daten für Server und Client
   duel/play.ts             Duell als Folge geprüfter Aktionen
   duel/bleach.ts           Tagesblatt gegen die Bleiche (Spielart der Duell-Engine)
   duel/media.ts            Malmittel
+  duel/stages.ts           Regeln nach und nach (Stufe 1 bis 6 neuer Spieler, was wann gilt, Ankündigungen)
   duel/tutorial.ts         altes Lern-Duell mit festen Würfen (seit 06.11.2026 nur noch für laufende Lektionen, ersetzt durch die ersten Schritte)
   duel/statinfo.ts         Werte in Spielworten
 src/client/

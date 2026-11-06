@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { GameError, type Deps } from '../src/server/core';
-import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, diceTint, diceSeen, lessonDone, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
+import { diceBag, diceColor, diceDraw, diceGet, diceGlaze, diceTint, diceSeen, diceTestStage, lessonDone, diceTestBlank, diceTestPigment, diceTestShiny, diceWash, dicePull, bagForDuel, loadDice, saveDice, wearDice } from '../src/server/dice';
 import { reportDrawing, reviewList, reviewOk, reviewOver, reviewUnlock } from '../src/server/drawings';
 import { adoptNaming, diceShare, namingGet, speciesNames } from '../src/server/naming';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from '../src/server/market';
@@ -137,6 +137,16 @@ createServer(async (req, res) => {
       await saveDice(d, USER.id, s);
       return send(200, s.streak ?? null);
     }
+    // Nur in der Vorschau: Regelstufe setzen (/dev/stage?n=3, ohne n: alles wie ein Spieler von vorher). Schaltet die Lektion frei
+    if (url.pathname === '/dev/stage') {
+      const s = await loadDice(d, USER.id);
+      const n = Number(url.searchParams.get('n') ?? 0);
+      s.tutorialPaid = true;
+      if (n >= 1 && n <= 6) s.stage = n;
+      else delete s.stage;
+      await saveDice(d, USER.id, s);
+      return send(200, { stage: s.stage ?? 'all' });
+    }
     if (url.pathname === '/api/mod/clean-test') return send(200, await cleanTestData(d, asUser, USER.name));
     if (url.pathname.startsWith('/api/dice')) {
       let raw = '';
@@ -150,6 +160,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/color') return send(200, await diceColor(d, asUser, b.color, b.color2));
       if (url.pathname === '/api/dice/test-blank') return send(200, await diceTestBlank(d, asUser, USER.name));
       if (url.pathname === '/api/dice/test-pigment') return send(200, await diceTestPigment(d, asUser, USER.name));
+      if (url.pathname === '/api/dice/test-stage') return send(200, await diceTestStage(d, asUser, USER.name, b.stage ?? null));
       if (url.pathname === '/api/dice/test-shiny') return send(200, await diceTestShiny(d, asUser, USER.name, b.style ?? null, b.holo ?? false));
       if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));

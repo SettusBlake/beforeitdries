@@ -7,7 +7,7 @@ import { reportDrawing, reviewList, reviewOk } from '../src/server/drawings';
 import { galleryTestDecks, deckPower, galleryCollect, galleryFind, galleryHang, galleryStatus, galleryTestSelf, hangDeck, payOwner } from '../src/server/gallery';
 import { K } from '../src/server/keys';
 import type { DuelResponse } from '../src/shared/api';
-import { dieMonster, GALLERY_FEE } from '../src/shared/dice';
+import { dieMonster, emptyDice, GALLERY_FEE } from '../src/shared/dice';
 import { encodeDrawing } from '../src/shared/drawn';
 import { monsterSeed } from '../src/shared/monster';
 import { loadState, type DuelAction } from '../src/shared/duel/play';
@@ -19,9 +19,14 @@ import { FakeReddit } from '../tools/fake-reddit';
 
 const A = 't2_owner',
   B = 't2_challenger';
+/** Spieler von vorher spielen mit allen Regeln (Einstieg E2: neue Spieler lernen sie nach und nach, eigener Test in rules-stages) */
+function veterans(redis: FakeRedis, ids: string[]): FakeRedis {
+  for (const id of ids) redis.strings.set(K.dice(id), JSON.stringify(emptyDice()));
+  return redis;
+}
 function setup(seed = 3): Deps {
   const r = RNG(seed);
-  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-31T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
+  return { redis: veterans(new FakeRedis(), [A, B, 't2_near', 't2_far', 't2_weak', 't2_third']), reddit: new FakeReddit(), now: Date.parse('2026-10-31T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
 }
 async function code(p: Promise<unknown>): Promise<string> {
   try {

@@ -11,7 +11,7 @@ import { iconImage } from './icons';
 import { elementImage } from './elements';
 import { elementDef } from '../../shared/elements';
 import { faceImage, holoRim, lookOf, type Look } from './faceskin';
-import { BRIM, COLS, HEARTS, PAPER, ROWS, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type Unit, type UnitSnap } from '../../shared/duel/rules';
+import { BRIM, COLS, HEARTS, PAPER, ROWS, ruleOn, S, unitById, type Cell, type Ev, type Face, type Side, type TeamSnap, type Unit, type UnitSnap } from '../../shared/duel/rules';
 import type { PaleAct } from '../../shared/duel/bleach';
 import { sfx } from './sound';
 import { mediumDef } from '../../shared/duel/media';
@@ -887,7 +887,8 @@ function drawUnit(u: VUnit, t: number): void {
   }
   // Brim: sechs Stücke um den Sockel, gefüllte golden, voll leuchtet der Ring
   const bn = Math.min(BRIM.max, u.brim ?? 0);
-  if (u.state === 'sheet') {
+  // Regeln nach und nach (Einstieg E2): der Ring erst ab Stufe 4, die Elemente ab Stufe 3
+  if (u.state === 'sheet' && ruleOn('brim')) {
     const full = bn >= BRIM.max;
     const seg = (Math.PI * 2) / BRIM.max,
       gap = 0.16;
@@ -930,7 +931,7 @@ function drawUnit(u: VUnit, t: number): void {
     }
   }
   // Element am Sockel (01.11.2026): kleines Zeichen links, damit man Ziele im Ring erkennt
-  const eu = u.state === 'sheet' ? unitById(u.id) : null;
+  const eu = u.state === 'sheet' && ruleOn('elements') ? unitById(u.id) : null;
   if (eu) {
     const img = elementImage(eu.el);
     const es = Math.max(12, cell * 0.27);

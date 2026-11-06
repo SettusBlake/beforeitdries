@@ -1,4 +1,6 @@
 /* Spielfarben (docs/entwuerfe/uebersicht-vorschlag.md): Wahl, Ausweichfarbe, Farben im Duell und in der Galerie */
+import { emptyDice } from '../src/shared/dice';
+import { K } from '../src/server/keys';
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
 import { diceColor, loadDice } from '../src/server/dice';
@@ -12,9 +14,14 @@ import { bagForDuel } from '../src/server/dice';
 
 const A = 't2_owner',
   B = 't2_challenger';
+/** Spieler von vorher spielen mit allen Regeln (Einstieg E2: neue Spieler lernen sie nach und nach, eigener Test in rules-stages) */
+function veterans(redis: FakeRedis, ids: string[]): FakeRedis {
+  for (const id of ids) redis.strings.set(K.dice(id), JSON.stringify(emptyDice()));
+  return redis;
+}
 function setup(seed = 3): Deps {
   const r = RNG(seed);
-  return { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-31T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
+  return { redis: veterans(new FakeRedis(), [A, B]), reddit: new FakeReddit(), now: Date.parse('2026-10-31T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
 }
 async function code(p: Promise<unknown>): Promise<string> {
   try {

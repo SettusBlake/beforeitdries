@@ -13,6 +13,7 @@ import { rarityIndex, rarityOf, type FaceMod, type Rarity } from '../dice';
 import type { BleachState, PaleAct } from './bleach';
 import { MEDIA, MEDIA_MAX, MEDIA_PREF, MEDIA_ROUNDS, START_MEDIA, mediumDef, type MediumId } from './media';
 import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
+import { STAGE_ALL, stageHas, type Unlock } from './stages';
 
 /* ---------- Regeln (alle Zahlen hier) ---------- */
 /** Blatt 6 breit, 8 hoch: auf dem Handy größere Felder als 7 × 7 bei fast gleicher Fläche (festgelegt am 29.10.2026) */
@@ -61,7 +62,7 @@ export const FAMILY_TEXT: Record<Family, [string, string]> = {
 /** Set-Bonus einer Seite: zwei oder drei Kleckse derselben Farbfamilie auf dem Blatt */
 export function setBonus(side: Side): { fam: Family; n: number } | null {
   const t = S.teams[side - 1];
-  if (!t || isPaleSide(side)) return null;
+  if (!t || isPaleSide(side) || !ruleOn('sets')) return null;
   const n: Record<Family, number> = { warm: 0, cool: 0, earth: 0 };
   for (const u of t.units) if (u.state === 'sheet') n[FAMILY[u.m.main]]++;
   for (const fam of ['warm', 'cool', 'earth'] as Family[]) if (n[fam] >= 2) return { fam, n: n[fam] };
@@ -551,8 +552,9 @@ const bonus = (v: number) => Math.round(v / 5);
  * Element-Multiplikator eines Spritzers (01.11.2026, docs/entwuerfe/elemente-vorschlag.md): ersetzt den Farbkreis beim Spritzen
  * (früher Gegenfarbe ×1,5, Nachbarfarbe ×0,75). Auf dem Blatt bleibt der Farbkreis für Lasur, Verlaufen und Schlamm
  */
-export const elemMult = (u: Unit, t: Unit): number => elementMult(u.el, t.el);
+export const elemMult = (u: Unit, t: Unit): number => (ruleOn('elements') ? elementMult(u.el, t.el) : 1);
 export const elemWord = (u: Unit, t: Unit): string => {
+  if (!ruleOn('elements')) return '';
   const l = elementLine(u.el, t.el);
   return l ? `${l} ×${elemMult(u, t)}` : `${elementDef(u.el).name} on ${elementDef(t.el).name}, no edge`;
 };
@@ -609,6 +611,8 @@ export const S = {
   tutorial: 0,
   /** Erstes Duell nach dem Lern-Duell: keine Malmittel, für beide Seiten */
   noMedia: false,
+  /** Regeln nach und nach (Einstieg E2): Stufe 1 bis 6 eines neuen Spielers, STAGE_ALL = alles ohne Ankündigung */
+  stage: STAGE_ALL as number,
   log: [] as { t: string; c: string }[],
   tally: {} as Record<string, number>,
   events: [] as Ev[],
@@ -617,6 +621,8 @@ export const S = {
   /** Nur in Bleach: Wellen, Durchbrüche, Tag */
   bleach: null as BleachState | null,
 };
+/** Gilt diese Regel in diesem Duell? (Einstieg E2, src/shared/duel/stages.ts) */
+export const ruleOn = (k: Unlock): boolean => stageHas(S.stage, k);
 export const count = (k: string, n = 1) => {
   S.tally[k] = (S.tally[k] ?? 0) + n;
 };
@@ -712,6 +718,7 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.heartsTurn = 0;
   S.tutorial = 0;
   S.noMedia = false;
+  S.stage = STAGE_ALL;
   S.dieIds = [];
   S.foeName = '';
   S.foeDice = [];
@@ -876,6 +883,7 @@ export const rerollsDone = (): number => PAINT.rerolls - S.rerolls;
  * Sponge saugt eine Stufe auf: die ersten zwei sind trocken
  */
 export function wetChance(side: Side, n = rerollsDone() + 1): number {
+  if (!ruleOn('wet')) return 0;
   const k = n - (hasMedium(side, 'sponge') ? 1 : 0);
   return PAINT.wet[Math.max(0, Math.min(PAINT.wet.length - 1, k))]!;
 }
@@ -978,7 +986,7 @@ const TASK_KINDS: TaskK[] = ['two', 'two', 'double', 'symbols', 'stars', 'four',
  * damit der Client ihn ohne Server zeigen kann. Nicht im Lern-Duell
  */
 export function taskOf(side: Side, round = S.round): Task | null {
-  if (!TUNE.tasks || S.tutorial > 0) return null;
+  if (!TUNE.tasks || S.tutorial > 0 || !ruleOn('task')) return null;
   const r = RNG((S.paintSeed ^ 0x5e9a7) + round * 131 + side * 17);
   const k = TASK_KINDS[Math.floor(r() * TASK_KINDS.length)]!;
   if (k === 'two') {
@@ -1618,7 +1626,8 @@ function doSplash(u: Unit, pig: PigmentId, at: number): string {
     emit({ k: 'cells', how: 'splat', cells: [snap(idx(t.x, t.y))] });
     if (flows.length) emit({ k: 'cells', how: 'flow', cells: flows.map(snap) });
   }
-  let s = `splashed ${t.side === 1 ? 'your' : 'the rival'} ${t.name}, ${elemWord(u, t)} (${parts.join('; ')})`;
+  const ew = elemWord(u, t);
+  let s = `splashed ${t.side === 1 ? 'your' : 'the rival'} ${t.name}${ew ? `, ${ew}` : ''} (${parts.join('; ')})`;
   if (t.hp <= 0) s += washOut(t, u);
   return s;
 }
@@ -1705,7 +1714,7 @@ function doSoak(u: Unit): string {
 export const BRIM = { max: 6, act: 2, soak: 1, hit: 1, glow: 1, spill: 3 };
 export const brimFull = (u: Unit): boolean => u.brim >= BRIM.max;
 export function fillBrim(u: Unit, n: number): void {
-  if (u.state !== 'sheet' || n <= 0 || isPaleSide(u.side)) return;
+  if (u.state !== 'sheet' || n <= 0 || isPaleSide(u.side) || !ruleOn('brim')) return;
   u.brim = Math.min(BRIM.max, u.brim + n);
 }
 /** Glow im Vorrat gießt sich in alle eigenen Kleckse auf dem Blatt. Steht keiner, wartet es */
@@ -2308,7 +2317,9 @@ function pickBest<T extends { v: number }>(cands: T[], look: number, r: Rand, ke
 }
 
 /** Würfelwahl: Chance auf eine Beschwörung und erwartete Symbole */
-const FACE_VALUE: Record<Crest, number> = { step: 0.6, splash: 0.6, guard: 0.5, glow: 0.7 };
+const FACE_VALUES: Record<Crest, number> = { step: 0.6, splash: 0.6, guard: 0.5, glow: 0.7 };
+/** Ohne Ring (Stufe unter 4) ist Glow nichts wert */
+const faceValue = (k: Crest): number => (k === 'glow' && !ruleOn('brim') ? 0 : FACE_VALUES[k]);
 export function aiChooseDice(t: Team, look: number, r: Rand): Unit[] {
   const pool = rollable(t);
   if (pool.length <= ROLL_N) return pool;
@@ -2321,8 +2332,8 @@ export function aiChooseDice(t: Team, look: number, r: Rand): Unit[] {
         let v = 0;
         for (const u of us)
           for (const f of u.faces) {
-            if (f.k === 'gold') v += CRESTS.reduce((a, c) => a + FACE_VALUE[c.k], 0) / 6;
-            else if (isCrest(f)) v += (FACE_VALUE[f.k] * f.n + (f.k2 ? FACE_VALUE[f.k2] : 0)) / 6;
+            if (f.k === 'gold') v += CRESTS.reduce((a, c) => a + faceValue(c.k), 0) / 6;
+            else if (isCrest(f)) v += (faceValue(f.k) * f.n + (f.k2 ? faceValue(f.k2) : 0)) / 6;
           }
         if (room && us.some((u) => u.state === 'bag')) {
           let p = 0,
@@ -2360,7 +2371,7 @@ export function aiJokerCrest(t: Team): Crest {
   let best: Crest = 'splash',
     bv = -1;
   for (const c of CRESTS) {
-    const v = FACE_VALUE[c.k] / (1 + t.crests[c.k]);
+    const v = faceValue(c.k) / (1 + t.crests[c.k]);
     if (v > bv) {
       bv = v;
       best = c.k;
@@ -2589,7 +2600,7 @@ export function randomBag(r: Rand, salt: string): Monster[] {
   return Array.from({ length: BAG }, () => mk(salt + Math.floor(r() * 1e6), Math.floor(r() * 12)));
 }
 /** Viele Duelle ohne Darstellung, zum Abstimmen der Stufen */
-export function simulate(p1: number, p2: Level, n: number): Record<string, unknown> {
+export function simulate(p1: number, p2: Level, n: number, stage = STAGE_ALL): Record<string, unknown> {
   S.headless = true;
   const res = { p1: 0, p2: 0, draw: 0, palette: 0, wipes: 0 };
   S.tally = {};
@@ -2597,10 +2608,11 @@ export function simulate(p1: number, p2: Level, n: number): Record<string, unkno
     const seed = 1000 + g * 7919;
     const r = RNG(seed);
     newGame(seed, p2, randomBag(r, 'Y'), randomBag(r, 'R'), seed);
+    S.stage = stage;
     aiOpening(2, p2);
     aiOpening(1, 'master');
     const pick = () => {
-      if (!TUNE.media) return;
+      if (!TUNE.media || !ruleOn('media')) return;
       for (const side of [1, 2] as Side[]) {
         const o = (S.teams[side - 1]!.media?.length ?? 0) < MEDIA_MAX ? makeOffer(side, side === 1 ? START_MEDIA : MEDIA.map((m) => m.id)) : [];
         if (o.length) takeMedium(side, aiMedium(o));

@@ -1,6 +1,6 @@
 # Einstieg neu: Vorschlag
 
-Stand 06.11.2026, Fassung 3. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“. E3 und E1 sind im Spiel (Playtest v0.1.0.4), E2 kommt danach.
+Stand 06.11.2026, Fassung 4. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“, dann „los, mach E2“. E3 und E1 sind im Spiel (Playtest v0.1.0.4), E2 ebenso (Playtest v0.1.0.5).
 
 ## 1 Rückmeldung eines Spielers (06.11.2026)
 
@@ -65,11 +65,11 @@ Fünf kurze Schritte. Das Blatt wächst mit: Die Kamera zeigt anfangs nur 2 × 2
 
 ### E2 Regeln kommen nach und nach
 
-**Stand:** kommt nach E1, mit Simulation.
+**Stand:** gebaut (Bild docs/entwuerfe/regeln-nach-und-nach.png).
 
-Das erste richtige Duell nach der Lektion läuft mit den Grundregeln: Würfeln, Beschwören, Stempeln, Spritzen, Palette, Glaze und Pure. Ohne Malmittel ist es heute schon.
+Das erste richtige Duell nach der Lektion läuft mit den Grundregeln: Würfeln, Beschwören, Stempeln, Spritzen, Palette, Glaze und Pure.
 
-Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Satz („New: Elements. Fire beats Metal.“) und dem Knopf „?“ für Einzelheiten.
+Jedes weitere Duell schaltet eine Sache frei. Dazu kommt oben auf dem Blatt eine Karte „New“ mit einem Satz und dem Knopf „?“, der die Regel in „How to play“ zeigt.
 
 | Duell | Neu | Bis dahin |
 | --- | --- | --- |
@@ -83,6 +83,36 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Sa
 - **Für beide Seiten gleich:** Was noch nicht freigeschaltet ist, gilt auch für den Rivalen und ist nicht zu sehen. Versteckte Regeln, die trotzdem wirken, würden mehr verwirren.
 - **Galerie-Duelle:** erst, wenn alles freigeschaltet ist.
 - **Tagesblatt:** entschieden A, wie heute gleich nach der Lektion, mit allen Regeln und Sepias drei Sätzen.
+
+**Wie es gebaut ist:**
+
+- **Stufe je Spieler:** Neue Spieler beginnen bei Stufe 1 (Feld `stage` im Spielstand), jedes fertige Duell gibt eine Stufe mehr bis 6. Wer schon vorher gespielt hat, hat keine Stufe im Spielstand und behält alle Regeln. Lern-Duell, Galerie-Duell und Tagesblatt laufen immer mit allem. Regeln in src/shared/duel/stages.ts, im Duell `ruleOn` in rules.ts.
+- **Für beide Seiten:**
+  - Neuwürfe bleiben trocken.
+  - Elemente zählen nicht (×1).
+  - Der Ring füllt sich nicht, dadurch gibt es keinen Meisterzug und kein Überlaufen.
+  - Kein Auftrag, kein Set-Bonus, keine Malmittel.
+  - Der Rivale wertet Glow ohne Ring mit null.
+- **Nicht zu sehen, solange es nicht gilt:**
+  - Element-Zeichen am Sockel, auf den Chips und auf der Karte im Duell, dazu der Element-Teil der Zielvorschau.
+  - Der Ring am Sockel und der Meisterzug auf der Karte.
+  - Glow im Vorrat. Antippen eines Glow sagt „Not in play yet“.
+  - Die Nässe-Anzeige am Neuwurf-Knopf.
+  - Set-Bonus und Auftrag.
+  - In „How to play“ die Abschnitte, die noch nicht gelten.
+- **Ankündigung:** Im ersten Duell einer neuen Stufe erscheint oben „New · Wet rerolls / Elements / The gold ring / Tasks and sets“ mit einem Satz. Sie verschwindet mit der ersten Handlung oder nach 8 Sekunden. „?“ öffnet die Hilfe an dieser Stelle. Bei den Malmitteln (Stufe 5) sagt es Sepia schon bei der Wahl, dort gibt es keine Karte.
+- **Malmittel:** Bisher war nur das erste Duell ohne, jetzt die ersten vier. Neue Malmittel werden erst freigeschaltet, wenn Malmittel im Spiel sind.
+- **Galerie:** Der Knopf im Startbild ist blass mit „after n more duels“, der Server lehnt Galerie-Duelle vorher ab.
+- **Simulation** (Computer als Spieler, je 300 Duelle, Stufe 1 bis 6 und alles):
+
+| Rivale | 1 | 2 | 3 | 4 | 5 | 6 | alles |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Apprentice | 100 % | 100 % | 100 % | 99 % | 99 % | 99 % | 99 % |
+| Journeyman | 96 % | 97 % | 97 % | 97 % | 96 % | 97 % | 97 % |
+| Master | 47 % | 48 % | 44 % | 42 % | 47 % | 46 % | 46 % |
+
+  Der Apprentice bleibt auf jeder Stufe schlagbar, die Stufen verschieben das Gleichgewicht kaum.
+- **Zum Testen:** In den Moderator-Werkzeugen (🛠, nur Playtest und Mods) gibt es „Rules from the next duel: 1 2 3 4 5 6 all“. Alte Konten haben sonst alle Regeln.
 
 ### E3 Weniger Text überall
 
@@ -98,7 +128,7 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Sa
 
 1. **E3:** gebaut.
 2. **E1:** gebaut, als Artifact abgestimmt und in der App.
-3. **E2:** danach, mit Simulation, damit der Apprentice im ersten Duell schlagbar bleibt.
+3. **E2:** gebaut, mit Simulation.
 
 ## 6 Entscheidungen (06.11.2026)
 
@@ -110,4 +140,5 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Sa
 
 ## 7 Offen
 
-- **E2:** Regeln über die ersten 6 Duelle freischalten, mit Simulation. Wartet auf dein „los“.
+1. **Glow vor Duell 4:** Ohne Ring tut eine Glow-Seite noch nichts. Sie ist im Vorrat ausgeblendet, und Antippen sagt „Not in play yet“. Wie bisher lassen, oder soll Glow bis dahin etwas Einfaches tun, zum Beispiel jeden eigenen Klecks um 1 heilen? Empfehlung: so lassen, die Simulation zeigt keinen Nachteil.
+2. **Würfelkarten außerhalb des Duells:** In „Your dice“, Markt und Tausch zeigen die Karten weiter Element und Set. Erst ab Stufe 3 beziehungsweise 6 zeigen? Empfehlung: so lassen, dort liest man in Ruhe nach.

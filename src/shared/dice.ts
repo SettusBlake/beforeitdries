@@ -230,6 +230,8 @@ export type DiceSave = {
   color2?: ColorId;
   /** Fertige Duelle ohne Lern-Duell (gezählt seit 31.10.2026), Handeln ab TRADE.minDuels */
   duels?: number;
+  /** Regeln nach und nach (Einstieg E2, src/shared/duel/stages.ts): Stufe 1 bis 6, neue Spieler beginnen bei 1. Fehlt: alles */
+  stage?: number;
   /** Anlage des Reddit-Kontos (Zeit), einmal nachgesehen */
   born?: number;
   /** Tausche und Käufe am Tag tradeDay */

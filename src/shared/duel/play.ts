@@ -6,6 +6,7 @@
 import { sameAction, tutorialAction, tutorialActive } from './tutorial';
 import { isMedium, START_MEDIA, type MediumId } from './media';
 import { COLOR_DEFAULT, COLOR_RIVAL, type ColorId } from '../colors';
+import { STAGE_ALL } from './stages';
 import type { PigmentId } from '../data';
 import { aiFlick, bleachGiveUp, bleachRoundEnd, doFlick, type BleachState } from './bleach';
 import {
@@ -124,6 +125,8 @@ export type DuelState = {
   tutorial: number;
   /** Erstes Duell nach dem Lern-Duell: keine Malmittel für beide Seiten (neuer Spieler, 02.11.2026) */
   noMedia?: true;
+  /** Regeln nach und nach (Einstieg E2): Stufe 1 bis 6 eines neuen Spielers (fehlt: alles) */
+  stage?: number;
   /** Galerie-Duell: Besitzer des Decks (leer: kein Galerie-Duell) und je Würfel des Rivalen, was seine Karte zeigt */
   foeName?: string;
   foeDice?: (FoeDie | null)[];
@@ -170,6 +173,7 @@ export function publicState(): DuelState {
     log: S.log.slice(0, 40),
     tutorial: S.tutorial,
     ...(S.noMedia ? { noMedia: true as const } : {}),
+    ...(S.stage !== STAGE_ALL ? { stage: S.stage } : {}),
     ...(S.foeName ? { foeName: S.foeName } : {}),
     ...(S.foeDice.some(Boolean) ? { foeDice: S.foeDice } : {}),
     colors: S.colors,
@@ -209,6 +213,7 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, Hidden>>): void 
   S.log = s.log;
   S.tutorial = s.tutorial ?? 0;
   S.noMedia = !!s.noMedia;
+  S.stage = s.stage ?? STAGE_ALL;
   S.rng = s.rng ?? 0;
   S.gameSeed = s.gameSeed ?? 0;
   S.dieIds = s.dieIds ?? [];

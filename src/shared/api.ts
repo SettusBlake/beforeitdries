@@ -79,7 +79,7 @@ export type ErrorCode = 'login' | 'not_found' | 'forbidden' | 'busy' | 'bad_requ
  */
 /** Testdaten vor dem Start entfernt (Playtest, nur Mods): erfundene Maler, noch laufende Bereinigungen, entfernte Posts, abgesagte Benennen */
 export type CleanTestResponse = { painters: number; pending: number; posts: number; namings: number; errors: string[] };
-export const DUEL_PROTOCOL = 20;
+export const DUEL_PROTOCOL = 21;
 export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {

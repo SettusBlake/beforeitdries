@@ -3,6 +3,7 @@
  * Alle Würfe kommen vom Server, hier wird nur gezeigt und angetippt. Jedes Monster gibt es nur einmal (Seriennummer).
  */
 import { statBlock } from './statcard';
+import { ruleStage, STAGE_ALL } from '../../shared/duel/stages';
 import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
@@ -925,6 +926,34 @@ function renderMod(): void {
       st.append(b);
     }
   }
+  // Test-Knopf: Regelstufe (Einstieg E2), wirkt ab dem nächsten Duell
+  const sg = $('stage-test');
+  sg.hidden = !tester;
+  if (tester) {
+    sg.replaceChildren(el('span', '', 'Rules from the next duel:'));
+    for (const v of [1, 2, 3, 4, 5, 6, null]) {
+      const on = (s.stage ?? null) === v;
+      const b = el('button', 'chip' + (on ? ' on' : ''), v === null ? 'all' : String(v)) as HTMLButtonElement;
+      b.type = 'button';
+      b.disabled = busy || on;
+      b.addEventListener('click', () => void testStage(v));
+      sg.append(b);
+    }
+  }
+}
+/** Test-Knopf (Playtest, nur Mods): Regelstufe setzen */
+async function testStage(v: number | null): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  try {
+    apply(await api.diceTestStage(v));
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  renderMod();
+  render();
 }
 function openMod(): void {
   if (!tester && !mod) return;
@@ -1162,6 +1191,8 @@ export function openDice(): void {
 /** Für den Titel: gibt es etwas Freies zu ziehen? */
 /** Lern-Duell gemacht (oder schon ein Duell gespielt), wie am Server fürs Tagesblatt. null: Stand noch nicht geladen */
 export const lessonDone = (): boolean | null => (save ? save.tutorialPaid || (save.duels ?? 0) > 0 : null);
+/** Regelstufe des Spielers (Einstieg E2), ohne geladenen Stand: alles */
+export const ruleStageNow = (): number => (save ? ruleStage(save) : STAGE_ALL);
 export async function diceBadge(): Promise<string> {
   try {
     const r = await api.dice();

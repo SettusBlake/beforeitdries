@@ -8,6 +8,7 @@ import type { GalleryRecord, GalleryResponse, GalleryStatus, GalleryView } from 
 import { dayKey } from '../shared/day';
 import { dieMonster, GALLERY, GALLERY_FEE, type DiceSave, type DieRec, type FaceMod } from '../shared/dice';
 import { START_MEDIA, type MediumId } from '../shared/duel/media';
+import { galleryLockText, galleryOpen, ruleStage } from '../shared/duel/stages';
 import { BAG, dieUnit, power, type FoeDie } from '../shared/duel/rules';
 import type { Monster } from '../shared/monster';
 import { TEAM_COLORS, type ColorId } from '../shared/colors';
@@ -139,6 +140,8 @@ export async function galleryFind(d: Deps, userId: string | undefined, username:
   const tester = await isTester(d, username);
   return withLock(d, playerLock(uid), async () => {
     const s = await loadDice(d, uid);
+    // Galerie-Duelle erst, wenn alle Regeln frei sind (Einstieg E2)
+    if (!galleryOpen(ruleStage(s))) throw new GameError('bad_request', galleryLockText(ruleStage(s)));
     const bag = await bagForDuel(d, uid);
     const mine = deckPower(bag);
     const me = await loadMe(d, uid);

@@ -6,7 +6,8 @@ import type { DuelResponse } from '../shared/api';
 import { DuelError, duelLoot, loadState, openDuel, perform, publicState, saveState, wornDice, type DuelAction, type DuelSave } from '../shared/duel/play';
 import { dieMonster } from '../shared/dice';
 import type { Monster } from '../shared/monster';
-import { BAG, drain, mk, newGame, S, type Level } from '../shared/duel/rules';
+import { BAG, drain, mk, newGame, ruleOn, S, type Level } from '../shared/duel/rules';
+import { galleryLockText, galleryOpen, ruleStage, STAGE_ALL } from '../shared/duel/stages';
 import { startTutorial, TUTORIAL_SEED, tutorialBags } from '../shared/duel/tutorial';
 import { GameError, withLock, type Deps } from './core';
 import { bagForDuel, isTester, loadDice, payDuel, playerLock } from './dice';
@@ -49,6 +50,8 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
     // Der Beutel kommt aus der Würfelsammlung (vor newGame, weil danach kein await mehr kommen darf)
     const bag = tutorial ? [] : await bagForDuel(d, uid);
     const mine = tutorial ? null : await loadDice(d, uid);
+    // Galerie-Duelle erst, wenn alle Regeln frei sind (Einstieg E2)
+    if (gallery && mine && !galleryOpen(ruleStage(mine))) throw new GameError('bad_request', galleryLockText(ruleStage(mine)));
     const unlocked = mine?.media ?? START_MEDIA;
     const foe = gallery && !tutorial ? await takePick(d, uid) : null;
     // Normales Duell: 1 oder 2 Würfel des Rivalen treiben aus dem Archiv zurück (Test-Schalter: auch die eigenen)
@@ -101,8 +104,10 @@ export async function duelStart(d: Deps, userId: string | undefined, level: unkn
     }
     // Malmittel zur Wahl kommen aus den freigeschalteten (vorher geladen, nach newGame kein await mehr)
     S.unlocked = [...unlocked];
-    // Das erste Duell nach dem Lern-Duell ist ohne Malmittel, ab dem zweiten wie sonst (neuer Spieler, 02.11.2026)
-    S.noMedia = !tutorial && (mine?.duels ?? 0) === 0;
+    // Regeln nach und nach (Einstieg E2): neue Spieler spielen mit ihrer Stufe, für beide Seiten. Lern-Duell und Galerie mit allem.
+    // Malmittel erst ab Stufe 5 (vorher: nur das erste Duell ohne)
+    S.stage = tutorial || foe || !mine ? STAGE_ALL : ruleStage(mine);
+    S.noMedia = !tutorial && !ruleOn('media');
     // Spielfarben: der Gegner behält seine, du nimmst deine oder die Ausweichfarbe
     S.colors = duelColors(mine?.color, mine?.color2, foe ? (foe.color ?? COLOR_DEFAULT) : COLOR_RIVAL);
     const events = [...drain(), ...openDuel()];

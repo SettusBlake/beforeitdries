@@ -763,3 +763,20 @@ button.gal-note.linkish u { color: var(--ink); text-underline-offset: 2px; }
 .join-b { display: block; width: 100%; margin: 8px 0 0; border-style: solid; }
 
 @keyframes down { from { transform: translateY(-10px); opacity: 0; } }
+
+/* ---------- Regeln nach und nach (Einstieg E2) ---------- */
+/* Neue Regel dieses Duells: schmale Karte oben auf dem Blatt, „?“ öffnet die Hilfe an dieser Stelle */
+#newrule { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); z-index: 6; width: min(94%, 360px); display: flex; align-items: stretch;
+  border-radius: 12px; background: var(--sheet); border: 1.5px solid var(--gold); box-shadow: 0 6px 18px rgba(29,33,48,.18); animation: nr-in .35s ease; }
+#newrule .nr-body { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; text-align: left; padding: 7px 10px; border: 0; background: none; cursor: pointer; }
+#newrule small { font: 700 10px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-ink); }
+#newrule b { font: 400 1.05rem var(--f-display); color: var(--ink); }
+#newrule span { font-size: 13px; line-height: 1.25; color: var(--muted); }
+#newrule .nr-q { flex: none; width: 44px; border: 0; border-left: 1px solid var(--line); background: none; font: 800 1.2rem var(--f-body); color: var(--gold-ink); cursor: pointer; border-radius: 0 12px 12px 0; }
+@keyframes nr-in { from { transform: translate(-50%, -10px); opacity: 0; } }
+#rules li.flash { animation: rule-flash 1.6s ease; border-radius: 6px; }
+@keyframes rule-flash { 0%, 60% { background: rgba(201,150,30,.22); } 100% { background: transparent; } }
+/* Galerie erst, wenn alle Regeln frei sind: Knopf blass mit „after n more duels“ */
+#title .tgo .primary.locked { opacity: .55; cursor: default; }
+#title .tgo .primary.locked .after { display: block; font: 10px var(--f-mono); color: inherit; opacity: .85; }
+@media (prefers-reduced-motion: reduce) { #newrule, #rules li.flash { animation: none; } }

@@ -49,6 +49,7 @@ export const api = {
   diceDraw: (drawing: string) => call<DiceResponse>('/api/dice/draw', { drawing }),
   diceTestBlank: () => call<DiceResponse>('/api/dice/test-blank', {}),
   diceTestPigment: () => call<DiceResponse>('/api/dice/test-pigment', {}),
+  diceTestStage: (stage: number | null) => call<DiceResponse>('/api/dice/test-stage', { stage }),
   modCleanTest: () => call<CleanTestResponse>('/api/mod/clean-test', {}),
   diceTestShiny: (style: StyleId | null, holo = false) => call<DiceResponse>('/api/dice/test-shiny', { style, holo }),
   diceSeen: () => call<DiceResponse>('/api/dice/seen', {}),

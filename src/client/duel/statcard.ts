@@ -2,7 +2,7 @@
  * Werte auf der Karte in Spielworten (festgelegt am 31.10.2026, docs/entwuerfe/karte-werte-vorschlag.md): je Wert eine Zeile
  * mit Name, Zahl, Balken (Anteil aller Kleckse, die weniger haben) und Wirkung, Antippen erklärt die Rechnung. Dazu Stufe und Farbe
  */
-import { CRESTS } from '../../shared/duel/rules';
+import { CRESTS, ruleOn } from '../../shared/duel/rules';
 import type { Unit } from '../../shared/duel/rules';
 import { colourInfo, levelInfo, statRows, type StatKey } from '../../shared/duel/statinfo';
 import { elementBadge, elementText } from './elements';
@@ -61,6 +61,7 @@ export function statBlock(u: Unit, live: boolean): HTMLElement {
   col.innerHTML = `<b>Colour</b> ${c.name}, ${c.fam}. Same colours on its faces make a Glaze or Pure.`;
   const set = el('p', 'scol');
   set.innerHTML = `<b>${fam} set</b> 2 on the sheet: ${c.set[0].toLowerCase()} · 3: ${c.set[1].toLowerCase()}`;
-  box.append(ele, col, set);
+  // Im Duell nur, was schon gilt (Einstieg E2: Elemente ab Stufe 3, Set-Bonus ab Stufe 6)
+  box.append(...(!live || ruleOn('elements') ? [ele] : []), col, ...(!live || ruleOn('sets') ? [set] : []));
   return box;
 }

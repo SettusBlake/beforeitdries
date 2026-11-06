@@ -38,6 +38,7 @@ import {
   type Rarity,
 } from '../shared/dice';
 import { BAG, dieUnit, isCrestFace, patinaFaces } from '../shared/duel/rules';
+import { RULE_STAGES, ruleStage, stageHas } from '../shared/duel/stages';
 import { humidityFor, makeMonster, monsterSeed, speciesKey } from '../shared/monster';
 import { isPigment, PIG, type PigmentId } from '../shared/data';
 import { GameError, isMod, withLock, type Deps } from './core';
@@ -54,7 +55,8 @@ export const playerLock = (uid: string): string => `duel:${uid}`;
 
 export async function loadDice(d: Pick<Deps, 'redis' | 'now'>, uid: string): Promise<DiceSave> {
   const raw = await d.redis.get(K.dice(uid));
-  const s = raw ? { ...emptyDice(), ...(JSON.parse(raw) as DiceSave) } : emptyDice();
+  // Neue Spieler lernen die Regeln nach und nach (Stufe 1), wer schon einen Spielstand hat, behält alles
+  const s = raw ? { ...emptyDice(), ...(JSON.parse(raw) as DiceSave) } : { ...emptyDice(), stage: 1 };
   weeklyBlank(s, d.now);
   migrateHolo(s);
   migrateBound(s);
@@ -252,6 +254,21 @@ export async function lessonDone(d: Deps, userId: string | undefined): Promise<D
     s.pigment += pigment;
     await saveDice(d, uid, s);
     return { ...respond(d, s), lesson: { pigment } };
+  });
+}
+
+/** Test-Knopf (Playtest, nur Mods): Regelstufe setzen (Einstieg E2), 1 bis 6, null = alles wie ein Spieler von vorher. Schaltet die Lektion frei */
+export async function diceTestStage(d: Deps, userId: string | undefined, username: string | undefined, stage: unknown): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  if (stage !== null && !(Number.isInteger(stage) && (stage as number) >= 1 && (stage as number) <= RULE_STAGES)) throw new GameError('bad_request', 'Unknown rules stage.');
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    s.tutorialPaid = true;
+    if (typeof stage === 'number') s.stage = stage;
+    else delete s.stage;
+    await saveDice(d, uid, s);
+    return { ...respond(d, s), tester: true };
   });
 }
 
@@ -559,15 +576,20 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
     const drops = dropLoot(d, s, winner, loot);
     if (drops.length) reward.drops = drops;
   }
-  // Jedes fertige Duell schaltet das nächste Malmittel frei und zählt fürs Handeln
+  // Jedes fertige Duell schaltet das nächste Malmittel frei (erst wenn Malmittel im Spiel sind) und zählt fürs Handeln.
+  // Neue Spieler: jedes fertige Duell schaltet die nächste Regel frei (Einstieg E2)
   if (!tutorial) {
     s.duels = (s.duels ?? 0) + 1;
-    const have = s.media ?? [...START_MEDIA];
-    const next = UNLOCK_ORDER.find((m) => !have.includes(m));
-    if (next) {
-      s.media = [...have, next];
-      reward.unlocked = next;
+    const stage = ruleStage(s);
+    if (stageHas(stage, 'media')) {
+      const have = s.media ?? [...START_MEDIA];
+      const next = UNLOCK_ORDER.find((m) => !have.includes(m));
+      if (next) {
+        s.media = [...have, next];
+        reward.unlocked = next;
+      }
     }
+    if (stage < RULE_STAGES) s.stage = stage + 1;
     const join = askJoin(d, s);
     if (join) reward.join = join;
   }

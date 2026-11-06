@@ -1,4 +1,6 @@
 /* Farbschlacht am Server: Start, Prüfung der Aktionen, ein ganzes Duell bis zum Ende */
+import { emptyDice } from '../src/shared/dice';
+import { K } from '../src/server/keys';
 import { describe, expect, it } from 'vitest';
 import { diceGet, loadDice, saveDice } from '../src/server/dice';
 import { duelAct, duelGet, duelStart } from '../src/server/duel';
@@ -13,9 +15,14 @@ import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
 
 const USER = 't2_tester';
+/** Spieler von vorher spielen mit allen Regeln (Einstieg E2: neue Spieler lernen sie nach und nach, eigener Test in rules-stages) */
+function veterans(redis: FakeRedis, ids: string[]): FakeRedis {
+  for (const id of ids) redis.strings.set(K.dice(id), JSON.stringify(emptyDice()));
+  return redis;
+}
 function setup(seed = 7) {
   const r = RNG(seed);
-  const d: Deps = { redis: new FakeRedis(), reddit: new FakeReddit(), now: Date.parse('2026-10-28T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
+  const d: Deps = { redis: veterans(new FakeRedis(), [USER]), reddit: new FakeReddit(), now: Date.parse('2026-10-28T12:00:00Z'), rand: () => (r() * 4294967296) >>> 0, subredditName: 'beforeitdries', appSlug: 'beforeitdries' };
   return d;
 }
 /** Den Stand so laden, wie der Client ihn sieht, und daraus Züge wählen */
@@ -49,21 +56,25 @@ describe('Duell am Server', () => {
     expect(await code(duelStart(setup(), undefined, 'apprentice'))).toBe('login');
   });
 
-  it('erstes Duell ohne Malmittel für beide Seiten, ab dem zweiten wie sonst', async () => {
+  it('neuer Spieler: Malmittel erst ab Stufe 5, für beide Seiten (Einstieg E2)', async () => {
     const d = setup();
-    const first = await duelStart(d, USER, 'apprentice');
+    const NEW = 't2_newbie';
+    const first = await duelStart(d, NEW, 'apprentice');
     expect(first.state?.phase).toBe('opening');
+    expect(first.state?.stage).toBe(1);
     expect(first.state?.noMedia).toBe(true);
     expect(first.state?.teams[1]?.media ?? []).toHaveLength(0);
-    // Auch nach Runde 2 und 4 kommt nichts (startOffer bleibt aus)
     view(first);
     expect(S.noMedia).toBe(true);
-    const s = await loadDice(d, USER);
-    s.duels = 1;
-    await saveDice(d, USER, s);
-    const second = await duelStart(d, USER, 'apprentice');
-    expect(second.state?.phase).toBe('medium');
-    expect(second.state?.noMedia).toBeUndefined();
+    const s = await loadDice(d, NEW);
+    s.stage = 4;
+    await saveDice(d, NEW, s);
+    expect((await duelStart(d, NEW, 'apprentice')).state?.noMedia).toBe(true);
+    s.stage = 5;
+    await saveDice(d, NEW, s);
+    const fifth = await duelStart(d, NEW, 'apprentice');
+    expect(fifth.state?.phase).toBe('medium');
+    expect(fifth.state?.noMedia).toBeUndefined();
   });
 
   it('startet mit Eröffnung des Rivalen und behält den Würfelzufall für sich', async () => {
