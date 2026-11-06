@@ -1,6 +1,6 @@
 # Einstieg neu: Vorschlag
 
-Stand 06.11.2026, Fassung 1. Nichts davon ist gebaut. Fragen am Ende.
+Stand 06.11.2026, Fassung 2. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“. E3 ist im Spiel (Playtest), E1 ist als Artifact zum Ausprobieren gebaut, E2 kommt danach.
 
 ## 1 Rückmeldung eines Spielers (06.11.2026)
 
@@ -10,7 +10,7 @@ Stand 06.11.2026, Fassung 1. Nichts davon ist gebaut. Fragen am Ende.
   - Gewünscht: ein Zehntel des Texts, am Anfang vielleicht 4 Felder und ein Würfel, Hand halten.
   - „Feels like that FTUX really needs to get dialed in and this game will pop off.“
 
-## 2 Was das Lern-Duell heute macht (gemessen)
+## 2 Was das Lern-Duell vorher machte (gemessen)
 
 - **Text:** 14 Blasen von Sepia mit zusammen **477 Wörtern**, jede mit „Got it“. Dazu bei jedem Schritt eine Hinweiszeile unten.
 - **Ausgangslage:** gleich das volle Brett 6 × 8, 9 Würfel im Deck, der Rivale mit 6 Würfeln, 3 Runden.
@@ -40,23 +40,31 @@ Der Spieler hat recht: Das ist eine Textwand mit Wörtern, die man noch nie gese
 
 ### E1 Erste Schritte auf kleinem Blatt (ersetzt das Lern-Duell)
 
+**Stand:** als Artifact gebaut, https://claude.ai/artifact/6rdYt2zv767ViG25g3Qvnx (Quelle tools/mockup/einstieg/, Bild docs/entwuerfe/einstieg-e1-artifact.png). Wartet auf deine Rückmeldung, erst danach kommt es in die App.
+
 Fünf kurze Schritte. Das Blatt wächst mit: Die Kamera zeigt anfangs nur 2 × 2 Felder und zoomt mit jedem Schritt heraus, bis das ganze Blatt zu sehen ist. Ein goldener Ring zeigt immer genau einen Schritt.
 
 | Schritt | Blatt | Was man tut | Sepia sagt |
 | --- | --- | --- | --- |
-| 1 | 2 × 2 | Ein Klecks steht schon da. Wischen auf ein freies Feld malt es an. | „Drag your blot. Paint the paper.“ |
-| 2 | 3 × 3 | Ein Würfel. Antippen, er rollt, zeigt einen Stern, das Netz klappt auf, ein neuer Klecks erscheint. | „Roll. A star brings a new blot.“ |
-| 3 | 3 × 3 | Ein Klecks des Rivalen taucht auf. Wischen auf ihn, er platzt. | „Drag onto the rival. Burst it.“ |
-| 4 | 4 × 4 | Die Palette des Rivalen mit drei Herzen. Ein Splash im Wurf, ein Herz ist weg. | „Splash cracks their palette.“ |
-| 5 | 6 × 8 | Zwei Würfel in derselben Farbe: Glaze, der Treffer zählt anderthalbfach. | „Same colours hit harder.“ |
+| 1 | 2 × 2 | Ein Klecks steht schon da. Wischen auf das freie Feld daneben malt es an. | „Drag your blot. Paint the paper.“ |
+| 2 | 4 × 4 | Ein Würfel. Antippen, er rollt, zeigt einen Stern, das Netz leuchtet, Antippen klappt es auf, ein neuer Klecks erscheint. | „Roll. A star brings a new blot.“ |
+| 3 | 6 × 6 | Ein Klecks des Rivalen taucht auf. Wischen auf ihn, er platzt. | „Drag onto the rival. Burst it.“ |
+| 4 | 6 × 8 | Näher an die Palette des Rivalen gehen, ein Splash im Wurf, wischen auf die Palette, ein Herz ist weg. | „Walk closer. Splash cracks their palette.“ |
+| 5 | 6 × 8 | Der Rivale beschwört einen Klecks. Zwei Würfel in derselben Farbe: Glaze, der Treffer zählt anderthalbfach, der Klecks platzt. | „Same colours hit harder.“ |
 
-- **Am Ende:** „Now a real duel.“ Es geht direkt ins erste richtige Duell (E2).
-- **Umfang:** etwa 60 Sekunden und gut 30 Wörter.
-- **Feste Würfe wie heute:** Der Server prüft jeden Schritt, verlieren kann man nicht.
-- **Belohnung wie heute:** 200 Pigment und die freien Startwürfel.
-- **Technik:** Das Blatt bleibt in den Regeln 6 × 8. Die Lektion zeigt einen Ausschnitt und sperrt den Rest.
+- **Am Ende:** „Now a real duel.“ Im Artifact eine Karte mit „Start duel“ und „Again“, in der App geht es direkt ins erste richtige Duell (E2).
+- **Umfang:** etwa 60 Sekunden mit Lesen, ein schneller Durchlauf 23 Sekunden. Sepia sagt 6 Sätze mit 33 Wörtern.
+- **Hinweis unten:** erscheint erst, wenn man 5 Sekunden nicht weiterweiß oder etwas Falsches tippt (Zeile ruckt). Sonst reicht Sepias Satz.
+- **Bedienung wie im Spiel:** wischen oder antippen und Ziel antippen. Kleckse aus dem echten Renderer, 3D-Würfel mit der Würfel-Haut aus dem Spiel, Klänge aus dem Spiel.
+- **Abweichungen vom Vorschlag:** Schritt 2 auf 4 × 4 statt 3 × 3 (das Netz braucht 4 Felder Höhe), Schritt 3 auf 6 × 6 statt 3 × 3 (der Rivale steht weiter weg), Schritt 4 mit einem Schritt näher zur Palette. Das Ziel in Schritt 1 liegt rechts neben dem Klecks, weil der Klecks ins Feld darüber ragt und den Ring sonst verdeckt.
+- **Für die App geplant:**
+  - Feste Würfe wie heute: Der Server prüft jeden Schritt, verlieren kann man nicht.
+  - Belohnung wie heute: 200 Pigment und die freien Startwürfel.
+  - Technik: Das Blatt bleibt in den Regeln 6 × 8. Die Lektion zeigt einen Ausschnitt und sperrt den Rest.
 
 ### E2 Regeln kommen nach und nach
+
+**Stand:** kommt nach E1, mit Simulation.
 
 Das erste richtige Duell nach der Lektion läuft mit den Grundregeln: Würfeln, Beschwören, Stempeln, Spritzen, Palette, Glaze und Pure. Ohne Malmittel ist es heute schon.
 
@@ -73,32 +81,34 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Sa
 
 - **Für beide Seiten gleich:** Was noch nicht freigeschaltet ist, gilt auch für den Rivalen und ist nicht zu sehen. Versteckte Regeln, die trotzdem wirken, würden mehr verwirren.
 - **Galerie-Duelle:** erst, wenn alles freigeschaltet ist.
-- **Tagesblatt** (Frage 4): Es läuft für alle mit denselben Regeln, sonst wäre die Rangliste unfair. Es braucht also eine Entscheidung, wann neue Spieler es spielen.
+- **Tagesblatt:** entschieden A, wie heute gleich nach der Lektion, mit allen Regeln und Sepias drei Sätzen.
 
-### E3 Weniger Text überall (klein, sofort)
+### E3 Weniger Text überall
 
-- **Kurze Blasen:** Jede Blase von Sepia hat höchstens etwa 12 Wörter. Einzelheiten stehen hinter „?“ und in den Erklärkarten, die es schon gibt.
-- **Weg mit der Handlung:** Blasen verschwinden mit der Handlung statt mit „Got it“.
+**Stand:** gebaut, Playtest v0.1.0.3.
+
+- **Kurze Blasen:** 12 Blasen mit zusammen 117 Wörtern statt 14 mit 477, keine länger als 12 Wörter. Einzelheiten stehen in den Erklärkarten, die es schon gibt (Symbol antippen).
+- **Ohne „Got it“:** Die Blase sitzt oben über dem Blatt, lässt Tipps durch und verschwindet mit der nächsten Handlung.
+- **Weggefallen:** die Blasen zu Farbreaktionen und zum Radierer (stehen weiter in der Hilfe).
+- **Auch kürzer:** Sepias Satz zu den Malmitteln (10 Wörter) und zum Tagesblatt (13 Wörter).
 - **Sepias Ton:** Ihre trockenen Sprüche bleiben, aber nur an Meilensteinen (erster Sieg, erstes Platzen), nicht als Erklärung.
 
-### Zum Ausprobieren zuerst als Artifact
+## 5 Reihenfolge
 
-E1 lässt sich gut zuerst als Artifact zum Anfassen bauen, wie damals die Farbschlacht und Holo. Dann probierst du es am Handy aus, wir stimmen Text und Tempo ab, und erst danach kommt es in die App.
+1. **E3:** gebaut.
+2. **E1:** Artifact ausprobieren, Text und Tempo abstimmen, dann in die App.
+3. **E2:** danach, mit Simulation, damit der Apprentice im ersten Duell schlagbar bleibt.
 
-## 5 Empfehlung
+## 6 Entscheidungen (06.11.2026)
 
-1. **E3 sofort:** klein, und es hilft auch allen, die schon spielen.
-2. **E1 als Artifact:** ausprobieren, dann in die App.
-3. **E2 danach:** mit Simulation, damit der Apprentice im ersten Duell schlagbar bleibt.
+1. **Richtung:** kleines Blatt am Anfang, ein Satz je Schritt, Regeln kommen nach und nach. Ja.
+2. **Artifact:** E1 erst als Artifact zum Ausprobieren. Ja.
+3. **Freischalten:** über 6 Duelle wie in der Tabelle.
+4. **Tagesblatt:** A, gleich nach der Lektion mit allen Regeln.
+5. **Sepias Sprüche:** nur noch an Meilensteinen. Ja.
 
-## 6 Fragen
+## 7 Fragen zum Artifact
 
-1. **Richtung:** kleines Blatt am Anfang, ein Satz je Schritt, Regeln kommen nach und nach? Empfehlung: ja.
-2. **Artifact:** E1 erst als Artifact zum Ausprobieren? Empfehlung: ja.
-3. **Freischalten:** über 6 Duelle wie in der Tabelle, oder schneller, zum Beispiel über 3? Empfehlung: 6, ein Duell dauert 2 bis 5 Minuten.
-4. **Tagesblatt:**
-   - A wie heute gleich nach der Lektion, mit allen Regeln und Sepias drei Sätzen.
-   - B erst nach dem 3. Duell.
-   - C für alle mit einfacheren Regeln.
-   - Empfehlung: A. Die Strähne beginnt so am ersten Tag, und im Tagesblatt sind Elemente und Meisterzug weniger wichtig als im Duell. Zur Not steht Sepias Erklärung bereit.
-5. **Sepias Sprüche:** nur noch an Meilensteinen? Empfehlung: ja.
+1. Passt das Tempo (Zoom, Pausen zwischen den Schritten)?
+2. Passen die sechs Sätze von Sepia, oder soll ein Schritt weg oder dazu (zum Beispiel Neuwurf)?
+3. Hinweis unten erst nach 5 Sekunden: passt das, oder lieber gleich?
