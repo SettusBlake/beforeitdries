@@ -1,6 +1,6 @@
 # Einstieg neu: Vorschlag
 
-Stand 06.11.2026, Fassung 3. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“. E3 und E1 sind im Spiel (Playtest v0.1.0.3), E2 kommt danach.
+Stand 06.11.2026, Fassung 3. Entschieden am 06.11.2026: „alles Empfehlung, mach E3 und E1 als Artifact“, zum Artifact: „schaut gut aus. umsetzen und ins dev pushen“. E3 und E1 sind im Spiel (Playtest v0.1.0.4), E2 kommt danach.
 
 ## 1 Rückmeldung eines Spielers (06.11.2026)
 
@@ -86,7 +86,7 @@ Jedes weitere Duell schaltet eine Sache frei. Dazu kommt ein Banner mit einem Sa
 
 ### E3 Weniger Text überall
 
-**Stand:** gebaut, Playtest v0.1.0.3. Die Blasen gelten nur noch für ein schon laufendes altes Lern-Duell, die Sätze zu Malmitteln und Tagesblatt für alle.
+**Stand:** gebaut, Playtest v0.1.0.4. Die Blasen gelten nur noch für ein schon laufendes altes Lern-Duell, die Sätze zu Malmitteln und Tagesblatt für alle.
 
 - **Kurze Blasen:** 12 Blasen mit zusammen 117 Wörtern statt 14 mit 477, keine länger als 12 Wörter. Einzelheiten stehen in den Erklärkarten, die es schon gibt (Symbol antippen).
 - **Ohne „Got it“:** Die Blase sitzt oben über dem Blatt, lässt Tipps durch und verschwindet mit der nächsten Handlung.
