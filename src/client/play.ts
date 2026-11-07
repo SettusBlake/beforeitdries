@@ -63,6 +63,14 @@ play.addEventListener('click', (e) => requestExpandedMode(e, 'duel'));
 api
   .play()
   .then((r) => {
+    // Gilded weekend (Samstag und Sonntag UTC): die Zeile über dem Titel wird golden
+    if (r.gilded) {
+      const eb = document.querySelector('.p-text .eyebrow');
+      if (eb) {
+        eb.textContent = 'Gilded weekend · style and holo come easier';
+        eb.classList.add('gilded');
+      }
+    }
     if (!r.user) return;
     if (r.running) {
       play.textContent = 'Continue';

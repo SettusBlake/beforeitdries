@@ -7,7 +7,7 @@ import { ruleStage, STAGE_ALL } from '../../shared/duel/stages';
 import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
-import { BRUSHES, brushDef, isBrush, dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, washGlaze, type BrushId, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { BRUSHES, brushDef, brushOdds, GILDED_AT, isBrush, dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, washGlaze, type BrushId, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { monsterSeed, speciesLabel } from '../../shared/monster';
 import { addHolo } from '../lib/holo';
@@ -26,6 +26,7 @@ import { dropIcon, faceTile, lookOf, PIG_TAG } from './faceskin';
 import { elementBadge, elementIcon, elementText } from './elements';
 import type { Reveal, RevealPull } from './gacha/reveal';
 import { initAudio, sfx } from './sound';
+import { openBigCard } from './bigcard';
 
 const $ = (id: string) => document.getElementById(id)!;
 function el(tag: string, cls = '', text = ''): HTMLElement {
@@ -67,6 +68,13 @@ const store = {
 const savedBrush = store.get('bid-brush');
 let brush: BrushId = isBrush(savedBrush) ? savedBrush : 'plain';
 let freeReady = false;
+/** Gilded weekend nach der Uhr des Servers (kommt mit jeder Antwort) */
+let gilded = false;
+/** Gilded weekend: Stil ab 99, Holo ab 98 (für das Startbild) */
+export const gildedNow = (): boolean => gilded;
+/** Text des goldenen Bands im Startbild und über „Dip the brush“ */
+// Bereiche mit Wortverbinder, damit „98–100“ nicht umbricht
+export const GILDED_TEXT = `Gilded weekend: style on ${GILDED_AT.style}\u2060–\u2060100, holo on ${GILDED_AT.holo}\u2060–\u2060100 until Sunday midnight UTC`;
 let busy = false;
 /** Playtest und Mod: Test-Knopf für leere Würfel */
 let tester = false;
@@ -168,7 +176,12 @@ function render(): void {
     });
     bw.append(c);
   }
-  $('brush-note').textContent = br.throws === 1 ? `The hand throws once: style ${br.style}, holo ${br.holo}.` : `The hand throws ${br.throws === 2 ? 'twice' : 'three times'}, the best counts: style ${br.style}, holo ${br.holo}.`;
+  // Chancen des gewählten Pinsels, am Gilded weekend die höheren
+  const od = brushOdds(br, gilded);
+  $('brush-note').textContent = br.throws === 1 ? `The hand throws once: style ${od.style}, holo ${od.holo}.` : `The hand throws ${br.throws === 2 ? 'twice' : 'three times'}, the best counts: style ${od.style}, holo ${od.holo}.`;
+  const gb = $('gilded-dip');
+  gb.hidden = !gilded;
+  gb.textContent = GILDED_TEXT;
   $('odds').innerHTML = RARITIES.map((r) => `<span style="--c:${r.col}"><i></i>${r.from === r.to ? r.from : `${r.from}–${r.to}`} ${r.label}</span>`).join('');
   $('pity').textContent = `Bad luck shield: Rare in ${PITY.rare - s.pity.rare} · Epic in ${PITY.epic - s.pity.epic} · Legendary in ${PITY.legendary - s.pity.legendary} dips at most.`;
   // Selbst malen: ein leerer Würfel pro Woche, dazu ein Fund bei W100 = 1
@@ -290,6 +303,7 @@ function apply(r: DiceResponse): void {
   save = r.dice;
   setColorChoice(r.dice.color, r.dice.color2);
   freeReady = r.freeReady;
+  gilded = !!r.gilded;
   if (r.tester !== undefined) tester = r.tester;
   setGalleryStatus(r.gallery);
   setTradeStatus(r.trade);
@@ -407,6 +421,31 @@ function openDie(d: DieRec, item?: MarketItem | 'view'): void {
   // Stil und Holo zeigen ihr großes Bild über der ganzen Breite
   if (wide) top.classList.add('shiny');
   top.append(big, info);
+  // Große Karte (07.11.2026): Antippen des Bilds zeigt die ganze Karte groß. Holo kippt beim Ziehen, nur ein Tipp öffnet
+  big.classList.add('bc-open');
+  big.setAttribute('role', 'button');
+  big.setAttribute('aria-label', 'Show the card large');
+  let px0 = 0,
+    py0 = 0;
+  big.addEventListener('pointerdown', (e) => {
+    px0 = e.clientX;
+    py0 = e.clientY;
+  });
+  big.addEventListener('click', (e) => {
+    if (Math.hypot(e.clientX - px0, e.clientY - py0) > 10) return;
+    openBigCard({
+      m: dieMonster(d),
+      name: u.name,
+      lv: u.lv,
+      rarity: u.rarity,
+      el: u.el,
+      faces: u.faces,
+      species: speciesLabel(u.m),
+      serial: d.no ? `${serialText(d.no)} · one of a kind` : 'one of a kind',
+      marks: [d.holo ? `✦ Holo · ${HOLO_ODDS}` : '', d.style ? `${styleDef(d.style).label} · ${styleDef(d.style).odds}` : ''].filter(Boolean),
+      from: pic,
+    });
+  });
   const lk = lookOf(u.m);
   const net = html('div', 'card-net', netSvg(u.net, u.faces, 30, lk));
   // Seiten mit Lasur: ein einfaches Symbol wird doppelt. Mit gewählter Tropfen-Farbe: eine Seite mit Farbe wird umgefärbt
@@ -738,6 +777,7 @@ function toReveal(p: PullResult): RevealPull {
     ...(p.styleRoll ? { styleRoll: p.styleRoll } : {}),
     ...(p.hands ? { hands: p.hands, golds: p.golds } : {}),
     ...(p.goldD100s ? { goldD100s: p.goldD100s } : {}),
+    ...(p.gilded ? { gilded: true } : {}),
     ...(p.lifted ? { lifted: p.lifted } : {}),
   };
 }
@@ -759,6 +799,7 @@ async function pull(kind: PullKind): Promise<void> {
   const before = save;
   save = res.dice;
   freeReady = res.freeReady;
+  gilded = !!res.gilded;
   await reveal(res.pulls, before);
   busy = false;
   render();
@@ -1157,6 +1198,7 @@ async function paintDrawing(code: string): Promise<true | string> {
   const before = save;
   save = res.dice;
   freeReady = res.freeReady;
+  gilded = !!res.gilded;
   closeBlank();
   await reveal(res.pulls, before);
   busy = false;
@@ -1240,6 +1282,7 @@ export async function diceBadge(): Promise<string> {
     const r = await api.dice();
     save = r.dice;
     freeReady = r.freeReady;
+    gilded = !!r.gilded;
     tester = !!r.tester;
     mod = !!r.mod;
     void loadSpecies();

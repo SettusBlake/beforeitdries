@@ -133,29 +133,44 @@ export const FOILS: { k: FoilId; label: string }[] = [
   { k: 'glitter', label: 'glitter foil' },
 ];
 export const foilOf = (seed: number): FoilId => FOILS[(seed >>> 5) % FOILS.length]!.k;
-export const HOLO_ODDS = '1 in 1000';
+export const HOLO_ODDS = '1 in 500';
 /**
- * Die Hand: weißer W100 (100: Stil-W20) und goldener W10 (10: goldener W100, 100: Holo). Alle Würfe offen.
- * Mit einem volleren Pinsel (Reicher Zug, 07.11.2026) wirft die Hand jeden Würfel mehrmals, der beste zählt: hands, golds, goldD100s
+ * Ab welcher Zahl die Hand trifft. Holo 1 zu 500 seit 07.11.2026 (goldener W100 auf 99 oder 100).
+ * Gilded weekend (Samstag und Sonntag UTC, festgelegt am 07.11.2026): Stil und Holo eine Zahl früher,
+ * weißer W100 auf 99 oder 100 (Stil doppelt), goldener W100 auf 98 bis 100 (Holo 1,5-fach). docs/entwuerfe/holo-chance-vorschlag.md
+ */
+export const HAND_AT = { style: 100, holo: 99 };
+export const GILDED_AT = { style: 99, holo: 98 };
+export const handAt = (gilded?: boolean): { style: number; holo: number } => (gilded ? GILDED_AT : HAND_AT);
+/** Gilded weekend nach der Uhr des Servers: Samstag und Sonntag UTC, wie das Tagesblatt */
+export const isGilded = (now: number): boolean => {
+  const wd = new Date(now).getUTCDay();
+  return wd === 0 || wd === 6;
+};
+/**
+ * Die Hand: weißer W100 (ab HAND_AT.style: Stil-W20) und goldener W10 (10: goldener W100, ab HAND_AT.holo: Holo). Alle Würfe offen.
+ * Mit einem volleren Pinsel (Reicher Zug, 07.11.2026) wirft die Hand jeden Würfel mehrmals, der beste zählt: hands, golds, goldD100s.
+ * Reihenfolge der Zufallsaufrufe wie bisher, nur die Schwellen hängen am Wochenende
  */
 export type HandRoll = { hand: number; styleRoll?: number; style?: StyleId; gold: number; goldD100?: number; holo?: true; hands?: number[]; golds?: number[]; goldD100s?: number[] };
-export function rollHand(rand: () => number, throws = 1): HandRoll {
+export function rollHand(rand: () => number, throws = 1, gilded = false): HandRoll {
+  const at = handAt(gilded);
   if (throws <= 1) {
     const out: HandRoll = { hand: 1 + (rand() % 100), gold: 1 + (rand() % 10) };
-    if (out.hand === 100) {
+    if (out.hand >= at.style) {
       out.styleRoll = 1 + (rand() % STYLE_DIE);
       out.style = styleFromRoll(out.styleRoll);
     }
     if (out.gold === 10) {
       out.goldD100 = 1 + (rand() % 100);
-      if (out.goldD100 === 100) out.holo = true;
+      if (out.goldD100 >= at.holo) out.holo = true;
     }
     return out;
   }
   const hands = Array.from({ length: throws }, () => 1 + (rand() % 100));
   const golds = Array.from({ length: throws }, () => 1 + (rand() % 10));
   const out: HandRoll = { hand: Math.max(...hands), gold: Math.max(...golds), hands, golds };
-  if (out.hand === 100) {
+  if (out.hand >= at.style) {
     out.styleRoll = 1 + (rand() % STYLE_DIE);
     out.style = styleFromRoll(out.styleRoll);
   }
@@ -163,7 +178,7 @@ export function rollHand(rand: () => number, throws = 1): HandRoll {
     const ds = Array.from({ length: throws }, () => 1 + (rand() % 100));
     out.goldD100s = ds;
     out.goldD100 = Math.max(...ds);
-    if (out.goldD100 === 100) out.holo = true;
+    if (out.goldD100 >= at.holo) out.holo = true;
   }
   return out;
 }
@@ -172,14 +187,15 @@ const setBest = (a: number[] | undefined, v: number): void => {
   if (a?.length) a[a.indexOf(Math.max(...a))] = v;
 };
 /** Test-Knopf: der nächste Zug mit diesem Stil und, wenn gewählt, mit Holo (Würfe so, wie sie dafür fallen müssten) */
-export function forcedHand(style: StyleId | undefined, holo: boolean, rand: () => number, throws = 1): HandRoll {
-  const out = rollHand(rand, throws);
+export function forcedHand(style: StyleId | undefined, holo: boolean, rand: () => number, throws = 1, gilded = false): HandRoll {
+  const at = handAt(gilded);
+  const out = rollHand(rand, throws, gilded);
   if (style) {
     Object.assign(out, { hand: 100, styleRoll: styleDef(style).from, style });
     setBest(out.hands, 100);
-  } else if (out.hand === 100) {
-    Object.assign(out, { hand: 99, styleRoll: undefined, style: undefined });
-    if (out.hands) out.hands = out.hands.map((v) => Math.min(v, 99));
+  } else if (out.hand >= at.style) {
+    Object.assign(out, { hand: at.style - 1, styleRoll: undefined, style: undefined });
+    if (out.hands) out.hands = out.hands.map((v) => Math.min(v, at.style - 1));
   }
   if (holo) {
     Object.assign(out, { gold: 10, goldD100: 100, holo: true });
@@ -194,16 +210,19 @@ export function forcedHand(style: StyleId | undefined, holo: boolean, rand: () =
 /**
  * Pinsel beim Ziehen (Reicher Zug, festgelegt am 07.11.2026, docs/entwuerfe/reicher-zug-vorschlag.md): ein vollerer Pinsel kostet mehr,
  * die Hand wirft dafür jeden ihrer Würfel zwei- oder dreimal und der beste zählt. Seltenheit, Schutz vor Pech und Stil-W20 bleiben.
- * Freie Züge sind immer der einfache Pinsel. Chancen: 1 − (1 − p)^Würfe, für Holo beide goldenen Würfel
+ * Freie Züge sind immer der einfache Pinsel. Chancen: 1 − (1 − p)^Würfe, für Holo beide goldenen Würfel.
+ * style und holo unter der Woche, styleG und holoG am Gilded weekend
  */
 export type BrushId = 'plain' | 'loaded' | 'dripping';
-export const BRUSHES: { k: BrushId; label: string; cost: number; throws: number; style: string; holo: string }[] = [
-  { k: 'plain', label: 'Plain brush', cost: 100, throws: 1, style: '1 %', holo: '0.1 %' },
-  { k: 'loaded', label: 'Loaded brush', cost: 300, throws: 2, style: '2 %', holo: '0.38 %' },
-  { k: 'dripping', label: 'Dripping brush', cost: 700, throws: 3, style: '3 %', holo: '0.8 %' },
+export const BRUSHES: { k: BrushId; label: string; cost: number; throws: number; style: string; holo: string; styleG: string; holoG: string }[] = [
+  { k: 'plain', label: 'Plain brush', cost: 100, throws: 1, style: '1 %', holo: '0.2 %', styleG: '2 %', holoG: '0.3 %' },
+  { k: 'loaded', label: 'Loaded brush', cost: 300, throws: 2, style: '2 %', holo: '0.75 %', styleG: '4 %', holoG: '1.12 %' },
+  { k: 'dripping', label: 'Dripping brush', cost: 700, throws: 3, style: '3 %', holo: '1.59 %', styleG: '5.9 %', holoG: '2.37 %' },
 ];
 export const brushDef = (k: BrushId | undefined): (typeof BRUSHES)[number] => BRUSHES.find((b) => b.k === k) ?? BRUSHES[0]!;
 export const isBrush = (v: unknown): v is BrushId => typeof v === 'string' && BRUSHES.some((b) => b.k === v);
+/** Chancen eines Pinsels zum Zeigen, je nachdem ob gerade Gilded weekend ist */
+export const brushOdds = (b: (typeof BRUSHES)[number], gilded?: boolean): { style: string; holo: string } => (gilded ? { style: b.styleG, holo: b.holoG } : { style: b.style, holo: b.holo });
 /** Seriennummer zum Zeigen: #00427 */
 export const serialText = (no: number | undefined): string => (no ? '#' + String(no).padStart(5, '0') : '');
 
@@ -328,6 +347,8 @@ export type PullResult = {
   golds?: number[];
   goldD100s?: number[];
   brush?: BrushId;
+  /** Gilded weekend: die Hand traf eine Zahl früher (Stil ab 99, Holo ab 98) */
+  gilded?: true;
   /** Holo hebt Papier und Seltenheit eine Stufe (festgelegt am 30.10.2026 für Shiny, seit 31.10.2026 nur Holo): die Seltenheit danach. rarity bleibt der W100 */
   lifted?: Rarity;
 };

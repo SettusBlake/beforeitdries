@@ -400,7 +400,7 @@ describe('Würfelsammlung', () => {
     expect(res.tester).toBe(true);
   });
 
-  it('Hand: weißer W100 zeigt 100, dann wählt ein W20 den Stil (1 zu 100), goldener W10 und W100 bringen Holo (1 zu 1000)', () => {
+  it('Hand: weißer W100 zeigt 100, dann wählt ein W20 den Stil (1 zu 100), goldener W10 und W100 auf 99 oder 100 bringen Holo (1 zu 500)', () => {
     const seq = (xs: number[]) => {
       let i = 0;
       return () => xs[i++]!;
@@ -409,6 +409,13 @@ describe('Würfelsammlung', () => {
     expect(rollHand(seq([99, 3, 0]))).toEqual({ hand: 100, gold: 4, styleRoll: 1, style: 'pencil' });
     expect(rollHand(seq([5, 9, 41]))).toEqual({ hand: 6, gold: 10, goldD100: 42 });
     expect(rollHand(seq([5, 9, 99]))).toEqual({ hand: 6, gold: 10, goldD100: 100, holo: true });
+    expect(rollHand(seq([5, 9, 98]))).toEqual({ hand: 6, gold: 10, goldD100: 99, holo: true });
+    expect(rollHand(seq([5, 9, 97]))).toEqual({ hand: 6, gold: 10, goldD100: 98 });
+    expect(rollHand(seq([98, 3]))).toEqual({ hand: 99, gold: 4 });
+    // Gilded weekend: Stil ab 99, Holo ab 98, sonst dieselben Würfe
+    expect(rollHand(seq([98, 3, 0]), 1, true)).toEqual({ hand: 99, gold: 4, styleRoll: 1, style: 'pencil' });
+    expect(rollHand(seq([5, 9, 97]), 1, true)).toEqual({ hand: 6, gold: 10, goldD100: 98, holo: true });
+    expect(rollHand(seq([97, 9, 96]), 1, true)).toEqual({ hand: 98, gold: 10, goldD100: 97 });
     expect(rollHand(seq([99, 9, 19, 99]))).toEqual({ hand: 100, gold: 10, styleRoll: 20, style: 'nouveau', goldD100: 100, holo: true });
     // Jede Seite des W20 gehört genau einem Stil, fünf Stile mit 2 Seiten, zehn mit 1
     const faces = Array.from({ length: STYLE_DIE }, (_, i) => styleFromRoll(i + 1));
@@ -426,11 +433,12 @@ describe('Würfelsammlung', () => {
       if (h.style) style++;
       if (h.holo) holo++;
     }
-    // Erwartet 2000 und 200, deutlich daneben wäre ein Fehler
+    // Stil erwartet 2000, deutlich daneben wäre ein Fehler
     expect(style).toBeGreaterThan(1800);
     expect(style).toBeLessThan(2200);
-    expect(holo).toBeGreaterThan(130);
-    expect(holo).toBeLessThan(280);
+    // Holo erwartet 400 (1 zu 500)
+    expect(holo).toBeGreaterThan(320);
+    expect(holo).toBeLessThan(480);
     // Das Folienmuster kommt aus dem Seed
     expect(new Set(Array.from({ length: 64 }, (_, i) => foilOf(i * 7919)))).toEqual(new Set(FOILS.map((f) => f.k)));
   });

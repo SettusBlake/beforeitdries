@@ -5,7 +5,7 @@
  */
 import { Application, Container, DisplacementFilter, FillGradient, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { PAPER, PIG, type PaperId } from '../../../shared/data';
-import { RARITIES, rarityDef, rarityIndex, serialText, STYLE_DIE, STYLES, styleDef, type Rarity, type StyleId } from '../../../shared/dice';
+import { handAt, RARITIES, rarityDef, rarityIndex, serialText, STYLE_DIE, STYLES, styleDef, type Rarity, type StyleId } from '../../../shared/dice';
 import { faceKey, type Face } from '../../../shared/duel/rules';
 import type { Monster } from '../../../shared/monster';
 import { holoBake } from '../../lib/holo';
@@ -37,6 +37,8 @@ export type RevealPull = {
   hands?: number[];
   golds?: number[];
   goldD100s?: number[];
+  /** Gilded weekend: Stil ab 99, Holo ab 98 (Server entscheidet, die Anzeige zeigt nur die Schwelle) */
+  gilded?: boolean;
   /** Holo hebt die Seltenheit eine Stufe: die Seltenheit danach (rarity bleibt der W100, monster hat schon das neue Papier) */
   lifted?: Rarity;
 };
@@ -889,8 +891,11 @@ export class Reveal {
       val.text = String(p.hand);
       gold.text = '✦' + String(p.gold ?? 1);
     }
-    const styleHit = p.hand === 100,
-      goldHit = p.gold === 10;
+    // Treffer stehen im Monster (der Server hat entschieden), die Schwellen nur für die Anzeige (Holo 1 zu 500, Gilded weekend)
+    const at = handAt(p.gilded);
+    const styleHit = !!p.monster.style,
+      goldHit = p.gold === 10,
+      holoHit = !!p.monster.holo;
     if (!styleHit && !goldHit) {
       await this.tween(220, (q) => val.scale.set(1.3 - 0.3 * q), ease.out);
       return null;
@@ -1009,7 +1014,7 @@ export class Reveal {
       sfx.land();
       await this.wait(400);
       await show();
-      cap.text = 'gold d100 · holo';
+      cap.text = `gold d100 · holo on ${at.holo}–100`;
       big.tint = 0xffd66b;
       for (let k = 0; k < 14; k++) {
         big.text = String(1 + Math.floor(Math.random() * 100));
@@ -1023,7 +1028,7 @@ export class Reveal {
         all.position.set(g.cx, g.cy + 54);
         over.addChild(all);
       }
-      if (p.goldD100 !== 100) {
+      if (!holoHit) {
         sfx.land();
         const close = new Text({ text: 'so close', style: { fontFamily: mono, fontSize: 14, fontWeight: '700', fill: 0xbdb3a6, letterSpacing: 2 } });
         close.anchor.set(0.5);
@@ -1079,7 +1084,7 @@ export class Reveal {
     }
     // Funkeln bleibt über dem Bild, solange die Karte offen ist
     this.loops.push(() => {
-      if (Math.random() < 0.35) this.parts.spawn({ tex: sparkTex(), x: g.cx + (Math.random() - 0.5) * g.S, y: g.cy + (Math.random() - 0.5) * g.S, vy: -20 - Math.random() * 30, life: 1100, tint: goldHit && p.goldD100 === 100 ? 0xffffff : 0xffd66b, add: true, scale: 0.18 + Math.random() * 0.18, scaleEnd: 0.02 });
+      if (Math.random() < 0.35) this.parts.spawn({ tex: sparkTex(), x: g.cx + (Math.random() - 0.5) * g.S, y: g.cy + (Math.random() - 0.5) * g.S, vy: -20 - Math.random() * 30, life: 1100, tint: holoHit ? 0xffffff : 0xffd66b, add: true, scale: 0.18 + Math.random() * 0.18, scaleEnd: 0.02 });
     });
     await this.tween(400, (q) => (over.alpha = 1 - q));
     over.visible = false;
@@ -1385,7 +1390,7 @@ export class Reveal {
     hands.forEach((t, i) => {
       const h = minis[i]!.p.hand;
       t.text = h === undefined ? '' : `✋${h} ✦${minis[i]!.p.gold ?? 1}`;
-      if (h === 100 || minis[i]!.p.gold === 10) t.tint = 0xffd66b;
+      if (minis[i]!.p.monster.style || minis[i]!.p.gold === 10) t.tint = 0xffd66b;
     });
     await this.wait(700);
     // Holo bekommt die große Bühne, dann ein Stil, sonst der seltenste, bei Gleichstand der höhere Wurf

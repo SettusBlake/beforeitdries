@@ -789,3 +789,11 @@ button.gal-note.linkish u { color: var(--ink); text-underline-offset: 2px; }
 .brushbtn.on { border: 1.5px solid var(--gold); background: rgba(201,150,30,.12); }
 .brushbtn.on b { color: var(--gold-ink); }
 .brush-note { margin: 4px 0 0; font: 10.5px/1.3 var(--f-mono); color: var(--muted); text-align: center; }
+
+/* ---------- Gilded weekend (07.11.2026): schmales goldenes Band, Stil und Holo kommen leichter ---------- */
+.gilded-band { text-wrap: balance; margin: 0 0 8px; padding: 5px 10px; border-radius: 999px; text-align: center; font: 700 10.5px/1.35 var(--f-mono); letter-spacing: .02em; color: #5a3f06; background: linear-gradient(100deg, #f3d77a, #fff1bd 38%, #e6b84a 62%, #f7e19a); background-size: 220% 100%; box-shadow: 0 0 0 1px rgba(160,110,10,.45) inset, 0 2px 8px -4px rgba(150,100,10,.6); animation: gild 5s linear infinite; }
+#title .gilded-band { max-width: 320px; width: 100%; margin: 4px auto 0; }
+@keyframes gild { from { background-position: 0 0; } to { background-position: -220% 0; } }
+@media (prefers-reduced-motion: reduce) { .gilded-band { animation: none; } }
+/* Große Karte: Bild auf der Karte lässt sich antippen */
+.bc-open { cursor: zoom-in; }

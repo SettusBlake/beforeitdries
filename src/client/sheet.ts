@@ -75,6 +75,8 @@ function show(): void {
     : i.players
       ? `${i.players} ${i.players === 1 ? 'painter' : 'painters'} took on that sheet. A new one is up.`
       : 'Nobody painted this one. A new sheet is up.';
+  // Gilded weekend (Samstag und Sonntag UTC, nur im Post des laufenden Tages): eine goldene Zeile
+  $('s-gild').hidden = !i.gilded;
   // Knopf: zum Tagesblatt (auch vom Post eines früheren Tages)
   const play = $('s-play');
   const done = i.today && !!i.me;

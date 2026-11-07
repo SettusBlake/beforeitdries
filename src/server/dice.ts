@@ -30,6 +30,7 @@ import {
   isBrush,
   type BrushId,
   forcedHand,
+  isGilded,
   STYLES,
   washGlaze,
   type DiceSave,
@@ -99,7 +100,7 @@ export async function saveDice(d: Pick<Deps, 'redis' | 'now'>, uid: string, s: D
   await d.redis.set(K.dice(uid), JSON.stringify(s));
   await d.redis.zAdd(K.dicePlayers, { member: uid, score: d.now });
 }
-export const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] = []): DiceResponse => ({ dice: s, freeReady: s.freeDay !== dayKey(d.now), pulls });
+export const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] = []): DiceResponse => ({ dice: s, freeReady: s.freeDay !== dayKey(d.now), pulls, ...(isGilded(d.now) ? { gilded: true } : {}) });
 
 /** Ein Monster mit dem Papier dieser Seltenheit. Legendary: ein Monster auf Cotton Rag bekommt ein seltenes Papier. */
 function rollMonster(d: Deps, rarity: Rarity, avoid: Set<string> | null): Pick<DieRec, 'sheet' | 'idx' | 'paper'> {
@@ -170,14 +171,17 @@ export function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boole
   s.dice.push(die);
   // Startzüge füllen den Beutel, spätere Würfel packt man selbst ein
   if (starter && s.bag.length < BAG) s.bag.push(die.id);
-  // Die Hand: Stil 1 zu 100, Holo 1 zu 1000, unabhängig voneinander (festgelegt am 31.10.2026).
-  // Ein vollerer Pinsel wirft jeden Würfel der Hand mehrmals, der beste zählt (Reicher Zug, 07.11.2026)
+  // Die Hand: Stil 1 zu 100, Holo 1 zu 500 (seit 07.11.2026), unabhängig voneinander (festgelegt am 31.10.2026).
+  // Ein vollerer Pinsel wirft jeden Würfel der Hand mehrmals, der beste zählt (Reicher Zug, 07.11.2026).
+  // Gilded weekend nach der Uhr des Servers: Stil ab 99, Holo ab 98, für alle Züge
   const throws = brushDef(brush).throws;
-  const hd = s.forceStyle || s.forceHolo ? forcedHand(s.forceStyle, !!s.forceHolo, d.rand, throws) : rollHand(d.rand, throws);
+  const gilded = isGilded(d.now);
+  const hd = s.forceStyle || s.forceHolo ? forcedHand(s.forceStyle, !!s.forceHolo, d.rand, throws, gilded) : rollHand(d.rand, throws, gilded);
   delete s.forceStyle;
   delete s.forceHolo;
   const out: PullResult = { d100, rarity, pity, die, dup: owned.has(key) ? key : null, hand: hd.hand, gold: hd.gold };
   if (hd.goldD100) out.goldD100 = hd.goldD100;
+  if (gilded) out.gilded = true;
   if (throws > 1) {
     out.brush = brush;
     out.hands = hd.hands;

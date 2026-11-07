@@ -10,7 +10,7 @@ import { DuelError, loadState, openBleach, perform, publicState, saveState, type
 import { drain, HEARTS, S } from '../shared/duel/rules';
 import { dayLabel, shareText } from '../shared/sheet';
 import type { ColorId } from '../shared/colors';
-import { dieMonster, rarityDef, type DieRec, type FaceMod, type Rarity } from '../shared/dice';
+import { dieMonster, isGilded, rarityDef, type DieRec, type FaceMod, type Rarity } from '../shared/dice';
 import { PIGMENTS, type PigmentId } from '../shared/data';
 import { dayKey } from '../shared/day';
 import { duelColors } from '../shared/colors';
@@ -379,6 +379,7 @@ export async function sheetGet(d: Deps, userId: string | undefined, postId: stri
     waves: [...BLEACH.waves],
     bossWave: BLEACH.bossWave,
     now: d.now,
+    ...(day === today && isGilded(d.now) ? { gilded: true } : {}),
   };
 }
 

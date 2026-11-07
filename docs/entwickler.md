@@ -40,7 +40,8 @@ src/client/
   name.html/.ts            „What do you see?“-Post (inline)
   duel.html/.ts            Spiel (ausgeklappt): Titel, Duell, Tagesblatt, Ergebnis
   duel/                    Blatt (view), 3D-Würfel, Ton, Sammlung, Ziehen (gacha), Zeichnen, Prüfen, Markt, Tausch, Galerie, Farben,
-                           erste Schritte (firststeps.ts: Lektion auf wachsendem Blatt, auch Quelle des Artifacts tools/mockup/einstieg)
+                           erste Schritte (firststeps.ts: Lektion auf wachsendem Blatt, auch Quelle des Artifacts tools/mockup/einstieg),
+                           große Karte (bigcard.ts: Antippen des Bilds auf einer Karte, Sammlung und Duell)
   renderer/                Aquarell (watercolor, wörtlich aus dem Prototyp), 2b, Stile
   lib/                     Server-Aufrufe, Mal-Warteschlange, Holo, Artnamen, kleine Blätter, Schriften
 src/server/

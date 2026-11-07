@@ -9,7 +9,9 @@ import './duel.css';
 import { context, navigateToPost, showLoginPrompt, showToast } from '@devvit/web/client';
 import type { BleachInfo, BleachResult, DuelResponse, DuelReward } from '../shared/api';
 import { streakReward, streakSepia } from '../shared/streak';
-import { DROP_COST, rarityDef, serialText, TINT_MAX } from '../shared/dice';
+import { DROP_COST, HOLO_ODDS, rarityDef, serialText, styleDef, TINT_MAX } from '../shared/dice';
+import { speciesLabel } from '../shared/monster';
+import { closeBigCard, openBigCard } from './duel/bigcard';
 import { BLEACH, bleachScore, forecast, type PaleCast } from '../shared/duel/bleach';
 import { shareText } from '../shared/sheet';
 import { drawSheet } from './lib/minisheet';
@@ -31,7 +33,7 @@ import { elementBadge, elementIcon, elementText, ringSvg } from './duel/elements
 import { elementDef } from '../shared/elements';
 import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
-import { closeMod, diceBadge, initDice, lessonDone, openDice, ruleStageNow } from './duel/collection';
+import { closeMod, diceBadge, GILDED_TEXT, gildedNow, initDice, lessonDone, openDice, ruleStageNow } from './duel/collection';
 import { duelsToGallery, galleryOpen, RULE_NEWS, UNLOCK as UNLOCK_AT } from '../shared/duel/stages';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
 import { colorChoice, initColors, openColors } from './duel/colors';
@@ -2151,7 +2153,25 @@ function openInspect(u: Unit): void {
     hp.append(i);
     info.append(hp, el('small', '', `Opacity ${Math.max(0, v.hp)}/${v.max}`));
   }
-  top.append(portraitEl(u.id, 64), info);
+  // Große Karte (07.11.2026): Antippen des Bilds zeigt die ganze Karte groß
+  const pic = portraitEl(u.id, 64);
+  pic.classList.add('bc-open');
+  pic.setAttribute('role', 'button');
+  pic.setAttribute('aria-label', 'Show the card large');
+  pic.addEventListener('click', () =>
+    openBigCard({
+      m: u.m,
+      name: u.name,
+      lv: u.lv,
+      rarity: u.rarity,
+      el: R.ruleOn('elements') ? u.el : null,
+      faces: u.faces,
+      species: speciesLabel(u.m),
+      marks: [u.m.holo ? `✦ Holo · ${HOLO_ODDS}` : '', u.m.style ? `${styleDef(u.m.style).label} · ${styleDef(u.m.style).odds}` : ''].filter(Boolean),
+      from: pic,
+    }),
+  );
+  top.append(pic, info);
   const net = html('div', 'card-net', netSvg(u.net, u.faces, 30, lookOf(u.m)));
   const ab = ABILITY[u.m.bp];
   const lines = el('div', 'card-lines');
@@ -2368,6 +2388,9 @@ async function updateBadge(): Promise<void> {
   titleFor(lessonDone() ?? !!store.get('bid-duel-learned'));
   $('dice-badge').hidden = !t;
   $('dice-badge').textContent = t;
+  // Gilded weekend: schmales goldenes Band über „Your dice“
+  $('gilded-t').hidden = !gildedNow();
+  $('gilded-t').textContent = GILDED_TEXT;
   galleryNote();
 }
 function galleryNote(): void {
@@ -2391,6 +2414,7 @@ new ResizeObserver(() => {
 }).observe($('boardwrap'));
 function resetUi(): void {
   for (const id of ['result', 'menu', 'rules', 'inspect', 'tip', 'logview', 'newrule']) $(id).hidden = true;
+  closeBigCard();
   reward = null;
   drag = null;
   armed = null;

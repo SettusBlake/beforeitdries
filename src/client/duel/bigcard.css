@@ -1,0 +1,48 @@
+/* Große Karte (07.11.2026): Sammelkarte über allem, Rahmen in der Seltenheit (--c), Breite --w */
+.bigcard { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; align-content: center; gap: 10px;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(18, 14, 22, .8); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); opacity: 0; transition: opacity .18s ease; touch-action: none; }
+.bigcard.in { opacity: 1; }
+.bigcard.out { opacity: 0; }
+.bc-card { position: relative; width: var(--w); border-radius: calc(var(--w) * .055); padding: calc(var(--w) * .028);
+  background: var(--c); background: linear-gradient(150deg, color-mix(in srgb, var(--c) 55%, #fff), var(--c) 42%, color-mix(in srgb, var(--c) 62%, #000));
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 24px 60px -18px rgba(0,0,0,.8), 0 0 40px -10px var(--c);
+  transform: perspective(900px) rotateY(var(--rx, 0deg)) rotateX(var(--ry, 0deg)) scale(.86); transition: transform .32s cubic-bezier(.2,1.4,.4,1); cursor: grab; touch-action: none; }
+.bigcard.in .bc-card { transform: perspective(900px) rotateY(var(--rx, 0deg)) rotateX(var(--ry, 0deg)) scale(1); }
+.bc-card.held { transition: none; cursor: grabbing; }
+/* Legendary: Blattgold wandert über den Rahmen */
+.bc-card.leg { background: linear-gradient(115deg, #b88a1c, #ffe9a3 22%, #c9961e 40%, #fff3c4 58%, #a87a12 78%, #f3d77a); background-size: 260% 100%; animation: bc-gold 6s linear infinite; }
+@keyframes bc-gold { from { background-position: 0 0; } to { background-position: -260% 0; } }
+/* Holo: Regenbogenrand */
+.bc-card.foil { background: var(--ring, conic-gradient(#ff6b6b, #ffd36b, #8cff9e, #6bd5ff, #b46bff, #ff6b6b)); }
+.bc-inner { position: relative; display: flex; flex-direction: column; gap: calc(var(--w) * .022); padding: calc(var(--w) * .03); border-radius: calc(var(--w) * .035);
+  background: #fbf7ee; background-image: radial-gradient(circle at 20% 15%, rgba(255,255,255,.9), transparent 45%), radial-gradient(circle at 85% 90%, rgba(120,100,70,.08), transparent 50%);
+  box-shadow: inset 0 0 0 1px rgba(60,40,20,.18); color: #1d2130; }
+.bc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.bc-name { font: 400 calc(var(--w) * .066)/1.05 var(--f-display, Georgia, serif); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-lv { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.bc-lv small { font: 700 calc(var(--w) * .032) var(--f-mono, monospace); color: #5f6474; }
+.bc-art { position: relative; aspect-ratio: 1; width: 100%; border-radius: calc(var(--w) * .025); overflow: hidden; background: #f4efe3;
+  box-shadow: 0 0 0 2px var(--c), inset 0 0 18px rgba(80,60,30,.18); line-height: 0; }
+.bc-card.leg .bc-art { box-shadow: 0 0 0 2px #c9961e, inset 0 0 18px rgba(80,60,30,.18); }
+.bc-art > canvas { width: 100%; height: 100%; display: block; }
+.bc-art.wet > canvas { animation: bc-wet 1.4s ease-in-out infinite; }
+@keyframes bc-wet { 50% { opacity: .55; filter: blur(2px); } }
+.bc-type { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: calc(var(--w) * .012) calc(var(--w) * .02); border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); }
+.bc-tl { font: 600 calc(var(--w) * .034)/1.25 var(--f-body, system-ui, sans-serif); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-tl b { color: color-mix(in srgb, var(--c) 70%, #000); }
+.bc-el { flex: none; line-height: 0; }
+.bc-faces { display: flex; justify-content: space-between; gap: 6px; }
+.bc-face { flex: 1; line-height: 0; display: grid; place-items: center; }
+.bc-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; font: 600 calc(var(--w) * .028)/1.3 var(--f-mono, monospace); color: #5f6474; }
+.bc-foot > span:first-child { white-space: nowrap; }
+.bc-marks { color: #8a6410; text-align: right; margin-left: auto; }
+/* Holo auf der großen Karte etwas leiser, damit das Bild lesbar bleibt */
+.bc-art .holo-foil { opacity: .55; }
+.bc-glare { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: soft-light;
+  background: radial-gradient(circle at var(--mx, 30%) var(--my, 20%), rgba(255,255,255,.75), rgba(255,255,255,0) 50%); }
+.bc-hint { margin: 0; font: 600 11px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.6); }
+.bc-x { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); width: 40px; height: 40px; border-radius: 50%;
+  border: 0; background: rgba(255,255,255,.14); color: #fff; font: 400 26px/1 system-ui, sans-serif; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .bc-card, .bigcard { transition: none; } .bc-card.leg { animation: none; } .bc-art.wet > canvas { animation: none; } }

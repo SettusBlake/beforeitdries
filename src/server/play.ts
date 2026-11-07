@@ -4,6 +4,7 @@
  */
 import type { PlayInfo } from '../shared/api';
 import { dayKey } from '../shared/day';
+import { isGilded } from '../shared/dice';
 import type { Deps } from './core';
 import { flairPost } from './flair';
 import { loadDice } from './dice';
@@ -35,9 +36,9 @@ export async function ensurePlayPost(d: Deps, force = false): Promise<{ postId: 
 
 /** Stand für das Startbild: läuft ein Duell, gibt es freie Züge */
 export async function playInfo(d: Deps, userId: string | undefined): Promise<PlayInfo> {
-  if (!userId) return { user: false, running: false, starter: 0, freeReady: false, pigment: 0 };
+  if (!userId) return { user: false, running: false, starter: 0, freeReady: false, pigment: 0, ...(isGilded(d.now) ? { gilded: true } : {}) };
   const [s, raw] = await Promise.all([loadDice(d, userId), d.redis.get(K.duel(userId))]);
   const saved = raw ? (JSON.parse(raw) as { over?: boolean; v?: number }) : null;
   const running = !!saved && saved.v === 7 && !saved.over;
-  return { user: true, running, starter: s.starter, freeReady: s.freeDay !== dayKey(d.now), pigment: s.pigment };
+  return { user: true, running, starter: s.starter, freeReady: s.freeDay !== dayKey(d.now), pigment: s.pigment, ...(isGilded(d.now) ? { gilded: true } : {}) };
 }

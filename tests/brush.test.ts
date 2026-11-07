@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameError, type Deps } from '../src/server/core';
 import { dicePull, loadDice, saveDice } from '../src/server/dice';
-import { BRUSHES, brushDef, forcedHand, rollHand } from '../src/shared/dice';
+import { BRUSHES, brushDef, brushOdds, forcedHand, GILDED_AT, HAND_AT, isGilded, rollHand } from '../src/shared/dice';
 import { RNG } from '../src/shared/rng';
 import { FakeRedis } from '../tools/fake-redis';
 import { FakeReddit } from '../tools/fake-reddit';
@@ -47,24 +47,24 @@ describe('Pinsel beim Ziehen', () => {
       expect(h.golds).toHaveLength(3);
       expect(h.hand).toBe(Math.max(...h.hands!));
       expect(h.gold).toBe(Math.max(...h.golds!));
-      expect(!!h.style).toBe(h.hand === 100);
+      expect(!!h.style).toBe(h.hand >= HAND_AT.style);
       if (h.gold === 10) expect(h.goldD100).toBe(Math.max(...h.goldD100s!));
       else expect(h.goldD100s).toBeUndefined();
-      expect(!!h.holo).toBe(h.goldD100 === 100);
+      expect(!!h.holo).toBe((h.goldD100 ?? 0) >= HAND_AT.holo);
     }
     // Einfacher Pinsel wie bisher: keine Reihen
     expect(rollHand(rand).hands).toBeUndefined();
   });
 
-  it('Chancen: Stil etwa 1, 2, 3 %, Holo etwa 0,1, 0,38, 0,8 %', () => {
+  it('Chancen unter der Woche: Stil 1, 2, 3 %, Holo 0,2, 0,75, 1,59 % (Holo 1 zu 500 seit 07.11.2026)', () => {
     const r = RNG(11);
     const rand = () => (r() * 4294967296) >>> 0;
     const N = 200_000;
-    const rate = (t: number) => {
+    const rate = (t: number, g = false) => {
       let st = 0,
         ho = 0;
       for (let i = 0; i < N; i++) {
-        const h = rollHand(rand, t);
+        const h = rollHand(rand, t, g);
         if (h.style) st++;
         if (h.holo) ho++;
       }
@@ -76,12 +76,49 @@ describe('Pinsel beim Ziehen', () => {
     expect(s1).toBeCloseTo(0.01, 2);
     expect(s2).toBeCloseTo(0.0199, 2);
     expect(s3).toBeCloseTo(0.0297, 2);
-    expect(h1).toBeGreaterThan(0.0006);
-    expect(h1).toBeLessThan(0.0015);
-    expect(h2).toBeGreaterThan(0.003);
-    expect(h2).toBeLessThan(0.0047);
-    expect(h3).toBeGreaterThan(0.007);
-    expect(h3).toBeLessThan(0.0092);
+    expect(h1).toBeGreaterThan(0.0015);
+    expect(h1).toBeLessThan(0.0025);
+    expect(h2).toBeGreaterThan(0.0065);
+    expect(h2).toBeLessThan(0.0086);
+    expect(h3).toBeGreaterThan(0.0145);
+    expect(h3).toBeLessThan(0.0173);
+    // Gilded weekend: Stil doppelt (2, 3,96, 5,88 %), Holo 1,5-fach (0,3, 1,12, 2,37 %)
+    const [g1, k1] = rate(1, true),
+      [g2, k2] = rate(2, true),
+      [g3, k3] = rate(3, true);
+    expect(g1).toBeCloseTo(0.02, 2);
+    expect(g2).toBeCloseTo(0.0396, 2);
+    expect(g3).toBeCloseTo(0.0588, 2);
+    expect(k1).toBeGreaterThan(0.0024);
+    expect(k1).toBeLessThan(0.0036);
+    expect(k2).toBeGreaterThan(0.01);
+    expect(k2).toBeLessThan(0.0125);
+    expect(k3).toBeGreaterThan(0.0222);
+    expect(k3).toBeLessThan(0.0252);
+  });
+
+  it('angezeigte Chancen passen zur Rechnung 1 − (1 − p)^Würfe', () => {
+    const pct = (v: number) => v * 100;
+    for (const b of BRUSHES) {
+      for (const g of [false, true]) {
+        const at = g ? GILDED_AT : HAND_AT;
+        const ps = (101 - at.style) / 100,
+          ph = (101 - at.holo) / 100;
+        const st = pct(1 - (1 - ps) ** b.throws);
+        const ho = pct((1 - 0.9 ** b.throws) * (1 - (1 - ph) ** b.throws));
+        const od = brushOdds(b, g);
+        // Gerundet gezeigt: höchstens 0,05 Prozentpunkte (Stil 0,1) daneben
+        expect(Math.abs(parseFloat(od.style) - st)).toBeLessThan(0.1);
+        expect(Math.abs(parseFloat(od.holo) - ho)).toBeLessThan(0.05);
+      }
+    }
+  });
+
+  it('Gilded weekend ist Samstag und Sonntag nach UTC', () => {
+    expect(isGilded(Date.parse('2026-11-06T23:59:59Z'))).toBe(false);
+    expect(isGilded(Date.parse('2026-11-07T00:00:00Z'))).toBe(true);
+    expect(isGilded(Date.parse('2026-11-08T23:59:59Z'))).toBe(true);
+    expect(isGilded(Date.parse('2026-11-09T00:00:00Z'))).toBe(false);
   });
 
   it('Test-Knopf setzt den besten Wurf, damit Anzeige und Ergebnis passen', () => {
@@ -112,6 +149,22 @@ describe('Pinsel beim Ziehen', () => {
     const e = await dicePull(d, USER, 'one');
     expect(e.dice.pigment).toBe(900);
     expect(e.pulls[0]!.hands).toBeUndefined();
+    // Samstag: Gilded weekend steht in der Antwort und in jedem Zug
+    expect(e.gilded).toBe(true);
+    expect(e.pulls[0]!.gilded).toBe(true);
+  });
+
+  it('unter der Woche kein Gilded weekend, Treffer passen zur Schwelle', async () => {
+    const d = { ...setup(21), now: Date.parse('2026-11-10T12:00:00Z') };
+    await ready(d, 0);
+    const s = await loadDice(d, USER);
+    expect(s.dice.length).toBeGreaterThan(0);
+    const res = await dicePull(d, USER, 'free');
+    expect(res.gilded).toBeUndefined();
+    expect(res.pulls[0]!.gilded).toBeUndefined();
+    const p = res.pulls[0]!;
+    expect(!!p.die.style).toBe(p.hand >= HAND_AT.style);
+    expect(!!p.die.holo).toBe((p.goldD100 ?? 0) >= HAND_AT.holo);
   });
 
   it('zu wenig Pigment, unbekannter Pinsel, freier Zug bleibt einfach', async () => {

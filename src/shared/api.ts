@@ -54,6 +54,8 @@ export interface SheetResponse {
   waves: number[];
   bossWave: number;
   now: number;
+  /** Gilded weekend (Samstag und Sonntag UTC): eine Zeile im Tagespost */
+  gilded?: boolean;
 }
 /** Antwort auf „Share as a comment“ */
 export interface ShareSheetResponse {
@@ -70,6 +72,8 @@ export interface PlayInfo {
   starter: number;
   freeReady: boolean;
   pigment: number;
+  /** Gilded weekend (Samstag und Sonntag UTC): Stil und Holo kommen leichter */
+  gilded?: boolean;
 }
 
 export type ErrorCode = 'login' | 'not_found' | 'forbidden' | 'busy' | 'bad_request' | 'server' | 'outdated';
@@ -138,6 +142,8 @@ export interface DiceResponse {
   dice: DiceSave;
   freeReady: boolean;
   pulls: PullResult[];
+  /** Gilded weekend nach der Uhr des Servers (Samstag und Sonntag UTC): Stil ab 99, Holo ab 98 */
+  gilded?: boolean;
   /** Nur im Playtest und nur für Mods: Test-Knopf für leere Würfel (kommt mit dem Laden der Sammlung) */
   tester?: boolean;
   /** Mod des Subreddits: sieht die Prüfliste der Zeichnungen, review = so viele warten (kommt mit dem Laden der Sammlung) */

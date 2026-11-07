@@ -18,6 +18,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--table)
 @keyframes floatB { 0%, 100% { transform: translateY(-3px) rotate(6deg); } 50% { transform: translateY(5px) rotate(9deg); } }
 .p-text { display: grid; gap: 6px; justify-items: center; }
 .eyebrow { font: 600 11px/1 var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0; }
+/* Gilded weekend: golden statt grau */
+.eyebrow.gilded { color: #9a6d0c; letter-spacing: .1em; }
 h1 { font: 400 clamp(1.7rem, 7vw, 2.3rem)/1 var(--f-display); margin: 0; }
 .quote { margin: 0; max-width: 30ch; font: 500 1.2rem/1.15 var(--f-hand); color: var(--sepia); }
 .quote small { display: block; font: 600 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
