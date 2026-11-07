@@ -110,12 +110,14 @@ export function openBigCard(c: BigCard): void {
   foot.append(el('span', '', c.serial ?? 'one of a kind'));
   if (c.marks?.length) foot.append(el('span', 'bc-marks', c.marks.join(' · ')));
   inner.append(head, win, type, faces, foot);
-  // Glanz über der ganzen Karte, folgt dem Finger
-  card.append(inner, el('div', 'bc-glare'));
+  card.append(inner);
+  // Aufgehen in einer eigenen Hülle, damit die Karte selbst nur kippt
+  const pop = el('div', 'bc-pop');
+  pop.append(card);
   const shut = el('button', 'bc-x', '×') as HTMLButtonElement;
   shut.type = 'button';
   shut.setAttribute('aria-label', 'Close');
-  root.append(card, el('p', 'bc-hint', 'tap to close'), shut);
+  root.append(pop, el('p', 'bc-hint', 'tap to close'), shut);
 
   // Kippen: Holo mit Folie über dem Bild (kippt selbst), sonst kippt die Karte mit dem Finger auf der ganzen Fläche
   if (c.m.holo) addHolo(win, c.m.seed, card, true);
@@ -147,7 +149,7 @@ export function openBigCard(c: BigCard): void {
   requestAnimationFrame(() => root.classList.add('in'));
 }
 
-/** Karte ohne Holo: kippt mit dem Finger, Glanz folgt, beim Loslassen zurück */
+/** Karte ohne Holo: kippt mit dem Finger, beim Loslassen zurück */
 function tilt(card: HTMLElement): void {
   card.classList.add('bc-tilt');
   const at = (e: PointerEvent) => {
@@ -156,8 +158,6 @@ function tilt(card: HTMLElement): void {
       my = Math.max(0, Math.min(1, (e.clientY - b.top) / b.height));
     card.style.setProperty('--rx', `${((mx - 0.5) * 14).toFixed(2)}deg`);
     card.style.setProperty('--ry', `${((0.5 - my) * 10).toFixed(2)}deg`);
-    card.style.setProperty('--mx', `${(mx * 100).toFixed(1)}%`);
-    card.style.setProperty('--my', `${(my * 100).toFixed(1)}%`);
   };
   let held = false;
   card.addEventListener('pointerdown', (e) => {
