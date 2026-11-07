@@ -134,28 +134,76 @@ export const FOILS: { k: FoilId; label: string }[] = [
 ];
 export const foilOf = (seed: number): FoilId => FOILS[(seed >>> 5) % FOILS.length]!.k;
 export const HOLO_ODDS = '1 in 1000';
-/** Die Hand: weißer W100 (100: Stil-W20) und goldener W10 (10: goldener W100, 100: Holo). Alle Würfe offen */
-export type HandRoll = { hand: number; styleRoll?: number; style?: StyleId; gold: number; goldD100?: number; holo?: true };
-export function rollHand(rand: () => number): HandRoll {
-  const out: HandRoll = { hand: 1 + (rand() % 100), gold: 1 + (rand() % 10) };
+/**
+ * Die Hand: weißer W100 (100: Stil-W20) und goldener W10 (10: goldener W100, 100: Holo). Alle Würfe offen.
+ * Mit einem volleren Pinsel (Reicher Zug, 07.11.2026) wirft die Hand jeden Würfel mehrmals, der beste zählt: hands, golds, goldD100s
+ */
+export type HandRoll = { hand: number; styleRoll?: number; style?: StyleId; gold: number; goldD100?: number; holo?: true; hands?: number[]; golds?: number[]; goldD100s?: number[] };
+export function rollHand(rand: () => number, throws = 1): HandRoll {
+  if (throws <= 1) {
+    const out: HandRoll = { hand: 1 + (rand() % 100), gold: 1 + (rand() % 10) };
+    if (out.hand === 100) {
+      out.styleRoll = 1 + (rand() % STYLE_DIE);
+      out.style = styleFromRoll(out.styleRoll);
+    }
+    if (out.gold === 10) {
+      out.goldD100 = 1 + (rand() % 100);
+      if (out.goldD100 === 100) out.holo = true;
+    }
+    return out;
+  }
+  const hands = Array.from({ length: throws }, () => 1 + (rand() % 100));
+  const golds = Array.from({ length: throws }, () => 1 + (rand() % 10));
+  const out: HandRoll = { hand: Math.max(...hands), gold: Math.max(...golds), hands, golds };
   if (out.hand === 100) {
     out.styleRoll = 1 + (rand() % STYLE_DIE);
     out.style = styleFromRoll(out.styleRoll);
   }
   if (out.gold === 10) {
-    out.goldD100 = 1 + (rand() % 100);
+    const ds = Array.from({ length: throws }, () => 1 + (rand() % 100));
+    out.goldD100s = ds;
+    out.goldD100 = Math.max(...ds);
     if (out.goldD100 === 100) out.holo = true;
   }
   return out;
 }
+/** Den besten Wurf einer Reihe auf v setzen (Test-Knopf), damit Anzeige und Ergebnis zusammenpassen */
+const setBest = (a: number[] | undefined, v: number): void => {
+  if (a?.length) a[a.indexOf(Math.max(...a))] = v;
+};
 /** Test-Knopf: der nächste Zug mit diesem Stil und, wenn gewählt, mit Holo (Würfe so, wie sie dafür fallen müssten) */
-export function forcedHand(style: StyleId | undefined, holo: boolean, rand: () => number): HandRoll {
-  const out = rollHand(rand);
-  if (style) Object.assign(out, { hand: 100, styleRoll: styleDef(style).from, style });
-  else if (out.hand === 100) Object.assign(out, { hand: 99, styleRoll: undefined, style: undefined });
-  if (holo) Object.assign(out, { gold: 10, goldD100: 100, holo: true });
+export function forcedHand(style: StyleId | undefined, holo: boolean, rand: () => number, throws = 1): HandRoll {
+  const out = rollHand(rand, throws);
+  if (style) {
+    Object.assign(out, { hand: 100, styleRoll: styleDef(style).from, style });
+    setBest(out.hands, 100);
+  } else if (out.hand === 100) {
+    Object.assign(out, { hand: 99, styleRoll: undefined, style: undefined });
+    if (out.hands) out.hands = out.hands.map((v) => Math.min(v, 99));
+  }
+  if (holo) {
+    Object.assign(out, { gold: 10, goldD100: 100, holo: true });
+    setBest(out.golds, 10);
+    if (throws > 1) {
+      out.goldD100s ??= Array.from({ length: throws }, () => 1 + (rand() % 99));
+      setBest(out.goldD100s, 100);
+    }
+  }
   return out;
 }
+/**
+ * Pinsel beim Ziehen (Reicher Zug, festgelegt am 07.11.2026, docs/entwuerfe/reicher-zug-vorschlag.md): ein vollerer Pinsel kostet mehr,
+ * die Hand wirft dafür jeden ihrer Würfel zwei- oder dreimal und der beste zählt. Seltenheit, Schutz vor Pech und Stil-W20 bleiben.
+ * Freie Züge sind immer der einfache Pinsel. Chancen: 1 − (1 − p)^Würfe, für Holo beide goldenen Würfel
+ */
+export type BrushId = 'plain' | 'loaded' | 'dripping';
+export const BRUSHES: { k: BrushId; label: string; cost: number; throws: number; style: string; holo: string }[] = [
+  { k: 'plain', label: 'Plain brush', cost: 100, throws: 1, style: '1 %', holo: '0.1 %' },
+  { k: 'loaded', label: 'Loaded brush', cost: 300, throws: 2, style: '2 %', holo: '0.38 %' },
+  { k: 'dripping', label: 'Dripping brush', cost: 700, throws: 3, style: '3 %', holo: '0.8 %' },
+];
+export const brushDef = (k: BrushId | undefined): (typeof BRUSHES)[number] => BRUSHES.find((b) => b.k === k) ?? BRUSHES[0]!;
+export const isBrush = (v: unknown): v is BrushId => typeof v === 'string' && BRUSHES.some((b) => b.k === v);
 /** Seriennummer zum Zeigen: #00427 */
 export const serialText = (no: number | undefined): string => (no ? '#' + String(no).padStart(5, '0') : '');
 
@@ -275,6 +323,11 @@ export type PullResult = {
   styleRoll?: number;
   gold: number;
   goldD100?: number;
+  /** Vollerer Pinsel: alle Würfe der Hand (der beste steht in hand, gold, goldD100) und welcher Pinsel */
+  hands?: number[];
+  golds?: number[];
+  goldD100s?: number[];
+  brush?: BrushId;
   /** Holo hebt Papier und Seltenheit eine Stufe (festgelegt am 30.10.2026 für Shiny, seit 31.10.2026 nur Holo): die Seltenheit danach. rarity bleibt der W100 */
   lifted?: Rarity;
 };

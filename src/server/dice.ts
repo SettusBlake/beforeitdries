@@ -19,7 +19,6 @@ import {
   KEEP_MIN,
   LEGENDARY_PAPERS,
   PATINA,
-  PULL_COST,
   PITY,
   RARITIES,
   rarityDef,
@@ -27,9 +26,11 @@ import {
   rarityIndex,
   REWARD,
   rollHand,
+  brushDef,
+  isBrush,
+  type BrushId,
   forcedHand,
   STYLES,
-  TEN_COST,
   washGlaze,
   type DiceSave,
   type DieRec,
@@ -133,7 +134,7 @@ export async function claimPulls(d: Deps, uid: string, pulls: PullResult[]): Pro
 const rarityOfDie = (r: DieRec): Rarity => dieUnit(dieMonster(r)).rarity;
 
 /** Ein Zug: W100 offen würfeln, Schutz vor Pech prüfen, Monster erzeugen, Doppelte zu Lasur machen */
-export function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean): PullResult {
+export function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boolean, brush: BrushId = 'plain'): PullResult {
   s.pulls++;
   s.pity.rare++;
   s.pity.epic++;
@@ -169,12 +170,20 @@ export function pullOne(d: Deps, s: DiceSave, starter: boolean, forceRare: boole
   s.dice.push(die);
   // Startzüge füllen den Beutel, spätere Würfel packt man selbst ein
   if (starter && s.bag.length < BAG) s.bag.push(die.id);
-  // Die Hand: Stil 1 zu 100, Holo 1 zu 1000, unabhängig voneinander (festgelegt am 31.10.2026)
-  const hd = s.forceStyle || s.forceHolo ? forcedHand(s.forceStyle, !!s.forceHolo, d.rand) : rollHand(d.rand);
+  // Die Hand: Stil 1 zu 100, Holo 1 zu 1000, unabhängig voneinander (festgelegt am 31.10.2026).
+  // Ein vollerer Pinsel wirft jeden Würfel der Hand mehrmals, der beste zählt (Reicher Zug, 07.11.2026)
+  const throws = brushDef(brush).throws;
+  const hd = s.forceStyle || s.forceHolo ? forcedHand(s.forceStyle, !!s.forceHolo, d.rand, throws) : rollHand(d.rand, throws);
   delete s.forceStyle;
   delete s.forceHolo;
   const out: PullResult = { d100, rarity, pity, die, dup: owned.has(key) ? key : null, hand: hd.hand, gold: hd.gold };
   if (hd.goldD100) out.goldD100 = hd.goldD100;
+  if (throws > 1) {
+    out.brush = brush;
+    out.hands = hd.hands;
+    out.golds = hd.golds;
+    if (hd.goldD100s) out.goldD100s = hd.goldD100s;
+  }
   if (hd.style) {
     die.style = hd.style;
     out.styleRoll = hd.styleRoll;
@@ -328,10 +337,11 @@ export async function diceTestPigment(d: Deps, userId: string | undefined, usern
   });
 }
 
-export async function dicePull(d: Deps, userId: string | undefined, kind: unknown): Promise<DiceResponse> {
+export async function dicePull(d: Deps, userId: string | undefined, kind: unknown, brush: unknown = 'plain'): Promise<DiceResponse> {
   const uid = needUser(userId);
   const k = (['starter', 'free', 'one', 'ten'] as PullKind[]).find((x) => x === kind);
   if (!k) throw new GameError('bad_request', 'Unknown dip.');
+  if (!isBrush(brush)) throw new GameError('bad_request', 'Unknown brush.');
   return withLock(d, playerLock(uid), async () => {
     const s = await loadDice(d, uid);
     const today = dayKey(d.now);
@@ -344,14 +354,15 @@ export async function dicePull(d: Deps, userId: string | undefined, kind: unknow
       s.freeDay = today;
       pulls = [pullOne(d, s, false, false)];
     } else {
+      // Freie Züge sind immer der einfache Pinsel, bezahlte kosten je nach Pinsel (Reicher Zug, 07.11.2026)
       const n = k === 'ten' ? 10 : 1;
-      const cost = k === 'ten' ? TEN_COST : PULL_COST;
+      const cost = brushDef(brush).cost * n;
       if (s.pigment < cost) throw new GameError('bad_request', `Not enough pigment (${cost} needed).`);
       s.pigment -= cost;
       for (let i = 0; i < n; i++) {
         // Zehnerzug: der letzte wird Rare, falls bis dahin keiner Rare oder besser war
         const last = n === 10 && i === 9 && pulls.every((p) => rarityIndex(p.rarity) < 2);
-        pulls.push(pullOne(d, s, false, last));
+        pulls.push(pullOne(d, s, false, last, brush));
       }
     }
     await claimPulls(d, uid, pulls);

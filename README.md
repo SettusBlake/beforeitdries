@@ -44,7 +44,7 @@ A watercolour dice game that lives in a subreddit. Every monster is a one-of-a-k
 
 **Your dice.**
 
-- **Dip the brush:** a free dip every day, more for pigment. A visible d100 decides the paper and with it the rarity. Rare style and holo dice exist. Several dips at once can be skipped straight to the overview.
+- **Dip the brush:** a free dip every day, more for pigment. A visible d100 decides the paper and with it the rarity. Rare style and holo dice exist. Paid dips can use a fuller brush: the Plain brush (100 pigment) throws the hand once, the Loaded brush (300) twice and the Dripping brush (700) three times, and the best throw counts for style and holo. Rarity stays the same. Several dips at once can be skipped straight to the overview.
 - **Deck:** choose the nine dice you duel with.
 - **Blank canvas:** draw your own monster with your finger. Colour, rarity and the die are rolled as usual.
 - **Wash out:** give a blot up for glaze on its species. It drifts into an archive and may return as a pale opponent.

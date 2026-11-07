@@ -780,3 +780,12 @@ button.gal-note.linkish u { color: var(--ink); text-underline-offset: 2px; }
 #title .tgo .primary.locked { opacity: .55; cursor: default; }
 #title .tgo .primary.locked .after { display: block; font: 10px var(--f-mono); color: inherit; opacity: .85; }
 @media (prefers-reduced-motion: reduce) { #newrule, #rules li.flash { animation: none; } }
+
+/* ---------- Reicher Zug (07.11.2026): drei Pinsel für bezahlte Züge ---------- */
+#brushes { display: flex; gap: 6px; margin-top: 8px; }
+.brushbtn { flex: 1; min-width: 0; border: 1px dashed var(--line); background: transparent; border-radius: 10px; padding: 5px 4px; cursor: pointer; display: grid; justify-items: center; gap: 1px; color: var(--ink); }
+.brushbtn b { font-weight: 700; font-size: 12.5px; line-height: 1.15; }
+.brushbtn small { font: 10px var(--f-mono); color: var(--muted); }
+.brushbtn.on { border: 1.5px solid var(--gold); background: rgba(201,150,30,.12); }
+.brushbtn.on b { color: var(--gold-ink); }
+.brush-note { margin: 4px 0 0; font: 10.5px/1.3 var(--f-mono); color: var(--muted); text-align: center; }

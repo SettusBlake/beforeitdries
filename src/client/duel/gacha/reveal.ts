@@ -33,6 +33,10 @@ export type RevealPull = {
   styleRoll?: number;
   gold?: number;
   goldD100?: number;
+  /** Vollerer Pinsel (Reicher Zug, 07.11.2026): alle Würfe der Hand, der beste steht in hand, gold und goldD100 */
+  hands?: number[];
+  golds?: number[];
+  goldD100s?: number[];
   /** Holo hebt die Seltenheit eine Stufe: die Seltenheit danach (rarity bleibt der W100, monster hat schon das neue Papier) */
   lifted?: Rarity;
 };
@@ -819,25 +823,72 @@ export class Reveal {
     const lab = new Text({ text: 'hand', style: { fontFamily: mono, fontSize: 12, fontWeight: '700', fill: 0xbdb3a6, letterSpacing: 3 } });
     lab.anchor.set(1, 0.5);
     lab.x = -10;
-    const val = new Text({ text: '··', style: { fontFamily: mono, fontSize: 26, fontWeight: '800', fill: 0xfdf8ee, stroke: { color: 0x15111a, width: 4 } } });
+    let val = new Text({ text: '··', style: { fontFamily: mono, fontSize: 26, fontWeight: '800', fill: 0xfdf8ee, stroke: { color: 0x15111a, width: 4 } } });
     val.anchor.set(0, 0.5);
     val.x = -2;
-    const gold = new Text({ text: '✦·', style: { fontFamily: mono, fontSize: 20, fontWeight: '800', fill: 0xffd66b, stroke: { color: 0x15111a, width: 4 } } });
+    let gold = new Text({ text: '✦·', style: { fontFamily: mono, fontSize: 20, fontWeight: '800', fill: 0xffd66b, stroke: { color: 0x15111a, width: 4 } } });
     gold.anchor.set(0, 0.5);
     gold.x = 48;
     box.addChild(lab, val, gold);
+    // Vollerer Pinsel: jeder Würfel der Hand fällt zwei- oder dreimal, der beste zählt und leuchtet, die anderen werden blass
+    const multi = (p.hands?.length ?? 1) > 1;
+    const vals: Text[] = [val],
+      golds: Text[] = [gold];
+    if (multi) {
+      const nT = p.hands!.length;
+      const vs = { fontFamily: mono, fontSize: 22, fontWeight: '800' as const, fill: 0xfdf8ee, stroke: { color: 0x15111a, width: 4 } };
+      const gs = { ...vs, fontSize: 18, fill: 0xffd66b };
+      lab.anchor.set(0, 0.5);
+      lab.x = 0;
+      let x = lab.width + 10;
+      for (let i = 0; i < nT; i++) {
+        const t = i ? new Text({ text: '··', style: vs }) : val;
+        t.style.fontSize = 22;
+        t.anchor.set(0, 0.5);
+        t.x = x;
+        x += 44;
+        if (i) box.addChild(t);
+        vals[i] = t;
+      }
+      x += 4;
+      for (let i = 0; i < nT; i++) {
+        const t = i ? new Text({ text: '✦·', style: gs }) : gold;
+        t.style.fontSize = 18;
+        t.anchor.set(0, 0.5);
+        t.x = x;
+        x += 36;
+        if (i) box.addChild(t);
+        golds[i] = t;
+      }
+      box.x = g.cx - x / 2;
+    }
     box.alpha = 0;
     this.front.addChild(box);
     await this.tween(180, (q) => (box.alpha = q));
     const n = roll ? 8 : 4;
     for (let k = 0; k < n; k++) {
-      val.text = String(1 + Math.floor(Math.random() * 100)).padStart(2, '0');
-      gold.text = '✦' + String(1 + Math.floor(Math.random() * 10));
+      for (const t of vals) t.text = String(1 + Math.floor(Math.random() * 100)).padStart(2, '0');
+      for (const t of golds) t.text = '✦' + String(1 + Math.floor(Math.random() * 10));
       sfx.tick(k);
-      await this.tween(38 + k * 6, (q) => val.scale.set(1.15 - 0.15 * q));
+      await this.tween(38 + k * 6, (q) => vals.forEach((t) => t.scale.set(1.15 - 0.15 * q)));
     }
-    val.text = String(p.hand);
-    gold.text = '✦' + String(p.gold ?? 1);
+    if (multi) {
+      const hs = p.hands!,
+        gs = p.golds ?? [p.gold ?? 1];
+      hs.forEach((v, i) => (vals[i]!.text = String(v)));
+      gs.forEach((v, i) => golds[i] && (golds[i]!.text = '✦' + String(v)));
+      // Der beste Wurf zählt: er wird zu val und gold, die anderen blass
+      const bi = hs.indexOf(Math.max(...hs)),
+        gi = gs.indexOf(Math.max(...gs));
+      vals.forEach((t, i) => (t.alpha = i === bi ? 1 : 0.4));
+      golds.forEach((t, i) => (t.alpha = i === gi ? 1 : 0.4));
+      val = vals[bi]!;
+      gold = golds[gi]!;
+      await this.wait(260);
+    } else {
+      val.text = String(p.hand);
+      gold.text = '✦' + String(p.gold ?? 1);
+    }
     const styleHit = p.hand === 100,
       goldHit = p.gold === 10;
     if (!styleHit && !goldHit) {
@@ -887,6 +938,8 @@ export class Reveal {
 
     // Weiß 100: der Stil
     if (styleHit) {
+      // Vollerer Pinsel: die blassen Würfe machen dem Treffer Platz
+      for (const t of vals) if (t !== val) t.alpha = 0;
       val.tint = 0xffd66b;
       sfx.land();
       this.quake(4);
@@ -951,6 +1004,7 @@ export class Reveal {
 
     // Gold 10: der goldene W100, bei 100 Holo
     if (goldHit) {
+      for (const t of golds) if (t !== gold) t.alpha = 0;
       gold.scale.set(1.5);
       sfx.land();
       await this.wait(400);
@@ -963,6 +1017,12 @@ export class Reveal {
         await this.tween(60 + k * k * 2.6, (q) => big.scale.set(1.2 - 0.2 * q));
       }
       big.text = String(p.goldD100 ?? 1);
+      if ((p.goldD100s?.length ?? 1) > 1) {
+        const all = new Text({ text: `best of ${p.goldD100s!.length}: ${p.goldD100s!.join(' · ')}`, style: { fontFamily: mono, fontSize: 13, fontWeight: '700', fill: 0xbdb3a6, letterSpacing: 2 } });
+        all.anchor.set(0.5);
+        all.position.set(g.cx, g.cy + 54);
+        over.addChild(all);
+      }
       if (p.goldD100 !== 100) {
         sfx.land();
         const close = new Text({ text: 'so close', style: { fontFamily: mono, fontSize: 14, fontWeight: '700', fill: 0xbdb3a6, letterSpacing: 2 } });

@@ -1,6 +1,6 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
 import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type CleanTestResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type ShareSheetResponse, type SheetResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
-import type { PullKind, StyleId } from '../../shared/dice';
+import type { BrushId, PullKind, StyleId } from '../../shared/dice';
 import type { ColorId } from '../../shared/colors';
 import type { DuelAction } from '../../shared/duel/play';
 import type { Level } from '../../shared/duel/rules';
@@ -41,7 +41,7 @@ export const api = {
   sheet: (n?: number) => call<SheetResponse>(n ? `/api/sheet?n=${n}` : '/api/sheet'),
   play: () => call<PlayInfo>('/api/play'),
   dice: () => call<DiceResponse>('/api/dice'),
-  dicePull: (kind: PullKind) => call<DiceResponse>('/api/dice/pull', { kind }),
+  dicePull: (kind: PullKind, brush: BrushId = 'plain') => call<DiceResponse>('/api/dice/pull', { kind, brush }),
   diceBag: (ids: string[]) => call<DiceResponse>('/api/dice/bag', { ids }),
   diceGlaze: (id: string, face: number) => call<DiceResponse>('/api/dice/glaze', { id, face }),
   diceTint: (id: string, face: number, pig: PigmentId) => call<DiceResponse>('/api/dice/tint', { id, face, pig }),

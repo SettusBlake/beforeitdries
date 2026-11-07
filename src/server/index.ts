@@ -201,7 +201,8 @@ app.get(
 app.post(
   '/api/dice/pull',
   wrap(async (req, res) => {
-    res.json(await dicePull(await deps(), context.userId, (req.body as { kind?: unknown } | undefined)?.kind));
+    const b = req.body as { kind?: unknown; brush?: unknown } | undefined;
+    res.json(await dicePull(await deps(), context.userId, b?.kind, b?.brush ?? 'plain'));
   }),
 );
 

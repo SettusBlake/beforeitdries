@@ -162,7 +162,7 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/test-pigment') return send(200, await diceTestPigment(d, asUser, USER.name));
       if (url.pathname === '/api/dice/test-stage') return send(200, await diceTestStage(d, asUser, USER.name, b.stage ?? null));
       if (url.pathname === '/api/dice/test-shiny') return send(200, await diceTestShiny(d, asUser, USER.name, b.style ?? null, b.holo ?? false));
-      if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind));
+      if (url.pathname === '/api/dice/pull') return send(200, await dicePull(d, asUser, b.kind, b.brush ?? 'plain'));
       if (url.pathname === '/api/dice/bag') return send(200, await diceBag(d, asUser, b.ids));
       if (url.pathname === '/api/dice/glaze') return send(200, await diceGlaze(d, asUser, b.id, b.face));
       if (url.pathname === '/api/dice/tint') return send(200, await diceTint(d, asUser, b.id, b.face, b.pig));

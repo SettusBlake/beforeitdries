@@ -7,7 +7,7 @@ import { ruleStage, STAGE_ALL } from '../../shared/duel/stages';
 import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
-import { dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, PULL_COST, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, TEN_COST, washGlaze, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { BRUSHES, brushDef, isBrush, dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, washGlaze, type BrushId, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { monsterSeed, speciesLabel } from '../../shared/monster';
 import { addHolo } from '../lib/holo';
@@ -47,6 +47,25 @@ const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms))
 type Hooks = { back: () => void; error: (e: unknown) => void };
 let hooks: Hooks = { back: () => undefined, error: () => undefined };
 let save: DiceSave | null = null;
+/** Pinsel für bezahlte Züge (Reicher Zug, 07.11.2026), auf diesem Gerät gemerkt */
+const store = {
+  get: (k: string): string | null => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k: string, v: string): void => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      /* ohne Speicher bleibt die Wahl nur bis zum Schließen */
+    }
+  },
+};
+const savedBrush = store.get('bid-brush');
+let brush: BrushId = isBrush(savedBrush) ? savedBrush : 'plain';
 let freeReady = false;
 let busy = false;
 /** Playtest und Mod: Test-Knopf für leere Würfel */
@@ -124,12 +143,32 @@ function render(): void {
     b.addEventListener('click', () => void pull(kind));
     btns.append(b);
   };
+  // Reicher Zug (07.11.2026): der Pinsel bestimmt den Preis der bezahlten Züge, freie Züge bleiben beim einfachen Pinsel
+  const br = brushDef(brush);
   if (s.starter > 0) btn(`Dip ${s.starter} free dice`, 'fills your deck', 'starter', true, true);
   else {
-    btn('Free dip', freeReady ? 'once a day' : 'back tomorrow', 'free', freeReady, freeReady);
-    btn('Dip', `${PULL_COST} pigment`, 'one', s.pigment >= PULL_COST);
-    btn('Dip ×10', `${TEN_COST} · Rare or better`, 'ten', s.pigment >= TEN_COST);
+    btn('Free dip', freeReady ? 'once a day · plain' : 'back tomorrow', 'free', freeReady, freeReady);
+    btn('Dip', `${br.cost} pigment`, 'one', s.pigment >= br.cost);
+    btn('Dip ×10', `${br.cost * 10} · Rare or better`, 'ten', s.pigment >= br.cost * 10);
   }
+  const bw = $('brushes');
+  bw.hidden = s.starter > 0;
+  bw.replaceChildren();
+  for (const b of BRUSHES) {
+    const c = el('button', 'brushbtn' + (b.k === brush ? ' on' : '')) as HTMLButtonElement;
+    c.type = 'button';
+    c.disabled = busy;
+    c.setAttribute('aria-pressed', String(b.k === brush));
+    c.append(el('b', '', b.label), el('small', '', `${b.cost} · ${b.throws === 1 ? '1 throw' : `${b.throws} throws`}`));
+    c.addEventListener('click', () => {
+      sfx.tap();
+      brush = b.k;
+      store.set('bid-brush', b.k);
+      render();
+    });
+    bw.append(c);
+  }
+  $('brush-note').textContent = br.throws === 1 ? `The hand throws once: style ${br.style}, holo ${br.holo}.` : `The hand throws ${br.throws === 2 ? 'twice' : 'three times'}, the best counts: style ${br.style}, holo ${br.holo}.`;
   $('odds').innerHTML = RARITIES.map((r) => `<span style="--c:${r.col}"><i></i>${r.from === r.to ? r.from : `${r.from}–${r.to}`} ${r.label}</span>`).join('');
   $('pity').textContent = `Bad luck shield: Rare in ${PITY.rare - s.pity.rare} · Epic in ${PITY.epic - s.pity.epic} · Legendary in ${PITY.legendary - s.pity.legendary} dips at most.`;
   // Selbst malen: ein leerer Würfel pro Woche, dazu ein Fund bei W100 = 1
@@ -697,6 +736,8 @@ function toReveal(p: PullResult): RevealPull {
     gold: p.gold,
     ...(p.goldD100 ? { goldD100: p.goldD100 } : {}),
     ...(p.styleRoll ? { styleRoll: p.styleRoll } : {}),
+    ...(p.hands ? { hands: p.hands, golds: p.golds } : {}),
+    ...(p.goldD100s ? { goldD100s: p.goldD100s } : {}),
     ...(p.lifted ? { lifted: p.lifted } : {}),
   };
 }
@@ -708,7 +749,7 @@ async function pull(kind: PullKind): Promise<void> {
   render();
   let res: DiceResponse;
   try {
-    res = await api.dicePull(kind);
+    res = await api.dicePull(kind, kind === 'one' || kind === 'ten' ? brush : 'plain');
   } catch (e) {
     busy = false;
     render();
@@ -796,6 +837,7 @@ function doneBar(p: PullResult, before: DiceSave | null): Promise<void> {
     if (p.die.draw) lines.push(`Your drawing, painted as ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
     else lines.push(p.dup ? `Another ${speciesLabel(u.m)}, but no other blot looks like this one (${serialText(p.die.no)}).` : `A new species for you: ${speciesLabel(u.m)} ${serialText(p.die.no)}.`);
     if (p.blank) lines.push('The die showed 1: you also found a blank canvas.');
+    if (p.brush) lines.push(`${brushDef(p.brush).label}: the hand threw ${p.hands?.length ?? 1} times, the best counted.`);
     if (p.die.style) lines.unshift(`New style: ${styleDef(p.die.style).label}, ${styleDef(p.die.style).odds}.`);
     if (p.die.holo) lines.unshift(`✦ Holo! ${foilLabel(p.die)}, ${HOLO_ODDS}.${p.lifted ? ` It lifted the die from ${rarityDef(p.rarity).label} to ${rarityDef(p.lifted).label}.` : ''}`);
     const ok = el('button', 'primary', 'Done') as HTMLButtonElement;
