@@ -788,6 +788,9 @@ button.gal-note.linkish u { color: var(--ink); text-underline-offset: 2px; }
 .brushbtn small { font: 10px var(--f-mono); color: var(--muted); }
 .brushbtn.on { border: 1.5px solid var(--gold); background: rgba(201,150,30,.12); }
 .brushbtn.on b { color: var(--gold-ink); }
+/* Hinweis auf die Chance: vollere Pinsel golden */
+.brushbtn small.odds-up { font: 700 9.5px var(--f-mono); color: var(--muted); }
+.brushbtn:not(:first-child) small.odds-up { color: var(--gold-ink); }
 .brush-note { margin: 4px 0 0; font: 10.5px/1.3 var(--f-mono); color: var(--muted); text-align: center; }
 
 /* ---------- Gilded weekend (07.11.2026): schmales goldenes Band, Stil und Holo kommen leichter ---------- */

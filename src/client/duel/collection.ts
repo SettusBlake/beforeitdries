@@ -7,7 +7,7 @@ import { ruleStage, STAGE_ALL } from '../../shared/duel/stages';
 import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
-import { BRUSHES, brushDef, brushOdds, GILDED_AT, isBrush, dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, washGlaze, type BrushId, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
+import { BRUSHES, brushDef, brushOdds, isBrush, dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, washGlaze, type BrushId, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { monsterSeed, speciesLabel } from '../../shared/monster';
 import { addHolo } from '../lib/holo';
@@ -72,9 +72,8 @@ let freeReady = false;
 let gilded = false;
 /** Gilded weekend: Stil ab 99, Holo ab 98 (für das Startbild) */
 export const gildedNow = (): boolean => gilded;
-/** Text des goldenen Bands im Startbild und über „Dip the brush“ */
-// Bereiche mit Wortverbinder, damit „98–100“ nicht umbricht
-export const GILDED_TEXT = `Gilded weekend: style on ${GILDED_AT.style}\u2060–\u2060100, holo on ${GILDED_AT.holo}\u2060–\u2060100 until Sunday midnight UTC`;
+/** Text des goldenen Bands im Startbild und über „Dip the brush“: nur dass die Chance höher ist (Rückmeldung 07.11.2026) */
+export const GILDED_TEXT = 'Gilded weekend: higher style and holo chances until Sunday midnight UTC';
 let busy = false;
 /** Playtest und Mod: Test-Knopf für leere Würfel */
 let tester = false;
@@ -167,7 +166,8 @@ function render(): void {
     c.type = 'button';
     c.disabled = busy;
     c.setAttribute('aria-pressed', String(b.k === brush));
-    c.append(el('b', '', b.label), el('small', '', `${b.cost} · ${b.throws === 1 ? '1 throw' : `${b.throws} throws`}`));
+    // Vollere Pinsel sagen, dass die Chance besser ist (Rückmeldung 07.11.2026)
+    c.append(el('b', '', b.label), el('small', '', `${b.cost} · ${b.throws === 1 ? '1 throw' : `${b.throws} throws`}`), el('small', 'odds-up', b.throws === 1 ? 'normal chance' : b.throws === 2 ? 'better chance' : 'best chance'));
     c.addEventListener('click', () => {
       sfx.tap();
       brush = b.k;
@@ -178,7 +178,8 @@ function render(): void {
   }
   // Chancen des gewählten Pinsels, am Gilded weekend die höheren
   const od = brushOdds(br, gilded);
-  $('brush-note').textContent = br.throws === 1 ? `The hand throws once: style ${od.style}, holo ${od.holo}.` : `The hand throws ${br.throws === 2 ? 'twice' : 'three times'}, the best counts: style ${od.style}, holo ${od.holo}.`;
+  const more = gilded ? ' Higher this weekend.' : '';
+  $('brush-note').textContent = (br.throws === 1 ? `The hand throws once: style ${od.style}, holo ${od.holo}.` : `The hand throws ${br.throws === 2 ? 'twice' : 'three times'}, the best counts: style ${od.style}, holo ${od.holo}.`) + more;
   const gb = $('gilded-dip');
   gb.hidden = !gilded;
   gb.textContent = GILDED_TEXT;

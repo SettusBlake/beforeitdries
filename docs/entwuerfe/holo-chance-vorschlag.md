@@ -1,12 +1,14 @@
 # Holo-Chance und Gilded weekend: Vorschlag
 
-Stand 07.11.2026, Fassung 2. Entschieden am 07.11.2026 („1 ok, 2 beides, 3 ja, 4 ja“): Holo 1 zu 500, Gilded weekend für Holo und Stil, Samstag und Sonntag nach UTC, Pinsel-Preise bleiben. Gebaut (Bild docs/entwuerfe/grosse-karte-und-gilded.png).
+Stand 07.11.2026, Fassung 3. Entschieden am 07.11.2026 („1 ok, 2 beides, 3 ja, 4 ja“): Holo 1 zu 500, Gilded weekend für Holo und Stil, Samstag und Sonntag nach UTC, Pinsel-Preise bleiben. Gebaut (Bild docs/entwuerfe/grosse-karte-und-gilded.png). Anzeige nach Rückmeldung vom 07.11.2026 vereinfacht: am Wochenende steht nur, dass die Chance höher ist, die Pinsel sagen, dass ihre Chance besser ist (Bild docs/entwuerfe/gilded-hinweis.png).
 
 ## 1 Wunsch (07.11.2026)
 
 Nach dem Vergleich mit Gacha- und Sammelkartenspielen gewählt:
 - **Möglichkeit 2:** Holo auf 1 zu 500, wie ein Shiny in Pokémon GO.
 - **Möglichkeit 3:** ein Gilded weekend, aber nicht zu stark.
+
+Rückmeldung nach dem ersten Bau: „Beim Wochenende sollte nur stehen, dass man erhöhte Chance hat. Bei den Loaded brush etc. müsste auch ein Hinweis sein, dass die Chance besser ist.“
 
 ## 2 Wie es vorher war
 
@@ -22,7 +24,7 @@ Nach dem Vergleich mit Gacha- und Sammelkartenspielen gewählt:
 Der goldene W100 macht Holo bei **99 oder 100**, nicht mehr nur bei 100. Der W10 bleibt bei 10.
 
 - **Warum beim W100:** Der große goldene Wurf kommt weiter bei jedem zehnten Zug und bleibt besonders. Würde stattdessen der W10 schon bei 9 oder 10 treffen, käme der große Wurf bei jedem fünften Zug. Das wäre zu oft und würde das Ziehen bremsen.
-- **Anzeige:** Über dem goldenen W100 steht „gold d100 · holo on 99–100“. Daneben wie bisher „so close“.
+- **Anzeige:** Unter der Woche steht über dem goldenen W100 „gold d100 · holo on 99–100“. Daneben wie bisher „so close“.
 - **Stil bleibt** unter der Woche bei 1 zu 100.
 - **Bisherige Holos** bleiben, wie sie sind. Auf der Karte steht jetzt „1 in 500“.
 
@@ -35,15 +37,20 @@ Samstag und Sonntag nach UTC, wie das Tagesblatt, trifft die Hand eine Zahl frü
 - **Wie stark:**
   - Übers Jahr gerechnet steigt die Holo-Chance um etwa 14 %, die Stil-Chance um etwa 29 %.
   - Seltenheit, Schutz vor Pech, Stil-W20 und Pinsel-Preise bleiben.
-- **Anzeige:**
-  - Im Startbild (über „Your dice“) und über „Dip the brush“ steht ein schmales goldenes Band: „Gilded weekend: style on 99–100, holo on 98–100 until Sunday midnight UTC“.
-  - Der Satz unter den Pinseln nennt die Wochenend-Chancen.
-  - Über dem goldenen W100 steht dann „holo on 98–100“.
-  - Im Tagespost am Samstag und Sonntag gibt es eine goldene Zeile, im Spiel-Post wird die Zeile über dem Titel golden („Gilded weekend · style and holo come easier“).
+- **Anzeige** (nur, dass die Chance höher ist, ohne Zahlen):
+  - Im Startbild (über „Your dice“) und über „Dip the brush“ steht ein schmales goldenes Band: „Gilded weekend: higher style and holo chances until Sunday midnight UTC“.
+  - Beim Ziehen steht über dem goldenen W100 „gold d100 · higher chance“.
+  - Im Tagespost am Samstag und Sonntag gibt es eine goldene Zeile mit demselben Satz wie das Band.
+  - Im Spiel-Post wird die Zeile über dem Titel golden: „Gilded weekend · higher chances“.
 - **Für alle Züge,** auch den freien Tageszug, die Startzüge und Blank canvas.
 - **Der Server** entscheidet nach seiner Uhr (UTC), ob Wochenende ist. Die Anzeige zeigt nur, was gilt.
 
-### 3.3 Zahlen
+### 3.3 Pinsel zeigen die bessere Chance
+
+- **Pinsel-Knöpfe** unter „Dip the brush“ haben eine dritte Zeile: Plain brush „normal chance“, Loaded brush „better chance“, Dripping brush „best chance“. Die beiden vollen Pinsel stehen golden.
+- **Der Satz darunter** nennt weiter die Chancen des gewählten Pinsels, zum Beispiel „The hand throws twice, the best counts: style 2 %, holo 0.75 %.“. Am Wochenende stehen dort die höheren Zahlen und dahinter „Higher this weekend.“.
+
+### 3.4 Zahlen
 
 | Zug | Pigment | Holo unter der Woche | Holo am Wochenende | Stil unter der Woche | Stil am Wochenende |
 | --- | --- | --- | --- | --- | --- |
@@ -55,13 +62,13 @@ Samstag und Sonntag nach UTC, wie das Tagesblatt, trifft die Hand eine Zahl frü
 - **Bei etwa 4 Zügen am Tag** kommt im Schnitt etwa alle 4 Monate ein Holo, mit dem Wochenende etwa alle 3,5 Monate. Im ersten Monat bekommt etwa jeder Fünfte eines, vorher etwa jeder Neunte. Ein Stil kommt etwa alle 25 Tage, mit dem Wochenende etwa alle 19 Tage.
 - **Holo hebt weiter die Seltenheit.** Dadurch kommen etwas mehr Würfel eine Stufe höher als bisher, im Schnitt einer mehr auf 1000 Züge. Für Markt und Galerie ist das kaum zu spüren.
 
-### 3.4 Technik
+### 3.5 Technik
 
 - `HAND_AT` (Stil 100, Holo 99), `GILDED_AT` (Stil 99, Holo 98), `handAt(gilded)`, `isGilded(now)` in src/shared/dice.ts.
 - `rollHand(rand, throws, gilded)` und `forcedHand(…, gilded)`: Reihenfolge der Zufallsaufrufe wie bisher, nur die Schwellen hängen am Wochenende.
 - Server: `pullOne` nimmt `isGilded(d.now)`, PullResult `gilded`, DiceResponse `gilded`, PlayInfo `gilded`, SheetResponse `gilded` (nur im Post des laufenden Tages).
-- Anzeige beim Ziehen nimmt Treffer aus dem Monster (Stil, Holo), die Schwelle nur für die Beschriftung.
-- Pinsel-Chancen `style`, `holo`, `styleG`, `holoG` in `BRUSHES`, `brushOdds(b, gilded)`.
+- Anzeige beim Ziehen nimmt Treffer aus dem Monster (Stil, Holo), unter der Woche die Schwelle für die Beschriftung, am Wochenende „higher chance“.
+- Pinsel-Chancen `style`, `holo`, `styleG`, `holoG` in `BRUSHES`, `brushOdds(b, gilded)`. Text des Bands `GILDED_TEXT` in src/client/duel/collection.ts.
 - Tests in tests/brush.test.ts und tests/dice.test.ts (Chancen, Schwellen, Wochenende, angezeigte Chancen gegen die Rechnung).
 
 ## 4 Entscheidungen (07.11.2026)
@@ -70,3 +77,4 @@ Samstag und Sonntag nach UTC, wie das Tagesblatt, trifft die Hand eine Zahl frü
 2. **Gilded weekend:** für Holo (98 bis 100) und Stil (99 oder 100), beides.
 3. **Wochenende Samstag und Sonntag nach UTC,** wie das Tagesblatt: ja.
 4. **Pinsel-Preise** bleiben 300 und 700: ja.
+5. **Anzeige** (Rückmeldung): am Wochenende nur „higher chance“, Pinsel mit Hinweis auf die bessere Chance.

@@ -1014,7 +1014,8 @@ export class Reveal {
       sfx.land();
       await this.wait(400);
       await show();
-      cap.text = `gold d100 · holo on ${at.holo}–100`;
+      // Am Gilded weekend nur der Hinweis auf die höhere Chance, sonst die Schwelle
+      cap.text = p.gilded ? 'gold d100 · higher chance' : `gold d100 · holo on ${at.holo}–100`;
       big.tint = 0xffd66b;
       for (let k = 0; k < 14; k++) {
         big.text = String(1 + Math.floor(Math.random() * 100));

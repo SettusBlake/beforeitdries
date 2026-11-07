@@ -67,7 +67,7 @@ api
     if (r.gilded) {
       const eb = document.querySelector('.p-text .eyebrow');
       if (eb) {
-        eb.textContent = 'Gilded weekend · style and holo come easier';
+        eb.textContent = 'Gilded weekend · higher chances';
         eb.classList.add('gilded');
       }
     }
