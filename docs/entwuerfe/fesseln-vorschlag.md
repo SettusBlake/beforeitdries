@@ -1,6 +1,6 @@
 # Was fesselt: Vorschlag
 
-Stand 08.11.2026, Fassung 1. Gewünscht: „Mögliche Spielverbesserungen, die süchtig machen“. Wartet auf Freigabe (Fragen in Abschnitt 6).
+Stand 08.11.2026, Fassung 2. Gewünscht: „Mögliche Spielverbesserungen, die süchtig machen“. Gewählt am 08.11.2026: H2 Malerrang („h2 klingt gut“). H2 konkret mit Entwurfsbild in Abschnitt 7, wartet auf Freigabe der Einzelheiten (Fragen in Abschnitt 8). Die anderen Ideen bleiben offen.
 
 Grundlage: Stand des Spiels (v0.2.0.12), was bei Gacha-, Sammel- und Roguelite-Spielen nachweislich zurückholt, und die Devvit-Regeln (Pigment nie für Geld, keine Glücksspiel-Mechanik mit echtem Geld).
 
@@ -130,3 +130,72 @@ Vor jedem Paket kommt ein Entwurfsbild aus der echten Vorschau.
 4. H3 und H4: Lohn für volle Reihen und doppelte Chance für einen Bauplan oder ein Pigment je Woche? Empfehlung: ja.
 5. H1: 30 Stationen in 6 Abschnitten, vorher Liste und Entwurfsbild? Empfehlung: ja.
 6. H6 Mappe: lieber nicht, weil das Ziehen schon der Zufallskern ist? Empfehlung: vorerst nicht.
+
+## 7 H2 Malerrang konkret (Fassung 2)
+
+Entwurfsbild: docs/entwuerfe/malerrang-entwurf.png (Attrappe in der echten Vorschau, Quelle tools/mockup/rang-entwurf.cjs). Von links: Rang im Startbild, Erfahrung im Ergebnis, neuer Titel mit Sepia, Übersicht der Ränge.
+
+### Erfahrung (XP)
+
+| Was | XP |
+| --- | --- |
+| Duell fertig (auch Galerie) | 20, gewonnen 30 |
+| Tagesblatt (Wertungslauf) | 30 |
+| Zug (frei, bezahlt, Geschenk, Willkommen) | 5 je Monster, Zehnerzug 50 |
+| Wochenziel erfüllt | 50 |
+
+- Nicht gezählt werden die ersten Schritte, Test-Blätter und die freien Startzüge.
+- Auch Duelle nach den 5 belohnten am Tag geben Erfahrung, spielen soll sich immer lohnen.
+
+### Ränge
+
+- **Bedarf:** Von Rang n zu Rang n + 1 braucht man 40 + 20 · n XP. Rang 2 kommt nach 60 XP (2 bis 3 Duelle), Rang 5 nach 360, Rang 10 nach 1 260, Rang 20 nach 4 560, Rang 50 nach 26 460.
+- **Tempo:** Ein täglicher Spieler sammelt etwa 190 XP am Tag (5 Duelle, Tagesblatt, ein paar Züge, Wochenziele). Rang 10 erreicht er nach etwa einer Woche, Rang 20 nach dreieinhalb Wochen, Rang 30 nach sieben Wochen, Rang 50 nach etwa viereinhalb Monaten.
+- **Lohn je Rang:** 20 + 2 · n Pigment (Rang 2: 24, Rang 10: 40, Rang 50: 120). Zusammen sind das etwa 3 500 Pigment bis Rang 50, gut 25 am Tag (etwa 7 %).
+- **Titel:** Alle 5 Ränge gibt es einen neuen Titel und ein Geschenk:
+
+| Rang | Titel | Geschenk |
+| --- | --- | --- |
+| 1 | Brush washer | |
+| 5 | Water carrier | leerer Würfel |
+| 10 | Paper stretcher | Loaded-Zug |
+| 15 | Colour grinder | 5 Tropfen der Tagesfarbe |
+| 20 | Wash layer | Loaded-Zug |
+| 25 | Glazer | Dripping-Zug |
+| 30 | Edge keeper | 2 leere Würfel |
+| 35 | Sheet mender | Dripping-Zug |
+| 40 | Master of washes | 5 Tropfen und ein Loaded-Zug |
+| 45 | Sepia’s second | Dripping-Zug |
+| 50 | Keeper of the Sheet | Dripping-Zug und ein goldenes Abzeichen |
+
+- **Sepias Sätze bei neuen Titeln** (Entwurf):
+
+| Rang | Satz |
+| --- | --- |
+| 5 | Water first. Paint later. You learn. |
+| 10 | You stretch the paper before you paint. Most never do. |
+| 15 | Grind the colour fine. Coarse colour lies. |
+| 20 | A wash forgives nothing. Good. |
+| 25 | Glaze over glaze. Patience is a pigment. |
+| 30 | Someone has to watch the edges. Now it is you. |
+| 35 | Torn sheets mend. Not all of them. |
+| 40 | The washes listen to you now. Do not abuse it. |
+| 45 | If I put the brush down, you pick it up. |
+| 50 | Keeper of the Sheet. Do not let it dry. |
+
+### Anzeige
+
+- **Startbild:** Unter Sepias Satz steht der Rang mit Zahl im Farbklecks, Titel und Balken. Ein Tipp öffnet die Übersicht der Titel und Geschenke.
+- **Ergebnis:** Nach Duell und Tagesblatt steht „+30 XP“. Der Balken füllt sich sichtbar, darunter „Rank 8 in 30 XP, about one more duel“.
+- **Aufstieg:** Ein gewöhnlicher Rang zeigt eine Zeile im Ergebnis („Rank 8 · +36 pigment“). Ein neuer Titel zeigt eine Karte mit Sepia, Lohn und „Take it“. Ein Zug als Geschenk läuft danach im Würfel-Bildschirm wie beim Tagesgeschenk.
+- **Andere sehen den Rang:** als kleines Abzeichen mit Zahl neben dem Namen in der Rangliste des Tagesblatts und in der Vorschau des Galerie-Decks.
+- **Bisherige Spieler:** bekommen einen Startrang aus dem, was sie schon gespielt haben (Duelle × 25, Tagesblätter × 30, Züge nach den Startzügen × 5). Den Titel haben sie gleich, den Lohn der übersprungenen Ränge nicht.
+
+## 8 Fragen zu H2
+
+1. Erfahrung, Bedarf und Pigment je Rang wie in Abschnitt 7? Empfehlung: ja.
+2. Titel und Geschenke wie in der Tabelle? Empfehlung: ja.
+3. Bisherige Spieler: Startrang aus dem Bisherigen, ohne den Lohn der übersprungenen Ränge? Empfehlung: ja.
+4. Rang als kleines Abzeichen neben dem Namen in der Rangliste des Tagesblatts und in der Galerie? Empfehlung: ja.
+5. Auch Duelle nach den 5 belohnten am Tag geben Erfahrung? Empfehlung: ja.
+6. H7 gleich mit: Das Ergebnis zeigt außer dem Rang auch das knappste Wochenziel („Win 6 duels 4/6“) und den nächsten Patina-Schritt eines Würfels? Empfehlung: ja, kleine Zugabe.
