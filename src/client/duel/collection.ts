@@ -45,7 +45,8 @@ const dpr = () => Math.min(2, window.devicePixelRatio || 1);
 const BRUSH = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M14.2 1.8c.6.6.6 1.5 0 2.1L8.6 9.5 6.5 7.4l5.6-5.6c.6-.6 1.5-.6 2.1 0zM5.8 8.1l2.1 2.1c-.4 1.9-1.8 3.6-5.6 4.1 1-1.3.9-2.9 1.6-3.9.5-.9 1-1.8 1.9-2.3z"/></svg>';
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
-type Hooks = { back: () => void; error: (e: unknown) => void };
+/** giftChanged: der Stand des Tagesgeschenks hat sich geändert (Startbild neu zeichnen) */
+type Hooks = { back: () => void; error: (e: unknown) => void; giftChanged?: () => void };
 let hooks: Hooks = { back: () => undefined, error: () => undefined };
 let save: DiceSave | null = null;
 /** Pinsel für bezahlte Züge (Reicher Zug, 07.11.2026), auf diesem Gerät gemerkt */
@@ -72,6 +73,25 @@ let freeReady = false;
 let gilded = false;
 /** Gilded weekend: Stil ab 99, Holo ab 98 (für das Startbild) */
 export const gildedNow = (): boolean => gilded;
+/** Tagesgeschenk (T8) heute noch zu, laut Server */
+let giftReady = false;
+/** Für das Startbild: Spielstand, Geschenk und freier Zug */
+export const diceView = (): { save: DiceSave | null; giftReady: boolean; freeReady: boolean } => ({ save, giftReady, freeReady });
+/**
+ * Tagesgeschenk geöffnet: Stand übernehmen. Mit einem Zug (Tag 7, Loaded brush) läuft das Ziehen wie bei jedem Zug,
+ * der Würfel-Bildschirm muss dafür offen sein
+ */
+export async function revealGift(res: DiceResponse): Promise<void> {
+  const before = save;
+  apply(res);
+  if (!res.pulls.length) return;
+  busy = true;
+  render();
+  await reveal(res.pulls, before);
+  busy = false;
+  render();
+  afterReveal();
+}
 /** Text des goldenen Bands im Startbild und über „Dip the brush“: nur dass die Chance höher ist (Rückmeldung 07.11.2026) */
 export const GILDED_TEXT = 'Gilded weekend: higher style and holo chances until Sunday midnight UTC';
 let busy = false;
@@ -305,6 +325,7 @@ function apply(r: DiceResponse): void {
   setColorChoice(r.dice.color, r.dice.color2);
   freeReady = r.freeReady;
   gilded = !!r.gilded;
+  giftReady = !!r.giftReady;
   if (r.tester !== undefined) tester = r.tester;
   setGalleryStatus(r.gallery);
   setTradeStatus(r.trade);
@@ -801,6 +822,7 @@ async function pull(kind: PullKind): Promise<void> {
   save = res.dice;
   freeReady = res.freeReady;
   gilded = !!res.gilded;
+  giftReady = !!res.giftReady;
   await reveal(res.pulls, before);
   busy = false;
   render();
@@ -985,7 +1007,7 @@ function renderMod(): void {
   $('bleach-test').hidden = !tester;
   $('modp-note').hidden = tester || !mod;
   // Test-Knöpfe (nur Playtest und Mods)
-  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test', 'clean-test']) {
+  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test', 'gift-test', 'clean-test']) {
     $(id).hidden = !tester;
     ($(id) as HTMLButtonElement).disabled = busy;
   }
@@ -1171,6 +1193,20 @@ async function testPigment(): Promise<void> {
   busy = false;
   render();
 }
+/** Test-Knopf (Playtest, nur Mods): das Tagesgeschenk heute noch einmal öffnen (die Leiste läuft weiter) */
+async function testGift(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  try {
+    apply(await api.giftTestAgain());
+    hooks.giftChanged?.();
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
 /** Test-Knopf (Playtest, nur Mods): ein leerer Würfel mehr */
 async function testBlank(): Promise<void> {
   if (busy) return;
@@ -1200,6 +1236,7 @@ async function paintDrawing(code: string): Promise<true | string> {
   save = res.dice;
   freeReady = res.freeReady;
   gilded = !!res.gilded;
+  giftReady = !!res.giftReady;
   closeBlank();
   await reveal(res.pulls, before);
   busy = false;
@@ -1254,6 +1291,7 @@ export function initDice(h: Hooks): void {
   $('blank-b').addEventListener('click', openBlank);
   $('blank-test').addEventListener('click', () => void testBlank());
   $('pigment-test').addEventListener('click', () => void testPigment());
+  $('gift-test').addEventListener('click', () => void testGift());
   $('clean-test').addEventListener('click', () => void testClean());
   $('gallery-ok').addEventListener('click', () => void collectGallery());
   $('gallery-test').addEventListener('click', () => void testGallery());
@@ -1284,6 +1322,7 @@ export async function diceBadge(): Promise<string> {
     save = r.dice;
     freeReady = r.freeReady;
     gilded = !!r.gilded;
+    giftReady = !!r.giftReady;
     tester = !!r.tester;
     mod = !!r.mod;
     void loadSpecies();

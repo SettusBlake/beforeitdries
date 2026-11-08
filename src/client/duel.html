@@ -29,6 +29,9 @@
   <button type="button" class="ghost share-t" id="bleach-share" hidden>Share your sheet as a comment</button>
   <p class="gal-note" id="gal-note" hidden></p>
   <p class="gilded-band" id="gilded-t" hidden></p>
+  <!-- Tagesgeschenk und Morgen-Zeile (T8, T9) -->
+  <div class="gift" id="gift" hidden></div>
+  <p class="tmrw" id="tmrw" hidden></p>
   <div class="drow">
     <button type="button" class="ghost wide" id="dice-t">Your dice <span class="badge" id="dice-badge" hidden></span></button>
     <button type="button" class="cdot" id="colors-t" aria-label="Your colours"><i></i></button>
@@ -198,7 +201,8 @@
       <li><b>Hold and reroll:</b> the roll lies open first. Tap dice to hold them and reroll the rest, up to four times, or keep the roll. Then it counts.</li>
       <li id="rule-elements" data-stage="3"><b>Elements:</b> every blot carries one of six, shown by the badge at its feet: Wash, Vermilion, Gilt, Sap, Ochre and Fluoro. They stand in a ring in that order, and Fluoro comes round to Wash again. Each one splashes the next twice as hard and the one after it 1.25 times as hard, everything else normally. Wash puts out Vermilion, Vermilion melts Gilt, Gilt cuts Sap, Sap splits Ochre, Ochre grounds Fluoro, Fluoro strikes Wash. A twice-as-hard hit also stains. It multiplies with a Glaze or Pure.</li>
       <li><b>Same colours pay:</b> only the colour of the sides counts, a Joker counts as any colour. Glaze, two sides of one colour: every splash on a blot this turn ×1.5. Pure, three of one colour: ×2 and a Joker. Three stars of the same level: a Joker. Palette hits stay one heart.</li>
-      <li><b>Today’s sheet (Bleach):</b> once a day everyone plays the same sheet with Master Sepia’s nine dice. Pales come in five waves from the top and slide three steps down every round. Your paint costs them a step (glazed paint two), a blot in the way takes a hit, and a Pale that slips off the bottom bleaches a heart unless a Guard catches it. Splash flicks a whole row. Dashed lanes show where each Pale ends up when you end your turn. Points: every cell of your paint, 10 for each Pale washed out, 30 for the great one, 15 for each heart. One ranked run a day.</li>
+      <li><b>Today’s sheet (Bleach):</b> once a day everyone plays the same sheet with Master Sepia’s nine dice. Pales come in five waves from the top and slide three steps down every round. Your paint costs them a step (glazed paint two), a blot in the way takes a hit, and a Pale that slips off the bottom bleaches a heart unless a Guard catches it. Splash flicks a whole row. Dashed lanes show where each Pale ends up when you end your turn. Points: every cell of your paint, 10 for each Pale washed out, 30 for the great one, 15 for each heart. One ranked run a day. The week gets harder: Monday is a light wash, Sunday is the Eraser’s day with a second great Pale and points ×1.5. Everyone starts with the same medium of the day.</li>
+      <li><b>Today’s gift:</b> once a day tap the gift on the start screen. Seven jars: pigment, drops of the day’s colour, and on day seven a free dip with the Loaded brush. Missing a day does not reset it.</li>
       <li><b>Drops:</b> a win gives a drop of a pigment from your own deck, washing out rival blots gives one of their main pigment. At most two a duel, only in the five rewarded duels a day. In Your dice, 5 drops of one pigment repaint a face, at most 2 faces per die, so it rolls Glaze and Pure more often.</li>
       <li id="rule-wet" data-stage="2"><b>Wet paper:</b> the first reroll is dry. Every further one makes the sheet wetter: 25, 50, then 75 percent that one die turns to mud, a held one too. A mud side counts nothing until you reroll it. Stars and Jokers stay dry.</li>
       <li><b>Stars summon:</b> a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint, touching your paint. Where rival paint, a blot or a palette is in the way, the net may hang over: those sides drip off and paint nothing, as long as at least three cells land. A star that cannot summon says why under the die. At most three blots stand on the sheet.</li>
@@ -337,6 +341,7 @@
     <button type="button" class="testbtn" id="bleach-test" hidden>New test sheet (not ranked)</button>
     <button type="button" class="testbtn" id="blank-test" hidden>+1 blank canvas</button>
     <button type="button" class="testbtn" id="pigment-test" hidden>+1000 pigment</button>
+    <button type="button" class="testbtn" id="gift-test" hidden>Today’s gift: open it again</button>
     <div class="testrow" id="shiny-test" hidden></div>
     <div class="testrow" id="stage-test" hidden></div>
     <button type="button" class="testbtn" id="gallery-decks-test" hidden>+2 test decks in the gallery</button>

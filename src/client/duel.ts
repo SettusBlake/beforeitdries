@@ -33,7 +33,9 @@ import { elementBadge, elementIcon, elementText, ringSvg } from './duel/elements
 import { elementDef } from '../shared/elements';
 import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
-import { closeMod, diceBadge, GILDED_TEXT, gildedNow, initDice, lessonDone, openDice, ruleStageNow } from './duel/collection';
+import { closeMod, diceBadge, diceView, GILDED_TEXT, gildedNow, initDice, lessonDone, openDice, revealGift, ruleStageNow } from './duel/collection';
+import { dayLine, renderGift, ruleSub, showGiftCard, type GiftView } from './duel/gift';
+import { dayKey } from '../shared/day';
 import { duelsToGallery, galleryOpen, RULE_NEWS, UNLOCK as UNLOCK_AT } from '../shared/duel/stages';
 import { foeTag, galleryLine, galleryStatus, initGallery, openGallery, setGalleryStatus } from './duel/gallery';
 import { colorChoice, initColors, openColors } from './duel/colors';
@@ -2305,8 +2307,11 @@ async function finishDuel(): Promise<void> {
     for (const [k, x, y] of [
       ['Paint left', `${p.cells}${p.layers ? ` + ${p.layers} glazed` : ''}`, (p.cells + p.layers) * P.cell],
       ['Pales washed out', `${p.washed}`, p.washed * P.pale],
-      ['The great Pale', p.boss ? 'washed out' : 'still there', p.boss * P.boss],
+      // Sonntag (Tagesregel T3): zwei große Pales
+      S.bleach?.boss2 !== undefined ? ['The great Pales', `${p.boss} of 2`, p.boss * P.boss] : ['The great Pale', p.boss ? 'washed out' : 'still there', p.boss * P.boss],
       ['Hearts left', `${p.hearts}`, p.hearts * P.heart],
+      // Sonntag: Punkte × 1,5
+      ...(p.mult ? [['Sunday', `×${p.mult}`, p.total - Math.round(p.total / p.mult)]] : []),
     ] as [string, string, number][])
       st.append(html('div', 'bl', `<span>${k}</span><b class="y">${x}</b><b class="pts">+${y}</b>`));
   }
@@ -2336,7 +2341,8 @@ async function finishDuel(): Promise<void> {
           `<span class="patina-s">Master Sepia: “Wear suits it. That face has learned something.”</span>`
         : '') +
       dropsText(reward.drops ?? []) +
-      (bl && bleachRes?.streak ? streakText(bleachRes.streak) : '');
+      (bl && bleachRes?.streak ? streakText(bleachRes.streak) : '') +
+      (bl && bleachRes?.ranked ? tomorrowText() : '');
   if (reward?.patina?.length) setTimeout(() => sfx.upface(2), 500);
   joinSetup(reward?.join);
   reward = null;
@@ -2392,6 +2398,47 @@ async function updateBadge(): Promise<void> {
   $('gilded-t').hidden = !gildedNow();
   $('gilded-t').textContent = GILDED_TEXT;
   galleryNote();
+  giftTitle();
+}
+/* ---------- Tagesgeschenk und Morgen-Zeile (T8, T9) ---------- */
+/** Zuletzt geladener Stand des Tagesblatts (Tag, Farbe, Regel, schon gespielt) */
+let lastBleach: BleachInfo | null = null;
+function giftViewNow(): GiftView {
+  const v = diceView();
+  const i = lastBleach;
+  return {
+    save: v.save,
+    giftReady: v.giftReady,
+    freeReady: v.freeReady,
+    day: i?.day ?? dayKey(),
+    colour: i?.colour ?? 'ultra',
+    sheet: i ? { unlocked: i.unlocked, played: !!i.played, running: i.running, ...(i.rule ? { rule: i.rule } : {}) } : null,
+  };
+}
+function giftTitle(): void {
+  renderGift($('gift'), $('tmrw'), giftViewNow(), () => void openGift());
+}
+let giftBusy = false;
+async function openGift(): Promise<void> {
+  if (giftBusy) return;
+  giftBusy = true;
+  initAudio();
+  sfx.tap();
+  try {
+    const res = await api.giftOpen();
+    const dip = res.pulls.length > 0;
+    // Pigment und Tropfen gleich übernehmen, ein Zug (Tag 7) läuft nach „Dip it“ im Würfel-Bildschirm
+    if (!dip) await revealGift(res);
+    giftTitle();
+    showGiftCard(res.gift, lastBleach?.colour ?? 'ultra', () => {
+      if (!dip) return void updateBadge();
+      showScreen('dice');
+      void revealGift(res).then(() => giftTitle());
+    });
+  } catch (e) {
+    onError(e);
+  }
+  giftBusy = false;
 }
 function galleryNote(): void {
   const line = galleryLine();
@@ -2527,6 +2574,12 @@ const BLEACH_INTRO = 'Pales slide down each round. Paint slows them. Keep them o
 /* ---------- Tägliche Aktivität (T1 Beitreten, T2 Strähne), freigegeben am 04.11.2026 ---------- */
 let streakFlairOn = false;
 /** Strähne im Knopf „Today’s sheet“ */
+/** Morgen-Zeile im Ergebnis des Tagesblatts (T9): das Blatt ist gespielt, was wartet noch oder kommt morgen */
+function tomorrowText(): string {
+  const v = giftViewNow();
+  const dl = dayLine({ ...v, sheet: v.sheet ? { ...v.sheet, played: true, running: false } : { unlocked: true, played: true, running: false } });
+  return `<span class="tmrw-r"><b>${dl.label}:</b> ${dl.text}</span>`;
+}
 function streakLine(st: BleachInfo['streak']): string {
   const n = st.n;
   if (st.state === 'done') return n === 1 ? '🖌 day 1 · see you tomorrow' : `🖌 ${n} days in a row`;
@@ -2598,7 +2651,9 @@ async function bleachTitle(): Promise<Awaited<ReturnType<typeof api.bleach>> | n
         ? 'continue'
         : i.played
           ? `${i.played.points} points${i.played.rank ? ` · #${i.played.rank} of ${i.players}` : ''}`
-          : `${i.waves} waves · ${i.pales} Pales`;
+          : i.rule
+            ? ruleSub(i.rule)
+            : `${i.waves} waves · ${i.pales} Pales`;
     streakFlairOn = !!i.flair;
     const sl = streakLine(i.streak);
     $('bleach-streak').hidden = !sl || !i.unlocked;
@@ -2606,9 +2661,12 @@ async function bleachTitle(): Promise<Awaited<ReturnType<typeof api.bleach>> | n
     note.hidden = !i.top.length;
     note.innerHTML = '';
     if (i.top.length) note.append(`Today: ${i.top.map((t, k) => `${k + 1}. ${t.name || 'a painter'} ${t.points}`).join(' · ')} · `, html('u', '', 'full board'));
+    lastBleach = i;
+    giftTitle();
     return i;
   } catch {
     b.hidden = true;
+    giftTitle();
     return null;
   }
 }
@@ -2824,6 +2882,7 @@ $('dice-m').addEventListener('click', () => {
   showScreen('dice');
 });
 initDice({
+  giftChanged: () => giftTitle(),
   back: () => {
     const to = diceFrom;
     showScreen(to);

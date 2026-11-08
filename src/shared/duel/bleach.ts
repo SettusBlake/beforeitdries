@@ -8,6 +8,8 @@
 import type { PigmentId } from '../data';
 import type { FaceMod } from '../dice';
 import type { Monster } from '../monster';
+import type { SheetRule } from '../daily';
+import type { MediumId } from './media';
 import { RNG } from '../rng';
 import { cellCode } from '../sheet';
 import {
@@ -32,6 +34,7 @@ import {
   snap,
   startTurn,
   sync,
+  takeMedium,
   unitAt,
   unitById,
   washOut,
@@ -77,17 +80,20 @@ export type BleachState = {
   day: string;
   colour: PigmentId;
   waves: WavePale[][];
-  /** Der große Pale der letzten Welle */
+  /** Der große Pale (Welle BLEACH.bossWave) und sonntags ein zweiter in der letzten Welle (Tagesregel T3) */
   boss: number;
+  boss2?: number;
+  /** Tagesregel (T3, 08.11.2026): Wochentag, Faktor auf die Punkte, Malmittel des Tages. Fehlt bei Läufen von vorher */
+  rule?: { wd: number; mult: number; medium?: MediumId };
   /** Pales, die unten hinausgerutscht sind (zählen nicht als ausgewaschen) */
   through: number[];
   /** Wertungslauf (false: Test im Playtest) */
   ranked: boolean;
 };
-export type BleachScore = { cells: number; layers: number; washed: number; boss: number; hearts: number; total: number };
+export type BleachScore = { cells: number; layers: number; washed: number; boss: number; hearts: number; total: number; mult?: number };
 
 /** Neues Tagesblatt. deck: die neun Würfel (Sepias Tagesdeck), pales: die Pales in Wellenreihenfolge. seed geheim, paintSeed öffentlich */
-export function newBleach(o: { seed: number; paintSeed?: number; day: string; colour: PigmentId; deck: Monster[]; deckMods?: FaceMod[][]; pales: Monster[]; paleMods?: FaceMod[][]; ranked: boolean }): void {
+export function newBleach(o: { seed: number; paintSeed?: number; day: string; colour: PigmentId; deck: Monster[]; deckMods?: FaceMod[][]; pales: Monster[]; paleMods?: FaceMod[][]; ranked: boolean; rule?: SheetRule }): void {
   // Echte Werte wie im Galerie-Duell, dann wird die Seite des Rivalen zur Bleiche
   // paintSeed ist öffentlich (Aufträge, Aussehen), seed bleibt am Server: der Server gibt beide getrennt (Testlauf 02.11.2026)
   newGame(o.seed, 'gallery', o.deck, o.pales, o.paintSeed ?? o.seed ^ 0x5eed, o.deckMods ?? [], o.paleMods ?? []);
@@ -112,7 +118,8 @@ export function newBleach(o: { seed: number; paintSeed?: number; day: string; co
     const wave: WavePale[] = [];
     for (let i = 0; i < n && k < t2.units.length; i++, k++) {
       const u = t2.units[k]!;
-      u.hp = u.max = Math.max(4, Math.round(u.max * BLEACH.hp[w]! * BLEACH.hpMul));
+      // Tagesregel: die Woche wird schwerer (Montag × 0,9 bis Sonntag × 1,2)
+      u.hp = u.max = Math.max(4, Math.round(u.max * BLEACH.hp[w]! * BLEACH.hpMul * (o.rule?.hp ?? 1)));
       wave.push({ id: u.id, col: cols[i]! });
     }
     waves.push(wave);
@@ -120,7 +127,16 @@ export function newBleach(o: { seed: number; paintSeed?: number; day: string; co
   const boss = waves[Math.min(waves.length, BLEACH.bossWave) - 1]?.at(-1)?.id ?? -1;
   const bu = unitById(boss);
   if (bu) bu.hp = bu.max = Math.round(bu.max * BLEACH.boss);
+  // Sonntag: ein zweiter großer als letzter der letzten Welle
+  const last = (o.rule?.bigs ?? 1) > 1 ? waves.at(-1)?.at(-1)?.id : undefined;
+  const boss2 = last !== undefined && last !== boss ? last : undefined;
+  const b2 = boss2 !== undefined ? unitById(boss2) : undefined;
+  if (b2) b2.hp = b2.max = Math.round(b2.max * BLEACH.boss);
   S.bleach = { day: o.day, colour: o.colour, waves, boss, through: [], ranked: o.ranked };
+  if (boss2 !== undefined) S.bleach.boss2 = boss2;
+  if (o.rule) S.bleach.rule = { wd: o.rule.wd, mult: o.rule.mult, medium: o.rule.medium };
+  // Malmittel des Tages: alle starten damit, die übliche Wahl im Lauf bleibt
+  if (o.rule?.medium) takeMedium(1, o.rule.medium);
   spawnWave(1);
   S.phase = 'opening';
   sync();
@@ -214,7 +230,9 @@ function paleStep(p: Unit, after: (() => void)[]): PaleAct {
   return { id: p.id, k: 'move', from, to: i };
 }
 /** Schaden eines Pale an einem Klecks im Weg (je Welle, der große mehr) */
-export const paleHit = (p: Unit): number => (BLEACH.hit[waveOf(p.id)] ?? 6) + (p.id === S.bleach?.boss ? BLEACH.bossHit : 0);
+/** Ein großer Pale (der übliche oder sonntags der zweite) */
+export const isBigPale = (id: number): boolean => !!S.bleach && (id === S.bleach.boss || id === S.bleach.boss2);
+export const paleHit = (p: Unit): number => (BLEACH.hit[waveOf(p.id)] ?? 6) + (isBigPale(p.id) ? BLEACH.bossHit : 0);
 function hitBlot(p: Unit, o: Unit, after: (() => void)[]): PaleAct {
   const dmg = paleHit(p);
   count('2hit');
@@ -364,18 +382,21 @@ export function bleachScore(): BleachScore {
       layers += c.layer ?? 0;
     }
   const gone = S.teams[1].units.filter((u) => u.state === 'gone' && !b?.through.includes(u.id));
-  const boss = gone.some((u) => u.id === b?.boss) ? 1 : 0;
+  const boss = gone.filter((u) => isBigPale(u.id)).length;
   const washed = gone.length - boss;
   const hearts = Math.max(0, S.teams[0].hearts);
   const P = BLEACH.points;
-  return { cells, layers, washed, boss, hearts, total: (cells + layers) * P.cell + washed * P.pale + boss * P.boss + hearts * P.heart };
+  // Tagesregel: sonntags zählen die Punkte × 1,5
+  const mult = b?.rule?.mult ?? 1;
+  const base = (cells + layers) * P.cell + washed * P.pale + boss * P.boss + hearts * P.heart;
+  return { cells, layers, washed, boss, hearts, total: Math.round(base * mult), ...(mult !== 1 ? { mult } : {}) };
 }
 
 /** Endstand als Blatt-Code für den Tagespost und das Teilen (src/shared/sheet.ts), Reihe für Reihe von oben */
 export const sheetCode = (): string => S.cells.map(cellCode).join('');
 
 /** Viele Läufe ohne Darstellung, zum Einstimmen. look: wie viele Züge der Spieler bedenkt (0 = alle) */
-export function simulateBleach(n: number, look = 0): { runs: BleachScore[]; through: number; rounds: number; flicks: number; caught: number } {
+export function simulateBleach(n: number, look = 0, rule?: SheetRule): { runs: BleachScore[]; through: number; rounds: number; flicks: number; caught: number } {
   S.headless = true;
   S.tally = {};
   const runs: BleachScore[] = [];
@@ -385,7 +406,7 @@ export function simulateBleach(n: number, look = 0): { runs: BleachScore[]; thro
     const seed = 5000 + g * 7919;
     const r = RNG(seed);
     const pales = [...randomBag(r, 'P'), ...randomBag(r, 'Q')].slice(0, BLEACH.waves.reduce((a, b) => a + b, 0));
-    newBleach({ seed, day: 'sim', colour: 'ultra', deck: randomBag(r, 'Y'), pales, ranked: false });
+    newBleach({ seed, day: 'sim', colour: 'ultra', deck: randomBag(r, 'Y'), pales, ranked: false, ...(rule ? { rule } : {}) });
     aiOpening(1, 'master');
     let guard = 0;
     while (!S.over && guard++ < 12) {

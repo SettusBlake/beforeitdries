@@ -76,6 +76,8 @@ api
       play.textContent = 'Continue';
       status.textContent = 'Your duel is still wet. Pick up where you left off.';
     } else if (r.starter > 0) status.textContent = `${r.starter} free dice are waiting for you.`;
+    // Tagesgeschenk (T8): solange es zu ist, steht es zuerst
+    else if (r.giftReady) status.textContent = `Today’s gift is waiting.${r.freeReady ? ' A free dip too.' : ''}`;
     else if (r.freeReady) status.textContent = `A free dip is ready. ${r.pigment} pigment.`;
     else status.textContent = `${r.pigment} pigment. Win duels to dip again.`;
   })

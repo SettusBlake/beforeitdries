@@ -1,5 +1,5 @@
 /* Aufrufe an den Server. Der Server würfelt, der Client malt nur. */
-import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type CleanTestResponse, type DiceResponse, type DuelResponse, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type ShareSheetResponse, type SheetResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
+import { DUEL_PROTOCOL, PROTO_HEADER, type BleachInfo, type CleanTestResponse, type DiceResponse, type DuelResponse, type GiftResult, type ErrorCode, type ErrorResponse, type GalleryResponse, type GalleryStatus, type MarketFilter, type MarketResponse, type MarketSort, type NamingResponse, type PlayInfo, type ReviewResponse, type ShareResponse, type ShareSheetResponse, type SheetResponse, type SpeciesResponse, type TradeCollection, type TradeResponse } from '../../shared/api';
 import type { BrushId, PullKind, StyleId } from '../../shared/dice';
 import type { ColorId } from '../../shared/colors';
 import type { DuelAction } from '../../shared/duel/play';
@@ -54,6 +54,9 @@ export const api = {
   diceTestShiny: (style: StyleId | null, holo = false) => call<DiceResponse>('/api/dice/test-shiny', { style, holo }),
   diceSeen: () => call<DiceResponse>('/api/dice/seen', {}),
   lessonDone: () => call<DiceResponse>('/api/dice/lesson', {}),
+  /** Tagesgeschenk öffnen (T8), Test-Knopf: heute noch einmal */
+  giftOpen: () => call<DiceResponse & { gift: GiftResult }>('/api/dice/gift', {}),
+  giftTestAgain: () => call<DiceResponse>('/api/dice/test-gift', {}),
   diceShare: (id: string) => call<ShareResponse>('/api/dice/share', { id }),
   species: () => call<SpeciesResponse>('/api/species'),
   naming: () => call<NamingResponse>('/api/naming'),

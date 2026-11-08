@@ -2,6 +2,7 @@
  * Würfel als Sammelobjekt. Die Seltenheit kommt vom Papier, das jedes Monster ohnehin würfelt.
  * Legendary sind seltene Papiere, die nur hier vergeben werden. Chancen, Schutz vor Pech und Preise stehen hier.
  */
+import type { GiftState } from './daily';
 import type { Streak } from './streak';
 import type { PaperId, PigmentId } from './data';
 import type { ColorId } from './colors';
@@ -315,6 +316,8 @@ export type DiceSave = {
   drops?: Partial<Record<PigmentId, number>>;
   /** Strähne beim Tagesblatt (src/shared/streak.ts) und fertige Wertungsläufe */
   streak?: Streak;
+  /** Tagesgeschenk (T8, src/shared/daily.ts): so viele geöffnet, zuletzt an diesem UTC-Tag */
+  gift?: GiftState;
   sheets?: number;
   /** Strähne als User-Flair (Schalter im Menü, Standard aus): Name, vorige Flair zum Zurücksetzen, zuletzt gezeigte Zahl */
   streakFlair?: { user: string; was?: string; shown?: number };

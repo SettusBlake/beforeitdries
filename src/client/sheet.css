@@ -53,3 +53,12 @@ h1 { font: 400 clamp(1.5rem, 6.5vw, 2.1rem)/1 var(--f-display); margin: 0; }
 /* Niedrige Posts: Text weg, damit die Rangliste Platz hat (kein Scrollen) */
 @media (max-height: 470px) { .s-sub { display: none; } }
 @media (prefers-reduced-motion: reduce) { .pale { animation: none; } }
+
+/* Tagesregel (T3): Wochentag und Malmittel des Tages, steht in der Zeile der Überschrift */
+.s-tb { display: grid; gap: 6px; justify-items: center; }
+.s-rule { margin: 0; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.s-rule span { font: 700 11px var(--f-mono); border-radius: 999px; padding: 3px 9px; }
+.s-rule .d { background: #fff; border: 1px solid var(--line); color: var(--ink); }
+.s-rule .d.sun { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.s-rule .m { background: #fff; border: 1px solid var(--line); color: #3b4558; display: inline-flex; gap: 5px; align-items: center; }
+.s-rule .m i { width: 9px; height: 12px; border-radius: 3px 3px 5px 5px; display: inline-block; }

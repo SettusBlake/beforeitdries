@@ -3,6 +3,7 @@
  * das Monster dazu, der Schutz vor Pech. Pigment gibt es nur durchs Spielen.
  * Jedes Monster gibt es nur einmal (festgelegt am 30.10.2026): sein Seed steht im Register, jeder Würfel hat eine Seriennummer.
  */
+import { giftOpened } from '../shared/daily';
 import { START_MEDIA, UNLOCK_ORDER } from '../shared/duel/media';
 import type { DiceResponse, DuelReward, ReviewItem } from '../shared/api';
 import { dayKey, weekKey } from '../shared/day';
@@ -100,7 +101,17 @@ export async function saveDice(d: Pick<Deps, 'redis' | 'now'>, uid: string, s: D
   await d.redis.set(K.dice(uid), JSON.stringify(s));
   await d.redis.zAdd(K.dicePlayers, { member: uid, score: d.now });
 }
-export const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] = []): DiceResponse => ({ dice: s, freeReady: s.freeDay !== dayKey(d.now), pulls, ...(isGilded(d.now) ? { gilded: true } : {}) });
+/** Erst nach den ersten Schritten (Lektion bezahlt oder ein Duell fertig): Tagesblatt, Tagesgeschenk */
+export const learned = (s: Pick<DiceSave, 'tutorialPaid' | 'duels'>): boolean => s.tutorialPaid || (s.duels ?? 0) > 0;
+/** Tagesgeschenk (T8) heute noch zu */
+export const giftReadyFor = (s: DiceSave, now: number): boolean => learned(s) && !giftOpened(s.gift, dayKey(now));
+export const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] = []): DiceResponse => ({
+  dice: s,
+  freeReady: s.freeDay !== dayKey(d.now),
+  pulls,
+  ...(isGilded(d.now) ? { gilded: true } : {}),
+  ...(giftReadyFor(s, d.now) ? { giftReady: true } : {}),
+});
 
 /** Ein Monster mit dem Papier dieser Seltenheit. Legendary: ein Monster auf Cotton Rag bekommt ein seltenes Papier. */
 function rollMonster(d: Deps, rarity: Rarity, avoid: Set<string> | null): Pick<DieRec, 'sheet' | 'idx' | 'paper'> {

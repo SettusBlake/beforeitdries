@@ -800,3 +800,7 @@ button.gal-note.linkish u { color: var(--ink); text-underline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .gilded-band { animation: none; } }
 /* Große Karte: Bild auf der Karte lässt sich antippen */
 .bc-open { cursor: zoom-in; }
+
+/* Morgen-Zeile im Ergebnis des Tagesblatts (T9) */
+.tmrw-r { display: block; margin-top: 8px; font: 11.5px/1.35 var(--f-mono); color: var(--muted); }
+.tmrw-r b { color: var(--ink); }

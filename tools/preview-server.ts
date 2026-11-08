@@ -3,6 +3,7 @@
  * Server-Logik, Redis im Speicher und einem festen Testnutzer.
  * Start: npm run preview  (vorher npm run build)
  */
+import { giftOpen, giftTestAgain } from '../src/server/gift';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -170,6 +171,8 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/draw') return send(200, await diceDraw(d, asUser, b.drawing, USER.name));
       if (url.pathname === '/api/dice/seen') return send(200, await diceSeen(d, asUser));
       if (url.pathname === '/api/dice/lesson') return send(200, await lessonDone(d, asUser));
+      if (url.pathname === '/api/dice/gift') return send(200, await giftOpen(d, asUser));
+      if (url.pathname === '/api/dice/test-gift') return send(200, await giftTestAgain(d, asUser, USER.name));
       if (url.pathname === '/api/dice/share') {
         const r = await diceShare(d, asUser, USER.name, b.id);
         lastNaming = r.postId;

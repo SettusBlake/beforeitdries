@@ -1,3 +1,4 @@
+import type { Gift, SheetRule } from './daily';
 import type { StreakState, StreakStep } from './streak';
 import type { ElementId } from './elements';
 import type { BleachScore } from './duel/bleach';
@@ -56,6 +57,8 @@ export interface SheetResponse {
   now: number;
   /** Gilded weekend (Samstag und Sonntag UTC): eine Zeile im Tagespost */
   gilded?: boolean;
+  /** Tagesregel des Blatts (T3): Wochentag, sonntags × 1,5, Malmittel des Tages */
+  rule?: SheetRule;
 }
 /** Antwort auf „Share as a comment“ */
 export interface ShareSheetResponse {
@@ -74,6 +77,8 @@ export interface PlayInfo {
   pigment: number;
   /** Gilded weekend (Samstag und Sonntag UTC): Stil und Holo kommen leichter */
   gilded?: boolean;
+  /** Tagesgeschenk (T8) heute noch zu */
+  giftReady?: boolean;
 }
 
 export type ErrorCode = 'login' | 'not_found' | 'forbidden' | 'busy' | 'bad_request' | 'server' | 'outdated';
@@ -83,7 +88,7 @@ export type ErrorCode = 'login' | 'not_found' | 'forbidden' | 'busy' | 'bad_requ
  */
 /** Testdaten vor dem Start entfernt (Playtest, nur Mods): erfundene Maler, noch laufende Bereinigungen, entfernte Posts, abgesagte Benennen */
 export type CleanTestResponse = { painters: number; pending: number; posts: number; namings: number; errors: string[] };
-export const DUEL_PROTOCOL = 21;
+export const DUEL_PROTOCOL = 22;
 export const PROTO_HEADER = 'x-bid-proto';
 
 export interface ErrorResponse {
@@ -135,7 +140,12 @@ export interface BleachInfo {
   /** Strähne am heutigen Tag, flair: als User-Flair eingeschaltet */
   streak: { n: number; state: StreakState; best: number };
   flair?: boolean;
+  /** Tagesregel des heutigen Blatts (T3) */
+  rule?: SheetRule;
 }
+
+/** Tagesgeschenk geöffnet: Tag der Leiste (1 bis 7), das Geschenk, bei einem Tropfen dessen Farbe */
+export type GiftResult = { day: number; gift: Gift; pig?: PigmentId };
 
 /** Antwort der Würfel-Anfragen: die ganze Sammlung, dazu Züge und ob der freie Tageszug bereit ist */
 export interface DiceResponse {
@@ -144,6 +154,10 @@ export interface DiceResponse {
   pulls: PullResult[];
   /** Gilded weekend nach der Uhr des Servers (Samstag und Sonntag UTC): Stil ab 99, Holo ab 98 */
   gilded?: boolean;
+  /** Tagesgeschenk (T8): heute noch zu, nach den ersten Schritten */
+  giftReady?: boolean;
+  /** Nach dem Öffnen: welcher Tag der Leiste, was es war (bei einem Tropfen die Farbe) */
+  gift?: GiftResult;
   /** Nur im Playtest und nur für Mods: Test-Knopf für leere Würfel (kommt mit dem Laden der Sammlung) */
   tester?: boolean;
   /** Mod des Subreddits: sieht die Prüfliste der Zeichnungen, review = so viele warten (kommt mit dem Laden der Sammlung) */

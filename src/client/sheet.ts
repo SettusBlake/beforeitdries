@@ -8,6 +8,7 @@ import { requestExpandedMode } from '@devvit/web/client';
 import type { SheetResponse, SheetRow } from '../shared/api';
 import { PIG, css } from '../shared/data';
 import { dayLabel } from '../shared/sheet';
+import { mediumDef } from '../shared/duel/media';
 import { api } from './lib/api';
 import { drawSheet } from './lib/minisheet';
 
@@ -33,7 +34,9 @@ function waves(i: SheetResponse): HTMLElement {
   i.waves.forEach((n, w) => {
     const g = el('div', 'wv');
     const p = el('div', 'wv-p');
-    for (let k = 0; k < n; k++) p.append(el('span', 'pale' + (w + 1 === i.bossWave && k === Math.floor(n / 2) ? ' big' : '')));
+    // Sonntag (Tagesregel T3): ein zweiter großer als letzter der letzten Welle
+    const sunday = (i.rule?.bigs ?? 1) > 1 && w === i.waves.length - 1;
+    for (let k = 0; k < n; k++) p.append(el('span', 'pale' + ((w + 1 === i.bossWave && k === Math.floor(n / 2)) || (sunday && k === n - 1) ? ' big' : '')));
     g.append(p, el('small', '', `wave ${w + 1}`));
     box.append(g);
   });
@@ -67,6 +70,20 @@ function show(): void {
   drop.style.background = css(pig.rgb);
   col.append(drop, document.createTextNode(`${pig.n} day`));
   $('s-title').textContent = i.today ? 'Hold the edge' : 'Final board';
+  // Tagesregel (T3): Wochentag als Stufe, sonntags × 1,5, Malmittel des Tages
+  const rule = $('s-rule');
+  rule.hidden = !i.rule;
+  if (i.rule) {
+    const r = i.rule;
+    const md = mediumDef(r.medium);
+    rule.replaceChildren();
+    const d = el('span', 'd' + (r.mult > 1 ? ' sun' : ''), `${r.day} · ${r.label}${r.mult > 1 ? ` · ×${r.mult}` : ''}`);
+    const m = el('span', 'm');
+    const dot = el('i');
+    dot.style.background = md.col;
+    m.append(dot, document.createTextNode(`${i.today ? 'Today' : 'That day'}: ${md.name}`));
+    rule.append(d, m);
+  }
   const hero = i.today || !i.top[0] ? waves(i) : best(i.top[0]);
   hero.id = 's-hero';
   $('s-hero').replaceWith(hero);

@@ -21,6 +21,7 @@ import { visibleDice } from './gallery';
 import { flairPost } from './flair';
 import { askJoin, streakFlairPaint } from './daily';
 import { streakNow, streakPaint, streakReward } from '../shared/streak';
+import { sheetRule } from '../shared/daily';
 import { K } from './keys';
 
 /** Ein Würfel im Tagesaufbau (genug, um Monster und Seiten daraus zu machen) */
@@ -138,6 +139,7 @@ export async function bleachGet(d: Deps, userId: string | undefined, username?: 
     ...(tester ? { tester } : {}),
     streak: streakNow(dice.streak, day),
     ...(dice.streakFlair ? { flair: true } : {}),
+    rule: sheetRule(day),
     state,
   };
 }
@@ -178,6 +180,8 @@ export async function bleachStart(d: Deps, userId: string | undefined, username?
       pales: setup.pales.map((p) => strip(p.die)),
       paleMods: setup.pales.map((p) => p.die.mods),
       ranked: !test,
+      // Tagesregel (T3): Wochentag, sonntags zweiter großer Pale und Punkte × 1,5, Malmittel des Tages. Testläufe mit der Regel von heute
+      rule: sheetRule(day),
     });
     // Karten der Pales: wer sie ausgewaschen hat. Farben: deine, die Bleiche in Payne's Grey
     S.foeDice = setup.pales.map((p) => (p.name ? { drift: p.name, ...(p.die.no ? { no: p.die.no } : {}) } : null));
@@ -379,6 +383,7 @@ export async function sheetGet(d: Deps, userId: string | undefined, postId: stri
     waves: [...BLEACH.waves],
     bossWave: BLEACH.bossWave,
     now: d.now,
+    rule: sheetRule(day),
     ...(day === today && isGilded(d.now) ? { gilded: true } : {}),
   };
 }

@@ -1,6 +1,6 @@
 # Tägliche Aktivität: Vorschlag
 
-Stand 08.11.2026, Fassung 3. T1 und T2 sind gebaut (Entscheidungen in Abschnitt 9). Neu in Fassung 3: T8 Tagesgeschenk, T9 Morgen-Zeile, T10 Willkommen zurück, T11 Wochenziele, dazu T3 mit Zahlen. Entwurfsbild docs/entwuerfe/taegliche-aktivitaet3-entwurf.png (Attrappe in der echten Vorschau, Quelle tools/mockup/geschenk-entwurf.cjs). Wartet auf Freigabe (Fragen in Abschnitt 8).
+Stand 08.11.2026, Fassung 4. T1 und T2 sind gebaut (04.11.2026). Fassung 3 freigegeben am 08.11.2026 („alles Empfehlung“). Schritt 1 (T8 Tagesgeschenk, T9 Morgen-Zeile, T3 Tagesregel) ist gebaut, Bild docs/entwuerfe/tagesgeschenk-im-spiel.png. Schritt 2 (T10 Willkommen zurück, T11 Wochenziele) ist freigegeben und kommt als Nächstes. Entwurfsbild der Fassung 3: docs/entwuerfe/taegliche-aktivitaet3-entwurf.png (Attrappe in der echten Vorschau, Quelle tools/mockup/geschenk-entwurf.cjs). Entscheidungen in Abschnitt 9.
 
 Quellen: Devvit-Doku (Feature Guide, User Actions, Adding Streaks, Devvit Rules), die Analyse anderer Reddit-Spiele (reddit-spiele-analyse.md im Repo SettusBlake/RedditGame, Stand mit den Bedingungen der Developer Funds H2 2026) und der Stand des Spiels.
 
@@ -34,7 +34,7 @@ Warum das zählt:
 - Reddit hebt Spiele im Featuring nach Klickrate, Verweildauer und **Rückkehr an Tag 1 und Tag 3** (Feature Guide).
 - Die Developer Funds H2 2026 beginnen bei **5 000 eingeloggten Spielern am Tag** im 7-Tage-Schnitt, in einer Community mit mindestens 200 Mitgliedern. Das schafft nur echte tägliche Rückkehr, kein viraler Tag.
 
-## 3 Schritt 1 (neu): Tagesgeschenk, Morgen-Zeile, Tagesregel
+## 3 Schritt 1: Tagesgeschenk, Morgen-Zeile, Tagesregel (gebaut am 08.11.2026)
 
 ### T8 Tagesgeschenk (klein bis mittel)
 
@@ -58,7 +58,9 @@ Warum das zählt:
   - Nach dem Öffnen steht in der Karte schon „Day 7: a free dip with the Loaded brush“.
   - Im Spiel-Post (inline) steht, solange das Geschenk zu ist: „Today’s gift is waiting.“
 - **Neue Spieler:** Die Leiste erscheint erst nach den ersten Schritten (E1), damit der Einstieg ruhig bleibt.
-- **Technik:** Spielstand `gift` (Tag 0 bis 6 und zuletzt geöffneter UTC-Tag), /api/gift, der Server würfelt und zahlt. Der Tag-7-Zug ist ein eigener Zug ohne Kosten mit dem Loaded brush, sonst wie jeder Zug (Schutz vor Pech zählt mit).
+- **Technik:** Spielstand `gift` (Zahl der geöffneten Geschenke und zuletzt geöffneter UTC-Tag), /api/dice/gift (src/server/gift.ts), Leiste `GIFTS` in src/shared/daily.ts. Der Server zahlt, die Tropfenfarbe ist die Farbe des heutigen Tagesblatts. Der Tag-7-Zug ist ein Zug ohne Kosten mit dem Loaded brush, sonst wie jeder Zug (Schutz vor Pech und Gilded weekend zählen mit), er läuft nach „Dip it“ im Würfel-Bildschirm.
+- **Test-Knopf** (Playtest, nur Mods, in den Moderator-Werkzeugen): „Today’s gift: open it again“, die Leiste läuft dabei weiter. So lässt sich Tag 7 an einem Tag ausprobieren.
+- **Anzeige** in src/client/duel/gift.ts und gift.css, im Spiel-Post die Zeile „Today’s gift is waiting.“
 
 ### T9 Morgen-Zeile (klein)
 
@@ -70,8 +72,9 @@ Warum das zählt:
 
 ### T3 Tagesregel und Wochenbogen (klein bis mittel, jetzt mit Zahlen)
 
-- **Malmittel des Tages:** Auf dem Tagesblatt starten alle mit demselben Malmittel. Es kommt aus dem geheimen Tages-Seed, aus denen, die im Tagesblatt wirken: Gum Arabic, Ox Gall, Salt, Retarder, Sponge, Iridescent Medium, Water Brush. Zwei Tage hintereinander nie dasselbe. Die übliche Malmittel-Wahl im Lauf bleibt.
-  - Es steht im Tagespost („Today: Salt“) und unter dem Knopf „Today’s sheet“.
+- **Malmittel des Tages:** Auf dem Tagesblatt starten alle mit demselben Malmittel, aus denen, die im Tagesblatt wirken: Gum Arabic, Ox Gall, Salt, Retarder, Sponge, Iridescent Medium, Water Brush. Die übliche Malmittel-Wahl im Lauf bleibt.
+  - Gebaut mit kleiner Abweichung: Es kommt aus dem Datum statt aus dem geheimen Tages-Seed. So kommt jedes der sieben in jeder Woche (Montag bis Sonntag) genau einmal, die Reihenfolge rückt jede Woche um drei weiter, nie zweimal dasselbe hintereinander (`dayMedium`).
+  - Es steht im Tagespost („Today: Gum Arabic“), unter dem Knopf „Today’s sheet“ und zu Beginn des Laufs als Banner.
 - **Die Woche wird schwerer:** Lebenskraft der Pales je Wochentag (UTC), mit Namen im Tagespost.
 
 | Tag | Name im Tagespost | Lebenskraft der Pales |
@@ -86,9 +89,10 @@ Warum das zählt:
 
 - **Sonntag:** dazu ein zweiter großer Pale in Welle 5 und Punkte × 1,5. Zusammen mit dem Gilded weekend wird der Sonntag ein kleines Ereignis.
 - **Fair bleibt es:** Alle haben am selben Tag dieselbe Regel. Die Rangliste gilt weiter je Tag.
-- **Vor dem Bau:** Simulation je Wochentag (wie viele behalten alle Herzen, stark, mittel, schwach), danach stimme ich die Zahlen nach.
+- **Simulation** (120 Läufe je Wochentag): Ein starker Spieler behält montags in 93 % alle Herzen, mittwochs in 86 % (wie bisher), freitags bis sonntags in etwa 80 %. Mittlere und schwache Spieler merken den Wochentag kaum. Die Zahlen bleiben wie vorgeschlagen.
+- **Technik:** `sheetRule` in src/shared/daily.ts, im Tagesblatt `rule` und `boss2` (src/shared/duel/bleach.ts), Punkte mit `mult` im Ergebnis („Sunday ×1.5“, „The great Pales 1 of 2“). DUEL_PROTOCOL 22.
 
-## 4 Schritt 2 (neu): Willkommen zurück, Wochenziele
+## 4 Schritt 2: Willkommen zurück, Wochenziele (freigegeben, noch nicht gebaut)
 
 ### T10 Willkommen zurück (klein)
 
@@ -150,7 +154,7 @@ Warum das zählt:
 3. **Danach T4.** Vorher lege ich die Texte als Entwurf vor.
 4. **T5, T7, Push und Ligen,** sobald täglich ein paar Dutzend spielen. **T6** nicht, T11 ersetzt es.
 
-## 8 Fragen
+## 8 Fragen (alle am 08.11.2026 mit der Empfehlung beantwortet)
 
 1. Reihenfolge: Schritt 1 mit T8, T9 und T3, Schritt 2 mit T10 und T11? Empfehlung: ja.
 2. T8: Zählt nur das Antippen des Geschenks, und die Leiste wird nie zurückgesetzt? Empfehlung: ja.
@@ -173,4 +177,6 @@ Warum das zählt:
 - Gebaut: T1 Beitreten und T2 Strähne, Bild docs/entwuerfe/straehne-im-spiel.png.
 
 ### 08.11.2026 (Fassung 3)
-- Gewünscht: Vorschlag zu Tagesbelohnungen und dem, was für die Rückkehr noch fehlt („ja, mach“). Wartet auf Freigabe.
+- Gewünscht: Vorschlag zu Tagesbelohnungen und dem, was für die Rückkehr noch fehlt („ja, mach“).
+- Freigegeben: alle acht Fragen mit der Empfehlung („alles Empfehlung“). Schritt 1 mit T8, T9 und T3, Schritt 2 mit T10 und T11, danach T4. Push später.
+- Gebaut Schritt 1 (Fassung 4): Tagesgeschenk, Morgen-Zeile, Tagesregel wie beschrieben, Malmittel des Tages aus dem Datum (Abweichung, siehe T3). Tests tests/gift.test.ts. Bild docs/entwuerfe/tagesgeschenk-im-spiel.png.

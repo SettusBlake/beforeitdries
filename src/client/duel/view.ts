@@ -1334,7 +1334,8 @@ export async function playEvent(e: Ev): Promise<void> {
     case 'medium': {
       // Malmittel gewählt: kurzer Banner, beim Rivalen mit Namen
       const m = mediumDef(e.id);
-      hooks.banner(e.side === 1 ? m.name : `Rival: ${m.name}`, 'ability');
+      // Tagesblatt: das Malmittel des Tages kommt gleich zu Beginn (Tagesregel T3)
+      hooks.banner(e.side === 1 ? (S.mode === 'bleach' && S.round <= 1 ? `Today: ${m.name}` : m.name) : `Rival: ${m.name}`, 'ability');
       sfx.ability();
       await wait(e.side === 1 ? 700 : 1100);
       return;

@@ -13,6 +13,7 @@ import { joinSub, streakFlairSweep, streakFlairToggle } from './daily';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, withdrawName, type NamingResult } from './naming';
 import { cleanTestData, refreshLinks, setupCommunity, setupToast } from './community';
+import { giftOpen, giftTestAgain } from './gift';
 import { ensurePlayPost, playInfo } from './play';
 import { commentGone, postGone } from './deletion';
 import { accountCheck, purgeRun } from './accounts';
@@ -264,6 +265,19 @@ app.post(
   '/api/dice/draw',
   wrap(async (req, res) => {
     res.json(await diceDraw(await deps(), context.userId, (req.body as { drawing?: unknown } | undefined)?.drawing, await username()));
+  }),
+);
+// Tagesgeschenk (T8): öffnen, Test-Knopf zum erneuten Öffnen (Playtest, nur Mods)
+app.post(
+  '/api/dice/gift',
+  wrap(async (_req, res) => {
+    res.json(await giftOpen(await deps(), context.userId));
+  }),
+);
+app.post(
+  '/api/dice/test-gift',
+  wrap(async (_req, res) => {
+    res.json(await giftTestAgain(await deps(), context.userId, await username()));
   }),
 );
 app.post(
