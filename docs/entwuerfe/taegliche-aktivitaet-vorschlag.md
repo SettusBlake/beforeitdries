@@ -1,6 +1,6 @@
 # Tägliche Aktivität: Vorschlag
 
-Stand 08.11.2026, Fassung 4. T1 und T2 sind gebaut (04.11.2026). Fassung 3 freigegeben am 08.11.2026 („alles Empfehlung“). Schritt 1 (T8 Tagesgeschenk, T9 Morgen-Zeile, T3 Tagesregel) ist gebaut, Bild docs/entwuerfe/tagesgeschenk-im-spiel.png. Schritt 2 (T10 Willkommen zurück, T11 Wochenziele) ist freigegeben und kommt als Nächstes. Entwurfsbild der Fassung 3: docs/entwuerfe/taegliche-aktivitaet3-entwurf.png (Attrappe in der echten Vorschau, Quelle tools/mockup/geschenk-entwurf.cjs). Entscheidungen in Abschnitt 9.
+Stand 08.11.2026, Fassung 5. T1 und T2 sind gebaut (04.11.2026). Fassung 3 freigegeben am 08.11.2026 („alles Empfehlung“). Schritt 1 (T8 Tagesgeschenk, T9 Morgen-Zeile, T3 Tagesregel) ist gebaut, Bild docs/entwuerfe/tagesgeschenk-im-spiel.png. Schritt 2 (T10 Willkommen zurück, T11 Wochenziele) ist gebaut, Bild docs/entwuerfe/wochenziele-im-spiel.png. Als Nächstes T4 (erst die Texte als Entwurf). Entwurfsbild der Fassung 3: docs/entwuerfe/taegliche-aktivitaet3-entwurf.png (Attrappe in der echten Vorschau, Quelle tools/mockup/geschenk-entwurf.cjs). Entscheidungen in Abschnitt 9.
 
 Quellen: Devvit-Doku (Feature Guide, User Actions, Adding Streaks, Devvit Rules), die Analyse anderer Reddit-Spiele (reddit-spiele-analyse.md im Repo SettusBlake/RedditGame, Stand mit den Bedingungen der Developer Funds H2 2026) und der Stand des Spiels.
 
@@ -92,13 +92,14 @@ Warum das zählt:
 - **Simulation** (120 Läufe je Wochentag): Ein starker Spieler behält montags in 93 % alle Herzen, mittwochs in 86 % (wie bisher), freitags bis sonntags in etwa 80 %. Mittlere und schwache Spieler merken den Wochentag kaum. Die Zahlen bleiben wie vorgeschlagen.
 - **Technik:** `sheetRule` in src/shared/daily.ts, im Tagesblatt `rule` und `boss2` (src/shared/duel/bleach.ts), Punkte mit `mult` im Ergebnis („Sunday ×1.5“, „The great Pales 1 of 2“). DUEL_PROTOCOL 22.
 
-## 4 Schritt 2: Willkommen zurück, Wochenziele (freigegeben, noch nicht gebaut)
+## 4 Schritt 2: Willkommen zurück, Wochenziele (gebaut am 08.11.2026)
 
 ### T10 Willkommen zurück (klein)
 
 - **Was:** Wer 3 UTC-Tage oder länger nicht da war (gemessen am letzten Geschenk, Zug oder Duell), bekommt beim nächsten Öffnen von „Your dice“ einen Zug mit dem Plain brush gratis. Sepia: „Four days away. The sheet kept your place. Have a dip on me.“
 - **Grenze:** höchstens einmal in 14 Tagen. Die Strähne bleibt, wie sie ist (Retarder verzeiht weiter einen Tag je Woche).
 - **Warum:** Wer zurückkommt, soll zuerst etwas bekommen, nicht nur sehen, was er verloren hat.
+- **Gebaut:** Zettel von Sepia oben in „Your dice“ mit „Take the dip“, der Zug läuft wie jeder Zug. Sepias Satz nennt die Tage (bis zwölf in Worten, danach „Two weeks away“, „Weeks away“, „Months away“). Dazu „Sepia’s welcome dip“ in der Morgen-Zeile, „Sepia’s dip“ am Knopf „Your dice“ und „Welcome back. Master Sepia has a free dip for you.“ im Spiel-Post. Aktiv heißt: Geschenk, Zug, Malen, Duell oder Tagesblatt. Wer schon vor Schritt 2 gespielt hat, wird nach freiem Zug, Geschenk, Tagesblatt oder Duell beurteilt. Ein fälliger Zug bleibt liegen, auch wenn man zuerst etwas anderes tut. Test-Knopf „Welcome back: as if 4 days away“ (Playtest, Mods).
 
 ### T11 Wochenziele (klein bis mittel)
 
@@ -107,6 +108,12 @@ Warum das zählt:
 - **Lohn:** je Ziel 80 Pigment, sofort beim Erfüllen. Alle drei: ein leerer Würfel extra (zählt auch über die Obergrenze 2, wie der Fund beim Ziehen).
 - **Anzeige:** Kasten oben in „Your dice“ mit drei Balken, erfüllte grün mit Haken.
 - **Warum Woche statt Tag:** Tagesaufgaben (T6) werden schnell zur Pflicht. Drei Wochenziele lassen sich in normalem Spiel nebenbei schaffen.
+- **Gebaut:** je Woche ein Ziel aus jeder Gruppe, die Reihenfolge rückt jeden Montag eins weiter. Die Ziele werden beim ersten Öffnen der Woche festgehalten, auch wenn danach neue Regeln dazukommen.
+  - Tagesblatt: „Finish 4 daily sheets“, „Wash out 30 Pales“, „Keep every heart on 2 daily sheets“ (nur Wertungsläufe).
+  - Duell: „Win 6 duels“, „Wash out 12 rival blots“, „Hit 6 palette hearts“, „Roll Glaze or Pure 5 times“, ab Stufe 3 „Land 5 element hits at ×2“, ab Stufe 4 „Land 3 master strokes“, ab Stufe 6 „Meet 4 of Sepia’s tasks“ und „Win 2 gallery duels“. Gezählt wird bis zum Ende des Duells, nicht im Lern-Duell.
+  - Sammeln: „Dip the brush 7 times“ (jeder Zug außer den freien Startzügen), „Open 5 daily gifts“, „Collect 6 drops“.
+  - Abweichung von den Beispielen: „Hit 6 palette hearts“ statt 3 (3 Herzen sind eine einzige Palette, das wäre viel leichter als die anderen Ziele), „Roll Glaze or Pure“ statt „Land 5 Glaze hits“ (der Wurf ist das, was man selbst schafft).
+  - Anzeige wie im Entwurf, oben „new goals in 3 days“ oder „tomorrow“. Erfüllt: kurze Meldung, die Zeile leuchtet, im Ergebnis „✓ Weekly goal: Win 6 duels · +80 pigment“, bei allen dreien „+1 blank canvas“. Test-Knopf „Weekly goals: finish the next one“ (Playtest, Mods). Tests tests/weekly.test.ts.
 
 ## 5 Weiter offen aus Fassung 2
 
@@ -180,3 +187,4 @@ Warum das zählt:
 - Gewünscht: Vorschlag zu Tagesbelohnungen und dem, was für die Rückkehr noch fehlt („ja, mach“).
 - Freigegeben: alle acht Fragen mit der Empfehlung („alles Empfehlung“). Schritt 1 mit T8, T9 und T3, Schritt 2 mit T10 und T11, danach T4. Push später.
 - Gebaut Schritt 1 (Fassung 4): Tagesgeschenk, Morgen-Zeile, Tagesregel wie beschrieben, Malmittel des Tages aus dem Datum (Abweichung, siehe T3). Tests tests/gift.test.ts. Bild docs/entwuerfe/tagesgeschenk-im-spiel.png.
+- Gebaut Schritt 2 (Fassung 5): Willkommen zurück und Wochenziele wie in Abschnitt 4, zwei Abweichungen bei den Zielen (6 Herzen statt 3, Glaze oder Pure würfeln statt Glaze-Treffer). Tests tests/weekly.test.ts. Bild docs/entwuerfe/wochenziele-im-spiel.png.

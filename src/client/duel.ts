@@ -8,6 +8,7 @@ import './lib/fonts';
 import './duel.css';
 import { context, navigateToPost, showLoginPrompt, showToast } from '@devvit/web/client';
 import type { BleachInfo, BleachResult, DuelResponse, DuelReward } from '../shared/api';
+import type { WeekDone } from '../shared/weekly';
 import { streakReward, streakSepia } from '../shared/streak';
 import { DROP_COST, HOLO_ODDS, rarityDef, serialText, styleDef, TINT_MAX } from '../shared/dice';
 import { speciesLabel } from '../shared/monster';
@@ -2341,6 +2342,7 @@ async function finishDuel(): Promise<void> {
           `<span class="patina-s">Master Sepia: “Wear suits it. That face has learned something.”</span>`
         : '') +
       dropsText(reward.drops ?? []) +
+      weekText(reward.week ?? []) +
       (bl && bleachRes?.streak ? streakText(bleachRes.streak) : '') +
       (bl && bleachRes?.ranked ? tomorrowText() : '');
   if (reward?.patina?.length) setTimeout(() => sfx.upface(2), 500);
@@ -2410,6 +2412,7 @@ function giftViewNow(): GiftView {
     save: v.save,
     giftReady: v.giftReady,
     freeReady: v.freeReady,
+    welcome: v.welcome,
     day: i?.day ?? dayKey(),
     colour: i?.colour ?? 'ultra',
     sheet: i ? { unlocked: i.unlocked, played: !!i.played, running: i.running, ...(i.rule ? { rule: i.rule } : {}) } : null,
@@ -2574,6 +2577,12 @@ const BLEACH_INTRO = 'Pales slide down each round. Paint slows them. Keep them o
 /* ---------- Tägliche Aktivität (T1 Beitreten, T2 Strähne), freigegeben am 04.11.2026 ---------- */
 let streakFlairOn = false;
 /** Strähne im Knopf „Today’s sheet“ */
+/** Wochenziele (T11), die dieses Ergebnis erfüllt hat: Ziel, Pigment, bei allen dreien der leere Würfel */
+function weekText(done: WeekDone[]): string {
+  if (!done.length) return '';
+  const rows = done.map((x) => `<span class="week-r"><i>✓</i> Weekly goal: <b>${x.text}</b> · +${x.pigment} pigment</span>`).join('');
+  return rows + (done.some((x) => x.blank) ? '<span class="week-r all">All three this week: <b>+1 blank canvas</b></span>' : '');
+}
 /** Morgen-Zeile im Ergebnis des Tagesblatts (T9): das Blatt ist gespielt, was wartet noch oder kommt morgen */
 function tomorrowText(): string {
   const v = giftViewNow();

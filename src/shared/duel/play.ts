@@ -137,8 +137,8 @@ export type DuelState = {
   bleach?: BleachState;
 };
 /** Was der Server speichert: dazu Würfelzufall, Würfel-IDs, Besitzer des Galerie-Decks samt Zeichnungen, Malmittel des Rivalen */
-export type DuelSave = DuelState & { rng: number; gameSeed: number; dieIds?: string[]; foeId?: string; foeKeys?: (string | null)[]; rivalMedia?: MediumId[] };
-type Hidden = 'rng' | 'gameSeed' | 'dieIds' | 'foeId' | 'foeKeys' | 'rivalMedia';
+export type DuelSave = DuelState & { rng: number; gameSeed: number; dieIds?: string[]; foeId?: string; foeKeys?: (string | null)[]; rivalMedia?: MediumId[]; wk?: Record<string, number> };
+type Hidden = 'rng' | 'gameSeed' | 'dieIds' | 'foeId' | 'foeKeys' | 'rivalMedia' | 'wk';
 
 export class DuelError extends Error {}
 const bad = (msg: string): never => {
@@ -185,6 +185,7 @@ export function saveState(): string {
   if (S.foeId) s.foeId = S.foeId;
   if (S.foeKeys.some(Boolean)) s.foeKeys = S.foeKeys;
   if (S.rivalMedia.length) s.rivalMedia = S.rivalMedia;
+  if (Object.keys(S.wk).length) s.wk = S.wk;
   return JSON.stringify(s);
 }
 /** Zustand übernehmen (Server: gespeicherter Stand, Client: Stand vom Server) */
@@ -222,6 +223,7 @@ export function loadState(s: DuelState & Partial<Pick<DuelSave, Hidden>>): void 
   S.foeId = s.foeId ?? '';
   S.foeKeys = s.foeKeys ?? [];
   S.rivalMedia = s.rivalMedia ?? [];
+  S.wk = { ...s.wk };
   S.colors = s.colors ?? [COLOR_DEFAULT, COLOR_RIVAL];
   S.mode = s.mode ?? 'duel';
   S.bleach = s.bleach ?? null;
@@ -234,6 +236,24 @@ export function wornDice(): { id: string; n: number }[] {
     return id && u.rolls ? [{ id, n: u.rolls }] : [];
   });
 }
+/**
+ * Wochenziele (T11): was deine Seite in diesen Ereignissen geschafft hat, zählt in S.wk mit (nur echte Züge, Vorschauen senden keine Ereignisse).
+ * Herzen der Rivalen-Palette, Meisterzüge, Glaze oder Pure, erfüllte Aufträge, Element-Treffer ×2
+ */
+export function weekTally(events: Ev[]): void {
+  const mine = (id: number) => S.teams[0].units.some((u) => u.id === id);
+  const add = (k: string) => (S.wk[k] = (S.wk[k] ?? 0) + 1);
+  for (const e of events) {
+    if (e.k === 'heart' && e.side === 2) add('hearts');
+    else if (e.k === 'ability' && e.how === 'master' && mine(e.id)) add('master');
+    else if (e.k === 'apply' && e.side === 1) {
+      if (e.combo?.kind === 'glaze' || e.combo?.kind === 'pure') add('glaze');
+      if (e.task) add('task');
+    } else if (e.k === 'shot' && (e.mult ?? 1) >= 2 && e.res !== 'miss' && e.res !== 'dodge' && mine(e.id)) add('elem');
+  }
+}
+/** Was das Duell für die Wochenziele gebracht hat (vor dem ersten await lesen) */
+export const duelWeek = (): Record<string, number> => ({ ...S.wk });
 /**
  * Beute fürs Ende (Kampf A Schritt 4): Hauptpigment jedes ausgewaschenen Rivalen-Kleckses und die Pigmente des eigenen Decks
  * (daraus würfelt der Server beim Sieg einen Tropfen dazu). Vor dem ersten await lesen, S kann danach einem anderen Duell gehören

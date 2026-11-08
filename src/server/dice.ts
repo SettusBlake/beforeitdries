@@ -48,6 +48,7 @@ import { GameError, isMod, withLock, type Deps } from './core';
 import { K } from './keys';
 import { askJoin } from './daily';
 import { isColor } from '../shared/colors';
+import { touchDay, weekAdd, weekFresh, welcomeAway, type GoalId, type WeekDone } from '../shared/weekly';
 
 export function needUser(userId: string | undefined): string {
   if (!userId) throw new GameError('login', 'Log in to collect dice.', 401);
@@ -63,6 +64,7 @@ export async function loadDice(d: Pick<Deps, 'redis' | 'now'>, uid: string): Pro
   weeklyBlank(s, d.now);
   migrateHolo(s);
   migrateBound(s);
+  weekFresh(s, d.now);
   return s;
 }
 /**
@@ -111,7 +113,14 @@ export const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] =
   pulls,
   ...(isGilded(d.now) ? { gilded: true } : {}),
   ...(giftReadyFor(s, d.now) ? { giftReady: true } : {}),
+  ...(welcomeAway(s, dayKey(d.now)) ? { welcome: welcomeAway(s, dayKey(d.now)) } : {}),
 });
+/** Der Spieler hat etwas getan (T10): heute gilt als zuletzt aktiv, ein fälliger Willkommens-Zug bleibt liegen */
+export const touch = (d: Pick<Deps, 'now'>, s: DiceSave): void => touchDay(s, dayKey(d.now));
+/** Wochenziele (T11) zählen: erfüllte zahlen sofort */
+export const weekCount = (d: Pick<Deps, 'now'>, s: DiceSave, adds: Partial<Record<GoalId, number>>): WeekDone[] => weekAdd(s, d.now, adds);
+/** Antwort mit erfüllten Wochenzielen */
+export const withWeek = <T extends object>(r: T, week: WeekDone[]): T & { week?: WeekDone[] } => (week.length ? { ...r, week } : r);
 
 /** Ein Monster mit dem Papier dieser Seltenheit. Legendary: ein Monster auf Cotton Rag bekommt ein seltenes Papier. */
 function rollMonster(d: Deps, rarity: Rarity, avoid: Set<string> | null): Pick<DieRec, 'sheet' | 'idx' | 'paper'> {
@@ -276,6 +285,7 @@ export async function lessonDone(d: Deps, userId: string | undefined): Promise<D
     const pigment = s.tutorialPaid ? 0 : REWARD.tutorial;
     s.tutorialPaid = true;
     s.pigment += pigment;
+    touch(d, s);
     await saveDice(d, uid, s);
     return { ...respond(d, s), lesson: { pigment } };
   });
@@ -381,8 +391,11 @@ export async function dicePull(d: Deps, userId: string | undefined, kind: unknow
       }
     }
     await claimPulls(d, uid, pulls);
+    touch(d, s);
+    // Wochenziel „Dip the brush“: jeder Zug außer den freien Startzügen
+    const week = k === 'starter' ? [] : weekCount(d, s, { dips: pulls.length });
     await saveDice(d, uid, s);
-    return respond(d, s, pulls);
+    return withWeek(respond(d, s, pulls), week);
   });
 }
 
@@ -405,6 +418,7 @@ export async function diceDraw(d: Deps, userId: string | undefined, code: unknow
     // Gespeichert wird die geprüfte, vereinfachte Fassung, nie ein Bild
     p.die.draw = encodeDrawing(dr);
     await claimPulls(d, uid, [p]);
+    touch(d, s);
     await saveDice(d, uid, s);
     // Jede neue Zeichnung kommt in die Prüfliste der Mods
     const key = `${uid}:${p.die.id}`;
@@ -574,8 +588,17 @@ export function dropLoot(d: Deps, s: DiceSave, winner: 0 | 1 | 2, loot: DuelLoot
 }
 
 /** Pigment nach einem Duell, dazu die Patina der geworfenen Würfel und die Tropfen. Nur innerhalb der Spielersperre aufrufen. */
-export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial: boolean, worn: { id: string; n: number }[] = [], loot?: DuelLoot): Promise<DuelReward> {
+export async function payDuel(
+  d: Deps,
+  uid: string,
+  winner: 0 | 1 | 2,
+  tutorial: boolean,
+  worn: { id: string; n: number }[] = [],
+  loot?: DuelLoot,
+  goals: Partial<Record<GoalId, number>> = {},
+): Promise<DuelReward> {
   const s = await loadDice(d, uid);
+  touch(d, s);
   let reward: DuelReward;
   if (tutorial) {
     const p = s.tutorialPaid ? 0 : REWARD.tutorial;
@@ -618,6 +641,12 @@ export async function payDuel(d: Deps, uid: string, winner: 0 | 1 | 2, tutorial:
     if (stage < RULE_STAGES) s.stage = stage + 1;
     const join = askJoin(d, s);
     if (join) reward.join = join;
+    // Wochenziele (T11): Sieg, ausgewaschene Rivalen-Kleckse, was im Duell gezählt wurde, Tropfen. Pigment kommt nach der Anzeige oben dazu
+    const week = weekCount(d, s, { ...goals, wins: winner === 1 ? 1 : 0, washed: loot?.washed.length ?? 0, drops: reward.drops?.length ?? 0 });
+    if (week.length) {
+      reward.week = week;
+      reward.total = s.pigment;
+    }
   }
   await saveDice(d, uid, s);
   return reward;

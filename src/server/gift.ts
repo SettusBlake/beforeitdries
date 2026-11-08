@@ -9,7 +9,8 @@ import { dayKey } from '../shared/day';
 import type { PullResult } from '../shared/dice';
 import { GameError, withLock, type Deps } from './core';
 import { bleachDay } from './bleach';
-import { claimPulls, isTester, learned, loadDice, needUser, playerLock, pullOne, respond, saveDice } from './dice';
+import { claimPulls, isTester, learned, loadDice, needUser, playerLock, pullOne, respond, saveDice, touch, weekCount, withWeek } from './dice';
+import { goalDef, welcomeAway } from '../shared/weekly';
 
 /** Das heutige Geschenk öffnen. Der Server würfelt und zahlt, ein Zug kommt wie jeder Zug in pulls */
 export async function giftOpen(d: Deps, userId: string | undefined): Promise<DiceResponse & { gift: GiftResult }> {
@@ -32,8 +33,61 @@ export async function giftOpen(d: Deps, userId: string | undefined): Promise<Dic
     } else pulls = [pullOne(d, s, false, false, g.brush)];
     s.gift = { n: (s.gift?.n ?? 0) + 1, day: today };
     if (pulls.length) await claimPulls(d, uid, pulls);
+    touch(d, s);
+    // Wochenziele (T11): Geschenk, Tropfen, Zug
+    const week = weekCount(d, s, { gifts: 1, drops: g.k === 'drop' ? 1 : 0, dips: pulls.length });
     await saveDice(d, uid, s);
-    return { ...respond(d, s, pulls), gift: res };
+    return withWeek({ ...respond(d, s, pulls), gift: res }, week);
+  });
+}
+
+/**
+ * Willkommen zurück (T10, freigegeben am 08.11.2026): nach 3 Tagen Pause ein Zug mit dem Plain brush gratis, höchstens alle 14 Tage.
+ * Der Zug kommt wie jeder Zug in pulls
+ */
+export async function welcomeTake(d: Deps, userId: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  const today = dayKey(d.now);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    if (!welcomeAway(s, today)) throw new GameError('bad_request', 'Nothing waiting. Master Sepia is busy.');
+    const pulls = [pullOne(d, s, false, false, 'plain')];
+    await claimPulls(d, uid, pulls);
+    s.backDay = today;
+    delete s.backAway;
+    touch(d, s);
+    const week = weekCount(d, s, { dips: 1 });
+    await saveDice(d, uid, s);
+    return withWeek(respond(d, s, pulls), week);
+  });
+}
+
+/** Test-Knopf (Playtest, nur Mods): so tun, als wärst du 4 Tage weg gewesen (der Willkommens-Zug wartet dann) */
+export async function welcomeTest(d: Deps, userId: string | undefined, username: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    s.tutorialPaid = true;
+    delete s.backDay;
+    s.backAway = 4;
+    await saveDice(d, uid, s);
+    return { ...respond(d, s), tester: true };
+  });
+}
+
+/** Test-Knopf (Playtest, nur Mods): das nächste offene Wochenziel gilt als erfüllt (zahlt wie echt) */
+export async function weekTest(d: Deps, userId: string | undefined, username: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    s.tutorialPaid = true;
+    const wk = s.week!;
+    const i = wk.ids.findIndex((_, k) => !(wk.got & (1 << k)));
+    const week = i < 0 ? [] : weekCount(d, s, { [wk.ids[i]!]: goalDef(wk.ids[i]!).n });
+    await saveDice(d, uid, s);
+    return withWeek({ ...respond(d, s), tester: true }, week);
   });
 }
 

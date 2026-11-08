@@ -3,7 +3,7 @@
  * Laden, Aktion und Serialisieren laufen ohne await dazwischen, damit sich Anfragen nicht in die Quere kommen.
  */
 import type { DuelResponse } from '../shared/api';
-import { DuelError, duelLoot, loadState, openDuel, perform, publicState, saveState, wornDice, type DuelAction, type DuelSave } from '../shared/duel/play';
+import { DuelError, duelLoot, duelWeek, loadState, openDuel, perform, publicState, saveState, weekTally, wornDice, type DuelAction, type DuelSave } from '../shared/duel/play';
 import { dieMonster } from '../shared/dice';
 import type { Monster } from '../shared/monster';
 import { BAG, drain, mk, newGame, ruleOn, S, type Level } from '../shared/duel/rules';
@@ -130,6 +130,8 @@ export async function duelAct(d: Deps, userId: string | undefined, action: unkno
     const wasOver = S.over;
     try {
       const events = perform(action as DuelAction);
+      // Wochenziele (T11): was deine Seite geschafft hat, zählt bis zum Ende mit (nicht im Lern-Duell)
+      if (!S.tutorial) weekTally(events);
       out = freeze({ state: publicState(), events });
     } catch (e) {
       if (e instanceof DuelError) throw new GameError('bad_request', e.message);
@@ -142,11 +144,12 @@ export async function duelAct(d: Deps, userId: string | undefined, action: unkno
     const loot = done && !tutorial ? duelLoot() : undefined;
     // Besitzer des Galerie-Decks (vor dem ersten await festhalten, danach kann S schon einem anderen Duell gehören)
     const owner = S.foeId;
+    const goals = done && !tutorial ? { ...duelWeek(), gallery: owner && out.state!.winner === 1 ? 1 : 0 } : {};
     await d.redis.set(K.duel(uid), blob);
     await d.redis.zAdd(K.duelPlayers, { member: uid, score: d.now });
     // Pigment fürs Duell, genau einmal beim Ende. Danach hängt dein Deck in der Galerie, der Besitzer des Galerie-Decks bekommt seine Gebühr
     if (done) {
-      out.reward = await payDuel(d, uid, out.state!.winner, tutorial, worn, loot);
+      out.reward = await payDuel(d, uid, out.state!.winner, tutorial, worn, loot, goals);
       if (!tutorial) await hangDeck(d, uid, username, await loadDice(d, uid));
       if (owner) await payOwner(d, owner, out.state!.winner, username);
     }

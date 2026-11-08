@@ -13,7 +13,7 @@ import { joinSub, streakFlairSweep, streakFlairToggle } from './daily';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, withdrawName, type NamingResult } from './naming';
 import { cleanTestData, refreshLinks, setupCommunity, setupToast } from './community';
-import { giftOpen, giftTestAgain } from './gift';
+import { giftOpen, giftTestAgain, weekTest, welcomeTake, welcomeTest } from './gift';
 import { ensurePlayPost, playInfo } from './play';
 import { commentGone, postGone } from './deletion';
 import { accountCheck, purgeRun } from './accounts';
@@ -278,6 +278,25 @@ app.post(
   '/api/dice/test-gift',
   wrap(async (_req, res) => {
     res.json(await giftTestAgain(await deps(), context.userId, await username()));
+  }),
+);
+// Willkommen zurück (T10) und Wochenziele (T11): Zug nehmen, Test-Knöpfe (Playtest, nur Mods)
+app.post(
+  '/api/dice/welcome',
+  wrap(async (_req, res) => {
+    res.json(await welcomeTake(await deps(), context.userId));
+  }),
+);
+app.post(
+  '/api/dice/test-welcome',
+  wrap(async (_req, res) => {
+    res.json(await welcomeTest(await deps(), context.userId, await username()));
+  }),
+);
+app.post(
+  '/api/dice/test-week',
+  wrap(async (_req, res) => {
+    res.json(await weekTest(await deps(), context.userId, await username()));
   }),
 );
 app.post(

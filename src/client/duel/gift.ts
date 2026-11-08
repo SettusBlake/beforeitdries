@@ -54,6 +54,8 @@ export type GiftView = {
   day: string;
   colour: PigmentId;
   sheet: { unlocked: boolean; played: boolean; running: boolean; rule?: SheetRule } | null;
+  /** Willkommen zurück (T10): ein Plain-Zug gratis wartet in Your dice */
+  welcome?: number;
 };
 const learned = (s: DiceSave | null): boolean => !!s && (s.tutorialPaid || (s.duels ?? 0) > 0);
 
@@ -100,6 +102,7 @@ export function renderGift(box: HTMLElement, line: HTMLElement, v: GiftView, onO
 export function dayLine(v: GiftView): { label: 'Today' | 'Tomorrow'; text: string } {
   const today: string[] = [];
   if (v.giftReady) today.push('gift');
+  if (v.welcome) today.push('Sepia’s welcome dip');
   if (v.freeReady) today.push('free dip');
   const sh = v.sheet;
   if (sh?.unlocked && !sh.played) today.push(sh.running ? 'your sheet is still wet' : sh.rule ? ruleLine(sh.rule) : 'today’s sheet');

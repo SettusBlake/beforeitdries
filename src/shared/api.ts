@@ -1,4 +1,5 @@
 import type { Gift, SheetRule } from './daily';
+import type { WeekDone } from './weekly';
 import type { StreakState, StreakStep } from './streak';
 import type { ElementId } from './elements';
 import type { BleachScore } from './duel/bleach';
@@ -79,6 +80,8 @@ export interface PlayInfo {
   gilded?: boolean;
   /** Tagesgeschenk (T8) heute noch zu */
   giftReady?: boolean;
+  /** Willkommen zurück (T10): ein Plain-Zug gratis wartet */
+  welcome?: boolean;
 }
 
 export type ErrorCode = 'login' | 'not_found' | 'forbidden' | 'busy' | 'bad_request' | 'server' | 'outdated';
@@ -158,6 +161,10 @@ export interface DiceResponse {
   giftReady?: boolean;
   /** Nach dem Öffnen: welcher Tag der Leiste, was es war (bei einem Tropfen die Farbe) */
   gift?: GiftResult;
+  /** Willkommen zurück (T10): ein Plain-Zug gratis wartet, so viele Tage war der Spieler weg */
+  welcome?: number;
+  /** Wochenziele (T11), die diese Anfrage erfüllt hat (Pigment und leerer Würfel sind schon gutgeschrieben) */
+  week?: WeekDone[];
   /** Nur im Playtest und nur für Mods: Test-Knopf für leere Würfel (kommt mit dem Laden der Sammlung) */
   tester?: boolean;
   /** Mod des Subreddits: sieht die Prüfliste der Zeichnungen, review = so viele warten (kommt mit dem Laden der Sammlung) */
@@ -307,4 +314,6 @@ export interface DuelReward {
   drops?: { pig: PigmentId; why: 'wash' | 'win' }[];
   /** Beitreten anbieten (T1): Name des Subreddits, beim ersten und fünften Ergebnis, nie nach einem Tipp darauf */
   join?: string;
+  /** Wochenziele (T11), die dieses Ergebnis erfüllt hat */
+  week?: WeekDone[];
 }

@@ -57,6 +57,10 @@ export const api = {
   /** Tagesgeschenk öffnen (T8), Test-Knopf: heute noch einmal */
   giftOpen: () => call<DiceResponse & { gift: GiftResult }>('/api/dice/gift', {}),
   giftTestAgain: () => call<DiceResponse>('/api/dice/test-gift', {}),
+  /** Willkommen zurück (T10): den Plain-Zug nehmen. Test-Knöpfe: 4 Tage weg, nächstes Wochenziel erfüllt (T11) */
+  diceWelcome: () => call<DiceResponse>('/api/dice/welcome', {}),
+  diceTestWelcome: () => call<DiceResponse>('/api/dice/test-welcome', {}),
+  diceTestWeek: () => call<DiceResponse>('/api/dice/test-week', {}),
   diceShare: (id: string) => call<ShareResponse>('/api/dice/share', { id }),
   species: () => call<SpeciesResponse>('/api/species'),
   naming: () => call<NamingResponse>('/api/naming'),

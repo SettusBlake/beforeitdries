@@ -94,9 +94,17 @@
     <span class="pig" title="Pigment, earned by playing"><i></i><b id="pigment">0</b></span>
   </header>
   <div class="dscroll">
+    <!-- Willkommen zurück (T10): nach 3 Tagen Pause ein Plain-Zug gratis -->
+    <div class="sepia-say note wnote" id="welcome-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="welcome-say"></p><button type="button" class="tool" id="welcome-b">Take the dip</button></div>
     <div class="sepia-say note galnote" id="gallery-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="gallery-say"></p><p class="gal-who" id="gallery-who"></p><button type="button" class="tool" id="gallery-ok">Collect</button></div>
     <div class="sepia-say note" id="painted-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="painted-say"></p><button type="button" class="tool" id="painted-ok">OK</button></div>
     <div class="sepia-say note" id="news-note" hidden><p class="eyebrow">Master Sepia</p><p class="hand" id="news-say"></p><button type="button" class="tool" id="news-ok">OK</button></div>
+    <!-- Wochenziele (T11): drei je Woche, je 80 Pigment, alle drei ein leerer Würfel -->
+    <section class="dbox goals" id="week" hidden>
+      <p class="eyebrow" id="week-h">This week</p>
+      <div id="week-list"></div>
+      <p class="all" id="week-all"></p>
+    </section>
     <section class="dbox dip">
       <!-- Gilded weekend (Samstag und Sonntag UTC): Stil und Holo kommen leichter -->
       <p class="gilded-band" id="gilded-dip" hidden></p>
@@ -203,6 +211,8 @@
       <li><b>Same colours pay:</b> only the colour of the sides counts, a Joker counts as any colour. Glaze, two sides of one colour: every splash on a blot this turn ×1.5. Pure, three of one colour: ×2 and a Joker. Three stars of the same level: a Joker. Palette hits stay one heart.</li>
       <li><b>Today’s sheet (Bleach):</b> once a day everyone plays the same sheet with Master Sepia’s nine dice. Pales come in five waves from the top and slide three steps down every round. Your paint costs them a step (glazed paint two), a blot in the way takes a hit, and a Pale that slips off the bottom bleaches a heart unless a Guard catches it. Splash flicks a whole row. Dashed lanes show where each Pale ends up when you end your turn. Points: every cell of your paint, 10 for each Pale washed out, 30 for the great one, 15 for each heart. One ranked run a day. The week gets harder: Monday is a light wash, Sunday is the Eraser’s day with a second great Pale and points ×1.5. Everyone starts with the same medium of the day.</li>
       <li><b>Today’s gift:</b> once a day tap the gift on the start screen. Seven jars: pigment, drops of the day’s colour, and on day seven a free dip with the Loaded brush. Missing a day does not reset it.</li>
+      <li><b>This week:</b> three goals in Your dice, new every Monday (UTC). Each pays 80 pigment, all three add a blank canvas.</li>
+      <li><b>Welcome back:</b> away three days or more? Master Sepia has a free dip for you in Your dice, at most every two weeks.</li>
       <li><b>Drops:</b> a win gives a drop of a pigment from your own deck, washing out rival blots gives one of their main pigment. At most two a duel, only in the five rewarded duels a day. In Your dice, 5 drops of one pigment repaint a face, at most 2 faces per die, so it rolls Glaze and Pure more often.</li>
       <li id="rule-wet" data-stage="2"><b>Wet paper:</b> the first reroll is dry. Every further one makes the sheet wetter: 25, 50, then 75 percent that one die turns to mud, a held one too. A mud side counts nothing until you reroll it. Stars and Jokers stay dry.</li>
       <li><b>Stars summon:</b> a blot can come out if the other dice show stars worth at least its level. Its die unfolds onto the sheet as six cells of wet paint, touching your paint. Where rival paint, a blot or a palette is in the way, the net may hang over: those sides drip off and paint nothing, as long as at least three cells land. A star that cannot summon says why under the die. At most three blots stand on the sheet.</li>
@@ -342,6 +352,8 @@
     <button type="button" class="testbtn" id="blank-test" hidden>+1 blank canvas</button>
     <button type="button" class="testbtn" id="pigment-test" hidden>+1000 pigment</button>
     <button type="button" class="testbtn" id="gift-test" hidden>Today’s gift: open it again</button>
+    <button type="button" class="testbtn" id="welcome-test" hidden>Welcome back: as if 4 days away</button>
+    <button type="button" class="testbtn" id="week-test" hidden>Weekly goals: finish the next one</button>
     <div class="testrow" id="shiny-test" hidden></div>
     <div class="testrow" id="stage-test" hidden></div>
     <button type="button" class="testbtn" id="gallery-decks-test" hidden>+2 test decks in the gallery</button>

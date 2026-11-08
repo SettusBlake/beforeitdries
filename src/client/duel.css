@@ -804,3 +804,25 @@ button.gal-note.linkish u { color: var(--ink); text-underline-offset: 2px; }
 /* Morgen-Zeile im Ergebnis des Tagesblatts (T9) */
 .tmrw-r { display: block; margin-top: 8px; font: 11.5px/1.35 var(--f-mono); color: var(--muted); }
 .tmrw-r b { color: var(--ink); }
+
+/* Willkommen zurück (T10): Sepias Zettel mit Knopf darunter */
+.wnote { display: grid; gap: 6px; padding-right: 12px; }
+.wnote .tool { position: static; transform: none; justify-self: start; }
+/* Wochenziele (T11): drei Balken, erfüllte grün mit Haken */
+.goals .eyebrow { margin: 0 0 2px; }
+.goals .gl { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--line); }
+.goals .gl:first-child { border-top: 0; }
+.goals .gl b { font: 600 13.5px/1.25 var(--f-body); min-width: 0; }
+.goals .gl span { font: 700 12px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.goals .gl.ok span { color: #2c7a4b; }
+.goals .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.goals .bar i { display: block; height: 100%; background: #c9961e; border-radius: 3px; transition: width 0.6s ease; }
+.goals .gl.ok .bar i { background: #2c7a4b; }
+.goals .gl.just { animation: goal-just 1.2s ease 2; border-radius: 8px; }
+@keyframes goal-just { 0%, 100% { background: transparent; } 40% { background: rgba(44, 122, 75, 0.14); } }
+.goals .all { margin: 6px 0 0; font: 12px var(--f-mono); color: #8a6410; }
+.goals .all.ok { color: #2c7a4b; }
+/* Ergebnis: erfülltes Wochenziel */
+.week-r { display: block; margin-top: 6px; color: #2c7a4b; font-size: 12.5px; line-height: 1.35; }
+.week-r i { font-style: normal; font-weight: 800; }
+.week-r.all { color: #8a6410; }

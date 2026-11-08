@@ -7,12 +7,13 @@ import { ruleStage, STAGE_ALL } from '../../shared/duel/stages';
 import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
+import { daysToMonday, goalDef, WEEKLY, welcomeText, type WeekDone } from '../../shared/weekly';
 import { BRUSHES, brushDef, brushOdds, isBrush, dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, washGlaze, type BrushId, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { monsterSeed, speciesLabel } from '../../shared/monster';
 import { addHolo } from '../lib/holo';
 import { looseKey, looseNow, painted, paintedNow } from '../lib/painter';
-import { navigateToPost } from '@devvit/web/client';
+import { navigateToPost, showToast } from '@devvit/web/client';
 import { api } from '../lib/api';
 import { loadSpecies, namingPost, speciesName, speciesNamedBy } from '../lib/species';
 import { initDraw, openDraw } from './draw';
@@ -75,8 +76,12 @@ let gilded = false;
 export const gildedNow = (): boolean => gilded;
 /** Tagesgeschenk (T8) heute noch zu, laut Server */
 let giftReady = false;
-/** Für das Startbild: Spielstand, Geschenk und freier Zug */
-export const diceView = (): { save: DiceSave | null; giftReady: boolean; freeReady: boolean } => ({ save, giftReady, freeReady });
+/** Willkommen zurück (T10): so viele Tage war der Spieler weg, ein Plain-Zug gratis wartet (0: keiner) */
+let welcome = 0;
+/** Wochenziele (T11), die gerade erfüllt wurden: ihre Zeile leuchtet kurz */
+let weekJust = new Set<string>();
+/** Für das Startbild: Spielstand, Geschenk, freier Zug, Willkommens-Zug */
+export const diceView = (): { save: DiceSave | null; giftReady: boolean; freeReady: boolean; welcome: number } => ({ save, giftReady, freeReady, welcome });
 /**
  * Tagesgeschenk geöffnet: Stand übernehmen. Mit einem Zug (Tag 7, Loaded brush) läuft das Ziehen wie bei jedem Zug,
  * der Würfel-Bildschirm muss dafür offen sein
@@ -84,13 +89,34 @@ export const diceView = (): { save: DiceSave | null; giftReady: boolean; freeRea
 export async function revealGift(res: DiceResponse): Promise<void> {
   const before = save;
   apply(res);
-  if (!res.pulls.length) return;
+  if (!res.pulls.length) return weekNotice(res.week);
   busy = true;
   render();
   await reveal(res.pulls, before);
   busy = false;
   render();
+  weekNotice(res.week);
   afterReveal();
+}
+/** Wochenziele (T11) erfüllt: kurze Meldung, die Zeile leuchtet. Pigment und leerer Würfel sind schon gutgeschrieben */
+function weekNotice(done: WeekDone[] | undefined): void {
+  if (!done?.length) return;
+  weekJust = new Set(done.map((x) => x.id));
+  render();
+  sfx.shimmer();
+  const all = done.some((x) => x.blank);
+  toast(`Weekly goal done: ${done.map((x) => x.text).join(', ')} · +${done.reduce((a, x) => a + x.pigment, 0)} pigment${all ? ' · all three: +1 blank canvas' : ''}`);
+  setTimeout(() => {
+    weekJust = new Set();
+    render();
+  }, 2600);
+}
+function toast(msg: string): void {
+  try {
+    showToast(msg);
+  } catch {
+    /* außerhalb von Reddit */
+  }
 }
 /** Text des goldenen Bands im Startbild und über „Dip the brush“: nur dass die Chance höher ist (Rückmeldung 07.11.2026) */
 export const GILDED_TEXT = 'Gilded weekend: higher style and holo chances until Sunday midnight UTC';
@@ -223,6 +249,11 @@ function render(): void {
         : 'a new one every Monday · or roll a 1';
   // Mods: Prüfliste der Zeichnungen und Test-Knöpfe, alles im Fenster hinter dem Werkzeug-Knopf
   renderMod();
+  // Willkommen zurück (T10): Sepia hat einen Zug gratis
+  $('welcome-note').hidden = !welcome;
+  if (welcome) $('welcome-say').textContent = welcomeText(welcome);
+  ($('welcome-b') as HTMLButtonElement).disabled = busy;
+  renderWeek(s);
   // Sepia sagt einmal, welche Zeichnungen übermalt wurden
   const over = s.paintedOver ?? [];
   $('painted-note').hidden = !over.length;
@@ -306,6 +337,81 @@ function render(): void {
   if (!s.dice.length) coll.append(el('p', 'empty', 'No dice yet. Dip the brush.'));
 }
 
+/** Wochenziele (T11): drei Balken, erfüllte grün mit Haken, darunter der leere Würfel für alle drei */
+function renderWeek(s: DiceSave): void {
+  const wk = s.week;
+  const box = $('week');
+  box.hidden = !wk || !(s.tutorialPaid || (s.duels ?? 0) > 0);
+  if (!wk || box.hidden) return;
+  const left = daysToMonday(Date.now());
+  $('week-h').textContent = `This week · new goals ${left <= 1 ? 'tomorrow' : `in ${left} days`}`;
+  const list = $('week-list');
+  list.replaceChildren();
+  wk.ids.forEach((id, i) => {
+    const g = goalDef(id);
+    const n = Math.min(g.n, wk.n[i] ?? 0);
+    const ok = !!(wk.got & (1 << i));
+    const row = el('div', 'gl' + (ok ? ' ok' : '') + (weekJust.has(id) ? ' just' : ''));
+    const bar = el('div', 'bar');
+    const fill = el('i');
+    fill.style.width = `${Math.round((n / g.n) * 100)}%`;
+    bar.append(fill);
+    row.append(el('b', '', g.text), el('span', '', ok ? `${g.n}/${g.n} ✓ +${WEEKLY.pigment}` : `${n}/${g.n} · ${WEEKLY.pigment}`), bar);
+    list.append(row);
+  });
+  $('week-all').textContent = wk.all ? 'All three done: +1 blank canvas ✓' : 'All three: +1 blank canvas';
+  $('week-all').classList.toggle('ok', !!wk.all);
+}
+/** Willkommen zurück (T10): den Zug nehmen, er läuft wie jeder Zug */
+async function takeWelcome(): Promise<void> {
+  if (busy || !welcome) return;
+  initAudio();
+  sfx.tap();
+  busy = true;
+  render();
+  let res: DiceResponse;
+  try {
+    res = await api.diceWelcome();
+  } catch (e) {
+    busy = false;
+    render();
+    hooks.error(e);
+    return;
+  }
+  busy = false;
+  await revealGift(res);
+  hooks.giftChanged?.();
+}
+/** Test-Knöpfe (Playtest, nur Mods): als wärst du 4 Tage weg gewesen, das nächste Wochenziel erfüllt */
+async function testWelcome(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  try {
+    apply(await api.diceTestWelcome());
+    hooks.giftChanged?.();
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+}
+async function testWeek(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  let res: DiceResponse | null = null;
+  try {
+    res = await api.diceTestWeek();
+    apply(res);
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+  weekNotice(res?.week);
+}
+
 async function load(): Promise<void> {
   try {
     const [r] = await Promise.all([api.dice(), loadSpecies()]);
@@ -326,6 +432,7 @@ function apply(r: DiceResponse): void {
   freeReady = r.freeReady;
   gilded = !!r.gilded;
   giftReady = !!r.giftReady;
+  welcome = r.welcome ?? 0;
   if (r.tester !== undefined) tester = r.tester;
   setGalleryStatus(r.gallery);
   setTradeStatus(r.trade);
@@ -823,9 +930,11 @@ async function pull(kind: PullKind): Promise<void> {
   freeReady = res.freeReady;
   gilded = !!res.gilded;
   giftReady = !!res.giftReady;
+  welcome = res.welcome ?? 0;
   await reveal(res.pulls, before);
   busy = false;
   render();
+  weekNotice(res.week);
   afterReveal();
 }
 /** Nach dem Ziehen „What do you see?“ angetippt: jetzt teilen */
@@ -1007,7 +1116,7 @@ function renderMod(): void {
   $('bleach-test').hidden = !tester;
   $('modp-note').hidden = tester || !mod;
   // Test-Knöpfe (nur Playtest und Mods)
-  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test', 'gift-test', 'clean-test']) {
+  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test', 'gift-test', 'welcome-test', 'week-test', 'clean-test']) {
     $(id).hidden = !tester;
     ($(id) as HTMLButtonElement).disabled = busy;
   }
@@ -1237,6 +1346,7 @@ async function paintDrawing(code: string): Promise<true | string> {
   freeReady = res.freeReady;
   gilded = !!res.gilded;
   giftReady = !!res.giftReady;
+  welcome = res.welcome ?? 0;
   closeBlank();
   await reveal(res.pulls, before);
   busy = false;
@@ -1292,6 +1402,9 @@ export function initDice(h: Hooks): void {
   $('blank-test').addEventListener('click', () => void testBlank());
   $('pigment-test').addEventListener('click', () => void testPigment());
   $('gift-test').addEventListener('click', () => void testGift());
+  $('welcome-test').addEventListener('click', () => void testWelcome());
+  $('week-test').addEventListener('click', () => void testWeek());
+  $('welcome-b').addEventListener('click', () => void takeWelcome());
   $('clean-test').addEventListener('click', () => void testClean());
   $('gallery-ok').addEventListener('click', () => void collectGallery());
   $('gallery-test').addEventListener('click', () => void testGallery());
@@ -1323,6 +1436,7 @@ export async function diceBadge(): Promise<string> {
     freeReady = r.freeReady;
     gilded = !!r.gilded;
     giftReady = !!r.giftReady;
+    welcome = r.welcome ?? 0;
     tester = !!r.tester;
     mod = !!r.mod;
     void loadSpecies();
@@ -1332,6 +1446,7 @@ export async function diceBadge(): Promise<string> {
     setColorChoice(r.dice.color, r.dice.color2);
     renderMod();
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
+    if (r.welcome) return 'Sepia’s dip';
     if (r.freeReady) return 'free dip';
     if (r.dice.blank) return 'blank canvas';
     return '';

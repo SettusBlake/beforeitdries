@@ -3,7 +3,8 @@
  * Server-Logik, Redis im Speicher und einem festen Testnutzer.
  * Start: npm run preview  (vorher npm run build)
  */
-import { giftOpen, giftTestAgain } from '../src/server/gift';
+import { giftOpen, giftTestAgain, weekTest, welcomeTake, welcomeTest } from '../src/server/gift';
+import { goalDef } from '../src/shared/weekly';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -139,6 +140,16 @@ createServer(async (req, res) => {
       return send(200, s.streak ?? null);
     }
     // Nur in der Vorschau: Regelstufe setzen (/dev/stage?n=3, ohne n: alles wie ein Spieler von vorher). Schaltet die Lektion frei
+    // Nur in der Vorschau: jedes offene Wochenziel fast erfüllt (eins fehlt)
+    if (url.pathname === '/dev/week') {
+      const s = await loadDice(d, USER.id);
+      const wk = s.week!;
+      wk.ids.forEach((id, i) => {
+        if (!(wk.got & (1 << i))) wk.n[i] = goalDef(id).n - 1;
+      });
+      await saveDice(d, USER.id, s);
+      return send(200, wk);
+    }
     if (url.pathname === '/dev/stage') {
       const s = await loadDice(d, USER.id);
       const n = Number(url.searchParams.get('n') ?? 0);
@@ -173,6 +184,9 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/lesson') return send(200, await lessonDone(d, asUser));
       if (url.pathname === '/api/dice/gift') return send(200, await giftOpen(d, asUser));
       if (url.pathname === '/api/dice/test-gift') return send(200, await giftTestAgain(d, asUser, USER.name));
+      if (url.pathname === '/api/dice/welcome') return send(200, await welcomeTake(d, asUser));
+      if (url.pathname === '/api/dice/test-welcome') return send(200, await welcomeTest(d, asUser, USER.name));
+      if (url.pathname === '/api/dice/test-week') return send(200, await weekTest(d, asUser, USER.name));
       if (url.pathname === '/api/dice/share') {
         const r = await diceShare(d, asUser, USER.name, b.id);
         lastNaming = r.postId;

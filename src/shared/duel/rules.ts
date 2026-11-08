@@ -615,6 +615,8 @@ export const S = {
   stage: STAGE_ALL as number,
   log: [] as { t: string; c: string }[],
   tally: {} as Record<string, number>,
+  /** Wochenziele (T11), nur am Server: was deine Seite in diesem Duell geschafft hat (Herzen, Meisterzüge, Kombis, Aufträge, Element-Treffer) */
+  wk: {} as Record<string, number>,
   events: [] as Ev[],
   /** Spielart: Duell oder Bleach (Tagesblatt gegen die Bleiche vom Rand, docs/entwuerfe/bleach-plan.md) */
   mode: 'duel' as 'duel' | 'bleach',
@@ -720,6 +722,7 @@ export function newGame(seed: number, level: Level, mine: Monster[], theirs: Mon
   S.noMedia = false;
   S.stage = STAGE_ALL;
   S.dieIds = [];
+  S.wk = {};
   S.foeName = '';
   S.foeDice = [];
   S.foeId = '';

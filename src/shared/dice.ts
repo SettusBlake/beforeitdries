@@ -3,6 +3,7 @@
  * Legendary sind seltene Papiere, die nur hier vergeben werden. Chancen, Schutz vor Pech und Preise stehen hier.
  */
 import type { GiftState } from './daily';
+import type { WeekState } from './weekly';
 import type { Streak } from './streak';
 import type { PaperId, PigmentId } from './data';
 import type { ColorId } from './colors';
@@ -319,6 +320,12 @@ export type DiceSave = {
   /** Tagesgeschenk (T8, src/shared/daily.ts): so viele geöffnet, zuletzt an diesem UTC-Tag */
   gift?: GiftState;
   sheets?: number;
+  /** Wochenziele (T11, src/shared/weekly.ts): Woche, Ziele, Fortschritt */
+  week?: WeekState;
+  /** Willkommen zurück (T10): zuletzt aktiv (UTC-Tag), Tag des letzten Willkommens-Zugs, wartender Zug (so viele Tage weg) */
+  act?: string;
+  backDay?: string;
+  backAway?: number;
   /** Strähne als User-Flair (Schalter im Menü, Standard aus): Name, vorige Flair zum Zurücksetzen, zuletzt gezeigte Zahl */
   streakFlair?: { user: string; was?: string; shown?: number };
   /** Beitreten (T1): auf den Knopf getippt, und wie oft wir gefragt haben (höchstens zweimal) */

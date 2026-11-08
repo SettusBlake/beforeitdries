@@ -16,7 +16,7 @@ import { dayKey } from '../shared/day';
 import { duelColors } from '../shared/colors';
 import { RNG } from '../shared/rng';
 import { GameError, withLock, type Deps } from './core';
-import { isTester, loadDice, playerLock, saveDice, type Recycled } from './dice';
+import { isTester, loadDice, playerLock, saveDice, touch, weekCount, type Recycled } from './dice';
 import { visibleDice } from './gallery';
 import { flairPost } from './flair';
 import { askJoin, streakFlairPaint } from './daily';
@@ -251,6 +251,9 @@ async function finishRun(d: Deps, uid: string, username: string | undefined, day
   res.streak = { n: step.s.n, best: step.s.best, pigment: bonus.pigment, drop: bonus.drop, held: step.held, broke: step.broke };
   await streakFlairPaint(d, uid, s);
   const join = askJoin(d, s);
+  touch(d, s);
+  // Wochenziele (T11): fertiges Tagesblatt, ausgewaschene Pales (auch die großen), alle Herzen behalten, Tropfen
+  const week = weekCount(d, s, { sheets: 1, pales: score.washed + score.boss, clean: score.hearts >= HEARTS ? 1 : 0, drops });
   await saveDice(d, uid, s);
   await d.redis.hSet(K.bleachRes(day), { [uid]: JSON.stringify({ ...res, name: username ?? '', at: d.now }) });
   out.reward = {
@@ -259,6 +262,7 @@ async function finishRun(d: Deps, uid: string, username: string | undefined, day
     total: s.pigment,
     drops: Array.from({ length: drops }, () => ({ pig: colour, why: 'win' as const })),
     ...(join ? { join } : {}),
+    ...(week.length ? { week } : {}),
   };
   return res;
 }

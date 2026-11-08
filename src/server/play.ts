@@ -8,6 +8,7 @@ import { isGilded } from '../shared/dice';
 import type { Deps } from './core';
 import { flairPost } from './flair';
 import { giftReadyFor, loadDice } from './dice';
+import { welcomeAway } from '../shared/weekly';
 import { K } from './keys';
 
 export const PLAY_TITLE = 'Paint duel: every blot is a die';
@@ -40,5 +41,5 @@ export async function playInfo(d: Deps, userId: string | undefined): Promise<Pla
   const [s, raw] = await Promise.all([loadDice(d, userId), d.redis.get(K.duel(userId))]);
   const saved = raw ? (JSON.parse(raw) as { over?: boolean; v?: number }) : null;
   const running = !!saved && saved.v === 7 && !saved.over;
-  return { user: true, running, starter: s.starter, freeReady: s.freeDay !== dayKey(d.now), pigment: s.pigment, ...(isGilded(d.now) ? { gilded: true } : {}), ...(giftReadyFor(s, d.now) ? { giftReady: true } : {}) };
+  return { user: true, running, starter: s.starter, freeReady: s.freeDay !== dayKey(d.now), pigment: s.pigment, ...(isGilded(d.now) ? { gilded: true } : {}), ...(giftReadyFor(s, d.now) ? { giftReady: true } : {}), ...(welcomeAway(s, dayKey(d.now)) ? { welcome: true } : {}) };
 }
