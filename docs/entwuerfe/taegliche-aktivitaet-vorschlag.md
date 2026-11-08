@@ -1,6 +1,6 @@
 # Tägliche Aktivität: Vorschlag
 
-Stand 08.11.2026, Fassung 5. T1 und T2 sind gebaut (04.11.2026). Fassung 3 freigegeben am 08.11.2026 („alles Empfehlung“). Schritt 1 (T8 Tagesgeschenk, T9 Morgen-Zeile, T3 Tagesregel) ist gebaut, Bild docs/entwuerfe/tagesgeschenk-im-spiel.png. Schritt 2 (T10 Willkommen zurück, T11 Wochenziele) ist gebaut, Bild docs/entwuerfe/wochenziele-im-spiel.png. Als Nächstes T4 (erst die Texte als Entwurf). Entwurfsbild der Fassung 3: docs/entwuerfe/taegliche-aktivitaet3-entwurf.png (Attrappe in der echten Vorschau, Quelle tools/mockup/geschenk-entwurf.cjs). Entscheidungen in Abschnitt 9.
+Stand 08.11.2026, Fassung 5. T1 und T2 sind gebaut (04.11.2026). Fassung 3 freigegeben am 08.11.2026 („alles Empfehlung“). Schritt 1 (T8 Tagesgeschenk, T9 Morgen-Zeile, T3 Tagesregel) ist gebaut, Bild docs/entwuerfe/tagesgeschenk-im-spiel.png. Schritt 2 (T10 Willkommen zurück, T11 Wochenziele) ist gebaut, Bild docs/entwuerfe/wochenziele-im-spiel.png. T4 vorerst nicht (08.11.2026). Entwurfsbild der Fassung 3: docs/entwuerfe/taegliche-aktivitaet3-entwurf.png (Attrappe in der echten Vorschau, Quelle tools/mockup/geschenk-entwurf.cjs). Entscheidungen in Abschnitt 9.
 
 Quellen: Devvit-Doku (Feature Guide, User Actions, Adding Streaks, Devvit Rules), die Analyse anderer Reddit-Spiele (reddit-spiele-analyse.md im Repo SettusBlake/RedditGame, Stand mit den Bedingungen der Developer Funds H2 2026) und der Stand des Spiels.
 
@@ -117,7 +117,7 @@ Warum das zählt:
 
 ## 5 Weiter offen aus Fassung 2
 
-### T4 Splitter und Kapitel (mittel)
+### T4 Splitter und Kapitel (mittel, vorerst nicht, festgelegt am 08.11.2026)
 - **Was:** Jedes fertige Tagesblatt schaltet einen Splitter der Geschichte frei: ein, zwei Sätze, zum Beispiel eine Notiz am Blattrand, ein Satz von Sepia oder eine Spur des Radierers.
   - Sieben Splitter ergeben ein Kapitel.
   - Am Montag legt die App den Kapitel-Post an: das ganze Kapitel als Bild aus dem Renderer mit Text, darunter wird diskutiert.
@@ -188,3 +188,4 @@ Warum das zählt:
 - Freigegeben: alle acht Fragen mit der Empfehlung („alles Empfehlung“). Schritt 1 mit T8, T9 und T3, Schritt 2 mit T10 und T11, danach T4. Push später.
 - Gebaut Schritt 1 (Fassung 4): Tagesgeschenk, Morgen-Zeile, Tagesregel wie beschrieben, Malmittel des Tages aus dem Datum (Abweichung, siehe T3). Tests tests/gift.test.ts. Bild docs/entwuerfe/tagesgeschenk-im-spiel.png.
 - Gebaut Schritt 2 (Fassung 5): Willkommen zurück und Wochenziele wie in Abschnitt 4, zwei Abweichungen bei den Zielen (6 Herzen statt 3, Glaze oder Pure würfeln statt Glaze-Treffer). Tests tests/weekly.test.ts. Bild docs/entwuerfe/wochenziele-im-spiel.png.
+- T4 vorerst nicht („t4 brauch ich nicht vorerst“). T5, T7, Push und Ligen bleiben für später.
