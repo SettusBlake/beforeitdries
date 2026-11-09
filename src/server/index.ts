@@ -13,7 +13,7 @@ import { joinSub, streakFlairSweep, streakFlairToggle } from './daily';
 import { marketBuy, marketList, marketSell, marketTestBuy, marketTestList, marketUnlist, tradeAccept, tradeCancel, tradeCollection, tradeDecline, tradeList, tradeMsg, tradeOffer, tradeStatus, tradeTestOffer } from './market';
 import { adoptNaming, diceShare, namingGet, speciesNames, withdrawName, type NamingResult } from './naming';
 import { cleanTestData, refreshLinks, setupCommunity, setupToast } from './community';
-import { giftOpen, giftTestAgain, weekTest, welcomeTake, welcomeTest } from './gift';
+import { giftOpen, giftTestAgain, rankDipTake, rankTest, weekTest, welcomeTake, welcomeTest } from './gift';
 import { ensurePlayPost, playInfo } from './play';
 import { commentGone, postGone } from './deletion';
 import { accountCheck, purgeRun } from './accounts';
@@ -297,6 +297,19 @@ app.post(
   '/api/dice/test-week',
   wrap(async (_req, res) => {
     res.json(await weekTest(await deps(), context.userId, await username()));
+  }),
+);
+// Malerrang (H2): Zug als Geschenk eines Titels nehmen, Test-Knopf +500 XP (Playtest, nur Mods)
+app.post(
+  '/api/dice/rank-dip',
+  wrap(async (_req, res) => {
+    res.json(await rankDipTake(await deps(), context.userId));
+  }),
+);
+app.post(
+  '/api/dice/test-rank',
+  wrap(async (_req, res) => {
+    res.json(await rankTest(await deps(), context.userId, await username()));
   }),
 );
 app.post(

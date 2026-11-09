@@ -48,7 +48,8 @@ import { GameError, isMod, withLock, type Deps } from './core';
 import { K } from './keys';
 import { askJoin } from './daily';
 import { isColor } from '../shared/colors';
-import { touchDay, weekAdd, weekFresh, welcomeAway, type GoalId, type WeekDone } from '../shared/weekly';
+import { goalDef, touchDay, weekAdd, weekFresh, welcomeAway, type GoalId, type WeekDone } from '../shared/weekly';
+import { rankAdd, rankFresh, XP, type RankUp } from '../shared/rank';
 
 export function needUser(userId: string | undefined): string {
   if (!userId) throw new GameError('login', 'Log in to collect dice.', 401);
@@ -65,6 +66,7 @@ export async function loadDice(d: Pick<Deps, 'redis' | 'now'>, uid: string): Pro
   migrateHolo(s);
   migrateBound(s);
   weekFresh(s, d.now);
+  rankFresh(s);
   return s;
 }
 /**
@@ -117,10 +119,25 @@ export const respond = (d: Pick<Deps, 'now'>, s: DiceSave, pulls: PullResult[] =
 });
 /** Der Spieler hat etwas getan (T10): heute gilt als zuletzt aktiv, ein fälliger Willkommens-Zug bleibt liegen */
 export const touch = (d: Pick<Deps, 'now'>, s: DiceSave): void => touchDay(s, dayKey(d.now));
-/** Wochenziele (T11) zählen: erfüllte zahlen sofort */
-export const weekCount = (d: Pick<Deps, 'now'>, s: DiceSave, adds: Partial<Record<GoalId, number>>): WeekDone[] => weekAdd(s, d.now, adds);
-/** Antwort mit erfüllten Wochenzielen */
-export const withWeek = <T extends object>(r: T, week: WeekDone[]): T & { week?: WeekDone[] } => (week.length ? { ...r, week } : r);
+/** Was eine Handlung gebracht hat: erfüllte Wochenziele, Erfahrung (mit 50 je Wochenziel), neue Ränge */
+export type Earned = { week: WeekDone[]; xp: number; rank: RankUp[] };
+/**
+ * Wochenziele (T11) zählen und Erfahrung gutschreiben (Malerrang H2). Erfüllte Ziele und neue Ränge zahlen sofort.
+ * Vor den ersten Schritten gibt es beides nicht
+ */
+export function earn(d: Pick<Deps, 'now'>, s: DiceSave, xp: number, adds: Partial<Record<GoalId, number>> = {}): Earned {
+  const week = weekAdd(s, d.now, adds);
+  if (!learned(s)) return { week, xp: 0, rank: [] };
+  const total = xp + XP.goal * week.length;
+  return { week, xp: total, rank: rankAdd(s, d.now, total) };
+}
+/** Antwort mit dem, was eine Handlung gebracht hat */
+export const withEarned = <T extends object>(r: T, e: Earned): T & { week?: WeekDone[]; xp?: number; rank?: RankUp[] } => ({
+  ...r,
+  ...(e.week.length ? { week: e.week } : {}),
+  ...(e.xp ? { xp: e.xp } : {}),
+  ...(e.rank.length ? { rank: e.rank } : {}),
+});
 
 /** Ein Monster mit dem Papier dieser Seltenheit. Legendary: ein Monster auf Cotton Rag bekommt ein seltenes Papier. */
 function rollMonster(d: Deps, rarity: Rarity, avoid: Set<string> | null): Pick<DieRec, 'sheet' | 'idx' | 'paper'> {
@@ -392,10 +409,10 @@ export async function dicePull(d: Deps, userId: string | undefined, kind: unknow
     }
     await claimPulls(d, uid, pulls);
     touch(d, s);
-    // Wochenziel „Dip the brush“: jeder Zug außer den freien Startzügen
-    const week = k === 'starter' ? [] : weekCount(d, s, { dips: pulls.length });
+    // Wochenziel „Dip the brush“ und Erfahrung: jeder Zug außer den freien Startzügen
+    const e = k === 'starter' ? earn(d, s, 0) : earn(d, s, XP.dip * pulls.length, { dips: pulls.length });
     await saveDice(d, uid, s);
-    return withWeek(respond(d, s, pulls), week);
+    return withEarned(respond(d, s, pulls), e);
   });
 }
 
@@ -587,6 +604,39 @@ export function dropLoot(d: Deps, s: DiceSave, winner: 0 | 1 | 2, loot: DuelLoot
   return out;
 }
 
+/**
+ * „Fast geschafft“ (H7) fürs Ergebnis: das offene Wochenziel, das am weitesten ist, und der Würfel aus dem Duell,
+ * dem am wenigsten Würfe zur nächsten Patina fehlen (höchstens 10)
+ */
+export function nearNext(s: DiceSave, worn: { id: string; n: number }[] = []): DuelReward['near'] {
+  const out: NonNullable<DuelReward['near']> = {};
+  const wk = s.week;
+  if (wk) {
+    let best = -1;
+    wk.ids.forEach((id, i) => {
+      if (wk.got & (1 << i)) return;
+      const g = goalDef(id);
+      const f = (wk.n[i] ?? 0) / g.n;
+      if (f > best) {
+        best = f;
+        out.week = { text: g.text, n: wk.n[i] ?? 0, of: g.n };
+      }
+    });
+  }
+  let left = 11;
+  for (const w of worn) {
+    const die = s.dice.find((x) => x.id === w.id);
+    const next = die ? PATINA[die.patina ?? 0] : undefined;
+    if (!die || next === undefined) continue;
+    const l = next - (die.rolls ?? 0);
+    if (l > 0 && l < left) {
+      left = l;
+      out.patina = { name: dieUnit(dieMonster(die), die.mods).name, left: l };
+    }
+  }
+  return out.week || out.patina ? out : undefined;
+}
+
 /** Pigment nach einem Duell, dazu die Patina der geworfenen Würfel und die Tropfen. Nur innerhalb der Spielersperre aufrufen. */
 export async function payDuel(
   d: Deps,
@@ -641,12 +691,13 @@ export async function payDuel(
     if (stage < RULE_STAGES) s.stage = stage + 1;
     const join = askJoin(d, s);
     if (join) reward.join = join;
-    // Wochenziele (T11): Sieg, ausgewaschene Rivalen-Kleckse, was im Duell gezählt wurde, Tropfen. Pigment kommt nach der Anzeige oben dazu
-    const week = weekCount(d, s, { ...goals, wins: winner === 1 ? 1 : 0, washed: loot?.washed.length ?? 0, drops: reward.drops?.length ?? 0 });
-    if (week.length) {
-      reward.week = week;
-      reward.total = s.pigment;
-    }
+    // Wochenziele (T11): Sieg, ausgewaschene Rivalen-Kleckse, was im Duell gezählt wurde, Tropfen. Dazu Erfahrung (H2).
+    // Pigment aus Zielen und Rängen kommt nach der Anzeige oben dazu
+    const e = earn(d, s, winner === 1 ? XP.win : XP.duel, { ...goals, wins: winner === 1 ? 1 : 0, washed: loot?.washed.length ?? 0, drops: reward.drops?.length ?? 0 });
+    Object.assign(reward, withEarned({}, e));
+    reward.total = s.pigment;
+    const near = nearNext(s, worn);
+    if (near) reward.near = near;
   }
   await saveDice(d, uid, s);
   return reward;

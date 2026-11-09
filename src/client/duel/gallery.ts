@@ -2,6 +2,7 @@
  * Galerie im Client (docs/entwuerfe/galerie-duell-plan.md): Vorschau des gefundenen Decks und der Stand des eigenen.
  * Gesucht, gewürfelt und bezahlt wird am Server, hier wird nur gezeigt.
  */
+import { rankBadge } from './rank';
 import type { GalleryStatus, GalleryView } from '../../shared/api';
 import { dieMonster, rarityDef, serialText, styleDef, type DieRec } from '../../shared/dice';
 import { dieUnit } from '../../shared/duel/rules';
@@ -129,6 +130,8 @@ function render(say?: string): void {
   dot.style.background = `rgb(${colorDef(v.color ?? COLOR_DEFAULT).rgb.join(',')})`;
   dot.title = `paints in ${colorDef(v.color ?? COLOR_DEFAULT).label}`;
   $('gal-name').prepend(dot);
+  // Malerrang des Besitzers (H2)
+  if (v.rk && !v.self) $('gal-name').append(rankBadge(v.rk));
   $('gal-sub').textContent = `Hung ${ago(v.at)} · ${v.rec.w} won · ${v.rec.l} lost` + (v.rec.d ? ` · ${v.rec.d} drawn` : '');
   v.dice.forEach((d, i) => grid.append(tile(d, i)));
   $('gal-pow').innerHTML = `Strength <b>${v.power.toLocaleString('en')}</b> · yours ${v.mine.toLocaleString('en')} · <b>${strength(v.power, v.mine)}</b>`;

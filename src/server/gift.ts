@@ -9,7 +9,8 @@ import { dayKey } from '../shared/day';
 import type { PullResult } from '../shared/dice';
 import { GameError, withLock, type Deps } from './core';
 import { bleachDay } from './bleach';
-import { claimPulls, isTester, learned, loadDice, needUser, playerLock, pullOne, respond, saveDice, touch, weekCount, withWeek } from './dice';
+import { claimPulls, earn, isTester, learned, loadDice, needUser, playerLock, pullOne, respond, saveDice, touch, withEarned } from './dice';
+import { XP } from '../shared/rank';
 import { goalDef, welcomeAway } from '../shared/weekly';
 
 /** Das heutige Geschenk öffnen. Der Server würfelt und zahlt, ein Zug kommt wie jeder Zug in pulls */
@@ -34,10 +35,10 @@ export async function giftOpen(d: Deps, userId: string | undefined): Promise<Dic
     s.gift = { n: (s.gift?.n ?? 0) + 1, day: today };
     if (pulls.length) await claimPulls(d, uid, pulls);
     touch(d, s);
-    // Wochenziele (T11): Geschenk, Tropfen, Zug
-    const week = weekCount(d, s, { gifts: 1, drops: g.k === 'drop' ? 1 : 0, dips: pulls.length });
+    // Wochenziele (T11): Geschenk, Tropfen, Zug. Erfahrung (H2) nur für den Zug
+    const e = earn(d, s, XP.dip * pulls.length, { gifts: 1, drops: g.k === 'drop' ? 1 : 0, dips: pulls.length });
     await saveDice(d, uid, s);
-    return withWeek({ ...respond(d, s, pulls), gift: res }, week);
+    return withEarned({ ...respond(d, s, pulls), gift: res }, e);
   });
 }
 
@@ -56,11 +57,43 @@ export async function welcomeTake(d: Deps, userId: string | undefined): Promise<
     s.backDay = today;
     delete s.backAway;
     touch(d, s);
-    const week = weekCount(d, s, { dips: 1 });
+    const e = earn(d, s, XP.dip, { dips: 1 });
     await saveDice(d, uid, s);
-    return withWeek(respond(d, s, pulls), week);
+    return withEarned(respond(d, s, pulls), e);
   });
 }
+
+/** Malerrang (H2): ein Zug, der als Geschenk eines neuen Titels wartet (Loaded oder Dripping brush), läuft wie jeder Zug */
+export async function rankDipTake(d: Deps, userId: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    const brush = s.rankDips?.[0];
+    if (!brush) throw new GameError('bad_request', 'No gift dip waiting.');
+    s.rankDips = s.rankDips!.slice(1);
+    if (!s.rankDips.length) delete s.rankDips;
+    const pulls = [pullOne(d, s, false, false, brush)];
+    await claimPulls(d, uid, pulls);
+    touch(d, s);
+    const e = earn(d, s, XP.dip, { dips: 1 });
+    await saveDice(d, uid, s);
+    return withEarned(respond(d, s, pulls), e);
+  });
+}
+
+/** Test-Knopf (Playtest, nur Mods): Erfahrung dazu (500), zahlt Ränge wie echt */
+export async function rankTest(d: Deps, userId: string | undefined, username: string | undefined): Promise<DiceResponse> {
+  const uid = needUser(userId);
+  if (!(await isTester(d, username))) throw new GameError('forbidden', 'Only for moderators in a playtest.', 403);
+  return withLock(d, playerLock(uid), async () => {
+    const s = await loadDice(d, uid);
+    s.tutorialPaid = true;
+    const e = earn(d, s, RANK_TEST);
+    await saveDice(d, uid, s);
+    return withEarned({ ...respond(d, s), tester: true }, e);
+  });
+}
+export const RANK_TEST = 500;
 
 /** Test-Knopf (Playtest, nur Mods): so tun, als wärst du 4 Tage weg gewesen (der Willkommens-Zug wartet dann) */
 export async function welcomeTest(d: Deps, userId: string | undefined, username: string | undefined): Promise<DiceResponse> {
@@ -85,9 +118,9 @@ export async function weekTest(d: Deps, userId: string | undefined, username: st
     s.tutorialPaid = true;
     const wk = s.week!;
     const i = wk.ids.findIndex((_, k) => !(wk.got & (1 << k)));
-    const week = i < 0 ? [] : weekCount(d, s, { [wk.ids[i]!]: goalDef(wk.ids[i]!).n });
+    const e = earn(d, s, 0, i < 0 ? {} : { [wk.ids[i]!]: goalDef(wk.ids[i]!).n });
     await saveDice(d, uid, s);
-    return withWeek({ ...respond(d, s), tester: true }, week);
+    return withEarned({ ...respond(d, s), tester: true }, e);
   });
 }
 

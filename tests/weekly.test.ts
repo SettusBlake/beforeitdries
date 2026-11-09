@@ -131,7 +131,7 @@ describe('Wochenziele (T11): Zählen und Lohn', () => {
     const before = (await loadDice(d, USER)).pigment;
     const r = await payDuel(d, USER, 1, false, [], { washed: [], deck: [] });
     expect(r.week?.map((x) => x.id)).toEqual(['wins']);
-    expect(r.total).toBe(before + r.pigment + WEEKLY.pigment);
+    expect(r.total).toBe(before + r.pigment + WEEKLY.pigment + (r.rank ?? []).reduce((a, u) => a + u.pigment, 0));
     // Ein fertiges Tagesblatt: das dritte Ziel, dazu der leere Würfel
     await bleachStart(d, USER, 'weekly');
     const sh = await bleachAct(d, USER, { k: 'giveup' }, 'weekly');

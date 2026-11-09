@@ -9,6 +9,7 @@ import './duel.css';
 import { context, navigateToPost, showLoginPrompt, showToast } from '@devvit/web/client';
 import type { BleachInfo, BleachResult, DuelResponse, DuelReward } from '../shared/api';
 import type { WeekDone } from '../shared/weekly';
+import { openRankList, rankBadge, renderRank, showRankUps, xpHtml } from './duel/rank';
 import { streakReward, streakSepia } from '../shared/streak';
 import { DROP_COST, HOLO_ODDS, rarityDef, serialText, styleDef, TINT_MAX } from '../shared/dice';
 import { speciesLabel } from '../shared/monster';
@@ -34,7 +35,7 @@ import { elementBadge, elementIcon, elementText, ringSvg } from './duel/elements
 import { elementDef } from '../shared/elements';
 import './duel/dieskin.css';
 import { initAudio, isMuted, setMuted, sfx } from './duel/sound';
-import { closeMod, diceBadge, diceView, GILDED_TEXT, gildedNow, initDice, lessonDone, openDice, revealGift, ruleStageNow } from './duel/collection';
+import { closeMod, diceBadge, diceView, GILDED_TEXT, gildedNow, initDice, lessonDone, openDice, revealGift, ruleStageNow, takeRankDip } from './duel/collection';
 import { dayLine, renderGift, ruleSub, showGiftCard, type GiftView } from './duel/gift';
 import { dayKey } from '../shared/day';
 import { duelsToGallery, galleryOpen, RULE_NEWS, UNLOCK as UNLOCK_AT } from '../shared/duel/stages';
@@ -2330,6 +2331,8 @@ async function finishDuel(): Promise<void> {
   $('result-eyebrow').textContent = bl ? (bleachRes?.late ? 'Dried at midnight · not ranked' : bleachRes?.ranked === false ? 'Test sheet' : 'Today’s sheet') : 'Duel over';
   const rw = $('result-reward');
   rw.hidden = !reward;
+  // Erfahrung vor dieser Runde (der Stand der Sammlung ist noch der von vorher)
+  const xpBefore = diceView().save?.xp ?? 0;
   if (reward)
     rw.innerHTML =
       (reward.pigment ? `<span class="pigi"></span> +${reward.pigment} pigment <small>(${reward.total} in total)</small>` : reward.why === 'capped' ? 'No pigment or drops: five rewarded duels a day.' : '') +
@@ -2343,10 +2346,27 @@ async function finishDuel(): Promise<void> {
         : '') +
       dropsText(reward.drops ?? []) +
       weekText(reward.week ?? []) +
+      xpHtml(xpBefore, reward.xp ?? 0, reward.rank ?? []) +
+      nearText(reward.near) +
       (bl && bleachRes?.streak ? streakText(bleachRes.streak) : '') +
       (bl && bleachRes?.ranked ? tomorrowText() : '');
   if (reward?.patina?.length) setTimeout(() => sfx.upface(2), 500);
   joinSetup(reward?.join);
+  // Malerrang (H2): neuer Titel als Karte über dem Ergebnis, danach den Stand neu holen (Rang im Startbild, Erfahrung fürs nächste Ergebnis)
+  const ups = reward?.rank ?? [];
+  if (reward?.xp) {
+    if (ups.some((u) => u.title))
+      setTimeout(
+        () =>
+          void showRankUps(ups, () => {
+            $('result').hidden = true;
+            showScreen('dice');
+            void takeRankDip();
+          }),
+        900,
+      );
+    void updateBadge();
+  }
   reward = null;
   // Bleach: das Blatt als Kommentar teilen (erster Tipp zeigt es, zweiter postet)
   shareSetup(bl ? bleachRes : null);
@@ -2420,6 +2440,8 @@ function giftViewNow(): GiftView {
 }
 function giftTitle(): void {
   renderGift($('gift'), $('tmrw'), giftViewNow(), () => void openGift());
+  // Malerrang (H2): Rang unter Sepias Satz
+  renderRank($('rank-t'), diceView().save);
 }
 let giftBusy = false;
 async function openGift(): Promise<void> {
@@ -2583,6 +2605,14 @@ function weekText(done: WeekDone[]): string {
   const rows = done.map((x) => `<span class="week-r"><i>✓</i> Weekly goal: <b>${x.text}</b> · +${x.pigment} pigment</span>`).join('');
   return rows + (done.some((x) => x.blank) ? '<span class="week-r all">All three this week: <b>+1 blank canvas</b></span>' : '');
 }
+/** „Fast geschafft“ (H7): das Wochenziel, das am weitesten ist, und die nächste Patina eines Würfels aus dem Duell */
+function nearText(n: DuelReward['near']): string {
+  if (!n) return '';
+  return (
+    (n.week ? `<span class="near-r">This week: <b>${n.week.text}</b> ${n.week.n}/${n.week.of}</span>` : '') +
+    (n.patina ? `<span class="near-r"><b>${n.patina.name}</b>: patina in ${n.patina.left} ${n.patina.left === 1 ? 'roll' : 'rolls'}</span>` : '')
+  );
+}
 /** Morgen-Zeile im Ergebnis des Tagesblatts (T9): das Blatt ist gespielt, was wartet noch oder kommt morgen */
 function tomorrowText(): string {
   const v = giftViewNow();
@@ -2726,7 +2756,10 @@ async function openBoard(): Promise<void> {
       const e = html('div', 'brow' + (x.me ? ' me' : ''), '');
       const c = document.createElement('canvas');
       drawSheet(c, x.sheet ?? '', x.col, 5);
-      e.append(html('span', 'rk', `#${x.rank}`), c, html('span', 'nm', x.me ? 'you' : x.name && x.name !== 'a painter' ? `u/${x.name}` : 'a painter'), html('span', 'hs', '♥'.repeat(x.hearts ?? 0)), html('b', 'pt', String(x.points)));
+      const nm = html('span', 'nm', x.me ? 'you' : x.name && x.name !== 'a painter' ? `u/${x.name}` : 'a painter');
+      // Malerrang (H2): Abzeichen neben dem Namen
+      if (x.rk) nm.append(rankBadge(x.rk));
+      e.append(html('span', 'rk', `#${x.rank}`), c, nm, html('span', 'hs', '♥'.repeat(x.hearts ?? 0)), html('b', 'pt', String(x.points)));
       return e;
     };
     if (!r.top.length) list.append(html('p', 'bgap', 'Nobody has painted today’s sheet yet.'));
@@ -2910,6 +2943,8 @@ $('bleach-test').addEventListener('click', () => {
 });
 $('continue').addEventListener('click', () => void resumeDuel());
 $('how-t').addEventListener('click', () => openRules());
+// Malerrang (H2): Übersicht der Titel und Geschenke
+$('rank-t').addEventListener('click', () => openRankList(diceView().save));
 $('how-m').addEventListener('click', () => {
   $('menu').hidden = true;
   openRules();

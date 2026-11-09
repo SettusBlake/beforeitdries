@@ -3,8 +3,9 @@
  * Server-Logik, Redis im Speicher und einem festen Testnutzer.
  * Start: npm run preview  (vorher npm run build)
  */
-import { giftOpen, giftTestAgain, weekTest, welcomeTake, welcomeTest } from '../src/server/gift';
+import { giftOpen, giftTestAgain, rankDipTake, rankTest, weekTest, welcomeTake, welcomeTest } from '../src/server/gift';
 import { goalDef } from '../src/shared/weekly';
+import { rankOf } from '../src/shared/rank';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -140,6 +141,15 @@ createServer(async (req, res) => {
       return send(200, s.streak ?? null);
     }
     // Nur in der Vorschau: Regelstufe setzen (/dev/stage?n=3, ohne n: alles wie ein Spieler von vorher). Schaltet die Lektion frei
+    // Nur in der Vorschau: Erfahrung setzen, ohne Lohn (xp=…), zum Ansehen eines Rangs
+    if (url.pathname === '/dev/xp') {
+      const s = await loadDice(d, USER.id);
+      s.tutorialPaid = true;
+      s.xp = Number(url.searchParams.get('xp') ?? 0);
+      s.rk = rankOf(s.xp).n;
+      await saveDice(d, USER.id, s);
+      return send(200, { xp: s.xp, rk: s.rk });
+    }
     // Nur in der Vorschau: jedes offene Wochenziel fast erfüllt (eins fehlt)
     if (url.pathname === '/dev/week') {
       const s = await loadDice(d, USER.id);
@@ -187,6 +197,8 @@ createServer(async (req, res) => {
       if (url.pathname === '/api/dice/welcome') return send(200, await welcomeTake(d, asUser));
       if (url.pathname === '/api/dice/test-welcome') return send(200, await welcomeTest(d, asUser, USER.name));
       if (url.pathname === '/api/dice/test-week') return send(200, await weekTest(d, asUser, USER.name));
+      if (url.pathname === '/api/dice/rank-dip') return send(200, await rankDipTake(d, asUser));
+      if (url.pathname === '/api/dice/test-rank') return send(200, await rankTest(d, asUser, USER.name));
       if (url.pathname === '/api/dice/share') {
         const r = await diceShare(d, asUser, USER.name, b.id);
         lastNaming = r.postId;

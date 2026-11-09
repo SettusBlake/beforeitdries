@@ -1,5 +1,6 @@
 import type { Gift, SheetRule } from './daily';
 import type { WeekDone } from './weekly';
+import type { RankUp } from './rank';
 import type { StreakState, StreakStep } from './streak';
 import type { ElementId } from './elements';
 import type { BleachScore } from './duel/bleach';
@@ -31,6 +32,8 @@ export interface SheetPostData {
 export interface SheetRow {
   rank: number;
   name: string;
+  /** Malerrang des Malers (H2) */
+  rk?: number;
   points: number;
   sheet?: string;
   col?: ColorId;
@@ -165,6 +168,9 @@ export interface DiceResponse {
   welcome?: number;
   /** Wochenziele (T11), die diese Anfrage erfüllt hat (Pigment und leerer Würfel sind schon gutgeschrieben) */
   week?: WeekDone[];
+  /** Malerrang (H2): Erfahrung aus dieser Anfrage und neu erreichte Ränge (Pigment und Geschenke sind schon gutgeschrieben) */
+  xp?: number;
+  rank?: RankUp[];
   /** Nur im Playtest und nur für Mods: Test-Knopf für leere Würfel (kommt mit dem Laden der Sammlung) */
   tester?: boolean;
   /** Mod des Subreddits: sieht die Prüfliste der Zeichnungen, review = so viele warten (kommt mit dem Laden der Sammlung) */
@@ -234,6 +240,8 @@ export interface GalleryView {
   self?: boolean;
   /** Spielfarbe des Besitzers */
   color?: ColorId;
+  /** Malerrang des Besitzers beim Aufhängen (H2) */
+  rk?: number;
 }
 export interface GalleryResponse {
   /** null: kein passendes Deck in der Galerie */
@@ -316,4 +324,9 @@ export interface DuelReward {
   join?: string;
   /** Wochenziele (T11), die dieses Ergebnis erfüllt hat */
   week?: WeekDone[];
+  /** Malerrang (H2): Erfahrung und neu erreichte Ränge */
+  xp?: number;
+  rank?: RankUp[];
+  /** „Fast geschafft“ (H7): das offene Wochenziel, das am weitesten ist, und die nächste Patina eines Würfels aus dem Duell */
+  near?: { week?: { text: string; n: number; of: number }; patina?: { name: string; left: number } };
 }

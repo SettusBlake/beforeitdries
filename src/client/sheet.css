@@ -62,3 +62,6 @@ h1 { font: 400 clamp(1.5rem, 6.5vw, 2.1rem)/1 var(--f-display); margin: 0; }
 .s-rule .d.sun { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
 .s-rule .m { background: #fff; border: 1px solid var(--line); color: #3b4558; display: inline-flex; gap: 5px; align-items: center; }
 .s-rule .m i { width: 9px; height: 12px; border-radius: 3px 3px 5px 5px; display: inline-block; }
+/* Malerrang (H2): Abzeichen neben dem Namen */
+.rkb { display: inline-grid; place-items: center; width: 17px; height: 17px; margin-left: 4px; vertical-align: -3px; font: 700 9.5px/1 var(--f-mono); color: #fffaf0; background: radial-gradient(circle at 38% 32%, #4a5bc4, #2b3fa3 60%, #1d2a78); border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%; box-shadow: 0 0 0 1px #c9961e; }
+.rkb.gold { background: radial-gradient(circle at 38% 32%, #fff1b8, #e3b23c 55%, #a8781a); color: #3a2a06; }

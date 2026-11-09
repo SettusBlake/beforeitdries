@@ -16,12 +16,13 @@ import { dayKey } from '../shared/day';
 import { duelColors } from '../shared/colors';
 import { RNG } from '../shared/rng';
 import { GameError, withLock, type Deps } from './core';
-import { isTester, loadDice, playerLock, saveDice, touch, weekCount, type Recycled } from './dice';
+import { earn, isTester, loadDice, nearNext, playerLock, saveDice, touch, withEarned, type Recycled } from './dice';
+import { XP } from '../shared/rank';
 import { visibleDice } from './gallery';
 import { flairPost } from './flair';
 import { askJoin, streakFlairPaint } from './daily';
 import { streakNow, streakPaint, streakReward } from '../shared/streak';
-import { sheetRule } from '../shared/daily';
+import { daySeed, sheetRule } from '../shared/daily';
 import { K } from './keys';
 
 /** Ein Würfel im Tagesaufbau (genug, um Monster und Seiten daraus zu machen) */
@@ -34,7 +35,7 @@ export type BleachDay = { day: string; seed: number; secret?: number; colour: Pi
 /** Ein laufender oder fertiger Lauf. res: Ergebnis eines fertigen Testlaufs (zum Teilen) */
 type Run = { day: string; test?: true; save: string; res?: StoredRes };
 /** Ergebnis in bleach:res:{Tag} (und beim Testlauf im Lauf selbst) */
-type StoredRes = BleachResult & { name?: string; at?: number };
+type StoredRes = BleachResult & { name?: string; at?: number; rk?: number };
 
 /** Sepias Tagesdeck: neun Würfel mit fester Mischung der Seltenheiten, damit jeder Tag ähnlich stark ist */
 const DECK_RARITIES: Rarity[] = ['common', 'common', 'common', 'uncommon', 'uncommon', 'uncommon', 'rare', 'rare', 'epic'];
@@ -45,12 +46,8 @@ function needUser(userId: string | undefined): string {
   if (!userId) throw new GameError('login', 'Log in to paint today’s sheet.', 401);
   return userId;
 }
-/** Seed eines Tages aus dem Datum (FNV-1a) */
-export function daySeed(day: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < day.length; i++) h = Math.imul(h ^ day.charCodeAt(i), 0x01000193);
-  return (h ^ 0xb1ea) >>> 0;
-}
+/** Seed eines Tages aus dem Datum (FNV-1a, src/shared/daily.ts) */
+export { daySeed };
 /** Tagesaufbau bauen: Deck und Farbe aus dem Seed, Pales aus dem Archiv (Zeichnungen nur mit Freigabe), Rest aus dem Seed */
 async function buildDay(d: Deps, day: string, seed: number): Promise<BleachDay> {
   const r = RNG(seed);
@@ -252,17 +249,19 @@ async function finishRun(d: Deps, uid: string, username: string | undefined, day
   await streakFlairPaint(d, uid, s);
   const join = askJoin(d, s);
   touch(d, s);
-  // Wochenziele (T11): fertiges Tagesblatt, ausgewaschene Pales (auch die großen), alle Herzen behalten, Tropfen
-  const week = weekCount(d, s, { sheets: 1, pales: score.washed + score.boss, clean: score.hearts >= HEARTS ? 1 : 0, drops });
+  // Wochenziele (T11): fertiges Tagesblatt, ausgewaschene Pales (auch die großen), alle Herzen behalten, Tropfen. Dazu Erfahrung (H2)
+  const e = earn(d, s, XP.sheet, { sheets: 1, pales: score.washed + score.boss, clean: score.hearts >= HEARTS ? 1 : 0, drops });
+  const near = nearNext(s);
   await saveDice(d, uid, s);
-  await d.redis.hSet(K.bleachRes(day), { [uid]: JSON.stringify({ ...res, name: username ?? '', at: d.now }) });
+  await d.redis.hSet(K.bleachRes(day), { [uid]: JSON.stringify({ ...res, name: username ?? '', at: d.now, rk: s.rk ?? 1 }) });
   out.reward = {
     pigment: BLEACH.reward.pigment,
     why: 'bleach',
     total: s.pigment,
     drops: Array.from({ length: drops }, () => ({ pig: colour, why: 'win' as const })),
     ...(join ? { join } : {}),
-    ...(week.length ? { week } : {}),
+    ...withEarned({}, e),
+    ...(near?.week ? { near: { week: near.week } } : {}),
   };
   return res;
 }
@@ -338,6 +337,7 @@ const rowOf = (rank: number, raw: string | undefined, score: number, me: boolean
   return {
     rank,
     name: r?.name || 'a painter',
+    ...(r?.rk ? { rk: r.rk } : {}),
     points: Math.floor(score / 100000),
     ...(r?.sheet ? { sheet: r.sheet } : {}),
     ...(r?.col ? { col: r.col } : {}),

@@ -1,0 +1,45 @@
+/* Malerrang (H2): Rang im Startbild, Übersicht, Erfahrung im Ergebnis, Karte bei neuem Titel, Abzeichen */
+.rank { width: 100%; max-width: 330px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 10px; align-items: center; text-align: left; border: 1px solid var(--line); background: var(--sheet); border-radius: 14px; padding: 8px 12px 9px 8px; margin: -2px 0 2px; font: inherit; color: var(--ink); cursor: pointer; }
+.rank .rk-n { grid-row: span 2; }
+.rk-n, .rkcard .big span, .rkb { display: grid; place-items: center; color: #fffaf0; background: radial-gradient(circle at 38% 32%, #4a5bc4, #2b3fa3 60%, #1d2a78); border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%; }
+.rk-n { width: 40px; height: 40px; font: 400 1.25rem/1 var(--f-display); box-shadow: 0 0 0 2px var(--sheet), 0 0 0 3.5px #c9961e; }
+.rk-n.gold, .rkcard .big span.gold, .rkb.gold { background: radial-gradient(circle at 38% 32%, #fff1b8, #e3b23c 55%, #a8781a); color: #3a2a06; }
+.rk-t { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.rk-t b { font: 700 14px var(--f-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rk-t small { font: 10.5px var(--f-mono); color: var(--muted); white-space: nowrap; }
+.rk-bar { position: relative; display: block; height: 7px; border-radius: 4px; background: var(--track); overflow: hidden; }
+.rk-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #c9961e; }
+.rk-bar i.gain { background: repeating-linear-gradient(135deg, #e7be4f 0 5px, #f4d77e 5px 10px); box-shadow: 0 0 8px rgba(201, 150, 30, 0.7); animation: rk-gain 0.9s ease-out both; transform-origin: left center; }
+@keyframes rk-gain { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Ergebnis */
+.xp-r { margin: 10px auto 0; max-width: 300px; display: grid; gap: 4px; text-align: left; }
+.xp-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font: 12px var(--f-mono); color: var(--muted); }
+.xp-h b { font: 800 14px var(--f-body); color: #8a6410; }
+.xp-r small { font: 11px/1.35 var(--f-mono); color: var(--muted); }
+.xp-r small b { color: var(--ink); }
+.rk-up { display: block; font: 12px/1.35 var(--f-mono); color: #8a6410; }
+.near-r { display: block; margin-top: 4px; font: 11px/1.35 var(--f-mono); color: var(--muted); }
+.near-r b { color: var(--ink); }
+
+/* Karte bei neuem Titel (Hülle wie das Tagesgeschenk) */
+.rkcard .big { background: radial-gradient(circle at 50% 40%, #fff8e6, #f3e3b3); }
+.rkcard .big span { width: 64px; height: 64px; font: 400 2rem/1 var(--f-display); box-shadow: 0 0 0 3px var(--sheet), 0 0 0 5px #c9961e; }
+.rkcard .gets { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.rkcard .gets span { font: 700 12px var(--f-mono); border: 1px solid #d9c38a; background: #fff8e6; color: #6b4e0c; border-radius: 999px; padding: 4px 10px; }
+
+/* Übersicht */
+.rklist { position: fixed; inset: 0; z-index: 150; background: rgba(20, 16, 24, 0.6); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px)); }
+.rklist .sheet { width: min(360px, 100%); max-height: 92vh; overflow: auto; background: var(--sheet); border-radius: 18px; padding: 14px 14px 10px; }
+.rklist h2 { margin: 0; font: 400 1.4rem var(--f-display); }
+.rklist .sub { margin: 2px 0 8px; font: 11px/1.4 var(--f-mono); color: var(--muted); }
+.rkrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 4px; border-top: 1px dashed var(--line); font: 13px var(--f-body); }
+.rkrow .no { font: 700 12px var(--f-mono); color: var(--muted); text-align: right; }
+.rkrow b { font-weight: 700; }
+.rkrow small { font: 11px var(--f-mono); color: #6b4e0c; text-align: right; }
+.rkrow.done { opacity: 0.55; }
+.rkrow.now { background: #fff6dc; border-radius: 8px; border-top-color: transparent; box-shadow: inset 0 0 0 1.5px #c9961e; }
+.rkrow.now .no { color: #8a6410; }
+
+/* Abzeichen neben Namen */
+.rkb { display: inline-grid; width: 19px; height: 19px; font: 700 10px/1 var(--f-mono); vertical-align: -4px; margin-left: 5px; box-shadow: 0 0 0 1px #c9961e; }

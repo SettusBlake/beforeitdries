@@ -18,7 +18,7 @@ import { K } from './keys';
 import { paintedOver } from './overpaint';
 
 /** Abzug eines Decks in der Galerie */
-export type GallerySnap = { name: string; dice: DieRec[]; media: MediumId[]; power: number; at: number; color?: ColorId };
+export type GallerySnap = { name: string; dice: DieRec[]; media: MediumId[]; power: number; at: number; color?: ColorId; rk?: number };
 /** Galerie-Stand des Herausforderers: gefundenes Deck, wie oft getauscht, wen er heute schon hatte */
 export type GalleryMe = { day: string; faced: string[]; pick?: string; swaps: number; reported?: number };
 
@@ -47,7 +47,7 @@ const bagDice = (s: DiceSave): DieRec[] => s.bag.map((id) => s.dice.find((x) => 
 export async function hangDeck(d: Deps, uid: string, name: string | undefined, s: DiceSave): Promise<void> {
   const dice = bagDice(s);
   if (dice.length < BAG) return;
-  const snap: GallerySnap = { name: name ?? '', dice: JSON.parse(JSON.stringify(dice)) as DieRec[], media: s.media ?? [...START_MEDIA], power: deckPower(dice), at: d.now, ...(s.color ? { color: s.color } : {}) };
+  const snap: GallerySnap = { name: name ?? '', dice: JSON.parse(JSON.stringify(dice)) as DieRec[], media: s.media ?? [...START_MEDIA], power: deckPower(dice), at: d.now, ...(s.color ? { color: s.color } : {}), ...(s.rk ? { rk: s.rk } : {}) };
   await d.redis.set(K.gallery(uid), JSON.stringify(snap));
   if (!s.galleryOff) await d.redis.zAdd(K.galleryPower, { member: uid, score: snap.power });
 }
@@ -128,6 +128,7 @@ async function viewOf(d: Deps, owner: string, snap: GallerySnap, mine: number, m
     swaps: Math.max(0, GALLERY.swaps - me.swaps),
     ...(self ? { self: true } : {}),
     ...(snap.color ? { color: snap.color } : {}),
+    ...(snap.rk ? { rk: snap.rk } : {}),
   };
 }
 

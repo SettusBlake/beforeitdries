@@ -1,6 +1,6 @@
 # Was fesselt: Vorschlag
 
-Stand 08.11.2026, Fassung 2. Gewünscht: „Mögliche Spielverbesserungen, die süchtig machen“. Gewählt am 08.11.2026: H2 Malerrang („h2 klingt gut“). H2 konkret mit Entwurfsbild in Abschnitt 7, wartet auf Freigabe der Einzelheiten (Fragen in Abschnitt 8). Die anderen Ideen bleiben offen.
+Stand 09.11.2026, Fassung 3. Gewünscht: „Mögliche Spielverbesserungen, die süchtig machen“. Gewählt am 08.11.2026: H2 Malerrang („h2 klingt gut“). H2 konkret in Abschnitt 7, freigegeben am 09.11.2026 mit allen sechs Empfehlungen („ok“), gebaut mit H7 als Zugabe (Abschnitt 9), Bild docs/entwuerfe/malerrang-im-spiel.png. Die anderen Ideen bleiben offen.
 
 Grundlage: Stand des Spiels (v0.2.0.12), was bei Gacha-, Sammel- und Roguelite-Spielen nachweislich zurückholt, und die Devvit-Regeln (Pigment nie für Geld, keine Glücksspiel-Mechanik mit echtem Geld).
 
@@ -199,3 +199,12 @@ Entwurfsbild: docs/entwuerfe/malerrang-entwurf.png (Attrappe in der echten Vorsc
 4. Rang als kleines Abzeichen neben dem Namen in der Rangliste des Tagesblatts und in der Galerie? Empfehlung: ja.
 5. Auch Duelle nach den 5 belohnten am Tag geben Erfahrung? Empfehlung: ja.
 6. H7 gleich mit: Das Ergebnis zeigt außer dem Rang auch das knappste Wochenziel („Win 6 duels 4/6“) und den nächsten Patina-Schritt eines Würfels? Empfehlung: ja, kleine Zugabe.
+
+## 9 Gebaut (09.11.2026)
+
+- **H2 Malerrang** wie in Abschnitt 7: Erfahrung, Bedarf, Pigment je Rang, Titel und Geschenke, Startrang ohne Lohn, Abzeichen in der Rangliste im Spiel, im Tagespost und in der Galerie, auch Duelle nach den 5 belohnten geben Erfahrung.
+- **Geschenk-Züge:** Ein Zug als Geschenk (Loaded oder Dripping) wartet oben in „Your dice“ („Dip it“), bis man ihn nimmt. Die Karte im Ergebnis startet ihn gleich.
+- **Gewöhnliche Ränge:** Sie stehen als Zeile im Ergebnis. Nach einem Zug kommt eine kurze Meldung.
+- **H7 als Zugabe:** Im Ergebnis des Duells stehen das offene Wochenziel, das am weitesten ist („This week: Win 6 duels 1/6“), und der Würfel aus dem Duell, dem am wenigsten Würfe zur nächsten Patina fehlen (höchstens 10). Im Tagesblatt steht nur das Wochenziel.
+- **Test-Knopf:** „Painter’s rank: +500 XP“ (Playtest, Mods).
+- **Tests:** tests/rank.test.ts.

@@ -55,7 +55,10 @@ function best(r: SheetRow): HTMLElement {
 }
 function row(r: SheetRow, wide = false): HTMLElement {
   const e = el('div', 'row' + (r.me ? ' me' : '') + (wide ? ' wide' : ''));
-  e.append(mini(r, 5), el('span', 'rk', `#${r.rank}`), el('span', 'nm', r.me ? 'you' : who(r.name)), el('b', 'pt', String(r.points)));
+  const nm = el('span', 'nm', r.me ? 'you' : who(r.name));
+  // Malerrang (H2): kleines Abzeichen neben dem Namen
+  if (r.rk) nm.append(el('span', 'rkb' + (r.rk >= 50 ? ' gold' : ''), String(r.rk)));
+  e.append(mini(r, 5), el('span', 'rk', `#${r.rank}`), nm, el('b', 'pt', String(r.points)));
   return e;
 }
 

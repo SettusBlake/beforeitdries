@@ -4,6 +4,8 @@
  * (Wochentag als Stufe, sonntags ein zweiter großer Pale und Punkte × 1,5, Malmittel des Tages).
  */
 import type { MediumId } from './duel/media';
+import { PIGMENTS, type PigmentId } from './data';
+import { RNG } from './rng';
 
 /* ---------- T8 Tagesgeschenk ---------- */
 
@@ -73,3 +75,14 @@ export function sheetRule(day: string): SheetRule {
   const sunday = wd === 6;
   return { wd, day: w.day, label: w.label, hp: w.hp, bigs: sunday ? SUNDAY.bigs : 1, mult: sunday ? SUNDAY.mult : 1, medium: dayMedium(day) };
 }
+
+/* ---------- Farbe des Tages ---------- */
+
+/** Seed eines Tages aus dem Datum (FNV-1a), Grundlage des Tagesblatts */
+export function daySeed(day: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < day.length; i++) h = Math.imul(h ^ day.charCodeAt(i), 0x01000193);
+  return (h ^ 0xb1ea) >>> 0;
+}
+/** Farbe des Tagesblatts: der erste Wurf aus dem Seed des Tages (wie im Tagesaufbau am Server) */
+export const dayColour = (day: string): PigmentId => PIGMENTS[Math.floor(RNG(daySeed(day))() * PIGMENTS.length)]!.id;

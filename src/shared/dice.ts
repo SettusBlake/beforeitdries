@@ -326,6 +326,10 @@ export type DiceSave = {
   act?: string;
   backDay?: string;
   backAway?: number;
+  /** Malerrang (H2, src/shared/rank.ts): Erfahrung, höchster bezahlter Rang, wartende Züge als Geschenk */
+  xp?: number;
+  rk?: number;
+  rankDips?: BrushId[];
   /** Strähne als User-Flair (Schalter im Menü, Standard aus): Name, vorige Flair zum Zurücksetzen, zuletzt gezeigte Zahl */
   streakFlair?: { user: string; was?: string; shown?: number };
   /** Beitreten (T1): auf den Knopf getippt, und wie oft wir gefragt haben (höchstens zweimal) */

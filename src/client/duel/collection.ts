@@ -8,6 +8,7 @@ import type { DiceResponse, MarketItem } from '../../shared/api';
 import { PAPER, PIG, PIGMENTS, type PigmentId } from '../../shared/data';
 import { dayKey } from '../../shared/day';
 import { daysToMonday, goalDef, WEEKLY, welcomeText, type WeekDone } from '../../shared/weekly';
+import { rankLine, showRankUps } from './rank';
 import { BRUSHES, brushDef, brushOdds, isBrush, dieMonster, dieSpecies, drawLocked, DROP_COST, TINT_MAX, FOILS, foilOf, GLAZE_COST, HOLO_ODDS, KEEP_MIN, PATINA, PITY, RARITIES, rarityDef, rarityIndex, REWARD, serialText, STYLES, styleDef, washGlaze, type BrushId, type DiceSave, type DieRec, type PullKind, type PullResult, type StyleId } from '../../shared/dice';
 import { ABILITY, BAG, dieUnit, FACE_HELP, faceText, GAIT, isCrestFace, type Unit } from '../../shared/duel/rules';
 import { monsterSeed, speciesLabel } from '../../shared/monster';
@@ -89,13 +90,13 @@ export const diceView = (): { save: DiceSave | null; giftReady: boolean; freeRea
 export async function revealGift(res: DiceResponse): Promise<void> {
   const before = save;
   apply(res);
-  if (!res.pulls.length) return weekNotice(res.week);
+  if (!res.pulls.length) return earnedNotice(res);
   busy = true;
   render();
   await reveal(res.pulls, before);
   busy = false;
   render();
-  weekNotice(res.week);
+  earnedNotice(res);
   afterReveal();
 }
 /** Wochenziele (T11) erfüllt: kurze Meldung, die Zeile leuchtet. Pigment und leerer Würfel sind schon gutgeschrieben */
@@ -110,6 +111,15 @@ function weekNotice(done: WeekDone[] | undefined): void {
     weekJust = new Set();
     render();
   }, 2600);
+}
+/** Was eine Antwort gebracht hat: Wochenziele, neue Ränge (Meldung, bei neuem Titel die Karte mit Sepia) */
+function earnedNotice(r: Pick<DiceResponse, 'week' | 'rank'> | null | undefined): void {
+  weekNotice(r?.week);
+  const ups = r?.rank ?? [];
+  if (!ups.length) return;
+  const plain = ups.filter((u) => !u.title);
+  if (plain.length) setTimeout(() => toast(rankLine(plain)), r?.week?.length ? 2800 : 0);
+  void showRankUps(ups, () => void takeRankDip());
 }
 function toast(msg: string): void {
   try {
@@ -249,6 +259,11 @@ function render(): void {
         : 'a new one every Monday · or roll a 1';
   // Mods: Prüfliste der Zeichnungen und Test-Knöpfe, alles im Fenster hinter dem Werkzeug-Knopf
   renderMod();
+  // Malerrang (H2): ein Zug als Geschenk eines neuen Titels wartet
+  const rd = s.rankDips?.[0];
+  $('rankdip-note').hidden = !rd;
+  if (rd) $('rankdip-say').textContent = `A gift for your new title: a free dip with the ${rd === 'dripping' ? 'Dripping' : 'Loaded'} brush.${(s.rankDips?.length ?? 0) > 1 ? ` ${s.rankDips!.length - 1} more after it.` : ''}`;
+  ($('rankdip-b') as HTMLButtonElement).disabled = busy;
   // Willkommen zurück (T10): Sepia hat einen Zug gratis
   $('welcome-note').hidden = !welcome;
   if (welcome) $('welcome-say').textContent = welcomeText(welcome);
@@ -409,9 +424,49 @@ async function testWeek(): Promise<void> {
   }
   busy = false;
   render();
-  weekNotice(res?.week);
+  earnedNotice(res);
+}
+/** Test-Knopf (Playtest, nur Mods): +500 XP, Ränge zahlen wie echt */
+async function testRank(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  sfx.tap();
+  let res: DiceResponse | null = null;
+  try {
+    res = await api.diceTestRank();
+    apply(res);
+    hooks.giftChanged?.();
+  } catch (e) {
+    hooks.error(e);
+  }
+  busy = false;
+  render();
+  earnedNotice(res);
+}
+/** Malerrang (H2): ein Zug als Geschenk eines neuen Titels, er läuft wie jeder Zug. Ruft auch die Karte im Ergebnis */
+export async function takeRankDip(): Promise<void> {
+  // Aus dem Ergebnis: erst den frischen Stand abwarten (der Zug steht erst darin)
+  if (loading) await loading;
+  if (busy || !save?.rankDips?.length) return;
+  initAudio();
+  busy = true;
+  render();
+  let res: DiceResponse;
+  try {
+    res = await api.diceRankDip();
+  } catch (e) {
+    busy = false;
+    render();
+    hooks.error(e);
+    return;
+  }
+  busy = false;
+  await revealGift(res);
+  hooks.giftChanged?.();
 }
 
+/** Laden der Sammlung, das gerade läuft (ein Zug aus dem Ergebnis wartet darauf, sonst überschreibt die ältere Antwort den Zug) */
+let loading: Promise<void> | null = null;
 async function load(): Promise<void> {
   try {
     const [r] = await Promise.all([api.dice(), loadSpecies()]);
@@ -934,7 +989,7 @@ async function pull(kind: PullKind): Promise<void> {
   await reveal(res.pulls, before);
   busy = false;
   render();
-  weekNotice(res.week);
+  earnedNotice(res);
   afterReveal();
 }
 /** Nach dem Ziehen „What do you see?“ angetippt: jetzt teilen */
@@ -1116,7 +1171,7 @@ function renderMod(): void {
   $('bleach-test').hidden = !tester;
   $('modp-note').hidden = tester || !mod;
   // Test-Knöpfe (nur Playtest und Mods)
-  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test', 'gift-test', 'welcome-test', 'week-test', 'clean-test']) {
+  for (const id of ['trade-test', 'market-test', 'market-buy-test', 'gallery-decks-test', 'gallery-test', 'blank-test', 'pigment-test', 'gift-test', 'welcome-test', 'week-test', 'rank-test', 'clean-test']) {
     $(id).hidden = !tester;
     ($(id) as HTMLButtonElement).disabled = busy;
   }
@@ -1405,6 +1460,8 @@ export function initDice(h: Hooks): void {
   $('welcome-test').addEventListener('click', () => void testWelcome());
   $('week-test').addEventListener('click', () => void testWeek());
   $('welcome-b').addEventListener('click', () => void takeWelcome());
+  $('rank-test').addEventListener('click', () => void testRank());
+  $('rankdip-b').addEventListener('click', () => void takeRankDip());
   $('clean-test').addEventListener('click', () => void testClean());
   $('gallery-ok').addEventListener('click', () => void collectGallery());
   $('gallery-test').addEventListener('click', () => void testGallery());
@@ -1420,7 +1477,7 @@ export function openDice(): void {
   washArmed = null;
   washShiny = null;
   render();
-  void load();
+  loading = load();
   // PixiJS schon laden, während man die Würfel ansieht
   void loadGacha().catch(() => undefined);
 }
@@ -1447,6 +1504,7 @@ export async function diceBadge(): Promise<string> {
     renderMod();
     if (r.dice.starter > 0) return `${r.dice.starter} free`;
     if (r.welcome) return 'Sepia’s dip';
+    if (r.dice.rankDips?.length) return 'gift dip';
     if (r.freeReady) return 'free dip';
     if (r.dice.blank) return 'blank canvas';
     return '';

@@ -61,6 +61,9 @@ export const api = {
   diceWelcome: () => call<DiceResponse>('/api/dice/welcome', {}),
   diceTestWelcome: () => call<DiceResponse>('/api/dice/test-welcome', {}),
   diceTestWeek: () => call<DiceResponse>('/api/dice/test-week', {}),
+  /** Malerrang (H2): Zug als Geschenk eines Titels nehmen, Test-Knopf +500 XP */
+  diceRankDip: () => call<DiceResponse>('/api/dice/rank-dip', {}),
+  diceTestRank: () => call<DiceResponse>('/api/dice/test-rank', {}),
   diceShare: (id: string) => call<ShareResponse>('/api/dice/share', { id }),
   species: () => call<SpeciesResponse>('/api/species'),
   naming: () => call<NamingResponse>('/api/naming'),

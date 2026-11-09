@@ -94,7 +94,9 @@ describe('Strähne am Server', () => {
       const before = (await loadDice(d, USER)).pigment;
       const out = await paint(d);
       expect(out.bleach?.streak?.n).toBe(i + 1);
-      pig.push((await loadDice(d, USER)).pigment - before);
+      // Ohne das Pigment neuer Malerränge (H2, eigener Test)
+      const ranks = (out.reward?.rank ?? []).reduce((a, u) => a + u.pigment, 0);
+      pig.push((await loadDice(d, USER)).pigment - before - ranks);
     }
     expect(pig).toEqual([BLEACH.reward.pigment, BLEACH.reward.pigment + 10, BLEACH.reward.pigment + 15]);
     const info = await bleachGet(w.at(WED + 3 * DAY), USER, NAME);
