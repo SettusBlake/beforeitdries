@@ -13,6 +13,8 @@ import { lookOf, tinted, type Look } from '../../shared/look';
 import { bloom2, drawFace2, drawPattern, lifted, patternParts, runs, splatter, tide } from './gen2b';
 import { planOf } from '../../shared/palette';
 import { aura, belly, boxOf, goldDust, limbP, paintsOf, patches, shade, washP } from './palette';
+import { lifeOf, type Life } from '../../shared/life';
+import { feet, fitGeo, surface } from './life';
 
 export type Quality = 'full' | 'lite';
 export interface RenderOptions {
@@ -25,11 +27,15 @@ export interface RenderOptions {
   look?: Look | boolean;
   /** Nur für Entwürfe: Farbplan nach Seltenheit ein oder aus (Standard PALETTE, im Spiel an) */
   palette?: boolean;
+  /** Nur für Entwürfe: „Leben“ ein oder aus (Standard LIVELY), ein Life erzwingt genau dieses */
+  lively?: boolean | Life;
 }
 /** Generation 2b im Spiel: freigegeben am 30.10.2026 (docs/entwuerfe/gen2b-entwurf.png). false malt Generation 2 wie davor */
 export const GEN2B = true;
 /** Farbplan nach Seltenheit im Spiel: freigegeben am 10.11.2026 (docs/entwuerfe/farben-entwurf.png). false malt wie davor */
 export const PALETTE = true;
+/** „Leben“ (Entwurf, docs/entwuerfe/leben-vorschlag.md): größere Figur, lebhaftere Gesichter, Tuschedetails. Im Spiel noch aus */
+export const LIVELY = false;
 
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
@@ -725,10 +731,14 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   ctx.save();
   if (opts.paper !== false) drawPaper(ctx, S, pa, r);
   yield* pause();
-  const geo = geometryOf(m);
+  const geo0 = geometryOf(m);
   // Generation 2b: eigener Farbton, Muster, Gesicht und Malereignisse (eigener Zufall, nur Aussehen). Generation 1 bleibt
   const on = typeof opts.look === 'object' || (opts.look ?? GEN2B);
-  const picked = m.gen === 2 && on ? (typeof opts.look === 'object' ? opts.look : lookOf(m, isThing(geo))) : null;
+  const picked = m.gen === 2 && on ? (typeof opts.look === 'object' ? opts.look : lookOf(m, isThing(geo0))) : null;
+  // „Leben“ (Entwurf): Figur füllt das Blatt (gemalte Monster bleiben, wo sie gemalt wurden), klarere Ränder, mehr im Gesicht
+  const life = picked && (opts.lively ?? LIVELY) ? (typeof opts.lively === 'object' ? opts.lively : lifeOf(m, isThing(geo0))) : null;
+  const geo = life && !m.draw ? fitGeo(geo0) : geo0;
+  const ck = life ? 0.62 : 1;
   // Gemalte Monster behalten ihr Gesicht
   const look = picked && m.draw ? { ...picked, faceless: false } : picked;
   const mainRgb: RGB = look ? tinted(main.rgb, look.main) : main.rgb;
@@ -740,7 +750,7 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   const vf = 0.65 + clamp((m.humidity - 30) / 65, 0, 1) * 0.75;
   const gr = RNG(m.seed + 31 * m.mutations + 5);
   // crisp gibt es nur bei den neuen Formen, ohne bleibt jede Zahl wie im Prototyp
-  const bases = geo.blobs.map((b) => ({ b, base: deformN(blobPts(b, S, gr, 12), gr, 0.3 * vf * (b.crisp ?? 1), 3) }));
+  const bases = geo.blobs.map((b) => ({ b, base: deformN(blobPts(b, S, gr, 12), gr, 0.3 * vf * (b.crisp ?? 1) * ck, 3) }));
   let core = bases[0]!;
   bases.forEach((o) => {
     if (o.b.rx * o.b.ry > core.b.rx * core.b.ry) core = o;
@@ -764,7 +774,7 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   for (const o of bases) {
     const layers = o.b.leaf ? 14 : o.b.few ? 12 : 22,
       alpha = o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05,
-      amt = 0.3 * vf * (o.b.crisp ?? 1);
+      amt = 0.3 * vf * (o.b.crisp ?? 1) * ck;
     if (plan && paints && figure) washP(ctx, o.base, paints.blob.get(o)!, figure, plan.ang, gr, pr, layers, alpha * D, amt, lite);
     else wash(ctx, o.base, mainRgb, gr, layers, alpha, amt);
     yield* wet();
@@ -856,8 +866,17 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     if ((o.b.rx * o.b.ry >= big * 0.3 || o.b.ink) && !o.b.leaf && !o.b.bare) contour(ctx, o.base, lw * 0.9, ir);
   });
   geo.limbs.forEach((l) => inkPath(ctx, l.pts.map((p) => [p[0] * S, p[1] * S]), lw * 0.85, ir, 0.7));
+  if (life) {
+    // Tuschedetails je nach Wesen und Füße an den Beinen
+    const tr = RNG(life.seed);
+    // Helligkeit der Fläche: aus der Farbe des Teils (Farbplan) oder dem Hauptpigment
+    const lum = (c: readonly number[]) => 0.3 * c[0]! + 0.59 * c[1]! + 0.11 * c[2]!;
+    surface(ctx, bases, core, life.surface, S, tr, paper, (o) => lum(paints ? paints.blob.get(o)!.a : mainRgb) < 92);
+    if (life.feet) feet(ctx, geo.limbs, boxOf([...bases.map((o) => o.base), ...geo.limbs.map((l) => l.pts.map((p): [number, number] => [p[0] * S, p[1] * S]))]), S, tr);
+    ctx.globalCompositeOperation = 'source-over';
+  }
   // Ab Rare: die Iris in der Akzentfarbe
-  if (look) drawFace2(ctx, look, geo, S, RNG(look.seed + 31337), paper, plan && plan.accent > 0 ? plan.cols[plan.accent]! : mainRgb);
+  if (look) drawFace2(ctx, look, geo, S, RNG(look.seed + 31337), paper, mainRgb, life, plan && plan.accent > 0 ? plan.cols[plan.accent]! : mainRgb);
   else drawFace(ctx, m, geo, S, RNG(m.seed + 31337), paper, core.b);
   if (m.events.print) printFx(ctx, core.b, S, RNG(m.seed + 5));
   ctx.restore();

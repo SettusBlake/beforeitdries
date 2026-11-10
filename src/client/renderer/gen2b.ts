@@ -4,12 +4,14 @@
  */
 import type { BlobShape, FaceSpot, Geometry } from '../../shared/data';
 import type { Look, Pattern } from '../../shared/look';
+import type { Life } from '../../shared/life';
+import { lifeEye } from './life';
 import { clamp, gauss, ri, rr, type Rand } from '../../shared/rng';
 import { circlePts, deformN, inkPath, poly, smooth, type P2, type P3 } from './watercolor';
 
 type Ctx = CanvasRenderingContext2D;
 type RGBn = readonly number[];
-const INK = '28,25,36';
+export const INK = '28,25,36';
 const darker = (c: RGBn, f = 0.6) => c.map((v) => Math.round(v * f)).join(',');
 
 function bbox(polys: P3[][]): [number, number, number, number] {
@@ -288,7 +290,7 @@ export function lifted(ctx: Ctx, core: BlobShape, S: number, paper: string, r: R
 
 /* ---------- Pinsel für Gesichter ---------- */
 /** Leicht unregelmäßiger Rand, wie von Hand */
-function soft(pts: P2[], r: Rand, amt = 0.16): P3[] {
+export function soft(pts: P2[], r: Rand, amt = 0.16): P3[] {
   return deformN(
     pts.map((p): P3 => [p[0], p[1], rr(r, 0.7, 1.3)]),
     r,
@@ -297,7 +299,7 @@ function soft(pts: P2[], r: Rand, amt = 0.16): P3[] {
   );
 }
 /** Ausgespartes Papier: weicher Rand, nicht ganz deckend, darunter scheint die Farbe ein wenig durch */
-function reserve(ctx: Ctx, pts: P2[], paper: string, r: Rand): void {
+export function reserve(ctx: Ctx, pts: P2[], paper: string, r: Rand): void {
   const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length,
     cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
   ctx.globalCompositeOperation = 'source-over';
@@ -316,7 +318,7 @@ function reserve(ctx: Ctx, pts: P2[], paper: string, r: Rand): void {
   ctx.fill();
 }
 /** Nasser Tropfen: verlaufener Hof, Kern in zwei Schichten, Pigment sammelt sich am Rand */
-function drop(ctx: Ctx, pts: P2[], rgb: string | RGBn, r: Rand, a = 0.9): void {
+export function drop(ctx: Ctx, pts: P2[], rgb: string | RGBn, r: Rand, a = 0.9): void {
   const c = typeof rgb === 'string' ? rgb : rgb.join(',');
   const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length,
     cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
@@ -341,7 +343,7 @@ function drop(ctx: Ctx, pts: P2[], rgb: string | RGBn, r: Rand, a = 0.9): void {
   ctx.globalCompositeOperation = 'source-over';
 }
 /** Ausgehobenes Glanzlicht: weich, ohne harte Kante */
-function glint(ctx: Ctx, x: number, y: number, rad: number, paper: string, a = 0.95): void {
+export function glint(ctx: Ctx, x: number, y: number, rad: number, paper: string, a = 0.95): void {
   const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
   g.addColorStop(0, `rgba(${paper},${a})`);
   g.addColorStop(0.55, `rgba(${paper},${a * 0.8})`);
@@ -353,7 +355,7 @@ function glint(ctx: Ctx, x: number, y: number, rad: number, paper: string, a = 0
   ctx.fill();
 }
 /** Pinselstrich mit Druck: in der Mitte kräftig, an den Enden spitz, leicht zittrig */
-function stroke(ctx: Ctx, pts: P2[], w: number, r: Rand, a = 0.88): void {
+export function stroke(ctx: Ctx, pts: P2[], w: number, r: Rand, a = 0.88): void {
   if (pts.length < 2) return;
   // Gleichmäßig unterteilen, damit der Druck weich verläuft
   const q: P2[] = [];
@@ -419,7 +421,9 @@ export const MANY: Record<number, [number, number][]> = {
     [0.45, 0.03],
   ],
 };
-export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Rand, paper: string, rgb: RGBn): void {
+/** life: Entwurf „Leben“ (größeres Gesicht, neue Augenformen), ohne bleibt jedes Gesicht wie bisher */
+/** rgb: Farbe des Körpers (Lider), iris: Farbe der Iris (ab Rare die Akzentfarbe des Farbplans) */
+export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Rand, paper: string, rgb: RGBn, life: Life | null = null, iris: RGBn = rgb): void {
   if (look.faceless) return;
   const lw = S / 300,
     e = look.eyes,
@@ -455,6 +459,8 @@ export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Ran
   const eye = (x: number, y: number, rad: number, side: number) => {
     const gx = e.cross ? -side * 0.8 : e.gaze[0],
       gy = e.cross ? 0.2 : e.gaze[1];
+    // Neue Augenformen (Entwurf „Leben“), sonst die bisherigen
+    if (life && lifeEye(ctx, life, x, y, rad, side, gx, gy, paper, rgb, lw, r)) return;
     if (e.shape === 'dash') {
       // Schlitzaugen: ein Pinselstrich, in der Mitte kräftig, an den Enden spitz
       stroke(
@@ -506,7 +512,7 @@ export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Ran
       // Große Iris als nasser Tropfen in der eigenen Farbe, innen heller, zwei ausgehobene Glanzpunkte (Anime-Art)
       const ix = x + gx * rad * 0.15,
         iy = y + gy * rad * 0.15;
-      drop(ctx, circlePts(ix, iy, rad * 0.7, rad * 0.8, 14), darker(rgb, 0.7), r, 0.9);
+      drop(ctx, circlePts(ix, iy, rad * 0.7, rad * 0.8, 14), darker(iris, 0.7), r, 0.9);
       glint(ctx, ix, iy + rad * 0.25, rad * 0.45, paper, 0.35);
       pupil(ix + gx * rad * 0.04, iy + gy * rad * 0.04, rad * 0.32);
       glint(ctx, x - rad * 0.28, y - rad * 0.3, rad * 0.24, paper);
@@ -633,9 +639,10 @@ export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Ran
   };
 
   geo.faces.forEach((f: FaceSpot) => {
+    // „Leben“: größeres Gesicht, auch kleine Köpfe bekommen lesbare Augen
     const X = f.x * S,
       Y = f.y * S,
-      R = f.r * S,
+      R = life ? Math.max(f.r * life.face, 0.06) * S : f.r * S,
       ey = Y - R * 0.12;
     // Wangen zuerst, damit Augen und Mund darüber liegen
     if (look.cheeks === 'blush') {
@@ -678,10 +685,12 @@ export function drawFace2(ctx: Ctx, look: Look, geo: Geometry, S: number, r: Ran
       eye(X, ey, rad, 0);
       brow(X, ey, rad, 0);
     } else if (n === 2) {
-      const rad = R * 0.21 * e.size;
+      const rad = R * (life ? 0.26 : 0.21) * e.size;
       [-1, 1].forEach((s) => {
-        eye(X + s * R * 0.36, ey, rad, s);
-        brow(X + s * R * 0.36, ey, rad, s);
+        // „Leben“: das zweite Auge darf kleiner sein
+        const k = life && s > 0 ? life.uneven : 1;
+        eye(X + s * R * 0.36, ey, rad * k, s);
+        brow(X + s * R * 0.36, ey, rad * k, s);
       });
     } else {
       // Viele Augen in Reihen über dem Mund, ohne sich zu überdecken
