@@ -24,6 +24,12 @@ for _ in $(seq 1 600); do
     clean | grep -E "URL:|Version:"
     exit 0
   fi
+  # Fehler von Devvit (zum Beispiel beim Aktualisieren der Installation): gleich melden statt zehn Minuten zu warten
+  if grep -q "Something went wrong" "$log"; then
+    echo "Playtest failed:"
+    clean | grep -v '^\s*$' | grep -v '\.\.\. .$' | tail -12
+    exit 1
+  fi
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "Playtest stopped before it was ready:"
     clean | grep -v '^\s*$' | tail -30
