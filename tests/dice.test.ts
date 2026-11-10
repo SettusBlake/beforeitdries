@@ -400,7 +400,7 @@ describe('Würfelsammlung', () => {
     expect(res.tester).toBe(true);
   });
 
-  it('Hand: weißer W100 zeigt 100, dann wählt ein W20 den Stil (1 zu 100), goldener W10 und W100 auf 99 oder 100 bringen Holo (1 zu 500)', () => {
+  it('Hand: weißer W100 zeigt 99 oder 100, dann wählt ein W20 den Stil (1 zu 50), goldener W10 und W100 auf 99 oder 100 bringen Holo (1 zu 500)', () => {
     const seq = (xs: number[]) => {
       let i = 0;
       return () => xs[i++]!;
@@ -411,11 +411,14 @@ describe('Würfelsammlung', () => {
     expect(rollHand(seq([5, 9, 99]))).toEqual({ hand: 6, gold: 10, goldD100: 100, holo: true });
     expect(rollHand(seq([5, 9, 98]))).toEqual({ hand: 6, gold: 10, goldD100: 99, holo: true });
     expect(rollHand(seq([5, 9, 97]))).toEqual({ hand: 6, gold: 10, goldD100: 98 });
-    expect(rollHand(seq([98, 3]))).toEqual({ hand: 99, gold: 4 });
-    // Gilded weekend: Stil ab 99, Holo ab 98, sonst dieselben Würfe
-    expect(rollHand(seq([98, 3, 0]), 1, true)).toEqual({ hand: 99, gold: 4, styleRoll: 1, style: 'pencil' });
+    // Stil doppelt so oft (10.11.2026): schon ab 99
+    expect(rollHand(seq([98, 3, 0]))).toEqual({ hand: 99, gold: 4, styleRoll: 1, style: 'pencil' });
+    expect(rollHand(seq([97, 3]))).toEqual({ hand: 98, gold: 4 });
+    // Gilded weekend: Stil ab 97, Holo ab 98, sonst dieselben Würfe
+    expect(rollHand(seq([96, 3, 0]), 1, true)).toEqual({ hand: 97, gold: 4, styleRoll: 1, style: 'pencil' });
+    expect(rollHand(seq([95, 3]), 1, true)).toEqual({ hand: 96, gold: 4 });
     expect(rollHand(seq([5, 9, 97]), 1, true)).toEqual({ hand: 6, gold: 10, goldD100: 98, holo: true });
-    expect(rollHand(seq([97, 9, 96]), 1, true)).toEqual({ hand: 98, gold: 10, goldD100: 97 });
+    expect(rollHand(seq([95, 9, 96]), 1, true)).toEqual({ hand: 96, gold: 10, goldD100: 97 });
     expect(rollHand(seq([99, 9, 19, 99]))).toEqual({ hand: 100, gold: 10, styleRoll: 20, style: 'nouveau', goldD100: 100, holo: true });
     // Jede Seite des W20 gehört genau einem Stil, fünf Stile mit 2 Seiten, zehn mit 1
     const faces = Array.from({ length: STYLE_DIE }, (_, i) => styleFromRoll(i + 1));
@@ -423,7 +426,7 @@ describe('Würfelsammlung', () => {
     expect(STYLES).toHaveLength(15);
     expect(STYLES.reduce((a, st) => a + st.to - st.from + 1, 0)).toBe(STYLE_DIE);
     expect(STYLES.filter((st) => st.to > st.from).map((st) => st.k)).toEqual(['pencil', 'comic', 'anime', 'pixel', 'neon']);
-    for (const st of STYLES) expect(st.odds).toBe(st.to > st.from ? '1 in 1000' : '1 in 2000');
+    for (const st of STYLES) expect(st.odds).toBe(st.to > st.from ? '1 in 500' : '1 in 1000');
     const r = RNG(77);
     const rand = () => (r() * 4294967296) >>> 0;
     let style = 0,
@@ -433,9 +436,9 @@ describe('Würfelsammlung', () => {
       if (h.style) style++;
       if (h.holo) holo++;
     }
-    // Stil erwartet 2000, deutlich daneben wäre ein Fehler
-    expect(style).toBeGreaterThan(1800);
-    expect(style).toBeLessThan(2200);
+    // Stil erwartet 4000 (1 zu 50), deutlich daneben wäre ein Fehler
+    expect(style).toBeGreaterThan(3700);
+    expect(style).toBeLessThan(4300);
     // Holo erwartet 400 (1 zu 500)
     expect(holo).toBeGreaterThan(320);
     expect(holo).toBeLessThan(480);

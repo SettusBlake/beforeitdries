@@ -104,25 +104,25 @@ export type StyleId = 'pencil' | 'comic' | 'plate' | 'anime' | 'oil' | 'pixel' |
 /** Seiten des Stilwurfs */
 export const STYLE_DIE = 20;
 /**
- * Stil aus dem W20 (festgelegt am 31.10.2026, docs/entwuerfe/stil-und-holo-plan.md): der weiße W100 zeigt 100 (1 zu 100),
- * dann fünf Stile mit je 2 Seiten (1 zu 1000 je Zug) und zehn mit je 1 Seite (1 zu 2000)
+ * Stil aus dem W20 (festgelegt am 31.10.2026, docs/entwuerfe/stil-und-holo-plan.md, Chance verdoppelt am 10.11.2026):
+ * der weiße W100 zeigt 99 oder 100 (1 zu 50), dann fünf Stile mit je 2 Seiten (1 zu 500 je Zug) und zehn mit je 1 Seite (1 zu 1000)
  */
 export const STYLES: { k: StyleId; label: string; from: number; to: number; odds: string }[] = [
-  { k: 'pencil', label: 'Pencil', from: 1, to: 2, odds: '1 in 1000' },
-  { k: 'comic', label: 'Comic', from: 3, to: 4, odds: '1 in 1000' },
-  { k: 'anime', label: 'Anime', from: 5, to: 6, odds: '1 in 1000' },
-  { k: 'pixel', label: 'Pixel', from: 7, to: 8, odds: '1 in 1000' },
-  { k: 'neon', label: 'Neon', from: 9, to: 10, odds: '1 in 1000' },
-  { k: 'plate', label: 'Bestiary Plate', from: 11, to: 11, odds: '1 in 2000' },
-  { k: 'crayon', label: 'Crayon', from: 12, to: 12, odds: '1 in 2000' },
-  { k: 'oil', label: 'Oil', from: 13, to: 13, odds: '1 in 2000' },
-  { k: 'ukiyoe', label: 'Ukiyo-e', from: 14, to: 14, odds: '1 in 2000' },
-  { k: 'stained', label: 'Stained Glass', from: 15, to: 15, odds: '1 in 2000' },
-  { k: 'blueprint', label: 'Blueprint', from: 16, to: 16, odds: '1 in 2000' },
-  { k: 'papercut', label: 'Papercut', from: 17, to: 17, odds: '1 in 2000' },
-  { k: 'mosaic', label: 'Mosaic', from: 18, to: 18, odds: '1 in 2000' },
-  { k: 'graffiti', label: 'Graffiti', from: 19, to: 19, odds: '1 in 2000' },
-  { k: 'nouveau', label: 'Art Nouveau', from: 20, to: 20, odds: '1 in 2000' },
+  { k: 'pencil', label: 'Pencil', from: 1, to: 2, odds: '1 in 500' },
+  { k: 'comic', label: 'Comic', from: 3, to: 4, odds: '1 in 500' },
+  { k: 'anime', label: 'Anime', from: 5, to: 6, odds: '1 in 500' },
+  { k: 'pixel', label: 'Pixel', from: 7, to: 8, odds: '1 in 500' },
+  { k: 'neon', label: 'Neon', from: 9, to: 10, odds: '1 in 500' },
+  { k: 'plate', label: 'Bestiary Plate', from: 11, to: 11, odds: '1 in 1000' },
+  { k: 'crayon', label: 'Crayon', from: 12, to: 12, odds: '1 in 1000' },
+  { k: 'oil', label: 'Oil', from: 13, to: 13, odds: '1 in 1000' },
+  { k: 'ukiyoe', label: 'Ukiyo-e', from: 14, to: 14, odds: '1 in 1000' },
+  { k: 'stained', label: 'Stained Glass', from: 15, to: 15, odds: '1 in 1000' },
+  { k: 'blueprint', label: 'Blueprint', from: 16, to: 16, odds: '1 in 1000' },
+  { k: 'papercut', label: 'Papercut', from: 17, to: 17, odds: '1 in 1000' },
+  { k: 'mosaic', label: 'Mosaic', from: 18, to: 18, odds: '1 in 1000' },
+  { k: 'graffiti', label: 'Graffiti', from: 19, to: 19, odds: '1 in 1000' },
+  { k: 'nouveau', label: 'Art Nouveau', from: 20, to: 20, odds: '1 in 1000' },
 ];
 export const styleFromRoll = (roll: number): StyleId => (STYLES.find((s) => roll >= s.from && roll <= s.to) ?? STYLES[0]!).k;
 export const styleDef = (k: StyleId) => STYLES.find((s) => s.k === k)!;
@@ -138,11 +138,12 @@ export const foilOf = (seed: number): FoilId => FOILS[(seed >>> 5) % FOILS.lengt
 export const HOLO_ODDS = '1 in 500';
 /**
  * Ab welcher Zahl die Hand trifft. Holo 1 zu 500 seit 07.11.2026 (goldener W100 auf 99 oder 100).
- * Gilded weekend (Samstag und Sonntag UTC, festgelegt am 07.11.2026): Stil und Holo eine Zahl früher,
- * weißer W100 auf 99 oder 100 (Stil doppelt), goldener W100 auf 98 bis 100 (Holo 1,5-fach). docs/entwuerfe/holo-chance-vorschlag.md
+ * Stil doppelt so oft seit 10.11.2026: weißer W100 auf 99 oder 100 (2 %), vorher nur auf 100.
+ * Gilded weekend (Samstag und Sonntag UTC, festgelegt am 07.11.2026): Stil noch einmal doppelt,
+ * weißer W100 auf 97 bis 100 (4 %), goldener W100 auf 98 bis 100 (Holo 1,5-fach). docs/entwuerfe/holo-chance-vorschlag.md
  */
-export const HAND_AT = { style: 100, holo: 99 };
-export const GILDED_AT = { style: 99, holo: 98 };
+export const HAND_AT = { style: 99, holo: 99 };
+export const GILDED_AT = { style: 97, holo: 98 };
 export const handAt = (gilded?: boolean): { style: number; holo: number } => (gilded ? GILDED_AT : HAND_AT);
 /** Gilded weekend nach der Uhr des Servers: Samstag und Sonntag UTC, wie das Tagesblatt */
 export const isGilded = (now: number): boolean => {
@@ -217,9 +218,9 @@ export function forcedHand(style: StyleId | undefined, holo: boolean, rand: () =
  */
 export type BrushId = 'plain' | 'loaded' | 'dripping';
 export const BRUSHES: { k: BrushId; label: string; cost: number; throws: number; style: string; holo: string; styleG: string; holoG: string }[] = [
-  { k: 'plain', label: 'Plain brush', cost: 100, throws: 1, style: '1 %', holo: '0.2 %', styleG: '2 %', holoG: '0.3 %' },
-  { k: 'loaded', label: 'Loaded brush', cost: 300, throws: 2, style: '2 %', holo: '0.75 %', styleG: '4 %', holoG: '1.12 %' },
-  { k: 'dripping', label: 'Dripping brush', cost: 700, throws: 3, style: '3 %', holo: '1.59 %', styleG: '5.9 %', holoG: '2.37 %' },
+  { k: 'plain', label: 'Plain brush', cost: 100, throws: 1, style: '2 %', holo: '0.2 %', styleG: '4 %', holoG: '0.3 %' },
+  { k: 'loaded', label: 'Loaded brush', cost: 300, throws: 2, style: '4 %', holo: '0.75 %', styleG: '7.8 %', holoG: '1.12 %' },
+  { k: 'dripping', label: 'Dripping brush', cost: 700, throws: 3, style: '5.9 %', holo: '1.59 %', styleG: '11.5 %', holoG: '2.37 %' },
 ];
 export const brushDef = (k: BrushId | undefined): (typeof BRUSHES)[number] => BRUSHES.find((b) => b.k === k) ?? BRUSHES[0]!;
 export const isBrush = (v: unknown): v is BrushId => typeof v === 'string' && BRUSHES.some((b) => b.k === v);

@@ -56,7 +56,7 @@ describe('Pinsel beim Ziehen', () => {
     expect(rollHand(rand).hands).toBeUndefined();
   });
 
-  it('Chancen unter der Woche: Stil 1, 2, 3 %, Holo 0,2, 0,75, 1,59 % (Holo 1 zu 500 seit 07.11.2026)', () => {
+  it('Chancen unter der Woche: Stil 2, 3,96, 5,88 % (doppelt seit 10.11.2026), Holo 0,2, 0,75, 1,59 % (Holo 1 zu 500 seit 07.11.2026)', () => {
     const r = RNG(11);
     const rand = () => (r() * 4294967296) >>> 0;
     const N = 200_000;
@@ -73,22 +73,22 @@ describe('Pinsel beim Ziehen', () => {
     const [s1, h1] = rate(1),
       [s2, h2] = rate(2),
       [s3, h3] = rate(3);
-    expect(s1).toBeCloseTo(0.01, 2);
-    expect(s2).toBeCloseTo(0.0199, 2);
-    expect(s3).toBeCloseTo(0.0297, 2);
+    expect(s1).toBeCloseTo(0.02, 2);
+    expect(s2).toBeCloseTo(0.0396, 2);
+    expect(s3).toBeCloseTo(0.0588, 2);
     expect(h1).toBeGreaterThan(0.0015);
     expect(h1).toBeLessThan(0.0025);
     expect(h2).toBeGreaterThan(0.0065);
     expect(h2).toBeLessThan(0.0086);
     expect(h3).toBeGreaterThan(0.0145);
     expect(h3).toBeLessThan(0.0173);
-    // Gilded weekend: Stil doppelt (2, 3,96, 5,88 %), Holo 1,5-fach (0,3, 1,12, 2,37 %)
+    // Gilded weekend: Stil noch einmal doppelt (4, 7,84, 11,53 %), Holo 1,5-fach (0,3, 1,12, 2,37 %)
     const [g1, k1] = rate(1, true),
       [g2, k2] = rate(2, true),
       [g3, k3] = rate(3, true);
-    expect(g1).toBeCloseTo(0.02, 2);
-    expect(g2).toBeCloseTo(0.0396, 2);
-    expect(g3).toBeCloseTo(0.0588, 2);
+    expect(g1).toBeCloseTo(0.04, 2);
+    expect(g2).toBeCloseTo(0.0784, 2);
+    expect(g3).toBeCloseTo(0.1153, 2);
     expect(k1).toBeGreaterThan(0.0024);
     expect(k1).toBeLessThan(0.0036);
     expect(k2).toBeGreaterThan(0.01);
