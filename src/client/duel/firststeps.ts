@@ -176,7 +176,7 @@ const stickers = new Map<string, HTMLCanvasElement>();
 function prepare(prio: number): void {
   for (const [id, m] of Object.entries(CAST)) {
     if (stickers.has(id)) continue;
-    void painted(`fs:${id}`, m, 150, { dpr: 2, paper: false }, prio).then((c) => stickers.set(id, sticker(c)));
+    void painted(`fs:${id}`, m, 150, { dpr: 2, paper: false, stand: true }, prio).then((c) => stickers.set(id, sticker(c)));
   }
 }
 

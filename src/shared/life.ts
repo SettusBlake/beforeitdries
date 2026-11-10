@@ -1,5 +1,5 @@
 /*
- * „Leben“ (Entwurf, docs/entwuerfe/leben-vorschlag.md): größere Figur, größere und lebhaftere Gesichter mit mehr Augenformen,
+ * „Leben“ (freigegeben am 10.11.2026, docs/entwuerfe/leben-vorschlag.md): größere Figur, größere und lebhaftere Gesichter mit mehr Augenformen,
  * Tuschedetails je nach Wesen (Fell, Schuppen, Federn, Schraffur, Nieten, Maserung) und Füße an den Beinen.
  * Nur Aussehen, eigener Zufallsstrom aus dem Seed: Form, Werte, Farbplan und Generation 1 bleiben, wie sie sind.
  */
@@ -28,6 +28,11 @@ export type Life = {
 
 /** Wie groß die Figur auf dem Blatt wird (längere Seite) */
 export const LIFE_FIT = 0.88;
+/**
+ * Frei stehend im Duell (Aufkleber auf dem Sockel): etwas kleiner, damit der Rand des Aufklebers ins Bild passt,
+ * und mit der Unterkante auf einer Linie, damit jeder Klecks auf seinem Sockel steht
+ */
+export const LIFE_STAND = { size: 0.78, foot: 0.885 };
 
 const W = <T>(k: T, w: number) => ({ k, w });
 const EYES = [W<EyeStyle>('keep', 26), W<EyeStyle>('big', 18), W<EyeStyle>('oval', 12), W<EyeStyle>('cat', 9), W<EyeStyle>('angry', 8), W<EyeStyle>('happy', 7), W<EyeStyle>('dots', 7), W<EyeStyle>('goat', 5), W<EyeStyle>('cross', 3), W<EyeStyle>('heart', 3)];

@@ -1,5 +1,5 @@
 /*
- * Malen für „Leben“ (Entwurf, src/shared/life.ts): Figur aufs Blatt einpassen, neue Augenformen, Tuschedetails je nach Wesen
+ * Malen für „Leben“ (freigegeben am 10.11.2026, src/shared/life.ts): Figur aufs Blatt einpassen, neue Augenformen, Tuschedetails je nach Wesen
  * (Fell, Schuppen, Federn, Schraffur, Nieten, Maserung) und Füße an den Beinen. Alles mit eigenem Zufall, nur Aussehen.
  */
 import type { BlobShape, Geometry, Limb } from '../../shared/data';
@@ -14,15 +14,21 @@ type Base = { b: BlobShape; base: P3[] };
 type RGBn = readonly number[];
 const area = (b: BlobShape): number => b.rx * b.ry;
 
-/** Figur vergrößern, bis die längere Seite LIFE_FIT des Blatts füllt (nie verkleinern). Die Form selbst bleibt gleich */
-export function fitGeo(g: Geometry, size = LIFE_FIT): Geometry {
+/**
+ * Figur vergrößern, bis die längere Seite LIFE_FIT des Blatts füllt (nie verkleinern). Die Form selbst bleibt gleich.
+ * Mit foot (Duell): immer auf diese Größe bringen, auch kleiner, und die Unterkante auf die Linie foot stellen
+ */
+export function fitGeo(g: Geometry, size = LIFE_FIT, foot?: number): Geometry {
   const s = { blobs: g.blobs, limbs: g.limbs, faces: g.faces };
   const [x0, y0, x1, y1] = bounds(s);
   const k = size / Math.max(x1 - x0, y1 - y0);
-  if (!(k > 1.02) || !Number.isFinite(k)) return g;
+  if (!Number.isFinite(k) || k <= 0) return g;
+  if (foot === undefined && !(k > 1.02)) return g;
   const mx = (x0 + x1) / 2,
     my = (y0 + y1) / 2;
-  mapShape(s, ([x, y]) => [0.5 + (x - mx) * k, 0.52 + (y - my) * k], k, k, k);
+  // Mitte des Blatts, oder unten auf der Linie
+  const cy = foot === undefined ? 0.52 : foot - ((y1 - y0) / 2) * k;
+  mapShape(s, ([x, y]) => [0.5 + (x - mx) * k, cy + (y - my) * k], k, k, k);
   return { ...g, blobs: s.blobs, limbs: s.limbs.map((l) => ({ ...l, w: Math.min(l.w, 0.055) })), faces: s.faces };
 }
 
@@ -197,10 +203,14 @@ const boxOf = (p: P3[]): [number, number, number, number] => {
   return [x0, y0, x1, y1];
 };
 const mid = (p: P3[]): [number, number] => [p.reduce((a, q) => a + q[0], 0) / p.length, p.reduce((a, q) => a + q[1], 0) / p.length];
-/** Farbe der Striche: Tusche, auf dunklen Flächen ausgehobene helle Linien (PEN wird je Teil gesetzt) */
-let PEN = INK;
+/**
+ * Farbe der Striche: Tusche, auf dunklen Flächen ausgehobene helle Linien (LIFT wird je Teil gesetzt, null: Tusche).
+ * INK erst beim Malen lesen: gen2b.ts und diese Datei laden sich gegenseitig, beim Laden ist INK noch nicht da
+ */
+let LIFT: string | null = null;
+const pen = (): string => LIFT ?? INK;
 function line(ctx: Ctx, pts: P2[], w: number, a: number): void {
-  ctx.strokeStyle = `rgba(${PEN},${a})`;
+  ctx.strokeStyle = `rgba(${pen()},${a})`;
   ctx.lineWidth = w;
   ctx.beginPath();
   pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
@@ -219,7 +229,7 @@ export function surface(ctx: Ctx, bases: Base[], core: Base, kind: Surface, S: n
     if (area(o.b) < big || o.b.leaf || o.b.bare) continue;
     // Auf dunkler Farbe wäre Tusche nicht zu sehen: dort helle, ausgehobene Linien
     const lift = dark(o);
-    PEN = lift ? paper : INK;
+    LIFT = lift ? paper : null;
     ctx.globalCompositeOperation = lift ? 'source-over' : 'multiply';
     const [x0, y0, x1, y1] = boxOf(o.base),
       [cx, cy] = mid(o.base),
@@ -269,7 +279,7 @@ export function surface(ctx: Ctx, bases: Base[], core: Base, kind: Surface, S: n
           d = Math.atan2(cy - p[1], cx - p[0]),
           px = p[0] + Math.cos(d) * S * 0.018,
           py = p[1] + Math.sin(d) * S * 0.018;
-        ctx.strokeStyle = `rgba(${PEN},.6)`;
+        ctx.strokeStyle = `rgba(${pen()},.6)`;
         ctx.lineWidth = lw * 0.6;
         ctx.beginPath();
         ctx.arc(px, py, S * 0.0055, 0, 7);
@@ -314,7 +324,7 @@ export function surface(ctx: Ctx, bases: Base[], core: Base, kind: Surface, S: n
         for (let x = x0 + (row % 2 ? u / 2 : 0); x < x1; x += u) {
           const q = ((x - px) / rx) ** 2 + ((y - py) / ry) ** 2;
           if (q > 1 || r() < 0.12) continue;
-          ctx.strokeStyle = `rgba(${PEN},${0.46 * (1 - q * 0.6)})`;
+          ctx.strokeStyle = `rgba(${pen()},${0.46 * (1 - q * 0.6)})`;
           ctx.lineWidth = lw * 0.75;
           ctx.beginPath();
           ctx.ellipse(x, y, u * 0.5, u * 0.5 * tall, 0, 0.1, Math.PI - 0.1);
@@ -359,7 +369,7 @@ export function surface(ctx: Ctx, bases: Base[], core: Base, kind: Surface, S: n
     }
     ctx.restore();
   }
-  PEN = INK;
+  LIFT = null;
   ctx.restore();
 }
 

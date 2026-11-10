@@ -269,7 +269,7 @@ const bareKey = (u: { m: { seed: number; gen?: number } }, size: number) => `b:$
 export function prewarm(): void {
   const size = Math.round(cell * BIG);
   if (!size || !S.teams?.[0] || !S.teams[1]) return;
-  for (const u of [...S.teams[0].units, ...S.teams[1].units]) void painted(bareKey(u, size), u.m, size, { dpr, paper: false }, 1);
+  for (const u of [...S.teams[0].units, ...S.teams[1].units]) void painted(bareKey(u, size), u.m, size, { dpr, paper: false, stand: true }, 1);
 }
 /**
  * Sehr nasse Kleckse verlaufen bis an den Bildrand. Auf Papier ist das Auslaufen, freigestellt würde ein Kasten daraus:
@@ -331,7 +331,7 @@ function sticker(id: number, size: number): { img: HTMLCanvasElement; sil: HTMLC
   // Noch nicht fertig gemalt: nebenbei malen lassen, bis dahin zeigt das Blatt einen Farbfleck
   const raw = paintedNow(bareKey(u, size));
   if (!raw) {
-    void painted(bareKey(u, size), u.m, size, { dpr, paper: false }, 2);
+    void painted(bareKey(u, size), u.m, size, { dpr, paper: false, stand: true }, 2);
     return null;
   }
   // Holo: die Folie steht im Duell still, nur auf dem Monster. Aus dem Archiv: ausgeblichen

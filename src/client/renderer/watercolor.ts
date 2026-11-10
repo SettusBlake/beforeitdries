@@ -13,7 +13,7 @@ import { lookOf, tinted, type Look } from '../../shared/look';
 import { bloom2, drawFace2, drawPattern, lifted, patternParts, runs, splatter, tide } from './gen2b';
 import { planOf } from '../../shared/palette';
 import { aura, belly, boxOf, goldDust, limbP, paintsOf, patches, shade, washP } from './palette';
-import { lifeOf, type Life } from '../../shared/life';
+import { LIFE_STAND, lifeOf, type Life } from '../../shared/life';
 import { feet, fitGeo, surface } from './life';
 
 export type Quality = 'full' | 'lite';
@@ -27,15 +27,17 @@ export interface RenderOptions {
   look?: Look | boolean;
   /** Nur für Entwürfe: Farbplan nach Seltenheit ein oder aus (Standard PALETTE, im Spiel an) */
   palette?: boolean;
-  /** Nur für Entwürfe: „Leben“ ein oder aus (Standard LIVELY), ein Life erzwingt genau dieses */
+  /** Nur für Entwürfe: „Leben“ ein oder aus (Standard LIVELY, im Spiel an), ein Life erzwingt genau dieses */
   lively?: boolean | Life;
+  /** Duell: Figur frei stehend einpassen (kleiner, Unterkante auf der Sockellinie, LIFE_STAND). Nur mit „Leben“, nicht für gemalte Monster */
+  stand?: boolean;
 }
 /** Generation 2b im Spiel: freigegeben am 30.10.2026 (docs/entwuerfe/gen2b-entwurf.png). false malt Generation 2 wie davor */
 export const GEN2B = true;
 /** Farbplan nach Seltenheit im Spiel: freigegeben am 10.11.2026 (docs/entwuerfe/farben-entwurf.png). false malt wie davor */
 export const PALETTE = true;
-/** „Leben“ (Entwurf, docs/entwuerfe/leben-vorschlag.md): größere Figur, lebhaftere Gesichter, Tuschedetails. Im Spiel noch aus */
-export const LIVELY = false;
+/** „Leben“ im Spiel: freigegeben am 10.11.2026 (docs/entwuerfe/leben-entwurf.png). Größere Figur, lebhaftere Gesichter, Tuschedetails. false malt wie davor */
+export const LIVELY = true;
 
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
@@ -735,9 +737,9 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   // Generation 2b: eigener Farbton, Muster, Gesicht und Malereignisse (eigener Zufall, nur Aussehen). Generation 1 bleibt
   const on = typeof opts.look === 'object' || (opts.look ?? GEN2B);
   const picked = m.gen === 2 && on ? (typeof opts.look === 'object' ? opts.look : lookOf(m, isThing(geo0))) : null;
-  // „Leben“ (Entwurf): Figur füllt das Blatt (gemalte Monster bleiben, wo sie gemalt wurden), klarere Ränder, mehr im Gesicht
+  // „Leben“: Figur füllt das Blatt (gemalte Monster bleiben, wo sie gemalt wurden), klarere Ränder, mehr im Gesicht
   const life = picked && (opts.lively ?? LIVELY) ? (typeof opts.lively === 'object' ? opts.lively : lifeOf(m, isThing(geo0))) : null;
-  const geo = life && !m.draw ? fitGeo(geo0) : geo0;
+  const geo = life && !m.draw ? (opts.stand ? fitGeo(geo0, LIFE_STAND.size, LIFE_STAND.foot) : fitGeo(geo0)) : geo0;
   const ck = life ? 0.62 : 1;
   // Gemalte Monster behalten ihr Gesicht
   const look = picked && m.draw ? { ...picked, faceless: false } : picked;
