@@ -23,13 +23,13 @@ export interface RenderOptions {
   paper?: boolean;
   /** Nur für Entwürfe: true oder false schaltet 2b für Generation 2 ein oder aus, ein Look erzwingt dieses Aussehen */
   look?: Look | boolean;
-  /** Nur für Entwürfe: Farbplan nach Seltenheit ein oder aus (Standard PALETTE) */
+  /** Nur für Entwürfe: Farbplan nach Seltenheit ein oder aus (Standard PALETTE, im Spiel an) */
   palette?: boolean;
 }
 /** Generation 2b im Spiel: freigegeben am 30.10.2026 (docs/entwuerfe/gen2b-entwurf.png). false malt Generation 2 wie davor */
 export const GEN2B = true;
-/** Farbplan nach Seltenheit (Entwurf, docs/entwuerfe/farben-vorschlag.md): im Spiel noch aus */
-export const PALETTE = false;
+/** Farbplan nach Seltenheit im Spiel: freigegeben am 10.11.2026 (docs/entwuerfe/farben-entwurf.png). false malt wie davor */
+export const PALETTE = true;
 
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
@@ -733,7 +733,7 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   const look = picked && m.draw ? { ...picked, faceless: false } : picked;
   const mainRgb: RGB = look ? tinted(main.rgb, look.main) : main.rgb;
   const lr = RNG(look ? look.seed : 0);
-  // Farbplan nach Seltenheit (Entwurf): Common einfarbig, darüber je Stufe eine Farbe und mehr Aufwand. Eigener Zufall
+  // Farbplan nach Seltenheit: Common einfarbig, darüber je Stufe eine Farbe und mehr Aufwand. Eigener Zufall
   const plan = look && (opts.palette ?? PALETTE) ? planOf(m, look, isThing(geo)) : null;
   const pr = RNG(plan ? plan.seed : 0);
   const D = plan ? plan.depth : 1;

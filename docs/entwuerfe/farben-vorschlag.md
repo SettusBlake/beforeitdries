@@ -1,8 +1,8 @@
 # Farbe und Aufwand nach Seltenheit: Vorschlag
 
-Stand 10.11.2026, Fassung 1. Gewünscht: Die Monster sehen sich zu ähnlich und haben zu wenig Farben. Common soll einfarbig bleiben, höhere Seltenheiten dürfen mehr Farbe und Aufwand haben. Wartet auf Freigabe (Fragen in Abschnitt 5).
+Stand 10.11.2026, Fassung 2. Gewünscht: Die Monster sehen sich zu ähnlich und haben zu wenig Farben. Common soll einfarbig bleiben, höhere Seltenheiten dürfen mehr Farbe und Aufwand haben. Freigegeben am 10.11.2026 („passt“, alle Empfehlungen) und im Spiel (Bild docs/entwuerfe/farben-im-spiel.png). Dazu gewünscht: mehr Variation und Genauigkeit bei den Formen, Augen-Varianten, lebhafter. Das ist der zweite Schritt (eigener Entwurf).
 
-Entwurfsbild: docs/entwuerfe/farben-entwurf.png. Je Seltenheit dieselben neun Züge, oben wie bisher, unten neu. Gemalt mit dem echten Renderer, im Spiel ist es noch aus (Schalter `PALETTE` in src/client/renderer/watercolor.ts). Quelle tools/mockup/farben-entwurf.ts.
+Entwurfsbild: docs/entwuerfe/farben-entwurf.png. Je Seltenheit dieselben neun Züge, oben wie bisher, unten neu. Gemalt mit dem echten Renderer (Schalter `PALETTE` in src/client/renderer/watercolor.ts, seit der Freigabe an). Quelle tools/mockup/farben-entwurf.ts.
 
 ## 1 Wie heute gemalt wird
 
@@ -53,3 +53,9 @@ Jede Seltenheit bekommt eine Farbe mehr und etwas mehr Aufwand. Die Form bleibt,
 4. Legendary mit Goldstaub und Hof? Empfehlung: ja.
 5. Selbst gemalte Monster bekommen den Farbplan auch, die 15 Stile bleiben? Empfehlung: ja.
 6. Danach ein zweiter Schritt für die Formen (mehr Schmuck bei höheren Seltenheiten, Monster größer im Bild)? Empfehlung: erst die Farbe am Handy ansehen, dann entscheiden.
+
+## 6 Entscheidungen
+
+### 10.11.2026
+- Freigegeben („passt“): alle sechs Fragen mit der Empfehlung. Der Farbplan gilt für alle Würfel mit den neuen Formen, auch vorhandene und selbst gemalte, nur Aussehen, Legendary mit Goldstaub und Hof, die 15 Stile bleiben.
+- Gewünscht für den zweiten Schritt: mehr Variation und Genauigkeit bei den Formen, Augen-Varianten, lebhafter.

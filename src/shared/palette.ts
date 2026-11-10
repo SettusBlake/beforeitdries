@@ -1,5 +1,5 @@
 /*
- * Farbplan nach Seltenheit (Entwurf, docs/entwuerfe/farben-vorschlag.md): wie viele Farben ein Monster hat und wo sie sitzen.
+ * Farbplan nach Seltenheit (freigegeben am 10.11.2026, docs/entwuerfe/farben-vorschlag.md): wie viele Farben ein Monster hat und wo sie sitzen.
  * Common ist immer einfarbig, jede Seltenheit darüber bekommt eine Farbe und mehr Aufwand dazu. Nur Aussehen, keine Werte.
  * Eigener Zufallsstrom aus dem Seed: Form, Werte, Gesicht und Generation 1 bleiben, wie sie sind.
  */

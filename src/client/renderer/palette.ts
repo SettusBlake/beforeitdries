@@ -1,5 +1,5 @@
 /*
- * Malen nach dem Farbplan (Entwurf, src/shared/palette.ts): Lasuren in einer Farbe oder als nasser Verlauf aus zwei oder drei,
+ * Malen nach dem Farbplan (freigegeben am 10.11.2026, src/shared/palette.ts): Lasuren in einer Farbe oder als nasser Verlauf aus zwei oder drei,
  * Glieder mit eigener Spitze, Schatten, ausgehobener Bauch, Hof auf dem Papier, Goldstaub.
  * Die Form verbraucht denselben Zufall wie ohne Plan (r), alles Neue hat einen eigenen (jr).
  */
