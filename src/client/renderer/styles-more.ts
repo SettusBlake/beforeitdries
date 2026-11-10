@@ -10,6 +10,7 @@ import { RNG, clamp, gauss, ri, rr, type Rand } from '../../shared/rng';
 import { grainTex, type P2 } from './watercolor';
 import {
   animeMouth,
+  bbox,
   blobPath2D,
   centerOf,
   clipShadow,
@@ -731,6 +732,94 @@ function ukiColor(c: C3): string {
   if (h < 0.7) return l < 0.45 ? UKI.indigo : UKI.blue;
   return UKI.rose;
 }
+/** Die Figur als Farbholzschnitt: flache Farbe, Verlauf zum Rand, Stoffmuster, Linie mit Druck, Mandelaugen. line: Farbe des Linienstocks */
+function ukiFigure(ctx: Ctx, m: Monster, p: Prep, S: number, col: string, pat: string, kind: number, line: string = UKI.sumi): void {
+  const faces = faceLayout(m, p, S);
+  ring(ctx, silhouette(S, p, line, null), S * 0.0045);
+  for (const lm of p.geo.limbs) {
+    ctx.strokeStyle = col;
+    strokeLimb(ctx, lm, S, lm.w * S);
+  }
+  for (const o of p.bases) {
+    ctx.fillStyle = o.b.leaf ? UKI.green : col;
+    smoothClosed(ctx, o.base);
+    ctx.fill();
+    ctx.save();
+    smoothClosed(ctx, o.base);
+    ctx.clip();
+    if (o === p.core && !o.b.leaf) {
+      // Stoffmuster: Punkte, Streifen oder Gitter
+      ctx.fillStyle = ctx.strokeStyle = pat === col ? UKI.paper : pat;
+      ctx.globalAlpha = 0.7;
+      const st = S * 0.035;
+      ctx.lineWidth = S * 0.006;
+      for (let y = 0; y < S; y += st)
+        for (let x = (y / st) % 2 ? st / 2 : 0; x < S; x += st) {
+          if (kind === 0) {
+            ctx.beginPath();
+            ctx.arc(x, y, st * 0.16, 0, 7);
+            ctx.fill();
+          } else if (kind === 1 && x < st && Math.round(y / st) % 3 === 0) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(S, y + S * 0.3);
+            ctx.stroke();
+          } else if (kind === 2) {
+            ctx.beginPath();
+            ctx.moveTo(x - st * 0.3, y);
+            ctx.lineTo(x, y - st * 0.3);
+            ctx.lineTo(x + st * 0.3, y);
+            ctx.stroke();
+          }
+        }
+      ctx.globalAlpha = 1;
+    }
+    const g = ctx.createLinearGradient(0, (o.b.y - o.b.ry) * S, 0, (o.b.y + o.b.ry) * S);
+    g.addColorStop(0, 'rgba(255,248,230,.18)');
+    g.addColorStop(0.6, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(20,10,0,.28)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S, S);
+    ctx.restore();
+    ctx.strokeStyle = line;
+    ctx.lineWidth = S * 0.0035;
+    smoothClosed(ctx, o.base);
+    ctx.stroke();
+  }
+  // Mandelaugen
+  for (const f of faces) {
+    for (const st of f.stalks) {
+      ctx.strokeStyle = line;
+      ctx.lineWidth = f.R * 0.07;
+      limbPath(ctx, st);
+      ctx.stroke();
+    }
+    for (const e of f.eyes) {
+      const w = e.r * (e.kind === 'punkt' ? 2 : 1.25),
+        h2 = w * (e.kind === 'schlitz' || e.kind === 'muede' ? 0.25 : 0.55);
+      ctx.fillStyle = '#fbf6ea';
+      ctx.strokeStyle = line;
+      ctx.lineWidth = S * 0.003;
+      ctx.beginPath();
+      ctx.moveTo(e.x - w, e.y);
+      ctx.quadraticCurveTo(e.x, e.y - h2 * 2, e.x + w, e.y);
+      ctx.quadraticCurveTo(e.x, e.y + h2 * 1.4, e.x - w, e.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = line;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y - h2 * 0.1, Math.min(h2 * 0.95, w * 0.42), 0, 7);
+      ctx.fill();
+      ctx.lineWidth = S * 0.005;
+      ctx.beginPath();
+      ctx.moveTo(e.x - w * 0.9, e.y - h2 * 2.1);
+      ctx.quadraticCurveTo(e.x, e.y - h2 * 2.9, e.x + w * 0.9, e.y - h2 * 2.1);
+      ctx.stroke();
+    }
+    if (f.eyes.length) plainMouth(ctx, f, line, S * 0.004);
+  }
+}
 export function ukiyoe(ctx: Ctx, m: Monster, S: number, deco: boolean): void {
   const p = prep(m, S, 0.12, 2);
   const r = RNG(m.seed + 1830);
@@ -812,93 +901,7 @@ export function ukiyoe(ctx: Ctx, m: Monster, S: number, deco: boolean): void {
   // Figur: flache Farbe, Verlauf zum Rand, Muster, schwarze Linie
   const col = ukiColor(mainRgb(m));
   const sec = secRgb(m);
-  const pat = sec ? ukiColor(sec) : UKI.paper;
-  const faces = faceLayout(m, p, S);
-  ring(ctx, silhouette(S, p, UKI.sumi, null), S * 0.0045);
-  for (const lm of p.geo.limbs) {
-    ctx.strokeStyle = col;
-    strokeLimb(ctx, lm, S, lm.w * S);
-  }
-  const kind = ri(r, 0, 2);
-  for (const o of p.bases) {
-    ctx.fillStyle = o.b.leaf ? UKI.green : col;
-    smoothClosed(ctx, o.base);
-    ctx.fill();
-    ctx.save();
-    smoothClosed(ctx, o.base);
-    ctx.clip();
-    if (o === p.core && !o.b.leaf) {
-      // Stoffmuster: Punkte, Streifen oder Gitter
-      ctx.fillStyle = ctx.strokeStyle = pat === col ? UKI.paper : pat;
-      ctx.globalAlpha = 0.7;
-      const st = S * 0.035;
-      ctx.lineWidth = S * 0.006;
-      for (let y = 0; y < S; y += st)
-        for (let x = (y / st) % 2 ? st / 2 : 0; x < S; x += st) {
-          if (kind === 0) {
-            ctx.beginPath();
-            ctx.arc(x, y, st * 0.16, 0, 7);
-            ctx.fill();
-          } else if (kind === 1 && x < st && Math.round(y / st) % 3 === 0) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(S, y + S * 0.3);
-            ctx.stroke();
-          } else if (kind === 2) {
-            ctx.beginPath();
-            ctx.moveTo(x - st * 0.3, y);
-            ctx.lineTo(x, y - st * 0.3);
-            ctx.lineTo(x + st * 0.3, y);
-            ctx.stroke();
-          }
-        }
-      ctx.globalAlpha = 1;
-    }
-    const g = ctx.createLinearGradient(0, (o.b.y - o.b.ry) * S, 0, (o.b.y + o.b.ry) * S);
-    g.addColorStop(0, 'rgba(255,248,230,.18)');
-    g.addColorStop(0.6, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(20,10,0,.28)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, S, S);
-    ctx.restore();
-    ctx.strokeStyle = UKI.sumi;
-    ctx.lineWidth = S * 0.0035;
-    smoothClosed(ctx, o.base);
-    ctx.stroke();
-  }
-  // Mandelaugen
-  for (const f of faces) {
-    for (const st of f.stalks) {
-      ctx.strokeStyle = UKI.sumi;
-      ctx.lineWidth = f.R * 0.07;
-      limbPath(ctx, st);
-      ctx.stroke();
-    }
-    for (const e of f.eyes) {
-      const w = e.r * (e.kind === 'punkt' ? 2 : 1.25),
-        h2 = w * (e.kind === 'schlitz' || e.kind === 'muede' ? 0.25 : 0.55);
-      ctx.fillStyle = '#fbf6ea';
-      ctx.strokeStyle = UKI.sumi;
-      ctx.lineWidth = S * 0.003;
-      ctx.beginPath();
-      ctx.moveTo(e.x - w, e.y);
-      ctx.quadraticCurveTo(e.x, e.y - h2 * 2, e.x + w, e.y);
-      ctx.quadraticCurveTo(e.x, e.y + h2 * 1.4, e.x - w, e.y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = UKI.sumi;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y - h2 * 0.1, Math.min(h2 * 0.95, w * 0.42), 0, 7);
-      ctx.fill();
-      ctx.lineWidth = S * 0.005;
-      ctx.beginPath();
-      ctx.moveTo(e.x - w * 0.9, e.y - h2 * 2.1);
-      ctx.quadraticCurveTo(e.x, e.y - h2 * 2.9, e.x + w * 0.9, e.y - h2 * 2.1);
-      ctx.stroke();
-    }
-    if (f.eyes.length) plainMouth(ctx, f, UKI.sumi, S * 0.004);
-  }
+  ukiFigure(ctx, m, p, S, col, sec ? ukiColor(sec) : UKI.paper, ri(r, 0, 2));
   if (deco) {
     // Kartusche mit Namen und rotes Siegel
     const cw = S * 0.08,
@@ -931,6 +934,347 @@ export function ukiyoe(ctx: Ctx, m: Monster, S: number, deco: boolean): void {
       const vertical = rs() < 0.5;
       ctx.moveTo(a[0], a[1]);
       ctx.lineTo(vertical ? a[0] : sx + sw * 0.82, vertical ? sy + sw * 0.82 : a[1]);
+      ctx.stroke();
+    }
+  }
+  grainOver(ctx, S, 0.1, 'multiply');
+}
+
+/* =====================================================================
+ * Hokusai (Entwurf, docs/entwuerfe/hokusai-vorschlag.md, noch nicht im Spiel): ein Blatt wie aus den „36 Ansichten des Fuji“.
+ * wave: die große Welle mit Schaumkrallen rollt über die Figur, der Fuji klein in der Ferne.
+ * fuji: der rote Fuji an einem klaren Morgen, Schäfchenwolken im tiefen Blau.
+ * Linienstock in Preußischblau statt Schwarz. Alles aus Code gezeichnet, die Vorbilder sind gemeinfrei (Hokusai starb 1849)
+ * ===================================================================== */
+const HOK = {
+  paper: '#ead9b8',
+  deep: '#1b3558',
+  mid: '#3f6c96',
+  pale: '#a9c3cf',
+  foam: '#f7f0df',
+  line: '#16294a',
+  red: '#b8452c',
+  redDark: '#8a3320',
+  green: '#3d5a45',
+};
+function hokColor(c: C3): string {
+  const [h, s, l] = toHsl(c);
+  if (s < 0.18) return '#8a8172';
+  if (h < 0.05 || h > 0.93) return '#c4553c';
+  if (h < 0.15) return '#d6a444';
+  if (h < 0.45) return '#6f8f62';
+  if (h < 0.7) return l < 0.45 ? '#345a85' : '#5a86ad';
+  return '#b0707f';
+}
+export type HokusaiScene = 'wave' | 'fuji';
+/** Welche Ansicht ein Monster bekommt (fest aus dem Seed): meist die Welle, seltener der rote Fuji */
+export const hokusaiScene = (m: Monster): HokusaiScene => (RNG(m.seed + 1849)() < 0.7 ? 'wave' : 'fuji');
+/** plain: nur die Figur an ihrem Platz, ohne Blatt (zum Freistellen im Duell) */
+export function hokusai(ctx: Ctx, m: Monster, S: number, deco: boolean, scene: HokusaiScene = hokusaiScene(m), plain = false): void {
+  const p = prep(m, S, 0.12, 2);
+  const r = RNG(m.seed + 1850);
+  const col = hokColor(mainRgb(m)),
+    sec = secRgb(m),
+    pat = sec ? hokColor(sec) : HOK.paper,
+    kind = ri(r, 0, 2);
+  if (plain) {
+    ukiFigure(ctx, m, p, S, col, pat, kind, HOK.line);
+    return;
+  }
+  const X = (v: number): number => v * S;
+  ctx.fillStyle = HOK.paper;
+  ctx.fillRect(0, 0, S, S);
+  for (let i = 0; i < 180; i++) {
+    ctx.strokeStyle = `rgba(${r() < 0.5 ? '120,90,50' : '255,255,255'},${rr(r, 0.05, 0.12)})`;
+    ctx.lineWidth = S * 0.0012;
+    const x = r() * S,
+      y = r() * S,
+      a = r() * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(a) * S * 0.025, y + Math.sin(a) * S * 0.025);
+    ctx.stroke();
+  }
+  // Die Figur kleiner ins Blatt stellen: Mitte bei cx, Füße auf feet
+  const [bx0, by0, bx1, by1] = bbox([...p.bases.map((o) => o.base), ...p.geo.limbs.map((l) => limbPx(l, S))]);
+  const figure = (cx: number, feet: number, maxW: number, maxH: number): void => {
+    const k = Math.min(0.66, (maxW * S) / (bx1 - bx0), (maxH * S) / (by1 - by0));
+    ctx.save();
+    ctx.translate(cx * S - (k * (bx0 + bx1)) / 2, feet * S - k * by1);
+    ctx.scale(k, k);
+    // Heller Saum aus unbedrucktem Papier: hebt die Figur vom Berg und von der Welle ab
+    ring(ctx, silhouette(S, p, HOK.foam, null), S * 0.011);
+    ukiFigure(ctx, m, p, S, col, pat, kind, HOK.line);
+    ctx.restore();
+  };
+  // Schaumkralle: drei kleine gebogene Finger
+  const claw = (x: number, y: number, ang: number, len: number): void => {
+    for (const da of [-0.5, 0, 0.5]) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(ang + da);
+      const l = len * (da ? 0.8 : 1);
+      ctx.beginPath();
+      ctx.moveTo(0, -l * 0.26);
+      ctx.quadraticCurveTo(l * 0.9, -l * 0.5, l, l * 0.38);
+      ctx.quadraticCurveTo(l * 0.55, -l * 0.02, 0, l * 0.26);
+      ctx.closePath();
+      ctx.fillStyle = HOK.foam;
+      ctx.fill();
+      ctx.strokeStyle = HOK.line;
+      ctx.lineWidth = S * 0.0016;
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+  const cubic = (a: number[], b: number[], c: number[], d: number[], t: number): [number, number, number] => {
+    const u = 1 - t,
+      x = u * u * u * a[0]! + 3 * u * u * t * b[0]! + 3 * u * t * t * c[0]! + t * t * t * d[0]!,
+      y = u * u * u * a[1]! + 3 * u * u * t * b[1]! + 3 * u * t * t * c[1]! + t * t * t * d[1]!,
+      dx = 3 * u * u * (b[0]! - a[0]!) + 6 * u * t * (c[0]! - b[0]!) + 3 * t * t * (d[0]! - c[0]!),
+      dy = 3 * u * u * (b[1]! - a[1]!) + 6 * u * t * (c[1]! - b[1]!) + 3 * t * t * (d[1]! - c[1]!);
+    return [x * S, y * S, Math.atan2(dy, dx)];
+  };
+  if (scene === 'wave') {
+    // Himmel: oben läuft ein graubrauner Ton aus, am Horizont steht ein dunkler Streifen hinter dem Berg
+    const top = ctx.createLinearGradient(0, 0, 0, X(0.3));
+    top.addColorStop(0, 'rgba(150,132,104,.75)');
+    top.addColorStop(1, 'rgba(150,132,104,0)');
+    ctx.fillStyle = top;
+    ctx.fillRect(0, 0, S, X(0.3));
+    const hor = ctx.createLinearGradient(0, X(0.42), 0, X(0.74));
+    hor.addColorStop(0, 'rgba(96,104,118,0)');
+    hor.addColorStop(1, 'rgba(96,104,118,.5)');
+    ctx.fillStyle = hor;
+    ctx.fillRect(0, X(0.42), S, X(0.32));
+    // Der Fuji, klein in der Ferne
+    const fx = 0.475;
+    ctx.fillStyle = HOK.deep;
+    ctx.beginPath();
+    ctx.moveTo(X(fx - 0.13), X(0.74));
+    ctx.quadraticCurveTo(X(fx - 0.04), X(0.66), X(fx - 0.014), X(0.575));
+    ctx.lineTo(X(fx + 0.014), X(0.575));
+    ctx.quadraticCurveTo(X(fx + 0.04), X(0.66), X(fx + 0.13), X(0.74));
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = HOK.foam;
+    ctx.beginPath();
+    ctx.moveTo(X(fx - 0.03), X(0.62));
+    ctx.lineTo(X(fx - 0.014), X(0.575));
+    ctx.lineTo(X(fx + 0.014), X(0.575));
+    ctx.lineTo(X(fx + 0.03), X(0.62));
+    for (let k = 0; k < 4; k++) ctx.lineTo(X(fx + 0.03 - (k + 0.5) * 0.015), X(k % 2 ? 0.62 : 0.638));
+    ctx.closePath();
+    ctx.fill();
+    // Ferne Dünung rechts
+    ctx.fillStyle = HOK.mid;
+    ctx.beginPath();
+    ctx.moveTo(X(0.28), X(0.8));
+    ctx.bezierCurveTo(X(0.5), X(0.73), X(0.78), X(0.7), S, X(0.745));
+    ctx.lineTo(S, S);
+    ctx.lineTo(X(0.28), S);
+    ctx.closePath();
+    ctx.fill();
+    figure(0.69, 0.88, 0.5, 0.56);
+    // Die große Welle: steigt links auf, überschlägt sich nach rechts
+    const A = [0.5, 0.155],
+      B = [0.6, 0.195],
+      C = [0.665, 0.3],
+      D = [0.645, 0.385],
+      E = [0.6, 0.3],
+      F = [0.5, 0.27],
+      G = [0.42, 0.33];
+    ctx.fillStyle = HOK.deep;
+    ctx.beginPath();
+    ctx.moveTo(0, S);
+    ctx.lineTo(0, X(0.4));
+    ctx.bezierCurveTo(X(0.1), X(0.2), X(0.3), X(0.085), X(A[0]!), X(A[1]!));
+    ctx.bezierCurveTo(X(B[0]!), X(B[1]!), X(C[0]!), X(C[1]!), X(D[0]!), X(D[1]!));
+    ctx.bezierCurveTo(X(E[0]!), X(E[1]!), X(F[0]!), X(F[1]!), X(G[0]!), X(G[1]!));
+    ctx.bezierCurveTo(X(0.3), X(0.42), X(0.27), X(0.62), X(0.36), X(0.78));
+    ctx.bezierCurveTo(X(0.42), X(0.88), X(0.5), X(0.93), X(0.6), S);
+    ctx.closePath();
+    ctx.fill();
+    // Bänder in der Wellenwand
+    ctx.lineCap = 'round';
+    for (let j = 0; j < 6; j++) {
+      const q = j / 5;
+      ctx.strokeStyle = j % 2 ? HOK.pale : HOK.mid;
+      ctx.lineWidth = S * (j % 2 ? 0.006 : 0.014);
+      ctx.beginPath();
+      ctx.moveTo(X(0.41 - 0.07 * q), X(0.32 - 0.03 * q));
+      ctx.bezierCurveTo(X(0.27 - 0.09 * q), X(0.41 - 0.02 * q), X(0.22 - 0.1 * q), X(0.62), X(0.3 - 0.13 * q), X(0.8 + 0.04 * q));
+      ctx.stroke();
+    }
+    // Schaum auf dem Kamm und an der Lippe
+    ctx.strokeStyle = HOK.foam;
+    ctx.lineWidth = S * 0.034;
+    ctx.beginPath();
+    ctx.moveTo(X(0.02), X(0.37));
+    ctx.bezierCurveTo(X(0.11), X(0.2), X(0.3), X(0.088), X(A[0]!), X(A[1]!));
+    ctx.bezierCurveTo(X(B[0]!), X(B[1]!), X(C[0]!), X(C[1]!), X(D[0]!), X(D[1]!));
+    ctx.stroke();
+    ctx.lineWidth = S * 0.02;
+    ctx.beginPath();
+    ctx.moveTo(X(D[0]!), X(D[1]!));
+    ctx.bezierCurveTo(X(E[0]!), X(E[1]!), X(F[0]!), X(F[1]!), X(G[0]!), X(G[1]!));
+    ctx.stroke();
+    // Krallen: außen am Kamm nach rechts, unter der Lippe nach unten
+    for (let i = 0; i <= 9; i++) {
+      const [x, y, a] = cubic(A, B, C, D, i / 9);
+      claw(x, y, a - Math.PI / 2 + 0.25, S * rr(r, 0.03, 0.046));
+    }
+    for (let i = 1; i <= 7; i++) {
+      const [x, y, a] = cubic(D, E, F, G, i / 8);
+      claw(x, y, a - Math.PI / 2 - 0.2, S * rr(r, 0.024, 0.038));
+    }
+    for (let i = 0; i <= 5; i++) {
+      const [x, y, a] = cubic([0.02, 0.37], [0.11, 0.2], [0.3, 0.088], A, 0.35 + (i / 5) * 0.6);
+      claw(x, y - S * 0.012, a - Math.PI / 2 + 0.5, S * rr(r, 0.02, 0.03));
+    }
+    // Gischt
+    for (let i = 0; i < 52; i++) {
+      const t = r(),
+        x = X(0.42 + 0.5 * t + gauss(r) * 0.03),
+        y = X(0.14 + 0.42 * r() * (0.5 + t * 0.6));
+      ctx.beginPath();
+      ctx.arc(x, y, S * rr(r, 0.0035, 0.01), 0, 7);
+      ctx.fillStyle = HOK.foam;
+      ctx.fill();
+      ctx.strokeStyle = HOK.line;
+      ctx.lineWidth = S * 0.0012;
+      ctx.stroke();
+    }
+    // Vordere Welle: die Figur steht im Wellental wie die Boote im Vorbild
+    const front = (): void => {
+      ctx.beginPath();
+      ctx.moveTo(X(0.34), X(0.86));
+      ctx.bezierCurveTo(X(0.47), X(0.8), X(0.6), X(0.93), X(0.76), X(0.885));
+      ctx.bezierCurveTo(X(0.86), X(0.855), X(0.93), X(0.84), S, X(0.87));
+    };
+    front();
+    ctx.lineTo(S, S);
+    ctx.lineTo(X(0.2), S);
+    ctx.closePath();
+    ctx.fillStyle = HOK.deep;
+    ctx.fill();
+    front();
+    ctx.strokeStyle = HOK.foam;
+    ctx.lineWidth = S * 0.02;
+    ctx.stroke();
+    for (let j = 0; j < 3; j++) {
+      ctx.strokeStyle = j % 2 ? HOK.pale : HOK.mid;
+      ctx.lineWidth = S * (j % 2 ? 0.005 : 0.011);
+      ctx.beginPath();
+      ctx.moveTo(X(0.4), X(0.92 + j * 0.028));
+      ctx.bezierCurveTo(X(0.52), X(0.87 + j * 0.028), X(0.64), X(0.98 + j * 0.02), X(0.98), X(0.92 + j * 0.028));
+      ctx.stroke();
+    }
+    for (let i = 0; i <= 6; i++) claw(X(0.4 + i * 0.09 + rr(r, -0.01, 0.01)), X(0.845 + Math.sin(i * 1.3) * 0.02), -Math.PI / 2 + rr(r, -0.3, 0.3), S * rr(r, 0.016, 0.024));
+  } else {
+    // Tiefes Blau läuft von oben aus, darin Reihen kleiner Wolken
+    const sky = ctx.createLinearGradient(0, 0, 0, X(0.78));
+    sky.addColorStop(0, '#1f4372');
+    sky.addColorStop(0.5, '#5f8fb8');
+    sky.addColorStop(1, 'rgba(169,195,207,0)');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, S, X(0.78));
+    ctx.fillStyle = 'rgba(247,240,223,.92)';
+    for (let row = 0; row < 9; row++) {
+      const y = 0.05 + row * 0.052;
+      for (let x = -0.05 + (row % 2) * 0.06 + rr(r, 0, 0.04); x < 1.05; x += rr(r, 0.1, 0.17)) {
+        if (r() < 0.22) continue;
+        const w = rr(r, 0.05, 0.1),
+          h = rr(r, 0.01, 0.016);
+        ctx.beginPath();
+        ctx.roundRect(X(x), X(y + (x - 0.5) * 0.06 + rr(r, -0.006, 0.006)), X(w), X(h), X(h / 2));
+        ctx.fill();
+      }
+    }
+    // Der rote Fuji
+    const peak = (): void => {
+      ctx.beginPath();
+      ctx.moveTo(X(-0.05), X(0.92));
+      ctx.quadraticCurveTo(X(0.34), X(0.66), X(0.53), X(0.265));
+      ctx.lineTo(X(0.56), X(0.245));
+      ctx.lineTo(X(0.6), X(0.26));
+      ctx.lineTo(X(0.625), X(0.285));
+      ctx.quadraticCurveTo(X(0.78), X(0.56), X(1.06), X(0.72));
+      ctx.lineTo(X(1.06), S);
+      ctx.lineTo(X(-0.05), S);
+      ctx.closePath();
+    };
+    const red = ctx.createLinearGradient(0, X(0.24), 0, X(0.95));
+    red.addColorStop(0, HOK.redDark);
+    red.addColorStop(0.35, HOK.red);
+    red.addColorStop(0.8, '#c9623f');
+    red.addColorStop(1, '#b3683f');
+    peak();
+    ctx.fillStyle = red;
+    ctx.fill();
+    // Schneerinnen am Gipfel
+    ctx.strokeStyle = HOK.foam;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 11; i++) {
+      const t = i / 10,
+        x0 = 0.535 + t * 0.085,
+        len = rr(r, 0.05, 0.15) * (1 - Math.abs(t - 0.45) * 0.8);
+      ctx.lineWidth = S * rr(r, 0.003, 0.006);
+      ctx.beginPath();
+      ctx.moveTo(X(x0), X(0.262 + Math.abs(t - 0.3) * 0.03));
+      ctx.quadraticCurveTo(X(x0 + (t - 0.45) * len * 0.9), X(0.27 + len * 0.6), X(x0 + (t - 0.45) * len * 1.7), X(0.27 + len));
+      ctx.stroke();
+    }
+    // Wald am Fuß: dunkle Tupfen
+    ctx.save();
+    peak();
+    ctx.clip();
+    const wood = ctx.createLinearGradient(0, X(0.72), 0, S);
+    wood.addColorStop(0, 'rgba(61,90,69,0)');
+    wood.addColorStop(0.45, 'rgba(61,90,69,.9)');
+    wood.addColorStop(1, 'rgba(40,62,48,1)');
+    ctx.fillStyle = wood;
+    ctx.fillRect(0, X(0.72), S, X(0.28));
+    for (let i = 0; i < 520; i++) {
+      const y = rr(r, 0.76, 1);
+      ctx.fillStyle = r() < 0.6 ? 'rgba(28,48,38,.75)' : 'rgba(110,140,96,.55)';
+      ctx.beginPath();
+      ctx.arc(X(r()), X(y), S * rr(r, 0.003, 0.007) * (0.6 + (y - 0.76) * 3), 0, 7);
+      ctx.fill();
+    }
+    ctx.restore();
+    figure(0.36, 0.94, 0.52, 0.58);
+  }
+  // Rand des Druckstocks
+  ctx.strokeStyle = HOK.line;
+  ctx.lineWidth = S * 0.004;
+  ctx.strokeRect(S * 0.012, S * 0.012, S * 0.976, S * 0.976);
+  if (deco) {
+    // Titelkasten mit Namen und daneben die Zeile der Signatur, wie auf den Blättern der Reihe
+    const cw = S * 0.085,
+      ch = S * 0.34,
+      cx0 = scene === 'wave' ? S * 0.85 : S * 0.055,
+      cy0 = S * 0.05;
+    ctx.fillStyle = '#f1e3bf';
+    ctx.strokeStyle = HOK.line;
+    ctx.lineWidth = S * 0.003;
+    ctx.fillRect(cx0, cy0, cw, ch);
+    ctx.strokeRect(cx0, cy0, cw, ch);
+    ctx.fillStyle = HOK.line;
+    ctx.font = `400 ${S * 0.034}px "Young Serif", serif`;
+    ctx.textAlign = 'center';
+    const letters = m.name.toUpperCase().slice(0, 9).split('');
+    letters.forEach((c, i) => ctx.fillText(c, cx0 + cw / 2, cy0 + ch * ((i + 0.8) / (letters.length + 0.3))));
+    ctx.textAlign = 'left';
+    const sx = scene === 'wave' ? cx0 - S * 0.04 : cx0 + cw + S * 0.015;
+    ctx.lineWidth = S * 0.0035;
+    ctx.lineCap = 'round';
+    const rs = RNG(m.seed + 78);
+    for (let k = 0; k < 9; k++) {
+      const y = cy0 + S * 0.012 + k * S * 0.021;
+      ctx.beginPath();
+      ctx.moveTo(sx + S * rr(rs, 0.002, 0.01), y);
+      ctx.quadraticCurveTo(sx + S * rr(rs, 0.008, 0.02), y + S * rr(rs, -0.006, 0.006), sx + S * rr(rs, 0.014, 0.026), y + S * rr(rs, 0, 0.01));
       ctx.stroke();
     }
   }
