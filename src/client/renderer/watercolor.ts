@@ -15,7 +15,7 @@ import { planOf } from '../../shared/palette';
 import { aura, belly, boxOf, goldDust, limbP, paintsOf, patches, shade, washP } from './palette';
 import { LIFE_STAND, lifeOf, type Life } from '../../shared/life';
 import { feet, fitGeo, penBase, surface } from './life';
-import { backWash, formShadow, glazeAlpha, glazePath, groundShadow, settle } from './painterly';
+import { backWash, formShadow, glazeAlpha, glazePath, groundShadow, settleSteps } from './painterly';
 
 export type Quality = 'full' | 'lite';
 export interface RenderOptions {
@@ -32,10 +32,13 @@ export interface RenderOptions {
   lively?: boolean | Life;
   /** Duell: Figur frei stehend einpassen (kleiner, Unterkante auf der Sockellinie, LIFE_STAND). Nur mit „Leben“, nicht für gemalte Monster */
   stand?: boolean;
-  /** Nur für Entwürfe: „Gemälde“ ein oder aus (Standard PAINTERLY, im Spiel aus), ein Objekt wählt die Teile einzeln */
+  /** Nur für Entwürfe: „Gemälde“ ein oder aus (Standard PAINTERLY, im Spiel an), ein Objekt wählt die Teile einzeln */
   painterly?: boolean | Painterly;
 }
-/** Teile von „Gemälde“: Lasuren und Pigment gehören immer dazu, dazu Bleistift statt Tusche, Schlagschatten, loser Grund */
+/**
+ * Teile von „Gemälde“: Lasuren und Pigment gehören immer dazu, dazu Bleistift statt Tusche, Schlagschatten, loser Grund.
+ * back ohne Angabe: nach Seltenheit (ab Epic)
+ */
 export type Painterly = { pencil?: boolean; shadow?: boolean; back?: boolean };
 /** Generation 2b im Spiel: freigegeben am 30.10.2026 (docs/entwuerfe/gen2b-entwurf.png). false malt Generation 2 wie davor */
 export const GEN2B = true;
@@ -43,8 +46,8 @@ export const GEN2B = true;
 export const PALETTE = true;
 /** „Leben“ im Spiel: freigegeben am 10.11.2026 (docs/entwuerfe/leben-entwurf.png). Größere Figur, lebhaftere Gesichter, Tuschedetails. false malt wie davor */
 export const LIVELY = true;
-/** „Gemälde“ (Entwurf, docs/entwuerfe/gemaelde-vorschlag.md): Lasuren mit klarer Kante, Pigmentrand, Körnung, Bleistift. Im Spiel noch aus */
-export const PAINTERLY = false;
+/** „Gemälde“ im Spiel: freigegeben am 10.11.2026 (docs/entwuerfe/gemaelde-entwurf.png). Lasuren mit klarer Kante, Pigmentrand, Körnung, Bleistift, Schatten. false malt wie davor */
+export const PAINTERLY = true;
 
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
@@ -791,9 +794,11 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     aura(ctx, figure, plan.cols[1]!, S, pr, lite);
     yield* wet();
   }
-  if (art && figure && opts.paper !== false && (art.back || art.shadow)) {
+  // „Gemälde“: loser Grund ab Epic, Schlagschatten für alle. Nur auf dem Blatt, frei stehend (Duell) nicht
+  const back = art ? (art.back ?? (plan ? plan.tier >= 3 : false)) : false;
+  if (art && figure && opts.paper !== false && (back || art.shadow)) {
     const ar = RNG((m.seed ^ 0x51ed270b) + 7919 * m.mutations);
-    if (art.back) backWash(ctx, figure, S, ar, plan?.cols[1] ?? mainRgb);
+    if (back) backWash(ctx, figure, S, ar, plan?.cols[1] ?? mainRgb);
     if (art.shadow) groundShadow(ctx, figure, S, ar);
     yield* wet();
   }
@@ -898,7 +903,7 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   if (art) {
     // Das Pigment setzt sich: dunkler Rand, Körnung im Papier, Pfützen, weich auslaufende Kanten
     yield* pause();
-    settle(ctx, S, paper0, pa.tone, { gran: clamp(granAmt * 0.8 + pa.grain * 0.3, 0, 1), wet: clamp((m.humidity - 30) / 65, 0, 1), seed: (m.seed ^ 0x2545f491) >>> 0 });
+    for (const _ of settleSteps(ctx, S, paper0, pa.tone, { gran: clamp(granAmt * 0.8 + pa.grain * 0.3, 0, 1), wet: clamp((m.humidity - 30) / 65, 0, 1), seed: (m.seed ^ 0x2545f491) >>> 0 })) yield* pause();
     ctx.globalCompositeOperation = 'multiply';
   }
   if (plan?.gold) goldDust(ctx, bases.map((o) => o.base), S, pr);

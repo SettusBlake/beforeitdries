@@ -21,8 +21,11 @@ const times: Record<string, number[]> = {};
 function tile(m: Monster, cap: string, painterly: boolean | Painterly, size: number): HTMLElement {
   const f = el('figure');
   const c = el('canvas');
-  const t = renderMonster(c, m, size, { dpr: 2, painterly });
-  (times[painterly ? 'new' : 'old'] ??= []).push(t);
+  const t0 = performance.now();
+  renderMonster(c, m, size, { dpr: 2, painterly });
+  // Fair messen: das Malen wirklich ausführen lassen (sonst rechnet der Browser es erst beim Anzeigen)
+  c.getContext('2d')!.getImageData(0, 0, 1, 1);
+  (times[painterly ? 'new' : 'old'] ??= []).push(performance.now() - t0);
   c.style.width = c.style.height = size + 'px';
   f.append(c, el('figcaption', '', cap));
   return f;
@@ -69,9 +72,9 @@ if (!only || only === 'steps') {
   const s = section('3 · In Stufen', 'Was jeder Teil bringt: A Lasuren und Pigment, B Bleistift statt Tusche, C Schlagschatten, D loser Grund hinter der Figur.');
   const STEPS: [string, boolean | Painterly][] = [
     ['jetzt', false],
-    ['A Lasuren und Pigment', {}],
-    ['A + B Bleistift', { pencil: true }],
-    ['A + B + C Schatten', { pencil: true, shadow: true }],
+    ['A Lasuren und Pigment', { back: false }],
+    ['A + B Bleistift', { pencil: true, back: false }],
+    ['A + B + C Schatten', { pencil: true, shadow: true, back: false }],
     ['A bis D mit Grund', { pencil: true, shadow: true, back: true }],
   ];
   for (const m of [gen2('gm3', 4, 'buetten'), gen2('gm5', 3, 'hadern'), gen2('gm6', 2, 'washi')]) {
