@@ -6,6 +6,7 @@
 import type { BlobShape, Limb } from '../../shared/data';
 import type { Plan, RGBn } from '../../shared/palette';
 import { gauss, ri, rr, type Rand } from '../../shared/rng';
+import { glazeAlpha, glazePath } from './painterly';
 import { deformN, ellipsePts, poly, smooth, type P2, type P3 } from './watercolor';
 
 type Ctx = CanvasRenderingContext2D;
@@ -60,18 +61,24 @@ function fillOf(ctx: Ctx, p: Paint, box: Box, ang: number, alpha: number, j: num
 }
 
 /** Lasur wie wash im Renderer, aber mit Füllung nach Plan. lite: jede zweite Schicht mit ausgeglichener Deckkraft, gleicher Zufall */
-export function washP(ctx: Ctx, base: P3[], p: Paint, box: Box, ang: number, r: Rand, jr: Rand, layers: number, alpha: number, amt: number, lite: boolean): void {
+export function washP(ctx: Ctx, base: P3[], p: Paint, box: Box, ang: number, r: Rand, jr: Rand, layers: number, alpha: number, amt: number, lite: boolean, glaze = false): void {
+  // „Gemälde“: eine Lasur mit klarer, geschwungener Kante. Der Zufall läuft weiter wie bei den dünnen Schichten
   for (let i = 0; i < layers; i++) {
     const q = deformN(base, r, amt, 2);
     const j = (jr() - 0.5) * 0.34;
+    if (glaze) {
+      if (i) continue;
+      ctx.fillStyle = fillOf(ctx, p, box, ang, glazeAlpha(alpha, layers), j);
+      glazePath(ctx, q, 4);
+      ctx.fill();
+      continue;
+    }
     if (lite && i % 2 === 1) continue;
     ctx.fillStyle = fillOf(ctx, p, box, ang, lite ? twice(alpha) : alpha, j);
     poly(ctx, q);
     ctx.fill();
   }
 }
-
-/** Glied wie limbWash, mit eigener Farbe an der Spitze (das Ende, das weiter von der Mitte der Figur liegt) */
 export function limbP(ctx: Ctx, l: Limb, p: Paint, mid: [number, number], r: Rand, S: number, alpha: number, lite: boolean): void {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

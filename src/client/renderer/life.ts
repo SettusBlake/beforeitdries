@@ -208,7 +208,12 @@ const mid = (p: P3[]): [number, number] => [p.reduce((a, q) => a + q[0], 0) / p.
  * INK erst beim Malen lesen: gen2b.ts und diese Datei laden sich gegenseitig, beim Laden ist INK noch nicht da
  */
 let LIFT: string | null = null;
-const pen = (): string => LIFT ?? INK;
+/** Grundfarbe der Striche, wenn nicht Tusche (Entwurf „Gemälde“: Bleistift). null: Tusche */
+let BASE: string | null = null;
+export function penBase(rgb: string | null): void {
+  BASE = rgb;
+}
+const pen = (): string => LIFT ?? BASE ?? INK;
 function line(ctx: Ctx, pts: P2[], w: number, a: number): void {
   ctx.strokeStyle = `rgba(${pen()},${a})`;
   ctx.lineWidth = w;

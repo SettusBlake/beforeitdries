@@ -14,7 +14,8 @@ import { bloom2, drawFace2, drawPattern, lifted, patternParts, runs, splatter, t
 import { planOf } from '../../shared/palette';
 import { aura, belly, boxOf, goldDust, limbP, paintsOf, patches, shade, washP } from './palette';
 import { LIFE_STAND, lifeOf, type Life } from '../../shared/life';
-import { feet, fitGeo, surface } from './life';
+import { feet, fitGeo, penBase, surface } from './life';
+import { backWash, formShadow, glazeAlpha, glazePath, groundShadow, settle } from './painterly';
 
 export type Quality = 'full' | 'lite';
 export interface RenderOptions {
@@ -31,13 +32,19 @@ export interface RenderOptions {
   lively?: boolean | Life;
   /** Duell: Figur frei stehend einpassen (kleiner, Unterkante auf der Sockellinie, LIFE_STAND). Nur mit „Leben“, nicht für gemalte Monster */
   stand?: boolean;
+  /** Nur für Entwürfe: „Gemälde“ ein oder aus (Standard PAINTERLY, im Spiel aus), ein Objekt wählt die Teile einzeln */
+  painterly?: boolean | Painterly;
 }
+/** Teile von „Gemälde“: Lasuren und Pigment gehören immer dazu, dazu Bleistift statt Tusche, Schlagschatten, loser Grund */
+export type Painterly = { pencil?: boolean; shadow?: boolean; back?: boolean };
 /** Generation 2b im Spiel: freigegeben am 30.10.2026 (docs/entwuerfe/gen2b-entwurf.png). false malt Generation 2 wie davor */
 export const GEN2B = true;
 /** Farbplan nach Seltenheit im Spiel: freigegeben am 10.11.2026 (docs/entwuerfe/farben-entwurf.png). false malt wie davor */
 export const PALETTE = true;
 /** „Leben“ im Spiel: freigegeben am 10.11.2026 (docs/entwuerfe/leben-entwurf.png). Größere Figur, lebhaftere Gesichter, Tuschedetails. false malt wie davor */
 export const LIVELY = true;
+/** „Gemälde“ (Entwurf, docs/entwuerfe/gemaelde-vorschlag.md): Lasuren mit klarer Kante, Pigmentrand, Körnung, Bleistift. Im Spiel noch aus */
+export const PAINTERLY = false;
 
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
@@ -47,6 +54,10 @@ export type P2 = [number, number] | P3;
 type Ctx = CanvasRenderingContext2D;
 
 const INK = '28,25,36';
+/** Bleistift für „Gemälde“: Graphit, dünner und heller als Tusche */
+const PENCIL = '74,70,80';
+/** Farbe der Linien in inkPath. Nur zwischen zwei Pausen umstellen und danach zurück (andere Bilder malen dazwischen) */
+let LINE = INK;
 let LITE = false;
 
 let GRAIN: HTMLCanvasElement | null = null;
@@ -159,7 +170,7 @@ export function inkPath(ctx: Ctx, pts: P2[], lw: number, r: Rand, alpha = 0.85, 
     const j = pass ? lw * 0.7 : lw * 0.18;
     let q: P2[] = pts.map((p) => [p[0] + gauss(r) * j, p[1] + gauss(r) * j]);
     if (closed) q = [...q, q[0]!, q[1]!];
-    ctx.strokeStyle = `rgba(${INK},${pass ? alpha * 0.3 : alpha})`;
+    ctx.strokeStyle = `rgba(${LINE},${pass ? alpha * 0.3 : alpha})`;
     ctx.lineWidth = pass ? lw * 0.6 : lw;
     if (straight) {
       ctx.beginPath();
@@ -174,7 +185,18 @@ const dark = (c: RGB, f = 0.55): number[] => c.map((v) => Math.round(v * f));
 /** Deckkraft einer Schicht, die zwei Schichten ersetzt */
 const twice = (a: number): number => 1 - (1 - a) * (1 - a);
 
-function wash(ctx: Ctx, base: P3[], rgb: RGB | number[], r: Rand, layers: number, alpha: number, amt: number): void {
+function wash(ctx: Ctx, base: P3[], rgb: RGB | number[], r: Rand, layers: number, alpha: number, amt: number, glaze = false): void {
+  if (glaze) {
+    // „Gemälde“: eine Lasur mit klarer, geschwungener Kante. Der Zufall läuft weiter wie bei den dünnen Schichten
+    for (let i = 0; i < layers; i++) {
+      const q = deformN(base, r, amt, 2);
+      if (i) continue;
+      ctx.fillStyle = `rgba(${rgb},${glazeAlpha(alpha, layers)})`;
+      glazePath(ctx, q, 4);
+      ctx.fill();
+    }
+    return;
+  }
   if (LITE) {
     ctx.fillStyle = `rgba(${rgb},${twice(alpha)})`;
     for (let i = 0; i < layers; i++) {
@@ -739,6 +761,9 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   const picked = m.gen === 2 && on ? (typeof opts.look === 'object' ? opts.look : lookOf(m, isThing(geo0))) : null;
   // „Leben“: Figur füllt das Blatt (gemalte Monster bleiben, wo sie gemalt wurden), klarere Ränder, mehr im Gesicht
   const life = picked && (opts.lively ?? LIVELY) ? (typeof opts.lively === 'object' ? opts.lively : lifeOf(m, isThing(geo0))) : null;
+  const art: Painterly | null = picked && (opts.painterly ?? PAINTERLY) ? (typeof opts.painterly === 'object' ? opts.painterly : { pencil: true, shadow: true }) : null;
+  // Leeres Papier merken: daran misst „Gemälde“ später, wie viel Farbe wo liegt
+  const paper0 = art && opts.paper !== false ? ctx.getImageData(0, 0, S, S) : null;
   const geo = life && !m.draw ? (opts.stand ? fitGeo(geo0, LIFE_STAND.size, LIFE_STAND.foot) : fitGeo(geo0)) : geo0;
   const ck = life ? 0.62 : 1;
   // Gemalte Monster behalten ihr Gesicht
@@ -761,9 +786,15 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   ctx.globalCompositeOperation = 'multiply';
   // Fläche der ganzen Figur: darüber laufen die Verläufe, damit die Teile zusammengehören
   const paints = plan ? paintsOf(plan, bases, core) : null;
-  const figure = plan ? boxOf([...bases.map((o) => o.base), ...geo.limbs.map((l) => l.pts.map((p): [number, number] => [p[0] * S, p[1] * S]))]) : null;
+  const figure = plan || art ? boxOf([...bases.map((o) => o.base), ...geo.limbs.map((l) => l.pts.map((p): [number, number] => [p[0] * S, p[1] * S]))]) : null;
   if (plan?.aura && figure && opts.paper !== false) {
     aura(ctx, figure, plan.cols[1]!, S, pr, lite);
+    yield* wet();
+  }
+  if (art && figure && opts.paper !== false && (art.back || art.shadow)) {
+    const ar = RNG((m.seed ^ 0x51ed270b) + 7919 * m.mutations);
+    if (art.back) backWash(ctx, figure, S, ar, plan?.cols[1] ?? mainRgb);
+    if (art.shadow) groundShadow(ctx, figure, S, ar);
     yield* wet();
   }
   for (const [i, l] of geo.limbs.entries()) {
@@ -777,8 +808,8 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     const layers = o.b.leaf ? 14 : o.b.few ? 12 : 22,
       alpha = o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05,
       amt = 0.3 * vf * (o.b.crisp ?? 1) * ck;
-    if (plan && paints && figure) washP(ctx, o.base, paints.blob.get(o)!, figure, plan.ang, gr, pr, layers, alpha * D, amt, lite);
-    else wash(ctx, o.base, mainRgb, gr, layers, alpha, amt);
+    if (plan && paints && figure) washP(ctx, o.base, paints.blob.get(o)!, figure, plan.ang, gr, pr, layers, alpha * D, amt, lite, !!art);
+    else wash(ctx, o.base, mainRgb, gr, layers, alpha, amt, !!art);
     yield* wet();
   }
   const pat = plan ? plan.pattern : look?.pattern;
@@ -807,7 +838,7 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     for (const o of list) {
       const b = o.b,
         sub = { x: b.x + gauss(gr) * b.rx * 0.2, y: b.y + gauss(gr) * b.ry * 0.2 + (i ? b.ry * 0.3 : 0), rx: b.rx * rr(gr, 0.45, 0.8), ry: b.ry * rr(gr, 0.45, 0.8), rot: b.rot };
-      wash(ctx, deformN(ellipsePts(sub, S, gr, 10), gr, 0.45 * vf, 3), prgb, gr, 16, 0.045, 0.45 * vf);
+      wash(ctx, deformN(ellipsePts(sub, S, gr, 10), gr, 0.45 * vf, 3), prgb, gr, 16, 0.045, 0.45 * vf, !!art);
       yield* wet();
     }
   }
@@ -815,7 +846,7 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     const p = PIG[g.p],
       r2 = RNG(g.seed);
     for (const o of bases) {
-      wash(ctx, o.base, p.rgb, r2, 10, 0.032, 0.18 * (o.b.crisp ?? 1));
+      wash(ctx, o.base, p.rgb, r2, 10, 0.032, 0.18 * (o.b.crisp ?? 1), !!art);
       yield* wet();
     }
     geo.limbs.forEach((l) => limbWash(ctx, l, p.rgb, r2, S, 0.045));
@@ -824,21 +855,28 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   if (m.mud) {
     const r3 = RNG(m.seed + 99);
     for (const o of bases) {
-      wash(ctx, o.base, [116, 100, 82], r3, 16, 0.055, 0.25 * (o.b.crisp ?? 1));
+      wash(ctx, o.base, [116, 100, 82], r3, 16, 0.055, 0.25 * (o.b.crisp ?? 1), !!art);
       yield* wet();
     }
   }
   // Ab Rare: Schatten unten an den großen Teilen und ein ausgehobener Bauch
   if (plan && paints) {
     const bigA = core.b.rx * core.b.ry * 0.3;
-    if (plan.shade) for (const o of bases) if (o.b.rx * o.b.ry >= bigA && !o.b.leaf && !o.b.wing) shade(ctx, o, paints.blob.get(o)!.a, plan.tier >= 3 ? 0.26 : 0.18);
+    if (plan.shade)
+      for (const o of bases)
+        if (o.b.rx * o.b.ry >= bigA && !o.b.leaf && !o.b.wing) {
+          // „Gemälde“: Schatten als zweite Lasur mit eigener Kante statt als weicher Verlauf
+          if (art) formShadow(ctx, o.base, S, dark(paints.blob.get(o)!.a as RGB, 0.62), plan.tier >= 3 ? 0.34 : 0.26);
+          else shade(ctx, o, paints.blob.get(o)!.a, plan.tier >= 3 ? 0.26 : 0.18);
+        }
     if (plan.belly) belly(ctx, core, S, paper, pr);
     yield* wet();
   }
-  bases.forEach((o) => edges(ctx, o.base, paints ? (paints.blob.get(o)!.a as RGB) : mainRgb, gr, S));
+  // „Gemälde“: Rand und Körnung entstehen später aus dem Pigment selbst (settle), nicht als Striche und Punkte
+  if (!art) bases.forEach((o) => edges(ctx, o.base, paints ? (paints.blob.get(o)!.a as RGB) : mainRgb, gr, S));
   yield* wet();
   const granAmt = Math.max(main.gran, ...m.sec.map((id) => PIG[id].gran * 0.6), ...m.glazes.map((g) => PIG[g.p].gran * 0.5), m.mud ? 0.8 : 0);
-  if (granAmt > 0.15) granulate(ctx, bases.map((o) => o.base), m.mud ? [116, 100, 82] : mainRgb, gr, granAmt, S);
+  if (granAmt > 0.15 && !art) granulate(ctx, bases.map((o) => o.base), m.mud ? [116, 100, 82] : mainRgb, gr, granAmt, S);
   yield* wet();
 
   const er = RNG(m.seed + 4242);
@@ -857,11 +895,21 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     if (look.fx.lifted) lifted(ctx, core.b, S, paper, lr);
     if (look.fx.splatter) splatter(ctx, bases.map((o) => o.base), plan && plan.accent > 0 ? plan.cols[plan.accent]! : mainRgb, S, lr);
   }
+  if (art) {
+    // Das Pigment setzt sich: dunkler Rand, Körnung im Papier, Pfützen, weich auslaufende Kanten
+    yield* pause();
+    settle(ctx, S, paper0, pa.tone, { gran: clamp(granAmt * 0.8 + pa.grain * 0.3, 0, 1), wet: clamp((m.humidity - 30) / 65, 0, 1), seed: (m.seed ^ 0x2545f491) >>> 0 });
+    ctx.globalCompositeOperation = 'multiply';
+  }
   if (plan?.gold) goldDust(ctx, bases.map((o) => o.base), S, pr);
   yield* pause();
 
   ctx.globalCompositeOperation = 'source-over';
-  const lw = S / 300,
+  // „Gemälde“: Vorzeichnung in Bleistift statt Tusche. Bis zum Ende wird nicht mehr pausiert
+  const pencil = !!art?.pencil;
+  LINE = pencil ? PENCIL : INK;
+  penBase(pencil ? PENCIL : null);
+  const lw = (S / 300) * (pencil ? 0.72 : 1),
     ir = RNG(m.seed + 777);
   const big = core.b.rx * core.b.ry;
   bases.forEach((o) => {
@@ -881,6 +929,8 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   if (look) drawFace2(ctx, look, geo, S, RNG(look.seed + 31337), paper, mainRgb, life, plan && plan.accent > 0 ? plan.cols[plan.accent]! : mainRgb);
   else drawFace(ctx, m, geo, S, RNG(m.seed + 31337), paper, core.b);
   if (m.events.print) printFx(ctx, core.b, S, RNG(m.seed + 5));
+  LINE = INK;
+  penBase(null);
   ctx.restore();
   LITE = false;
 }
