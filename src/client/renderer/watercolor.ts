@@ -11,6 +11,8 @@ import { decodeDrawing, drawnGeometry } from '../../shared/drawn';
 import { form } from '../../shared/forms';
 import { lookOf, tinted, type Look } from '../../shared/look';
 import { bloom2, drawFace2, drawPattern, lifted, patternParts, runs, splatter, tide } from './gen2b';
+import { planOf } from '../../shared/palette';
+import { aura, belly, boxOf, goldDust, limbP, paintsOf, patches, shade, washP } from './palette';
 
 export type Quality = 'full' | 'lite';
 export interface RenderOptions {
@@ -21,9 +23,13 @@ export interface RenderOptions {
   paper?: boolean;
   /** Nur für Entwürfe: true oder false schaltet 2b für Generation 2 ein oder aus, ein Look erzwingt dieses Aussehen */
   look?: Look | boolean;
+  /** Nur für Entwürfe: Farbplan nach Seltenheit ein oder aus (Standard PALETTE) */
+  palette?: boolean;
 }
 /** Generation 2b im Spiel: freigegeben am 30.10.2026 (docs/entwuerfe/gen2b-entwurf.png). false malt Generation 2 wie davor */
 export const GEN2B = true;
+/** Farbplan nach Seltenheit (Entwurf, docs/entwuerfe/farben-vorschlag.md): im Spiel noch aus */
+export const PALETTE = false;
 
 /** Was der Renderer vom Monster braucht */
 export type Paintable = Pick<Monster, 'seed' | 'humidity' | 'bp' | 'paper' | 'main' | 'sec' | 'events' | 'face' | 'glazes' | 'mud' | 'mutations' | 'gen' | 'draw'>;
@@ -727,6 +733,10 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   const look = picked && m.draw ? { ...picked, faceless: false } : picked;
   const mainRgb: RGB = look ? tinted(main.rgb, look.main) : main.rgb;
   const lr = RNG(look ? look.seed : 0);
+  // Farbplan nach Seltenheit (Entwurf): Common einfarbig, darüber je Stufe eine Farbe und mehr Aufwand. Eigener Zufall
+  const plan = look && (opts.palette ?? PALETTE) ? planOf(m, look, isThing(geo)) : null;
+  const pr = RNG(plan ? plan.seed : 0);
+  const D = plan ? plan.depth : 1;
   const vf = 0.65 + clamp((m.humidity - 30) / 65, 0, 1) * 0.75;
   const gr = RNG(m.seed + 31 * m.mutations + 5);
   // crisp gibt es nur bei den neuen Formen, ohne bleibt jede Zahl wie im Prototyp
@@ -737,22 +747,47 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
   });
 
   ctx.globalCompositeOperation = 'multiply';
+  // Fläche der ganzen Figur: darüber laufen die Verläufe, damit die Teile zusammengehören
+  const paints = plan ? paintsOf(plan, bases, core) : null;
+  const figure = plan ? boxOf([...bases.map((o) => o.base), ...geo.limbs.map((l) => l.pts.map((p): [number, number] => [p[0] * S, p[1] * S]))]) : null;
+  if (plan?.aura && figure && opts.paper !== false) {
+    aura(ctx, figure, plan.cols[1]!, S, pr, lite);
+    yield* wet();
+  }
   for (const [i, l] of geo.limbs.entries()) {
-    limbWash(ctx, l, mainRgb, gr, S);
+    if (paints && figure) limbP(ctx, l, paints.limb, [(figure[0] + figure[2]) / 2, (figure[1] + figure[3]) / 2], gr, S, 0.085 * D, lite);
+    else limbWash(ctx, l, mainRgb, gr, S);
     if (i % 8 === 7) yield* wet();
   }
   yield* wet();
   // few: kleine Teile der neuen Formen, 12 Schichten mit gleicher Gesamtdeckung wie 22
   for (const o of bases) {
-    wash(ctx, o.base, mainRgb, gr, o.b.leaf ? 14 : o.b.few ? 12 : 22, o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05, 0.3 * vf * (o.b.crisp ?? 1));
+    const layers = o.b.leaf ? 14 : o.b.few ? 12 : 22,
+      alpha = o.b.few ? (o.b.wing ? 0.072 : 0.09) : o.b.wing ? 0.04 : 0.05,
+      amt = 0.3 * vf * (o.b.crisp ?? 1);
+    if (plan && paints && figure) washP(ctx, o.base, paints.blob.get(o)!, figure, plan.ang, gr, pr, layers, alpha * D, amt, lite);
+    else wash(ctx, o.base, mainRgb, gr, layers, alpha, amt);
     yield* wet();
   }
-  if (look?.pattern) {
-    const pc = look.pattern.dark || !m.sec.length ? dark(mainRgb, 0.5) : tinted(PIG[m.sec[0]!].rgb, look.sec);
-    drawPattern(ctx, patternParts(bases, look.pattern), look.pattern, pc, S, lr);
+  const pat = plan ? plan.pattern : look?.pattern;
+  if (look && pat) {
+    const pc = plan
+      ? plan.patternCol < 0
+        ? dark(mainRgb, 0.5)
+        : (plan.cols[plan.patternCol] ?? dark(mainRgb, 0.5))
+      : pat.dark || !m.sec.length
+        ? dark(mainRgb, 0.5)
+        : tinted(PIG[m.sec[0]!].rgb, look.sec);
+    drawPattern(ctx, patternParts(bases, pat), pat, pc, S, lr);
     yield* wet();
   }
-  for (const [i, id] of m.sec.entries()) {
+  // Plan „patch“: die zweite Farbe als kräftige Flecken im Körper
+  if (plan && plan.second === 'patch' && plan.cols[1]) {
+    patches(ctx, bases, core, plan.cols[1], S, vf, pr, lite);
+    yield* wet();
+  }
+  // Ohne Plan: Zweitpigmente als Schleier wie bisher
+  for (const [i, id] of plan ? [] : m.sec.entries()) {
     const p = PIG[id],
       prgb = look ? tinted(p.rgb, look.sec) : p.rgb;
     let list = bases.filter((o) => (i === 0 ? o !== core : o === core));
@@ -781,7 +816,14 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
       yield* wet();
     }
   }
-  bases.forEach((o) => edges(ctx, o.base, mainRgb, gr, S));
+  // Ab Rare: Schatten unten an den großen Teilen und ein ausgehobener Bauch
+  if (plan && paints) {
+    const bigA = core.b.rx * core.b.ry * 0.3;
+    if (plan.shade) for (const o of bases) if (o.b.rx * o.b.ry >= bigA && !o.b.leaf && !o.b.wing) shade(ctx, o, paints.blob.get(o)!.a, plan.tier >= 3 ? 0.26 : 0.18);
+    if (plan.belly) belly(ctx, core, S, paper, pr);
+    yield* wet();
+  }
+  bases.forEach((o) => edges(ctx, o.base, paints ? (paints.blob.get(o)!.a as RGB) : mainRgb, gr, S));
   yield* wet();
   const granAmt = Math.max(main.gran, ...m.sec.map((id) => PIG[id].gran * 0.6), ...m.glazes.map((g) => PIG[g.p].gran * 0.5), m.mud ? 0.8 : 0);
   if (granAmt > 0.15) granulate(ctx, bases.map((o) => o.base), m.mud ? [116, 100, 82] : mainRgb, gr, granAmt, S);
@@ -801,8 +843,9 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     if (look.fx.runs) runs(ctx, bases, mainRgb, S, lr);
     if (look.fx.tide) tide(ctx, bases, mainRgb, S, lr);
     if (look.fx.lifted) lifted(ctx, core.b, S, paper, lr);
-    if (look.fx.splatter) splatter(ctx, bases.map((o) => o.base), mainRgb, S, lr);
+    if (look.fx.splatter) splatter(ctx, bases.map((o) => o.base), plan && plan.accent > 0 ? plan.cols[plan.accent]! : mainRgb, S, lr);
   }
+  if (plan?.gold) goldDust(ctx, bases.map((o) => o.base), S, pr);
   yield* pause();
 
   ctx.globalCompositeOperation = 'source-over';
@@ -813,7 +856,8 @@ export function* paintSteps(canvas: HTMLCanvasElement, m0: Paintable, cssSize: n
     if ((o.b.rx * o.b.ry >= big * 0.3 || o.b.ink) && !o.b.leaf && !o.b.bare) contour(ctx, o.base, lw * 0.9, ir);
   });
   geo.limbs.forEach((l) => inkPath(ctx, l.pts.map((p) => [p[0] * S, p[1] * S]), lw * 0.85, ir, 0.7));
-  if (look) drawFace2(ctx, look, geo, S, RNG(look.seed + 31337), paper, mainRgb);
+  // Ab Rare: die Iris in der Akzentfarbe
+  if (look) drawFace2(ctx, look, geo, S, RNG(look.seed + 31337), paper, plan && plan.accent > 0 ? plan.cols[plan.accent]! : mainRgb);
   else drawFace(ctx, m, geo, S, RNG(m.seed + 31337), paper, core.b);
   if (m.events.print) printFx(ctx, core.b, S, RNG(m.seed + 5));
   ctx.restore();
